@@ -12,6 +12,7 @@ import { Dumbbell, User, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { Logo } from '@/components/common/Logo';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
 // =====================================================
 // AUTH PAGE - Login e Registrazione
@@ -108,9 +109,12 @@ export function AuthPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <LoadingSpinner 
+        variant="logo" 
+        size="lg" 
+        text="Verifica credenziali..." 
+        fullScreen 
+      />
     );
   }
 
