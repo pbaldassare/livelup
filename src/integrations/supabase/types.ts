@@ -265,6 +265,108 @@ export type Database = {
         }
         Relationships: []
       }
+      coupon_uses: {
+        Row: {
+          coupon_id: string
+          discount_applied: number
+          id: string
+          payment_id: string | null
+          used_at: string
+          user_id: string
+        }
+        Insert: {
+          coupon_id: string
+          discount_applied: number
+          id?: string
+          payment_id?: string | null
+          used_at?: string
+          user_id: string
+        }
+        Update: {
+          coupon_id?: string
+          discount_applied?: number
+          id?: string
+          payment_id?: string | null
+          used_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_uses_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_uses_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          applicable_plans: string[] | null
+          applicable_roles: Database["public"]["Enums"]["app_role"][] | null
+          code: string
+          coupon_type: Database["public"]["Enums"]["coupon_type"]
+          created_at: string
+          created_by: string | null
+          current_uses: number
+          description: string | null
+          discount_value: number
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          max_uses_per_user: number | null
+          min_purchase_amount: number | null
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          applicable_plans?: string[] | null
+          applicable_roles?: Database["public"]["Enums"]["app_role"][] | null
+          code: string
+          coupon_type: Database["public"]["Enums"]["coupon_type"]
+          created_at?: string
+          created_by?: string | null
+          current_uses?: number
+          description?: string | null
+          discount_value: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          max_uses_per_user?: number | null
+          min_purchase_amount?: number | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          applicable_plans?: string[] | null
+          applicable_roles?: Database["public"]["Enums"]["app_role"][] | null
+          code?: string
+          coupon_type?: Database["public"]["Enums"]["coupon_type"]
+          created_at?: string
+          created_by?: string | null
+          current_uses?: number
+          description?: string | null
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          max_uses_per_user?: number | null
+          min_purchase_amount?: number | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       exercises: {
         Row: {
           category: string
@@ -313,6 +415,51 @@ export type Database = {
           name?: string
           updated_at?: string
           video_url?: string | null
+        }
+        Relationships: []
+      }
+      flagged_content: {
+        Row: {
+          action_taken: string | null
+          content_id: string
+          content_type: string
+          created_at: string
+          description: string | null
+          id: string
+          reason: string
+          reported_by: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action_taken?: string | null
+          content_id: string
+          content_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          reason: string
+          reported_by: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action_taken?: string | null
+          content_id?: string
+          content_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          reason?: string
+          reported_by?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -677,6 +824,60 @@ export type Database = {
         }
         Relationships: []
       }
+      pt_content_library: {
+        Row: {
+          content_type: Database["public"]["Enums"]["content_type"]
+          created_at: string
+          description: string | null
+          download_count: number | null
+          file_size_bytes: number | null
+          file_url: string
+          folder: string | null
+          id: string
+          is_public: boolean
+          pt_user_id: string
+          shared_with_athletes: string[] | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content_type: Database["public"]["Enums"]["content_type"]
+          created_at?: string
+          description?: string | null
+          download_count?: number | null
+          file_size_bytes?: number | null
+          file_url: string
+          folder?: string | null
+          id?: string
+          is_public?: boolean
+          pt_user_id: string
+          shared_with_athletes?: string[] | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content_type?: Database["public"]["Enums"]["content_type"]
+          created_at?: string
+          description?: string | null
+          download_count?: number | null
+          file_size_bytes?: number | null
+          file_url?: string
+          folder?: string | null
+          id?: string
+          is_public?: boolean
+          pt_user_id?: string
+          shared_with_athletes?: string[] | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pt_profiles: {
         Row: {
           bio: string | null
@@ -800,6 +1001,78 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_plans: {
+        Row: {
+          created_at: string
+          currency: string
+          description: string | null
+          features: Json
+          id: string
+          includes_analytics: boolean | null
+          includes_chat: boolean | null
+          includes_video_calls: boolean | null
+          is_active: boolean
+          is_featured: boolean | null
+          max_athletes: number | null
+          name: string
+          plan_type: Database["public"]["Enums"]["subscription_type"]
+          price_monthly: number
+          price_yearly: number | null
+          sort_order: number | null
+          storage_gb: number | null
+          stripe_price_id: string | null
+          target_role: Database["public"]["Enums"]["app_role"]
+          trial_days: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          includes_analytics?: boolean | null
+          includes_chat?: boolean | null
+          includes_video_calls?: boolean | null
+          is_active?: boolean
+          is_featured?: boolean | null
+          max_athletes?: number | null
+          name: string
+          plan_type: Database["public"]["Enums"]["subscription_type"]
+          price_monthly: number
+          price_yearly?: number | null
+          sort_order?: number | null
+          storage_gb?: number | null
+          stripe_price_id?: string | null
+          target_role: Database["public"]["Enums"]["app_role"]
+          trial_days?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          includes_analytics?: boolean | null
+          includes_chat?: boolean | null
+          includes_video_calls?: boolean | null
+          is_active?: boolean
+          is_featured?: boolean | null
+          max_athletes?: number | null
+          name?: string
+          plan_type?: Database["public"]["Enums"]["subscription_type"]
+          price_monthly?: number
+          price_yearly?: number | null
+          sort_order?: number | null
+          storage_gb?: number | null
+          stripe_price_id?: string | null
+          target_role?: Database["public"]["Enums"]["app_role"]
+          trial_days?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancellation_reason: string | null
@@ -852,6 +1125,60 @@ export type Database = {
           stripe_subscription_id?: string | null
           subscription_type?: Database["public"]["Enums"]["subscription_type"]
           trial_ends_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      support_tickets: {
+        Row: {
+          assigned_at: string | null
+          assigned_to: string | null
+          attachments: string[] | null
+          category: string | null
+          created_at: string
+          description: string
+          id: string
+          metadata: Json | null
+          priority: Database["public"]["Enums"]["ticket_priority"]
+          resolution_notes: string | null
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          attachments?: string[] | null
+          category?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          metadata?: Json | null
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          subject: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          attachments?: string[] | null
+          category?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          metadata?: Json | null
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          subject?: string
           updated_at?: string
           user_id?: string
         }
@@ -910,6 +1237,44 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "workout_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_messages: {
+        Row: {
+          attachments: string[] | null
+          created_at: string
+          id: string
+          is_internal: boolean
+          message: string
+          sender_id: string
+          ticket_id: string
+        }
+        Insert: {
+          attachments?: string[] | null
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          message: string
+          sender_id: string
+          ticket_id: string
+        }
+        Update: {
+          attachments?: string[] | null
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          message?: string
+          sender_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
             referencedColumns: ["id"]
           },
         ]
@@ -1177,9 +1542,34 @@ export type Database = {
         Args: { _user_id: string }
         Returns: number
       }
+      get_admin_stats: {
+        Args: never
+        Returns: {
+          active_pts: number
+          active_subscriptions: number
+          connected_athletes: number
+          open_tickets: number
+          pending_pts: number
+          premium_athletes: number
+          suspended_pts: number
+          total_athletes: number
+          total_pts: number
+        }[]
+      }
       get_atleta_current_pt: {
         Args: { _atleta_user_id: string }
         Returns: string
+      }
+      get_pt_stats: {
+        Args: { _pt_user_id: string }
+        Returns: {
+          active_athletes: number
+          completed_workouts: number
+          pending_requests: number
+          total_workouts: number
+          unread_messages: number
+          upcoming_events: number
+        }[]
       }
       get_subscription_status: {
         Args: { _user_id: string }
@@ -1217,6 +1607,8 @@ export type Database = {
     Enums: {
       app_role: "admin" | "pt" | "atleta"
       atleta_status: "non_collegato" | "collegato" | "premium"
+      content_type: "pdf" | "video" | "image" | "document" | "other"
+      coupon_type: "percentage" | "fixed_amount"
       event_type: "allenamento" | "evento" | "gara" | "raduno" | "altro"
       fitness_level: "principiante" | "intermedio" | "avanzato" | "agonista"
       payment_method: "stripe" | "paypal" | "bank_transfer" | "cash"
@@ -1236,6 +1628,8 @@ export type Database = {
         | "atleta_premium"
         | "pt_base"
         | "pt_premium"
+      ticket_priority: "low" | "medium" | "high" | "urgent"
+      ticket_status: "open" | "in_progress" | "resolved" | "closed"
       workout_status: "attivo" | "completato" | "scaduto"
     }
     CompositeTypes: {
@@ -1366,6 +1760,8 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "pt", "atleta"],
       atleta_status: ["non_collegato", "collegato", "premium"],
+      content_type: ["pdf", "video", "image", "document", "other"],
+      coupon_type: ["percentage", "fixed_amount"],
       event_type: ["allenamento", "evento", "gara", "raduno", "altro"],
       fitness_level: ["principiante", "intermedio", "avanzato", "agonista"],
       payment_method: ["stripe", "paypal", "bank_transfer", "cash"],
@@ -1387,6 +1783,8 @@ export const Constants = {
         "pt_base",
         "pt_premium",
       ],
+      ticket_priority: ["low", "medium", "high", "urgent"],
+      ticket_status: ["open", "in_progress", "resolved", "closed"],
       workout_status: ["attivo", "completato", "scaduto"],
     },
   },
