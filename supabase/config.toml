@@ -1,1 +1,7 @@
 project_id = "uiowzycolsmgcsvihmhy"
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.seed-test-users]
+verify_jwt = false
