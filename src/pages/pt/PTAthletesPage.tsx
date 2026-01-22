@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,10 +7,10 @@ import { KPICard } from '@/components/dashboard/KPICard';
 import { SectionCard } from '@/components/dashboard/SectionCard';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
 import { DetailSheet, ProfileInfo } from '@/components/dashboard/DetailSheet';
+import { TablePagination } from '@/components/dashboard/TablePagination';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   Table, 
@@ -36,7 +36,7 @@ import {
 import { toast } from 'sonner';
 
 // =====================================================
-// PT ATHLETES PAGE - CRM Atleti (Design System Updated)
+// PT ATHLETES PAGE - CRM Atleti con paginazione
 // Solo per ruolo: pt (web dashboard)
 // =====================================================
 
@@ -67,6 +67,10 @@ export function PTAthletesPage() {
   const [activeTab, setActiveTab] = useState('active');
   const [selectedAthlete, setSelectedAthlete] = useState<AtletaConnection | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Fetch connections
   const { data: connections = [], isLoading } = useQuery({
@@ -76,19 +80,12 @@ export function PTAthletesPage() {
 
       const { data, error } = await supabase
         .from('pt_atleta_connections')
-        .select(`
-          id,
-          atleta_user_id,
-          status,
-          requested_at,
-          accepted_at
-        `)
+        .select(`id, atleta_user_id, status, requested_at, accepted_at`)
         .eq('pt_user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Fetch profiles separately for each connection
       const enrichedData = await Promise.all(
         (data || []).map(async (conn) => {
           const { data: profile } = await supabase
@@ -103,11 +100,7 @@ export function PTAthletesPage() {
             .eq('user_id', conn.atleta_user_id)
             .single();
 
-          return {
-            ...conn,
-            profiles: profile,
-            atleta_profiles: atletaProfile,
-          };
+          return { ...conn, profiles: profile, atleta_profiles: atletaProfile };
         })
       );
 
@@ -121,14 +114,10 @@ export function PTAthletesPage() {
     mutationFn: async (conn: AtletaConnection) => {
       const { error } = await supabase
         .from('pt_atleta_connections')
-        .update({ 
-          status: 'attivo', 
-          accepted_at: new Date().toISOString() 
-        })
+        .update({ status: 'attivo', accepted_at: new Date().toISOString() })
         .eq('id', conn.id);
       if (error) throw error;
 
-      // Get PT name for notification
       const { data: ptProfile } = await supabase
         .from('profiles')
         .select('first_name, last_name')
@@ -139,7 +128,6 @@ export function PTAthletesPage() {
         ? `${ptProfile.first_name || ''} ${ptProfile.last_name || ''}`.trim() || 'Il tuo PT'
         : 'Il tuo PT';
 
-      // Create notification for atleta
       await supabase.from('notifications').insert({
         user_id: conn.atleta_user_id,
         type: 'connection_accepted',
@@ -167,12 +155,11 @@ export function PTAthletesPage() {
         .eq('id', conn.id);
       if (error) throw error;
 
-      // Create notification for atleta
       await supabase.from('notifications').insert({
         user_id: conn.atleta_user_id,
         type: 'connection_rejected',
         title: 'Richiesta non accettata',
-        body: 'La tua richiesta di connessione non è stata accettata. Puoi cercare altri Personal Trainer.',
+        body: 'La tua richiesta di connessione non è stata accettata.',
         action_url: '/pts',
         data: { pt_user_id: user?.id },
       });
@@ -186,17 +173,41 @@ export function PTAthletesPage() {
     },
   });
 
-  // Filter connections
-  const filteredConnections = connections.filter((conn) => {
-    const fullName = `${conn.profiles?.first_name || ''} ${conn.profiles?.last_name || ''}`.toLowerCase();
-    const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
-                          conn.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (activeTab === 'active') return conn.status === 'attivo' && matchesSearch;
-    if (activeTab === 'pending') return conn.status === 'pending' && matchesSearch;
-    if (activeTab === 'terminated') return conn.status === 'terminato' && matchesSearch;
-    return matchesSearch;
-  });
+  // Filter and paginate
+  const filteredConnections = useMemo(() => {
+    return connections.filter((conn) => {
+      const fullName = `${conn.profiles?.first_name || ''} ${conn.profiles?.last_name || ''}`.toLowerCase();
+      const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
+                            conn.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      if (activeTab === 'active') return conn.status === 'attivo' && matchesSearch;
+      if (activeTab === 'pending') return conn.status === 'pending' && matchesSearch;
+      if (activeTab === 'terminated') return conn.status === 'terminato' && matchesSearch;
+      return matchesSearch;
+    });
+  }, [connections, searchTerm, activeTab]);
+
+  const totalPages = Math.ceil(filteredConnections.length / pageSize);
+  const paginatedConnections = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredConnections.slice(start, start + pageSize);
+  }, [filteredConnections, currentPage, pageSize]);
+
+  // Reset page on filter change
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   const pendingCount = connections.filter(c => c.status === 'pending').length;
   const activeCount = connections.filter(c => c.status === 'attivo').length;
@@ -234,24 +245,9 @@ export function PTAthletesPage() {
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <KPICard
-          title="Atleti Attivi"
-          value={activeCount}
-          icon={UserCheck}
-          iconColor="success"
-        />
-        <KPICard
-          title="Richieste Pendenti"
-          value={pendingCount}
-          icon={Clock}
-          iconColor="warning"
-        />
-        <KPICard
-          title="Totale Storico"
-          value={connections.length}
-          icon={History}
-          iconColor="info"
-        />
+        <KPICard title="Atleti Attivi" value={activeCount} icon={UserCheck} iconColor="success" />
+        <KPICard title="Richieste Pendenti" value={pendingCount} icon={Clock} iconColor="warning" />
+        <KPICard title="Totale Storico" value={connections.length} icon={History} iconColor="info" />
       </div>
 
       {/* Table Section */}
@@ -264,7 +260,7 @@ export function PTAthletesPage() {
         <div className="space-y-4">
           {/* Search and Tabs */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full sm:w-auto">
               <TabsList>
                 <TabsTrigger value="active" className="gap-2">
                   <UserCheck className="h-4 w-4" />
@@ -286,7 +282,7 @@ export function PTAthletesPage() {
               <Input
                 placeholder="Cerca atleta..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-9"
               />
             </div>
@@ -314,16 +310,14 @@ export function PTAthletesPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : filteredConnections.length === 0 ? (
+                ) : paginatedConnections.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      {activeTab === 'pending' 
-                        ? 'Nessuna richiesta pendente'
-                        : 'Nessun atleta trovato'}
+                      {activeTab === 'pending' ? 'Nessuna richiesta pendente' : 'Nessun atleta trovato'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredConnections.map((conn) => (
+                  paginatedConnections.map((conn) => (
                     <TableRow 
                       key={conn.id}
                       className="cursor-pointer hover:bg-muted/50"
@@ -346,9 +340,7 @@ export function PTAthletesPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="capitalize text-sm">
-                          {conn.atleta_profiles?.level || 'N/A'}
-                        </span>
+                        <span className="capitalize text-sm">{conn.atleta_profiles?.level || 'N/A'}</span>
                       </TableCell>
                       <TableCell>
                         <DashboardStatusBadge status={conn.status} size="sm" />
@@ -405,6 +397,16 @@ export function PTAthletesPage() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination */}
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredConnections.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={handlePageSizeChange}
+          />
         </div>
       </SectionCard>
 

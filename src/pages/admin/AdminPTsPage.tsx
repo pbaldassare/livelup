@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
@@ -6,8 +6,10 @@ import { KPICard } from '@/components/dashboard/KPICard';
 import { SectionCard } from '@/components/dashboard/SectionCard';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
 import { DetailSheet, ProfileInfo } from '@/components/dashboard/DetailSheet';
+import { TablePagination } from '@/components/dashboard/TablePagination';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Select,
@@ -31,6 +33,16 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   UserCog, 
   MoreHorizontal, 
@@ -43,14 +55,15 @@ import {
   Clock,
   UserX,
   Star,
-  MapPin
+  MapPin,
+  CheckSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 
 // =====================================================
 // ADMIN PTS PAGE - Gestione Personal Trainers
-// Solo per ruolo: admin (web dashboard)
+// Con bulk actions e paginazione
 // =====================================================
 
 interface PTListItem {
@@ -79,6 +92,15 @@ export function AdminPTsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPT, setSelectedPT] = useState<PTListItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<'approve' | 'suspend' | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
   // Fetch PTs
   const { data: pts = [], isLoading } = useQuery({
@@ -91,7 +113,6 @@ export function AdminPTsPage() {
 
       if (error) throw error;
 
-      // Fetch profiles separately
       const userIds = ptData?.map(p => p.user_id) || [];
       const { data: profilesData } = await supabase
         .from('profiles')
@@ -105,7 +126,6 @@ export function AdminPTsPage() {
         profiles: profilesMap.get(pt.user_id) || null
       })) || [];
 
-      // Filter by status
       if (statusFilter === 'pending') {
         result = result.filter(pt => pt.status === 'in_attesa_approvazione');
       } else if (statusFilter !== 'all') {
@@ -116,53 +136,126 @@ export function AdminPTsPage() {
     },
   });
 
-  // Filter by search term
-  const filteredPTs = pts.filter((pt) => {
-    const fullName = `${pt.profiles?.first_name || ''} ${pt.profiles?.last_name || ''}`.toLowerCase();
-    return fullName.includes(searchTerm.toLowerCase()) || 
-           pt.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           pt.location_city?.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  // Filter and paginate
+  const filteredPTs = useMemo(() => {
+    return pts.filter((pt) => {
+      const fullName = `${pt.profiles?.first_name || ''} ${pt.profiles?.last_name || ''}`.toLowerCase();
+      return fullName.includes(searchTerm.toLowerCase()) || 
+             pt.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+             pt.location_city?.toLowerCase().includes(searchTerm.toLowerCase());
+    });
+  }, [pts, searchTerm]);
 
-  // Compute stats
+  const totalPages = Math.ceil(filteredPTs.length / pageSize);
+  const paginatedPTs = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredPTs.slice(start, start + pageSize);
+  }, [filteredPTs, currentPage, pageSize]);
+
+  // Reset page when filters change
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  // Stats
   const totalPTs = pts.length;
   const activePTs = pts.filter(pt => pt.status === 'attivo').length;
   const pendingPTs = pts.filter(pt => pt.status === 'in_attesa_approvazione').length;
   const suspendedPTs = pts.filter(pt => pt.status === 'sospeso').length;
 
-  // Update PT status mutation
+  // Bulk selection handlers
+  const isAllSelected = paginatedPTs.length > 0 && paginatedPTs.every(pt => selectedIds.has(pt.user_id));
+  const isSomeSelected = paginatedPTs.some(pt => selectedIds.has(pt.user_id));
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      const newSelected = new Set(selectedIds);
+      paginatedPTs.forEach(pt => newSelected.delete(pt.user_id));
+      setSelectedIds(newSelected);
+    } else {
+      const newSelected = new Set(selectedIds);
+      paginatedPTs.forEach(pt => newSelected.add(pt.user_id));
+      setSelectedIds(newSelected);
+    }
+  };
+
+  const toggleSelect = (userId: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId);
+    } else {
+      newSelected.add(userId);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  type PTStatus = 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium';
+
+  // Single update mutation
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ userId, newStatus }: { userId: string; newStatus: 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium' }) => {
+    mutationFn: async ({ userId, newStatus }: { userId: string; newStatus: PTStatus }) => {
       const { error } = await supabase
         .from('pt_profiles')
         .update({ status: newStatus })
         .eq('user_id', userId);
-
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-pts'] });
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-pts'] });
       toast.success('Stato PT aggiornato');
       setDetailOpen(false);
     },
     onError: (error) => {
-      toast.error('Errore durante l\'aggiornamento: ' + error.message);
+      toast.error('Errore: ' + error.message);
     },
   });
 
-  const handleApprove = (userId: string) => {
-    updateStatusMutation.mutate({ userId, newStatus: 'attivo' });
+  // Bulk update mutation
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async ({ userIds, newStatus }: { userIds: string[]; newStatus: PTStatus }) => {
+      const { error } = await supabase
+        .from('pt_profiles')
+        .update({ status: newStatus })
+        .in('user_id', userIds);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pts'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      toast.success(`${selectedIds.size} PT aggiornati`);
+      clearSelection();
+    },
+    onError: (error) => {
+      toast.error('Errore: ' + error.message);
+    },
+  });
+
+  const handleBulkAction = (action: 'approve' | 'suspend') => {
+    setBulkAction(action);
+    setConfirmDialogOpen(true);
   };
 
-  const handleSuspend = (userId: string) => {
-    updateStatusMutation.mutate({ userId, newStatus: 'sospeso' });
+  const executeBulkAction = () => {
+    const userIds = Array.from(selectedIds);
+    const newStatus = bulkAction === 'approve' ? 'attivo' : 'sospeso';
+    bulkUpdateMutation.mutate({ userIds, newStatus });
+    setConfirmDialogOpen(false);
   };
 
-  const handleReactivate = (userId: string) => {
-    updateStatusMutation.mutate({ userId, newStatus: 'attivo' });
-  };
+  const handleApprove = (userId: string) => updateStatusMutation.mutate({ userId, newStatus: 'attivo' });
+  const handleSuspend = (userId: string) => updateStatusMutation.mutate({ userId, newStatus: 'sospeso' });
+  const handleReactivate = (userId: string) => updateStatusMutation.mutate({ userId, newStatus: 'attivo' });
 
   const handleViewDetail = (pt: PTListItem) => {
     setSelectedPT(pt);
@@ -196,30 +289,10 @@ export function AdminPTsPage() {
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <KPICard
-          title="Totale PT"
-          value={totalPTs}
-          icon={Users}
-          iconColor="primary"
-        />
-        <KPICard
-          title="PT Attivi"
-          value={activePTs}
-          icon={Check}
-          iconColor="success"
-        />
-        <KPICard
-          title="In Attesa"
-          value={pendingPTs}
-          icon={Clock}
-          iconColor="warning"
-        />
-        <KPICard
-          title="Sospesi"
-          value={suspendedPTs}
-          icon={UserX}
-          iconColor="danger"
-        />
+        <KPICard title="Totale PT" value={totalPTs} icon={Users} iconColor="primary" />
+        <KPICard title="PT Attivi" value={activePTs} icon={Check} iconColor="success" />
+        <KPICard title="In Attesa" value={pendingPTs} icon={Clock} iconColor="warning" />
+        <KPICard title="Sospesi" value={suspendedPTs} icon={UserX} iconColor="danger" />
       </div>
 
       {/* Table Section */}
@@ -230,14 +303,14 @@ export function AdminPTsPage() {
         iconColor="primary"
       >
         <div className="space-y-4">
-          {/* Filters */}
+          {/* Filters + Bulk Actions */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Cerca PT per nome, email o città..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-9"
               />
             </div>
@@ -245,6 +318,7 @@ export function AdminPTsPage() {
               value={statusFilter}
               onValueChange={(value) => {
                 setSearchParams(value === 'all' ? {} : { status: value });
+                setCurrentPage(1);
               }}
             >
               <SelectTrigger className="w-full sm:w-[180px]">
@@ -260,11 +334,54 @@ export function AdminPTsPage() {
             </Select>
           </div>
 
+          {/* Bulk Actions Bar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-3 border">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  {selectedIds.size} PT selezionati
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkAction('approve')}
+                  disabled={bulkUpdateMutation.isPending}
+                >
+                  <Check className="h-4 w-4 mr-1 text-success" />
+                  Approva tutti
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkAction('suspend')}
+                  disabled={bulkUpdateMutation.isPending}
+                >
+                  <Ban className="h-4 w-4 mr-1 text-destructive" />
+                  Sospendi tutti
+                </Button>
+                <Button size="sm" variant="ghost" onClick={clearSelection}>
+                  Annulla
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Table */}
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Seleziona tutti"
+                      className={isSomeSelected && !isAllSelected ? 'opacity-50' : ''}
+                    />
+                  </TableHead>
                   <TableHead>Personal Trainer</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Città</TableHead>
@@ -276,27 +393,34 @@ export function AdminPTsPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex items-center justify-center gap-2 text-muted-foreground">
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         Caricamento...
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : filteredPTs.length === 0 ? (
+                ) : paginatedPTs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Nessun Personal Trainer trovato
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPTs.map((pt) => (
+                  paginatedPTs.map((pt) => (
                     <TableRow 
                       key={pt.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleViewDetail(pt)}
+                      data-state={selectedIds.has(pt.user_id) ? 'selected' : undefined}
                     >
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(pt.user_id)}
+                          onCheckedChange={() => toggleSelect(pt.user_id)}
+                          aria-label={`Seleziona ${pt.profiles?.first_name}`}
+                        />
+                      </TableCell>
+                      <TableCell onClick={() => handleViewDetail(pt)}>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10 ring-2 ring-role-pt/20">
                             <AvatarImage src={pt.profiles?.avatar_url || undefined} />
@@ -376,6 +500,16 @@ export function AdminPTsPage() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination */}
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredPTs.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={handlePageSizeChange}
+          />
         </div>
       </SectionCard>
 
@@ -396,42 +530,49 @@ export function AdminPTsPage() {
         actions={
           selectedPT?.status === 'in_attesa_approvazione' ? (
             <>
-              <Button 
-                className="flex-1" 
-                variant="outline"
-                onClick={() => handleSuspend(selectedPT.user_id)}
-              >
+              <Button className="flex-1" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
                 <Ban className="h-4 w-4 mr-2" />
                 Rifiuta
               </Button>
-              <Button 
-                className="flex-1"
-                onClick={() => handleApprove(selectedPT.user_id)}
-              >
+              <Button className="flex-1" onClick={() => handleApprove(selectedPT.user_id)}>
                 <Check className="h-4 w-4 mr-2" />
                 Approva
               </Button>
             </>
           ) : selectedPT?.status === 'attivo' ? (
-            <Button 
-              className="w-full" 
-              variant="outline"
-              onClick={() => handleSuspend(selectedPT.user_id)}
-            >
+            <Button className="w-full" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
               <Ban className="h-4 w-4 mr-2" />
               Sospendi PT
             </Button>
           ) : selectedPT?.status === 'sospeso' ? (
-            <Button 
-              className="w-full"
-              onClick={() => handleReactivate(selectedPT.user_id)}
-            >
+            <Button className="w-full" onClick={() => handleReactivate(selectedPT.user_id)}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Riattiva PT
             </Button>
           ) : null
         }
       />
+
+      {/* Bulk Action Confirmation Dialog */}
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {bulkAction === 'approve' ? 'Approva PT selezionati' : 'Sospendi PT selezionati'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai per {bulkAction === 'approve' ? 'approvare' : 'sospendere'} {selectedIds.size} Personal Trainer.
+              Questa azione può essere annullata successivamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={executeBulkAction}>
+              Conferma
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
