@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ListSkeleton } from '@/components/skeletons';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
@@ -563,20 +563,7 @@ export function AtletaDiscoverPage() {
           </p>
 
           {isLoading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <Card key={i} className="bg-app-card border-app-border">
-                <CardContent className="p-4">
-                  <div className="flex gap-4">
-                    <Skeleton className="h-16 w-16 rounded-full bg-app-muted" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-5 w-32 bg-app-muted" />
-                      <Skeleton className="h-4 w-48 bg-app-muted" />
-                      <Skeleton className="h-4 w-24 bg-app-muted" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+            <ListSkeleton count={5} type="pt" />
           ) : filteredPts.length > 0 ? (
             filteredPts.map((pt, index) => (
               <motion.div

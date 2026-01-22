@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { GridSkeleton } from '@/components/skeletons';
 import { usePTStats } from '@/hooks/usePTStats';
 import { KPICard, KPICardColored } from '@/components/dashboard/KPICard';
 import { SectionCard, InfoSection } from '@/components/dashboard/SectionCard';
@@ -150,15 +150,7 @@ export function PTDashboard() {
       {/* Primary KPI Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-5">
-                <Skeleton className="h-4 w-24 mb-2" />
-                <Skeleton className="h-8 w-16 mb-1" />
-                <Skeleton className="h-3 w-20" />
-              </CardContent>
-            </Card>
-          ))
+          <GridSkeleton count={4} type="kpi" columns={4} />
         ) : (
           <>
             <KPICard
