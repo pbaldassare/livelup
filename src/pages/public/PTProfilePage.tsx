@@ -120,19 +120,33 @@ export function PTProfilePage() {
     queryFn: async () => {
       if (!userId) return [];
 
-      const { data, error } = await supabase
+      // Fetch reviews with pt_response fields
+      const { data: reviewsData, error: reviewsError } = await supabase
         .from('pt_reviews')
-        .select(`
-          id, rating, comment, created_at, atleta_user_id,
-          profiles:atleta_user_id (first_name, last_name, avatar_url)
-        `)
+        .select('id, rating, comment, created_at, atleta_user_id, pt_response, pt_response_at')
         .eq('pt_user_id', userId)
         .eq('is_visible', true)
         .order('created_at', { ascending: false })
         .limit(20);
 
-      if (error) throw error;
-      return data || [];
+      if (reviewsError) throw reviewsError;
+      if (!reviewsData || reviewsData.length === 0) return [];
+
+      // Fetch profiles for athletes
+      const atletaIds = [...new Set(reviewsData.map(r => r.atleta_user_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, avatar_url')
+        .in('user_id', atletaIds);
+
+      const profilesMap = new Map(
+        (profilesData || []).map(p => [p.user_id, p])
+      );
+
+      return reviewsData.map(review => ({
+        ...review,
+        profiles: profilesMap.get(review.atleta_user_id) || null,
+      }));
     },
     enabled: !!userId,
   });

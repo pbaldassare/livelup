@@ -976,6 +976,8 @@ export type Database = {
           id: string
           is_verified: boolean
           is_visible: boolean
+          pt_response: string | null
+          pt_response_at: string | null
           pt_user_id: string
           rating: number
           updated_at: string
@@ -987,6 +989,8 @@ export type Database = {
           id?: string
           is_verified?: boolean
           is_visible?: boolean
+          pt_response?: string | null
+          pt_response_at?: string | null
           pt_user_id: string
           rating: number
           updated_at?: string
@@ -998,6 +1002,8 @@ export type Database = {
           id?: string
           is_verified?: boolean
           is_visible?: boolean
+          pt_response?: string | null
+          pt_response_at?: string | null
           pt_user_id?: string
           rating?: number
           updated_at?: string

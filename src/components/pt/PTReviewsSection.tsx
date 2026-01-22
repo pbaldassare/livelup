@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Star, MessageSquare, ChevronDown, ChevronUp, Quote } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Star, MessageSquare, ChevronDown, ChevronUp, Quote, Reply } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,8 @@ interface Review {
   comment: string | null;
   created_at: string;
   atleta_user_id: string;
+  pt_response?: string | null;
+  pt_response_at?: string | null;
   profiles?: ReviewProfile;
 }
 
@@ -139,12 +142,36 @@ export function PTReviewsSection({ reviews, averageRating, totalReviews }: PTRev
 
               {/* Comment */}
               {review.comment && (
-                <div className="relative pl-4 border-l-2 border-primary/30">
+                <div className="relative pl-4 border-l-2 border-primary/30 mb-3">
                   <Quote className="absolute -left-2.5 -top-1 h-4 w-4 text-primary/50 bg-card" />
                   <p className="text-sm text-muted-foreground italic leading-relaxed">
                     {review.comment}
                   </p>
                 </div>
+              )}
+
+              {/* PT Response - Visible on public profile */}
+              {review.pt_response && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="mt-3 ml-4 p-3 bg-primary/5 border-l-2 border-primary rounded-r-lg"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <Reply className="h-3 w-3" />
+                      Risposta del PT
+                    </Badge>
+                    {review.pt_response_at && (
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(review.pt_response_at), 'd MMM yyyy', { locale: it })}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm leading-relaxed">
+                    {review.pt_response}
+                  </p>
+                </motion.div>
               )}
             </motion.div>
           ))}

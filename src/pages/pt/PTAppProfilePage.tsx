@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { PTGalleryUpload } from '@/components/pt/PTGalleryUpload';
+import { PTReviewsManager } from '@/components/pt/PTReviewsManager';
 import { PushNotificationToggle } from '@/components/settings/PushNotificationToggle';
 import { 
   User, 
@@ -238,6 +239,11 @@ export function PTAppProfilePage() {
     {/* Gallery Upload */}
     <div className="px-4 mb-4">
       <PTGalleryUpload />
+    </div>
+
+    {/* Reviews Manager */}
+    <div className="px-4 mb-4">
+      <PTReviewsManager />
     </div>
 
     {/* Push Notifications */}
