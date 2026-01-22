@@ -3,10 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PTPhotoGallery } from '@/components/pt/PTPhotoGallery';
+import { PTAvailabilityCalendar } from '@/components/pt/PTAvailabilityCalendar';
+import { PTReviewsSection } from '@/components/pt/PTReviewsSection';
+import { motion } from 'framer-motion';
 import { 
   ArrowLeft,
   Star,
@@ -14,12 +19,15 @@ import {
   Clock,
   Users,
   Award,
-  MessageSquare,
-  Calendar,
   Video,
   UserPlus,
   Check,
-  Loader2
+  Loader2,
+  Euro,
+  Sparkles,
+  Target,
+  GraduationCap,
+  MessageSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -106,7 +114,7 @@ export function PTProfilePage() {
     enabled: !!userId,
   });
 
-  // Fetch reviews
+  // Fetch reviews with profiles
   const { data: reviews = [] } = useQuery({
     queryKey: ['pt-reviews', userId],
     queryFn: async () => {
@@ -114,14 +122,17 @@ export function PTProfilePage() {
 
       const { data, error } = await supabase
         .from('pt_reviews')
-        .select('id, rating, comment, created_at, atleta_user_id')
+        .select(`
+          id, rating, comment, created_at, atleta_user_id,
+          profiles:atleta_user_id (first_name, last_name, avatar_url)
+        `)
         .eq('pt_user_id', userId)
         .eq('is_visible', true)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
       if (error) throw error;
-      return data as Review[];
+      return data || [];
     },
     enabled: !!userId,
   });
@@ -170,7 +181,6 @@ export function PTProfilePage() {
     mutationFn: async () => {
       if (!user?.id || !userId) throw new Error('Non autorizzato');
 
-      // Insert connection request
       const { data: connection, error: connError } = await supabase
         .from('pt_atleta_connections')
         .insert({
@@ -189,7 +199,6 @@ export function PTProfilePage() {
         throw connError;
       }
 
-      // Get athlete name for notification
       const { data: atletaProfile } = await supabase
         .from('profiles')
         .select('first_name, last_name')
@@ -200,7 +209,6 @@ export function PTProfilePage() {
         ? `${atletaProfile.first_name || ''} ${atletaProfile.last_name || ''}`.trim() || 'Un atleta'
         : 'Un atleta';
 
-      // Create notification for PT
       await supabase.from('notifications').insert({
         user_id: userId,
         type: 'connection_request',
@@ -221,19 +229,18 @@ export function PTProfilePage() {
     },
   });
 
-  const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
-
   if (isLoadingProfile) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="container max-w-4xl py-8 space-y-6">
+        <div className="container max-w-5xl py-8 space-y-6">
           <Skeleton className="h-8 w-32" />
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className="md:col-span-2 space-y-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-6">
+              <Skeleton className="h-64 w-full rounded-xl" />
               <Skeleton className="h-48 w-full" />
               <Skeleton className="h-32 w-full" />
             </div>
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-96 w-full" />
           </div>
         </div>
       </div>
@@ -258,257 +265,457 @@ export function PTProfilePage() {
 
   const { pt, profile } = ptData;
   const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Personal Trainer';
+  const initials = `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`;
 
   const canRequestConnection = isAuthenticated && role === 'atleta' && !existingConnection;
   const hasPendingRequest = existingConnection?.status === 'pending';
   const isConnected = existingConnection?.status === 'active';
 
+  // Mock gallery photos (in real app, fetch from pt_content_library)
+  const galleryPhotos: string[] = [];
+
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-4xl py-8 space-y-6">
-        {/* Back navigation */}
-        <Link to="/pts" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Torna alla ricerca
-        </Link>
+      {/* Hero Section */}
+      <div className="relative bg-gradient-to-br from-primary/10 via-background to-background border-b border-border">
+        <div className="container max-w-5xl py-8 space-y-6">
+          {/* Back navigation */}
+          <Link 
+            to="/pts" 
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Torna alla ricerca
+          </Link>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* Main content */}
-          <div className="md:col-span-2 space-y-6">
-            {/* Profile header */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-role-pt/10 text-role-pt text-2xl font-bold">
-                    {profile.first_name?.[0]}{profile.last_name?.[0]}
-                  </div>
-                  <div className="flex-1">
-                    <h1 className="text-2xl font-bold">{fullName}</h1>
-                    
-                    <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-muted-foreground">
-                      {pt.rating_avg && pt.rating_avg > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Star className="h-4 w-4 fill-warning text-warning" />
-                          {pt.rating_avg.toFixed(1)} ({pt.review_count} recensioni)
-                        </span>
-                      )}
-                      {pt.location_city && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {pt.location_city}
-                        </span>
-                      )}
-                      {pt.experience_years && pt.experience_years > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          {pt.experience_years} anni esperienza
-                        </span>
-                      )}
-                    </div>
+          {/* Profile header */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col md:flex-row items-start gap-6"
+          >
+            <Avatar className="h-28 w-28 border-4 border-background shadow-lg">
+              <AvatarImage src={profile.avatar_url || undefined} alt={fullName} />
+              <AvatarFallback className="text-3xl font-bold bg-primary text-primary-foreground">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
 
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {pt.offers_online && (
-                        <Badge variant="secondary" className="gap-1">
-                          <Video className="h-3 w-3" />
-                          Online
-                        </Badge>
-                      )}
-                      {pt.offers_in_person && (
-                        <Badge variant="secondary" className="gap-1">
-                          <Users className="h-3 w-3" />
-                          In presenza
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
+            <div className="flex-1 space-y-3">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">{fullName}</h1>
+                
+                <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
+                  {pt.rating_avg && pt.rating_avg > 0 && (
+                    <span className="flex items-center gap-1 text-foreground font-medium">
+                      <Star className="h-4 w-4 fill-warning text-warning" />
+                      {pt.rating_avg.toFixed(1)}
+                      <span className="text-muted-foreground font-normal">
+                        ({pt.review_count} recensioni)
+                      </span>
+                    </span>
+                  )}
+                  {pt.location_city && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4" />
+                      {pt.location_city}
+                    </span>
+                  )}
+                  {pt.experience_years && pt.experience_years > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-4 w-4" />
+                      {pt.experience_years} anni di esperienza
+                    </span>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {pt.offers_online && (
+                  <Badge className="gap-1 bg-info/10 text-info border-info/30">
+                    <Video className="h-3 w-3" />
+                    Online
+                  </Badge>
+                )}
+                {pt.offers_in_person && (
+                  <Badge className="gap-1 bg-success/10 text-success border-success/30">
+                    <Users className="h-3 w-3" />
+                    In presenza
+                  </Badge>
+                )}
+                {pt.specializations?.slice(0, 3).map((spec) => (
+                  <Badge key={spec} variant="secondary" className="capitalize">
+                    {spec}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Desktop CTA */}
+            <div className="hidden md:block">
+              <ConnectionButton
+                isConnected={isConnected}
+                hasPendingRequest={hasPendingRequest}
+                canRequestConnection={canRequestConnection}
+                isAuthenticated={isAuthenticated}
+                role={role}
+                isPending={requestConnectionMutation.isPending}
+                onRequest={() => requestConnectionMutation.mutate()}
+                onLogin={() => navigate('/auth')}
+              />
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      <div className="container max-w-5xl py-8">
+        <div className="grid gap-8 lg:grid-cols-3">
+          {/* Main content */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Photo Gallery */}
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card>
+                <CardContent className="pt-6">
+                  <PTPhotoGallery photos={galleryPhotos} ptName={fullName} />
+                </CardContent>
+              </Card>
+            </motion.section>
 
             {/* Bio */}
             {pt.bio && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Chi sono</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground whitespace-pre-line">{pt.bio}</p>
-                </CardContent>
-              </Card>
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      Chi sono
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground whitespace-pre-line leading-relaxed">{pt.bio}</p>
+                  </CardContent>
+                </Card>
+              </motion.section>
             )}
 
             {/* Method description */}
             {pt.method_description && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Il mio metodo</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground whitespace-pre-line">{pt.method_description}</p>
-                </CardContent>
-              </Card>
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Target className="h-5 w-5 text-primary" />
+                      Il mio metodo
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground whitespace-pre-line leading-relaxed">{pt.method_description}</p>
+                  </CardContent>
+                </Card>
+              </motion.section>
             )}
 
             {/* Specializations */}
             {pt.specializations && pt.specializations.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Specializzazioni</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {pt.specializations.map((spec) => (
-                      <Badge key={spec} variant="outline" className="capitalize">
-                        {spec}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Specializzazioni</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {pt.specializations.map((spec) => (
+                        <Badge key={spec} variant="outline" className="capitalize py-1.5 px-3">
+                          {spec}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.section>
             )}
 
             {/* Certifications */}
             {pt.certifications && pt.certifications.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Award className="h-5 w-5 text-role-pt" />
-                    Certificazioni
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {pt.certifications.map((cert) => (
-                      <li key={cert} className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-success" />
-                        <span>{cert}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <GraduationCap className="h-5 w-5 text-primary" />
+                      Certificazioni
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                      {pt.certifications.map((cert) => (
+                        <li key={cert} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                          <Award className="h-4 w-4 text-success flex-shrink-0" />
+                          <span className="text-sm">{cert}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </motion.section>
+            )}
+
+            {/* Availability Calendar */}
+            {availability.length > 0 && (
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+              >
+                <Card>
+                  <CardContent className="pt-6">
+                    <PTAvailabilityCalendar availability={availability} />
+                  </CardContent>
+                </Card>
+              </motion.section>
             )}
 
             {/* Reviews */}
-            {reviews.length > 0 && (
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    Recensioni ({pt.review_count || reviews.length})
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                    Recensioni
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {reviews.map((review) => (
-                    <div key={review.id} className="border-b last:border-0 pb-4 last:pb-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex">
-                          {[...Array(5)].map((_, i) => (
-                            <Star 
-                              key={i} 
-                              className={`h-4 w-4 ${i < review.rating ? 'fill-warning text-warning' : 'text-muted'}`} 
-                            />
-                          ))}
-                        </div>
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(review.created_at).toLocaleDateString('it-IT')}
-                        </span>
-                      </div>
-                      {review.comment && (
-                        <p className="text-muted-foreground">{review.comment}</p>
-                      )}
-                    </div>
-                  ))}
+                <CardContent>
+                  <PTReviewsSection 
+                    reviews={reviews as any} 
+                    averageRating={pt.rating_avg} 
+                    totalReviews={pt.review_count} 
+                  />
                 </CardContent>
               </Card>
-            )}
+            </motion.section>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Price & CTA */}
-            <Card className="sticky top-6">
-              <CardHeader>
-                <CardTitle className="text-lg">Tariffa</CardTitle>
-                <CardDescription>
-                  {pt.price_min && pt.price_max ? (
-                    <span className="text-2xl font-bold text-foreground">
-                      €{pt.price_min} - €{pt.price_max}
-                    </span>
-                  ) : pt.hourly_rate ? (
-                    <span className="text-2xl font-bold text-foreground">
-                      €{pt.hourly_rate}/ora
-                    </span>
-                  ) : (
-                    <span className="text-lg text-muted-foreground">Su richiesta</span>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isConnected ? (
-                  <Button className="w-full" variant="outline" disabled>
-                    <Check className="h-4 w-4 mr-2" />
-                    Già connesso
-                  </Button>
-                ) : hasPendingRequest ? (
-                  <Button className="w-full" variant="outline" disabled>
-                    <Clock className="h-4 w-4 mr-2" />
-                    Richiesta inviata
-                  </Button>
-                ) : canRequestConnection ? (
-                  <Button 
-                    className="w-full" 
-                    onClick={() => requestConnectionMutation.mutate()}
-                    disabled={requestConnectionMutation.isPending}
-                  >
-                    {requestConnectionMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <UserPlus className="h-4 w-4 mr-2" />
-                    )}
-                    Richiedi connessione
-                  </Button>
-                ) : !isAuthenticated ? (
-                  <Button className="w-full" onClick={() => navigate('/auth')}>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Accedi per connetterti
-                  </Button>
-                ) : role !== 'atleta' ? (
-                  <Button className="w-full" variant="outline" disabled>
-                    Solo per atleti
-                  </Button>
-                ) : null}
-              </CardContent>
-            </Card>
-
-            {/* Availability */}
-            {availability.length > 0 && (
-              <Card>
-                <CardHeader>
+            {/* Price Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              <Card className="sticky top-6 border-primary/20">
+                <CardHeader className="pb-2">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Disponibilità
+                    <Euro className="h-5 w-5" />
+                    Tariffa
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {availability.map((slot) => (
-                      <div key={slot.id} className="flex justify-between text-sm">
-                        <span className="font-medium">{dayNames[slot.day_of_week]}</span>
-                        <span className="text-muted-foreground">
-                          {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
+                <CardContent className="space-y-4">
+                  <div className="text-center py-4 bg-muted/50 rounded-lg">
+                    {pt.price_min && pt.price_max ? (
+                      <div>
+                        <span className="text-3xl font-bold text-foreground">
+                          €{pt.price_min} - €{pt.price_max}
                         </span>
+                        <p className="text-sm text-muted-foreground mt-1">a sessione</p>
                       </div>
-                    ))}
+                    ) : pt.hourly_rate ? (
+                      <div>
+                        <span className="text-3xl font-bold text-foreground">
+                          €{pt.hourly_rate}
+                        </span>
+                        <span className="text-lg text-muted-foreground">/ora</span>
+                      </div>
+                    ) : (
+                      <span className="text-lg text-muted-foreground">Su richiesta</span>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Mobile CTA */}
+                  <div className="md:hidden">
+                    <ConnectionButton
+                      isConnected={isConnected}
+                      hasPendingRequest={hasPendingRequest}
+                      canRequestConnection={canRequestConnection}
+                      isAuthenticated={isAuthenticated}
+                      role={role}
+                      isPending={requestConnectionMutation.isPending}
+                      onRequest={() => requestConnectionMutation.mutate()}
+                      onLogin={() => navigate('/auth')}
+                      fullWidth
+                    />
+                  </div>
+
+                  {/* Desktop - show in sidebar */}
+                  <div className="hidden md:block">
+                    <ConnectionButton
+                      isConnected={isConnected}
+                      hasPendingRequest={hasPendingRequest}
+                      canRequestConnection={canRequestConnection}
+                      isAuthenticated={isAuthenticated}
+                      role={role}
+                      isPending={requestConnectionMutation.isPending}
+                      onRequest={() => requestConnectionMutation.mutate()}
+                      onLogin={() => navigate('/auth')}
+                      fullWidth
+                    />
+                  </div>
+
+                  <p className="text-xs text-center text-muted-foreground">
+                    La connessione è gratuita. Il PT deciderà se accettarti.
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Quick stats */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-bold text-primary">
+                        {pt.experience_years || 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Anni exp.</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-bold text-primary">
+                        {pt.review_count || 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Recensioni</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-bold text-primary">
+                        {pt.certifications?.length || 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Certificazioni</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-bold text-primary">
+                        {pt.specializations?.length || 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Specializzazioni</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            )}
+            </motion.div>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+// Connection button component
+interface ConnectionButtonProps {
+  isConnected: boolean;
+  hasPendingRequest: boolean;
+  canRequestConnection: boolean;
+  isAuthenticated: boolean;
+  role: string | null;
+  isPending: boolean;
+  onRequest: () => void;
+  onLogin: () => void;
+  fullWidth?: boolean;
+}
+
+function ConnectionButton({
+  isConnected,
+  hasPendingRequest,
+  canRequestConnection,
+  isAuthenticated,
+  role,
+  isPending,
+  onRequest,
+  onLogin,
+  fullWidth = false,
+}: ConnectionButtonProps) {
+  const buttonClass = fullWidth ? 'w-full' : '';
+
+  if (isConnected) {
+    return (
+      <Button className={buttonClass} variant="outline" disabled>
+        <Check className="h-4 w-4 mr-2" />
+        Già connesso
+      </Button>
+    );
+  }
+
+  if (hasPendingRequest) {
+    return (
+      <Button className={buttonClass} variant="secondary" disabled>
+        <Clock className="h-4 w-4 mr-2" />
+        Richiesta inviata
+      </Button>
+    );
+  }
+
+  if (canRequestConnection) {
+    return (
+      <Button 
+        className={buttonClass}
+        onClick={onRequest}
+        disabled={isPending}
+      >
+        {isPending ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        ) : (
+          <UserPlus className="h-4 w-4 mr-2" />
+        )}
+        Richiedi connessione
+      </Button>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Button className={buttonClass} onClick={onLogin}>
+        <UserPlus className="h-4 w-4 mr-2" />
+        Accedi per connetterti
+      </Button>
+    );
+  }
+
+  if (role !== 'atleta') {
+    return (
+      <Button className={buttonClass} variant="outline" disabled>
+        Solo per atleti
+      </Button>
+    );
+  }
+
+  return null;
 }
 
 export default PTProfilePage;
