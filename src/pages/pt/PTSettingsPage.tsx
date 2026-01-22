@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PageHeader } from '@/components/dashboard/PageHeader';
+import { PageLoader } from '@/components/common/PageLoader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -139,11 +140,7 @@ export function PTSettingsPage() {
   );
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Caricamento...</p>
-      </div>
-    );
+    return <PageLoader text="Caricamento impostazioni..." />;
   }
 
   return (

@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { SplashScreen } from "@/components/common/SplashScreen";
 
 // Layouts
 import { AdminLayout } from "@/components/layouts/AdminLayout";
@@ -74,274 +76,287 @@ const queryClient = new QueryClient();
 // Separazione rigida routing per ruolo
 // =====================================================
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            {/* ============================================= */}
-            {/* PUBLIC ROUTES - Accessibili a tutti          */}
-            {/* ============================================= */}
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<AuthPage />} />
-            
-            {/* Public PT Discovery page */}
-            <Route path="/pts" element={<PTDiscoveryPage />} />
-            <Route path="/pts/:userId" element={<PTProfilePage />} />
+const App = () => {
+  const [showSplash, setShowSplash] = useState(true);
 
-            {/* ============================================= */}
-            {/* ADMIN ROUTES - Solo ruolo admin              */}
-            {/* ============================================= */}
-            <Route path="/admin" element={
-              <AdminRoute>
-                <AdminLayout>
-                  <AdminDashboard />
-                </AdminLayout>
-              </AdminRoute>
-            } />
-            <Route path="/admin/pts" element={
-              <AdminRoute>
-                <AdminLayout>
-                  <AdminPTsPage />
-                </AdminLayout>
-              </AdminRoute>
-            } />
-            <Route path="/admin/athletes" element={
-              <AdminRoute>
-                <AdminLayout>
-                  <AdminAthletesPage />
-                </AdminLayout>
-              </AdminRoute>
-            } />
-            <Route path="/admin/subscriptions" element={
-              <AdminRoute>
-                <AdminLayout>
-                  <AdminSubscriptionsPage />
-                </AdminLayout>
-              </AdminRoute>
-            } />
-            <Route path="/admin/payments" element={
-              <AdminRoute>
-                <AdminLayout>
-                  <AdminPaymentsPage />
-                </AdminLayout>
-              </AdminRoute>
-            } />
-            <Route path="/admin/coupons" element={
-              <AdminRoute>
-                <AdminLayout>
-                  <AdminCouponsPage />
-                </AdminLayout>
-              </AdminRoute>
-            } />
-            <Route path="/admin/support" element={
-              <AdminRoute>
-                <AdminLayout>
-                  <AdminSupportPage />
-                </AdminLayout>
-              </AdminRoute>
-            } />
-            <Route path="/admin/settings" element={
-              <AdminRoute>
-                <AdminLayout>
-                  <AdminSettingsPage />
-                </AdminLayout>
-              </AdminRoute>
-            } />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        
+        {/* Splash Screen - shown on first load */}
+        {showSplash && (
+          <SplashScreen 
+            duration={1800} 
+            onComplete={() => setShowSplash(false)} 
+          />
+        )}
+        
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              {/* ============================================= */}
+              {/* PUBLIC ROUTES - Accessibili a tutti          */}
+              {/* ============================================= */}
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<AuthPage />} />
+              
+              {/* Public PT Discovery page */}
+              <Route path="/pts" element={<PTDiscoveryPage />} />
+              <Route path="/pts/:userId" element={<PTProfilePage />} />
 
-            {/* ============================================= */}
-            {/* PT DASHBOARD ROUTES - Solo ruolo pt (web)    */}
-            {/* ============================================= */}
-            <Route path="/pt" element={
-              <PTDashboardRoute>
-                <PTDashboardLayout>
-                  <PTDashboard />
-                </PTDashboardLayout>
-              </PTDashboardRoute>
-            } />
-            <Route path="/pt/athletes" element={
-              <PTDashboardRoute>
-                <PTDashboardLayout>
-                  <PTAthletesPage />
-                </PTDashboardLayout>
-              </PTDashboardRoute>
-            } />
-            <Route path="/pt/workouts" element={
-              <PTDashboardRoute>
-                <PTDashboardLayout>
-                  <PTWorkoutsPage />
-                </PTDashboardLayout>
-              </PTDashboardRoute>
-            } />
-            <Route path="/pt/calendar" element={
-              <PTDashboardRoute>
-                <PTDashboardLayout>
-                  <PTCalendarPage />
-                </PTDashboardLayout>
-              </PTDashboardRoute>
-            } />
-            <Route path="/pt/messages" element={
-              <PTDashboardRoute>
-                <PTDashboardLayout>
-                  <PTMessagesPage />
-                </PTDashboardLayout>
-              </PTDashboardRoute>
-            } />
-            <Route path="/pt/payments" element={
-              <PTDashboardRoute>
-                <PTDashboardLayout>
-                  <PTPaymentsPage />
-                </PTDashboardLayout>
-              </PTDashboardRoute>
-            } />
-            <Route path="/pt/settings" element={
-              <PTDashboardRoute>
-                <PTDashboardLayout>
-                  <PTSettingsPage />
-                </PTDashboardLayout>
-              </PTDashboardRoute>
-            } />
+              {/* ============================================= */}
+              {/* ADMIN ROUTES - Solo ruolo admin              */}
+              {/* ============================================= */}
+              <Route path="/admin" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminDashboard />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/pts" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminPTsPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/athletes" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminAthletesPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/subscriptions" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminSubscriptionsPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/payments" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminPaymentsPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/coupons" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminCouponsPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/support" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminSupportPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/settings" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminSettingsPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
 
-            {/* ============================================= */}
-            {/* PT APP ROUTES - Solo ruolo pt (mobile/PWA)   */}
-            {/* ============================================= */}
-            <Route path="/pt/app" element={
-              <PTAppRoute>
-                <AppLayout>
-                  <PTAppHome />
-                </AppLayout>
-              </PTAppRoute>
-            } />
-            <Route path="/pt/app/athletes" element={
-              <PTAppRoute>
-                <AppLayout>
-                  <PTAppAthletesPage />
-                </AppLayout>
-              </PTAppRoute>
-            } />
-            <Route path="/pt/app/workouts" element={
-              <PTAppRoute>
-                <AppLayout>
-                  <PTAppWorkoutsPage />
-                </AppLayout>
-              </PTAppRoute>
-            } />
-            <Route path="/pt/app/chat" element={
-              <PTAppRoute>
-                <AppLayout>
-                  <PTAppChatPage />
-                </AppLayout>
-              </PTAppRoute>
-            } />
-            <Route path="/pt/app/chat/:atletaId" element={
-              <PTAppRoute>
-                <AppLayout>
-                  <PTAppChatDetailPage />
-                </AppLayout>
-              </PTAppRoute>
-            } />
-            <Route path="/pt/app/calendar" element={
-              <PTAppRoute>
-                <AppLayout>
-                  <PTAppCalendarPage />
-                </AppLayout>
-              </PTAppRoute>
-            } />
-            <Route path="/pt/app/profile" element={
-              <PTAppRoute>
-                <AppLayout>
-                  <PTAppProfilePage />
-                </AppLayout>
-              </PTAppRoute>
-            } />
+              {/* ============================================= */}
+              {/* PT DASHBOARD ROUTES - Solo ruolo pt (web)    */}
+              {/* ============================================= */}
+              <Route path="/pt" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTDashboard />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/athletes" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAthletesPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/workouts" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTWorkoutsPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/calendar" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTCalendarPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/messages" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTMessagesPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/payments" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTPaymentsPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/settings" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTSettingsPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
 
-            {/* ============================================= */}
-            {/* ATLETA APP ROUTES - Solo ruolo atleta        */}
-            {/* ============================================= */}
-            <Route path="/app" element={
-              <AtletaRoute>
-                <AppLayout>
-                  <AtletaAppHome />
-                </AppLayout>
-              </AtletaRoute>
-            } />
-            <Route path="/app/onboarding" element={
-              <AtletaRoute>
-                <AtletaOnboardingPage />
-              </AtletaRoute>
-            } />
-            <Route path="/app/discover" element={
-              <AtletaRoute>
-                <AppLayout>
-                  <AtletaDiscoverPage />
-                </AppLayout>
-              </AtletaRoute>
-            } />
-            <Route path="/app/pt/:userId" element={
-              <AtletaRoute>
-                <AppLayout>
-                  <AtletaPTProfilePage />
-                </AppLayout>
-              </AtletaRoute>
-            } />
-            <Route path="/app/workout" element={
-              <AtletaRoute>
-                <AppLayout>
-                  <AtletaWorkoutPage />
-                </AppLayout>
-              </AtletaRoute>
-            } />
-            <Route path="/app/workout/:workoutId" element={
-              <AtletaRoute>
-                <AtletaWorkoutDetailPage />
-              </AtletaRoute>
-            } />
-            <Route path="/app/progress" element={
-              <AtletaRoute>
-                <AppLayout>
-                  <AtletaProgressPage />
-                </AppLayout>
-              </AtletaRoute>
-            } />
-            <Route path="/app/profile" element={
-              <AtletaRoute>
-                <AppLayout>
-                  <AtletaProfilePage />
-                </AppLayout>
-              </AtletaRoute>
-            } />
-            <Route path="/app/chat" element={
-              <AtletaRoute>
-                <AppLayout>
-                  <AtletaChatPage />
-                </AppLayout>
-              </AtletaRoute>
-            } />
-            <Route path="/app/chat/:recipientId" element={
-              <AtletaRoute>
-                <AppLayout>
-                  <AtletaChatPage />
-                </AppLayout>
-              </AtletaRoute>
-            } />
-            <Route path="/app/subscription" element={
-              <AtletaRoute>
-                <AtletaSubscriptionPage />
-              </AtletaRoute>
-            } />
+              {/* ============================================= */}
+              {/* PT APP ROUTES - Solo ruolo pt (mobile/PWA)   */}
+              {/* ============================================= */}
+              <Route path="/pt/app" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppHome />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/athletes" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppAthletesPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/workouts" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppWorkoutsPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/chat" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppChatPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/chat/:atletaId" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppChatDetailPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/calendar" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppCalendarPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/profile" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppProfilePage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
 
-            {/* ============================================= */}
-            {/* CATCH-ALL                                    */}
-            {/* ============================================= */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+              {/* ============================================= */}
+              {/* ATLETA APP ROUTES - Solo ruolo atleta        */}
+              {/* ============================================= */}
+              <Route path="/app" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaAppHome />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/onboarding" element={
+                <AtletaRoute>
+                  <AtletaOnboardingPage />
+                </AtletaRoute>
+              } />
+              <Route path="/app/discover" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaDiscoverPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/pt/:userId" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaPTProfilePage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/workout" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaWorkoutPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/workout/:workoutId" element={
+                <AtletaRoute>
+                  <AtletaWorkoutDetailPage />
+                </AtletaRoute>
+              } />
+              <Route path="/app/progress" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaProgressPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/profile" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaProfilePage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/chat" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaChatPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/chat/:recipientId" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaChatPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/subscription" element={
+                <AtletaRoute>
+                  <AtletaSubscriptionPage />
+                </AtletaRoute>
+              } />
+
+              {/* ============================================= */}
+              {/* CATCH-ALL                                    */}
+              {/* ============================================= */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

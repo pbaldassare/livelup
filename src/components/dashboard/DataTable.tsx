@@ -9,15 +9,9 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
 export interface Column<T> {
   key: string;
@@ -110,7 +104,7 @@ export function DataTable<T extends { id: string }>({
                   colSpan={columns.length + (actions ? 1 : 0)}
                   className="h-32 text-center"
                 >
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  <LoadingSpinner variant="dots" size="sm" />
                 </TableCell>
               </TableRow>
             ) : paginatedData.length === 0 ? (

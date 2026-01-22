@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { StatusBadge } from '@/components/dashboard/StatusBadge';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -161,7 +162,7 @@ export function PTPaymentsPage() {
         </CardHeader>
         <CardContent>
           {subscriptionLoading ? (
-            <p className="text-muted-foreground">Caricamento...</p>
+            <LoadingSpinner variant="dots" size="sm" text="Caricamento abbonamento..." />
           ) : subscription ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">

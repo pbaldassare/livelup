@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRole } from '@/types/roles';
 import { ROLE_ACCESS_MATRIX, getHomeRoute } from '@/types/roles';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
 // =====================================================
 // PROTECTED ROUTE
@@ -37,12 +38,12 @@ export function ProtectedRoute({
   if (isLoading) {
     return (
       fallback ?? (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-muted-foreground">Caricamento...</p>
-          </div>
-        </div>
+        <LoadingSpinner 
+          variant="logo" 
+          size="lg" 
+          text="Caricamento..." 
+          fullScreen 
+        />
       )
     );
   }

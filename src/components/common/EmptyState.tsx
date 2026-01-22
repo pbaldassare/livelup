@@ -1,6 +1,7 @@
 import { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
 // =====================================================
 // EMPTY STATE - Componente per stati vuoti
@@ -141,13 +142,13 @@ export function ErrorState({
 interface LoadingStateProps {
   message?: string;
   className?: string;
-  variant?: 'spinner' | 'skeleton' | 'pulse';
+  variant?: 'spinner' | 'logo' | 'dots';
 }
 
 export function LoadingState({
   message = 'Caricamento...',
   className,
-  variant = 'spinner',
+  variant = 'logo',
 }: LoadingStateProps) {
   return (
     <div 
@@ -156,13 +157,7 @@ export function LoadingState({
         className
       )}
     >
-      {variant === 'spinner' && (
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mb-4" />
-      )}
-      {variant === 'pulse' && (
-        <div className="h-8 w-8 rounded-full bg-primary/20 animate-pulse mb-4" />
-      )}
-      <p className="text-sm text-muted-foreground">{message}</p>
+      <LoadingSpinner variant={variant} size="md" text={message} />
     </div>
   );
 }

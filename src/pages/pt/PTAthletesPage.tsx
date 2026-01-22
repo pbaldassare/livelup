@@ -8,6 +8,7 @@ import { SectionCard } from '@/components/dashboard/SectionCard';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
 import { DetailSheet, ProfileInfo } from '@/components/dashboard/DetailSheet';
 import { TablePagination } from '@/components/dashboard/TablePagination';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -304,10 +305,7 @@ export function PTAthletesPage() {
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
-                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        Caricamento...
-                      </div>
+                      <LoadingSpinner variant="dots" size="sm" />
                     </TableCell>
                   </TableRow>
                 ) : paginatedConnections.length === 0 ? (
