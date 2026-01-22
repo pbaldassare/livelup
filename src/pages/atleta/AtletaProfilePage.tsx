@@ -27,6 +27,7 @@ import { ProfileHeader } from '@/components/app/ProfileHeader';
 import { ProfileStats } from '@/components/app/ProfileStats';
 import { BadgeCard } from '@/components/app/BadgeCard';
 import { AtletaReviewsHistory } from '@/components/reviews/AtletaReviewsHistory';
+import { ProfilePageSkeleton } from '@/components/skeletons';
 import { cn } from '@/lib/utils';
 
 // =====================================================
@@ -42,7 +43,7 @@ export function AtletaProfilePage() {
   const [activeTab, setActiveTab] = useState('badges');
 
   // Fetch profile
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -74,7 +75,7 @@ export function AtletaProfilePage() {
   });
 
   // Fetch workout stats
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['atleta-workout-stats', user?.id],
     queryFn: async () => {
       if (!user?.id) return { workouts: 0, minutes: 0, calories: 0, cheers: 0 };
@@ -94,6 +95,9 @@ export function AtletaProfilePage() {
     },
     enabled: !!user?.id,
   });
+
+  // Loading state
+  const isLoading = isLoadingProfile || isLoadingStats;
 
   // Fetch badges
   const { data: badges } = useQuery({
@@ -157,6 +161,14 @@ export function AtletaProfilePage() {
 
   // Calculate streak (mock for now)
   const streakCount = stats?.workouts ? Math.min(stats.workouts, 30) : 0;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-app-background pb-20">
+        <ProfilePageSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-app-background pb-20">

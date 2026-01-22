@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ListSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { supabase } from '@/integrations/supabase/client';
@@ -173,9 +173,7 @@ export function AtletaWorkoutPage() {
 
         <TabsContent value="today" className="mt-4 space-y-3">
           {isLoading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full" />
-            ))
+            <ListSkeleton count={3} type="workout" />
           ) : upcomingWorkouts.length > 0 ? (
             upcomingWorkouts.map((workout) => (
               <WorkoutCard key={workout.id} workout={workout} />
@@ -194,9 +192,7 @@ export function AtletaWorkoutPage() {
 
         <TabsContent value="completed" className="mt-4 space-y-3">
           {isLoading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full" />
-            ))
+            <ListSkeleton count={3} type="workout" />
           ) : completedWorkouts.length > 0 ? (
             completedWorkouts.map((workout) => (
               <WorkoutCard key={workout.id} workout={workout} />
