@@ -35,6 +35,7 @@ import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
 import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
 import AdminCouponsPage from "./pages/admin/AdminCouponsPage";
 import AdminSupportPage from "./pages/admin/AdminSupportPage";
+import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 
 // PT Dashboard pages (Web)
 import PTDashboard from "./pages/pt/PTDashboard";
@@ -64,6 +65,7 @@ import AtletaWorkoutDetailPage from "./pages/atleta/AtletaWorkoutDetailPage";
 import AtletaProgressPage from "./pages/atleta/AtletaProgressPage";
 import AtletaProfilePage from "./pages/atleta/AtletaProfilePage";
 import AtletaChatPage from "./pages/atleta/AtletaChatPage";
+import AtletaSubscriptionPage from "./pages/atleta/AtletaSubscriptionPage";
 
 const queryClient = new QueryClient();
 
@@ -145,10 +147,7 @@ const App = () => (
             <Route path="/admin/settings" element={
               <AdminRoute>
                 <AdminLayout>
-                  <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">Impostazioni Sistema</h2>
-                    <p className="text-muted-foreground">Shell - Da implementare</p>
-                  </div>
+                  <AdminSettingsPage />
                 </AdminLayout>
               </AdminRoute>
             } />
@@ -326,6 +325,11 @@ const App = () => (
                 <AppLayout>
                   <AtletaChatPage />
                 </AppLayout>
+              </AtletaRoute>
+            } />
+            <Route path="/app/subscription" element={
+              <AtletaRoute>
+                <AtletaSubscriptionPage />
               </AtletaRoute>
             } />
 
