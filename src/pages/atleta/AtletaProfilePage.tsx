@@ -21,8 +21,10 @@ import {
   List,
   Award,
   Heart,
-  Star
+  Star,
+  Download
 } from 'lucide-react';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
 import { ProfileStats } from '@/components/app/ProfileStats';
 import { BadgeCard } from '@/components/app/BadgeCard';
@@ -41,6 +43,9 @@ export function AtletaProfilePage() {
   const queryClient = useQueryClient();
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [activeTab, setActiveTab] = useState('badges');
+  const { isInstalled, isInstallable, isIOS } = useInstallPrompt();
+  
+  const showInstallOption = !isInstalled && (isInstallable || isIOS);
 
   // Fetch profile
   const { data: profile, isLoading: isLoadingProfile } = useQuery({
@@ -154,6 +159,7 @@ export function AtletaProfilePage() {
   ];
 
   const menuItems = [
+    ...(showInstallOption ? [{ icon: Download, label: 'Installa App', href: '/install' }] : []),
     { icon: Bell, label: 'Notifiche', href: '/app/notifications' },
     { icon: Shield, label: 'Privacy', href: '/app/privacy' },
     { icon: HelpCircle, label: 'Aiuto', href: '/app/help' },
