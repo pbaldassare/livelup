@@ -26,9 +26,23 @@ import AuthPage from "./pages/auth/AuthPage";
 
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminPTsPage from "./pages/admin/AdminPTsPage";
+import AdminAthletesPage from "./pages/admin/AdminAthletesPage";
+import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
+import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
+import AdminCouponsPage from "./pages/admin/AdminCouponsPage";
+import AdminSupportPage from "./pages/admin/AdminSupportPage";
 
-// PT pages
+// PT Dashboard pages
 import PTDashboard from "./pages/pt/PTDashboard";
+import PTAthletesPage from "./pages/pt/PTAthletesPage";
+import PTWorkoutsPage from "./pages/pt/PTWorkoutsPage";
+import PTCalendarPage from "./pages/pt/PTCalendarPage";
+import PTMessagesPage from "./pages/pt/PTMessagesPage";
+import PTPaymentsPage from "./pages/pt/PTPaymentsPage";
+import PTSettingsPage from "./pages/pt/PTSettingsPage";
+
+// PT App pages
 import PTAppHome from "./pages/pt/PTAppHome";
 
 // Atleta pages
@@ -75,33 +89,45 @@ const App = () => (
                 </AdminLayout>
               </AdminRoute>
             } />
-            <Route path="/admin/users" element={
-              <AdminRoute>
-                <AdminLayout>
-                  <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">Gestione Utenti</h2>
-                    <p className="text-muted-foreground">Shell - Da implementare</p>
-                  </div>
-                </AdminLayout>
-              </AdminRoute>
-            } />
             <Route path="/admin/pts" element={
               <AdminRoute>
                 <AdminLayout>
-                  <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">Gestione Personal Trainers</h2>
-                    <p className="text-muted-foreground">Shell - Da implementare</p>
-                  </div>
+                  <AdminPTsPage />
                 </AdminLayout>
               </AdminRoute>
             } />
-            <Route path="/admin/permissions" element={
+            <Route path="/admin/athletes" element={
               <AdminRoute>
                 <AdminLayout>
-                  <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">Gestione Permessi</h2>
-                    <p className="text-muted-foreground">Shell - Da implementare</p>
-                  </div>
+                  <AdminAthletesPage />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/subscriptions" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminSubscriptionsPage />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/payments" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminPaymentsPage />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/coupons" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminCouponsPage />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/support" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminSupportPage />
                 </AdminLayout>
               </AdminRoute>
             } />
@@ -129,60 +155,42 @@ const App = () => (
             <Route path="/pt/athletes" element={
               <PTDashboardRoute>
                 <PTDashboardLayout>
-                  <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">I Miei Atleti</h2>
-                    <p className="text-muted-foreground">Shell - Da implementare</p>
-                  </div>
+                  <PTAthletesPage />
                 </PTDashboardLayout>
               </PTDashboardRoute>
             } />
             <Route path="/pt/workouts" element={
               <PTDashboardRoute>
                 <PTDashboardLayout>
-                  <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">Allenamenti</h2>
-                    <p className="text-muted-foreground">Shell - Da implementare</p>
-                  </div>
+                  <PTWorkoutsPage />
                 </PTDashboardLayout>
               </PTDashboardRoute>
             } />
             <Route path="/pt/calendar" element={
               <PTDashboardRoute>
                 <PTDashboardLayout>
-                  <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">Calendario</h2>
-                    <p className="text-muted-foreground">Shell - Da implementare</p>
-                  </div>
+                  <PTCalendarPage />
                 </PTDashboardLayout>
               </PTDashboardRoute>
             } />
             <Route path="/pt/messages" element={
               <PTDashboardRoute>
                 <PTDashboardLayout>
-                  <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">Messaggi</h2>
-                    <p className="text-muted-foreground">Shell - Da implementare</p>
-                  </div>
+                  <PTMessagesPage />
                 </PTDashboardLayout>
               </PTDashboardRoute>
             } />
             <Route path="/pt/payments" element={
               <PTDashboardRoute>
                 <PTDashboardLayout>
-                  <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">Pagamenti</h2>
-                    <p className="text-muted-foreground">Shell - Da implementare</p>
-                  </div>
+                  <PTPaymentsPage />
                 </PTDashboardLayout>
               </PTDashboardRoute>
             } />
             <Route path="/pt/settings" element={
               <PTDashboardRoute>
                 <PTDashboardLayout>
-                  <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">Impostazioni</h2>
-                    <p className="text-muted-foreground">Shell - Da implementare</p>
-                  </div>
+                  <PTSettingsPage />
                 </PTDashboardLayout>
               </PTDashboardRoute>
             } />
