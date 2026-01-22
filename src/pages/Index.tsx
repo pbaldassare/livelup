@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getHomeRoute } from '@/types/roles';
 import { PublicLayout } from '@/components/layouts/PublicLayout';
 import { LandingPage } from './public/LandingPage';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
 // =====================================================
 // INDEX PAGE - Entry point
@@ -25,9 +26,11 @@ const Index = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
+      <LoadingSpinner 
+        variant="logo" 
+        size="lg" 
+        fullScreen 
+      />
     );
   }
 
