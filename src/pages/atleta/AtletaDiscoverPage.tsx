@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { PTMapView } from '@/components/app/PTMapView';
+import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { 
   Search, 
   MapPin, 
@@ -109,12 +110,22 @@ export function AtletaDiscoverPage() {
   
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [cityLocation, setCityLocation] = useState<UserLocation | null>(null);
   const [priceRange, setPriceRange] = useState([0, 150]);
   const [distanceRange, setDistanceRange] = useState(50);
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [inPersonOnly, setInPersonOnly] = useState(false);
   const [selectedSpecs, setSelectedSpecs] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'distance' | 'rating' | 'price'>('rating');
+
+  // Handle city selection from Places autocomplete
+  const handleCitySelect = (place: { name: string; formatted_address: string; geometry: { location: { lat: number; lng: number } } }) => {
+    setCityLocation({
+      lat: place.geometry.location.lat,
+      lng: place.geometry.location.lng,
+    });
+  };
 
   // Get user location
   const requestLocation = () => {
@@ -231,12 +242,13 @@ export function AtletaDiscoverPage() {
       );
     }
 
-    // Distance filter (only if user location available and not online only)
-    if (userLocation && !onlineOnly) {
+    // Distance filter - use cityLocation if set, otherwise userLocation
+    const referenceLocation = cityLocation || userLocation;
+    if (referenceLocation && !onlineOnly) {
       filtered = filtered.map(pt => {
         if (pt.location_lat && pt.location_lng) {
           const distance = calculateDistance(
-            userLocation.lat, userLocation.lng,
+            referenceLocation.lat, referenceLocation.lng,
             pt.location_lat, pt.location_lng
           );
           return { ...pt, distance };
@@ -263,7 +275,7 @@ export function AtletaDiscoverPage() {
     });
 
     return filtered;
-  }, [pts, searchQuery, selectedSpecs, userLocation, distanceRange, sortBy, onlineOnly]);
+  }, [pts, searchQuery, selectedSpecs, userLocation, cityLocation, distanceRange, sortBy, onlineOnly]);
 
   const toggleSpec = (spec: string) => {
     setSelectedSpecs(prev => 
@@ -275,6 +287,8 @@ export function AtletaDiscoverPage() {
 
   const clearFilters = () => {
     setSearchQuery('');
+    setCityFilter('');
+    setCityLocation(null);
     setPriceRange([0, 150]);
     setDistanceRange(50);
     setOnlineOnly(false);
@@ -282,7 +296,7 @@ export function AtletaDiscoverPage() {
     setSelectedSpecs([]);
   };
 
-  const hasActiveFilters = priceRange[0] > 0 || priceRange[1] < 150 || onlineOnly || inPersonOnly || selectedSpecs.length > 0 || distanceRange < 50;
+  const hasActiveFilters = priceRange[0] > 0 || priceRange[1] < 150 || onlineOnly || inPersonOnly || selectedSpecs.length > 0 || distanceRange < 50 || cityFilter;
 
   if (isConnected) {
     return (
@@ -324,15 +338,25 @@ export function AtletaDiscoverPage() {
         </div>
         
         <div className="flex gap-2">
+          {/* Name/Skill Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-app-muted-foreground" />
             <Input
-              placeholder="Cerca per nome, città o skill..."
+              placeholder="Nome o skill..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-app-muted border-app-border text-app-foreground placeholder:text-app-muted-foreground"
             />
           </div>
+          
+          {/* City Autocomplete */}
+          <PlacesAutocomplete
+            value={cityFilter}
+            onChange={setCityFilter}
+            onPlaceSelect={handleCitySelect}
+            placeholder="Città..."
+            className="w-32"
+          />
           
           {/* Location button */}
           <Button
@@ -398,10 +422,10 @@ export function AtletaDiscoverPage() {
                 </div>
 
                 {/* Distance range */}
-                {userLocation && (
+                {(userLocation || cityLocation) && (
                   <div className="space-y-3">
                     <Label className="text-app-foreground">
-                      Distanza massima: {distanceRange} km
+                      Distanza massima{cityFilter ? ` da ${cityFilter}` : ''}: {distanceRange} km
                     </Label>
                     <Slider
                       value={[distanceRange]}
@@ -476,26 +500,35 @@ export function AtletaDiscoverPage() {
         </div>
 
         {/* Location status */}
-        {userLocation && (
+        {(userLocation || cityLocation) && (
           <motion.div 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             className="flex items-center gap-2 text-sm text-app-accent"
           >
             <Navigation className="h-3 w-3" />
-            <span>Posizione attiva - risultati ordinati per distanza</span>
+            <span>
+              {cityFilter 
+                ? `Ricerca intorno a ${cityFilter}` 
+                : 'Posizione GPS attiva - risultati ordinati per distanza'}
+            </span>
           </motion.div>
         )}
 
         {/* Active filters display */}
         {hasActiveFilters && (
           <div className="flex flex-wrap gap-2">
+            {cityFilter && (
+              <Badge variant="secondary" className="bg-app-accent/20 text-app-accent border border-app-accent/50">
+                📍 {cityFilter}
+              </Badge>
+            )}
             {(priceRange[0] > 0 || priceRange[1] < 150) && (
               <Badge variant="secondary" className="bg-app-muted text-app-foreground">
                 €{priceRange[0]}-{priceRange[1]}
               </Badge>
             )}
-            {distanceRange < 50 && userLocation && (
+            {distanceRange < 50 && (userLocation || cityLocation) && (
               <Badge variant="secondary" className="bg-app-muted text-app-foreground">
                 Entro {distanceRange}km
               </Badge>

@@ -1,14 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
-import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, LoadScript, Marker, InfoWindow, MarkerClusterer } from '@react-google-maps/api';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Star, MapPin, Euro, Wifi, Navigation, ChevronRight } from 'lucide-react';
 
 // =====================================================
-// PT MAP VIEW - Google Maps con marker PT interattivi
+// PT MAP VIEW - Google Maps con marker clustering
 // Design: dark theme + lime accent
 // =====================================================
 
@@ -132,6 +130,46 @@ const defaultCenter = {
   lng: 12.4964,
 };
 
+// Cluster styles (lime theme)
+const clusterStyles = [
+  {
+    textColor: '#1a1a1a',
+    height: 40,
+    width: 40,
+    textSize: 14,
+    fontWeight: 'bold',
+  },
+  {
+    textColor: '#1a1a1a',
+    height: 50,
+    width: 50,
+    textSize: 16,
+    fontWeight: 'bold',
+  },
+  {
+    textColor: '#1a1a1a',
+    height: 60,
+    width: 60,
+    textSize: 18,
+    fontWeight: 'bold',
+  },
+];
+
+// Create custom cluster icon with SVG
+const createClusterIcon = (count: number): string => {
+  const size = count < 10 ? 40 : count < 50 ? 50 : 60;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#D4FF00" stroke="#1a1a1a" stroke-width="2"/>
+      <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" 
+            font-family="system-ui, sans-serif" font-size="${size < 50 ? 14 : 16}" font-weight="bold" fill="#1a1a1a">
+        ${count}
+      </text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
+
 export function PTMapView({ pts, userLocation, selectedPT, onPTSelect }: PTMapViewProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
 
@@ -164,6 +202,21 @@ export function PTMapView({ pts, userLocation, selectedPT, onPTSelect }: PTMapVi
     mapTypeControl: false,
     streetViewControl: false,
     fullscreenControl: false,
+  }), []);
+
+  // Clusterer options
+  const clusterOptions = useMemo(() => ({
+    gridSize: 60,
+    minimumClusterSize: 2,
+    maxZoom: 15,
+    averageCenter: true,
+    calculator: (markers: any[]) => {
+      const count = markers.length;
+      let index = 0;
+      if (count >= 50) index = 2;
+      else if (count >= 10) index = 1;
+      return { text: String(count), index };
+    },
   }), []);
 
   return (
@@ -202,26 +255,41 @@ export function PTMapView({ pts, userLocation, selectedPT, onPTSelect }: PTMapVi
                     scale: 10,
                   }}
                   title="La tua posizione"
+                  zIndex={1000}
                 />
               )}
 
-              {/* PT markers */}
-              {ptsWithCoords.map((pt) => (
-                <Marker
-                  key={pt.id}
-                  position={{ lat: pt.location_lat!, lng: pt.location_lng! }}
-                  onClick={() => onPTSelect(pt)}
-                  icon={{
-                    path: google.maps.SymbolPath.CIRCLE,
-                    fillColor: selectedPT?.id === pt.id ? '#FFFFFF' : '#D4FF00',
-                    fillOpacity: 1,
-                    strokeColor: '#1a1a1a',
-                    strokeWeight: 2,
-                    scale: selectedPT?.id === pt.id ? 14 : 10,
-                  }}
-                  title={`${pt.profiles?.first_name || ''} ${pt.profiles?.last_name || ''}`}
-                />
-              ))}
+              {/* Clustered PT markers */}
+              <MarkerClusterer
+                options={clusterOptions}
+                styles={clusterStyles.map((style, i) => ({
+                  ...style,
+                  url: createClusterIcon((i + 1) * 10),
+                }))}
+              >
+                {(clusterer) => (
+                  <>
+                    {ptsWithCoords.map((pt) => (
+                      <Marker
+                        key={pt.id}
+                        position={{ lat: pt.location_lat!, lng: pt.location_lng! }}
+                        onClick={() => onPTSelect(pt)}
+                        clusterer={clusterer}
+                        icon={{
+                          path: google.maps.SymbolPath.CIRCLE,
+                          fillColor: selectedPT?.id === pt.id ? '#FFFFFF' : '#D4FF00',
+                          fillOpacity: 1,
+                          strokeColor: '#1a1a1a',
+                          strokeWeight: 2,
+                          scale: selectedPT?.id === pt.id ? 14 : 10,
+                        }}
+                        title={`${pt.profiles?.first_name || ''} ${pt.profiles?.last_name || ''}`}
+                        zIndex={selectedPT?.id === pt.id ? 999 : 1}
+                      />
+                    ))}
+                  </>
+                )}
+              </MarkerClusterer>
 
               {/* InfoWindow for selected PT */}
               {selectedPT && selectedPT.location_lat && selectedPT.location_lng && (
@@ -323,6 +391,10 @@ export function PTMapView({ pts, userLocation, selectedPT, onPTSelect }: PTMapVi
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[#D4FF00]" />
             <span className="text-app-muted-foreground">PT</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full bg-[#D4FF00] flex items-center justify-center text-[8px] font-bold text-[#1a1a1a]">5+</div>
+            <span className="text-app-muted-foreground">Cluster</span>
           </div>
           {userLocation && (
             <div className="flex items-center gap-2">
