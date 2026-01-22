@@ -7,6 +7,7 @@ import { SectionCard } from '@/components/dashboard/SectionCard';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
 import { DetailSheet, ProfileInfo } from '@/components/dashboard/DetailSheet';
 import { TablePagination } from '@/components/dashboard/TablePagination';
+import { InlineEditText, InlineEditSelect, InlineEditTags } from '@/components/dashboard/InlineEditCells';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -55,7 +56,6 @@ import {
   Clock,
   UserX,
   Star,
-  MapPin,
   CheckSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -63,7 +63,7 @@ import { useSearchParams } from 'react-router-dom';
 
 // =====================================================
 // ADMIN PTS PAGE - Gestione Personal Trainers
-// Con bulk actions e paginazione
+// Con bulk actions, paginazione e inline editing
 // =====================================================
 
 interface PTListItem {
@@ -84,6 +84,34 @@ interface PTListItem {
     phone: string | null;
   } | null;
 }
+
+type PTStatus = 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium';
+type PTLevel = 'junior' | 'intermedio' | 'senior' | 'master';
+
+const LEVEL_OPTIONS: { value: PTLevel; label: string }[] = [
+  { value: 'junior', label: 'Junior' },
+  { value: 'intermedio', label: 'Intermedio' },
+  { value: 'senior', label: 'Senior' },
+  { value: 'master', label: 'Master' },
+];
+
+const SPECIALIZATION_SUGGESTIONS = [
+  'Bodybuilding',
+  'Crossfit',
+  'Powerlifting',
+  'Yoga',
+  'Pilates',
+  'Cardio',
+  'HIIT',
+  'Functional Training',
+  'Weight Loss',
+  'Muscle Gain',
+  'Rehabilitation',
+  'Sports Performance',
+  'Nutrition',
+  'Senior Fitness',
+  'Pre/Post Natal',
+];
 
 export function AdminPTsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -152,7 +180,6 @@ export function AdminPTsPage() {
     return filteredPTs.slice(start, start + pageSize);
   }, [filteredPTs, currentPage, pageSize]);
 
-  // Reset page when filters change
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
@@ -195,11 +222,7 @@ export function AdminPTsPage() {
     setSelectedIds(newSelected);
   };
 
-  const clearSelection = () => {
-    setSelectedIds(new Set());
-  };
-
-  type PTStatus = 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium';
+  const clearSelection = () => setSelectedIds(new Set());
 
   // Single update mutation
   const updateStatusMutation = useMutation({
@@ -216,9 +239,23 @@ export function AdminPTsPage() {
       toast.success('Stato PT aggiornato');
       setDetailOpen(false);
     },
-    onError: (error) => {
-      toast.error('Errore: ' + error.message);
+    onError: (error) => toast.error('Errore: ' + error.message),
+  });
+
+  // Inline field update mutation
+  const updateFieldMutation = useMutation({
+    mutationFn: async ({ userId, field, value }: { userId: string; field: string; value: unknown }) => {
+      const { error } = await supabase
+        .from('pt_profiles')
+        .update({ [field]: value })
+        .eq('user_id', userId);
+      if (error) throw error;
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pts'] });
+      toast.success('Campo aggiornato');
+    },
+    onError: (error) => toast.error('Errore: ' + error.message),
   });
 
   // Bulk update mutation
@@ -236,9 +273,7 @@ export function AdminPTsPage() {
       toast.success(`${selectedIds.size} PT aggiornati`);
       clearSelection();
     },
-    onError: (error) => {
-      toast.error('Errore: ' + error.message);
-    },
+    onError: (error) => toast.error('Errore: ' + error.message),
   });
 
   const handleBulkAction = (action: 'approve' | 'suspend') => {
@@ -248,7 +283,7 @@ export function AdminPTsPage() {
 
   const executeBulkAction = () => {
     const userIds = Array.from(selectedIds);
-    const newStatus = bulkAction === 'approve' ? 'attivo' : 'sospeso';
+    const newStatus: PTStatus = bulkAction === 'approve' ? 'attivo' : 'sospeso';
     bulkUpdateMutation.mutate({ userIds, newStatus });
     setConfirmDialogOpen(false);
   };
@@ -256,6 +291,10 @@ export function AdminPTsPage() {
   const handleApprove = (userId: string) => updateStatusMutation.mutate({ userId, newStatus: 'attivo' });
   const handleSuspend = (userId: string) => updateStatusMutation.mutate({ userId, newStatus: 'sospeso' });
   const handleReactivate = (userId: string) => updateStatusMutation.mutate({ userId, newStatus: 'attivo' });
+
+  const handleUpdateField = (userId: string, field: string, value: unknown) => {
+    updateFieldMutation.mutate({ userId, field, value });
+  };
 
   const handleViewDetail = (pt: PTListItem) => {
     setSelectedPT(pt);
@@ -298,7 +337,7 @@ export function AdminPTsPage() {
       {/* Table Section */}
       <SectionCard
         title="Lista Personal Trainers"
-        subtitle="Gestisci tutti i PT registrati sulla piattaforma"
+        subtitle="Gestisci tutti i PT registrati — clicca sui campi per modificarli"
         icon={UserCog}
         iconColor="primary"
       >
@@ -339,32 +378,18 @@ export function AdminPTsPage() {
             <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-3 border">
               <div className="flex items-center gap-2">
                 <CheckSquare className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">
-                  {selectedIds.size} PT selezionati
-                </span>
+                <span className="text-sm font-medium">{selectedIds.size} PT selezionati</span>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleBulkAction('approve')}
-                  disabled={bulkUpdateMutation.isPending}
-                >
+                <Button size="sm" variant="outline" onClick={() => handleBulkAction('approve')} disabled={bulkUpdateMutation.isPending}>
                   <Check className="h-4 w-4 mr-1 text-success" />
                   Approva tutti
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleBulkAction('suspend')}
-                  disabled={bulkUpdateMutation.isPending}
-                >
+                <Button size="sm" variant="outline" onClick={() => handleBulkAction('suspend')} disabled={bulkUpdateMutation.isPending}>
                   <Ban className="h-4 w-4 mr-1 text-destructive" />
                   Sospendi tutti
                 </Button>
-                <Button size="sm" variant="ghost" onClick={clearSelection}>
-                  Annulla
-                </Button>
+                <Button size="sm" variant="ghost" onClick={clearSelection}>Annulla</Button>
               </div>
             </div>
           )}
@@ -384,16 +409,17 @@ export function AdminPTsPage() {
                   </TableHead>
                   <TableHead>Personal Trainer</TableHead>
                   <TableHead>Stato</TableHead>
+                  <TableHead>Livello</TableHead>
                   <TableHead>Città</TableHead>
+                  <TableHead>Specializzazioni</TableHead>
                   <TableHead>Rating</TableHead>
-                  <TableHead>Registrato</TableHead>
                   <TableHead className="text-right">Azioni</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       <div className="flex items-center justify-center gap-2 text-muted-foreground">
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         Caricamento...
@@ -402,7 +428,7 @@ export function AdminPTsPage() {
                   </TableRow>
                 ) : paginatedPTs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Nessun Personal Trainer trovato
                     </TableCell>
                   </TableRow>
@@ -410,18 +436,17 @@ export function AdminPTsPage() {
                   paginatedPTs.map((pt) => (
                     <TableRow 
                       key={pt.id}
-                      className="cursor-pointer hover:bg-muted/50"
+                      className="hover:bg-muted/50"
                       data-state={selectedIds.has(pt.user_id) ? 'selected' : undefined}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedIds.has(pt.user_id)}
                           onCheckedChange={() => toggleSelect(pt.user_id)}
-                          aria-label={`Seleziona ${pt.profiles?.first_name}`}
                         />
                       </TableCell>
-                      <TableCell onClick={() => handleViewDetail(pt)}>
-                        <div className="flex items-center gap-3">
+                      <TableCell>
+                        <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleViewDetail(pt)}>
                           <Avatar className="h-10 w-10 ring-2 ring-role-pt/20">
                             <AvatarImage src={pt.profiles?.avatar_url || undefined} />
                             <AvatarFallback className="bg-role-pt/10 text-role-pt font-medium">
@@ -429,9 +454,7 @@ export function AdminPTsPage() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">
-                              {pt.profiles?.first_name} {pt.profiles?.last_name}
-                            </p>
+                            <p className="font-medium">{pt.profiles?.first_name} {pt.profiles?.last_name}</p>
                             <p className="text-sm text-muted-foreground">{pt.profiles?.email}</p>
                           </div>
                         </div>
@@ -442,11 +465,29 @@ export function AdminPTsPage() {
                           size="sm" 
                         />
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {pt.location_city || '-'}
-                        </div>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <InlineEditSelect
+                          value={pt.level}
+                          options={LEVEL_OPTIONS}
+                          onSave={(value) => handleUpdateField(pt.user_id, 'level', value)}
+                          placeholder="Seleziona livello"
+                        />
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <InlineEditText
+                          value={pt.location_city || ''}
+                          onSave={(value) => handleUpdateField(pt.user_id, 'location_city', value)}
+                          placeholder="Inserisci città"
+                        />
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <InlineEditTags
+                          value={pt.specializations || []}
+                          onSave={(value) => handleUpdateField(pt.user_id, 'specializations', value)}
+                          suggestions={SPECIALIZATION_SUGGESTIONS}
+                          placeholder="Aggiungi spec."
+                          maxDisplay={2}
+                        />
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -454,9 +495,6 @@ export function AdminPTsPage() {
                           <span className="font-medium">{pt.rating_avg?.toFixed(1) || '0.0'}</span>
                           <span className="text-muted-foreground text-xs">({pt.review_count})</span>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(pt.created_at).toLocaleDateString('it-IT')}
                       </TableCell>
                       <TableCell className="text-right">
                         <div onClick={(e) => e.stopPropagation()}>
@@ -531,29 +569,25 @@ export function AdminPTsPage() {
           selectedPT?.status === 'in_attesa_approvazione' ? (
             <>
               <Button className="flex-1" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
-                <Ban className="h-4 w-4 mr-2" />
-                Rifiuta
+                <Ban className="h-4 w-4 mr-2" />Rifiuta
               </Button>
               <Button className="flex-1" onClick={() => handleApprove(selectedPT.user_id)}>
-                <Check className="h-4 w-4 mr-2" />
-                Approva
+                <Check className="h-4 w-4 mr-2" />Approva
               </Button>
             </>
           ) : selectedPT?.status === 'attivo' ? (
             <Button className="w-full" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
-              <Ban className="h-4 w-4 mr-2" />
-              Sospendi PT
+              <Ban className="h-4 w-4 mr-2" />Sospendi PT
             </Button>
           ) : selectedPT?.status === 'sospeso' ? (
             <Button className="w-full" onClick={() => handleReactivate(selectedPT.user_id)}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Riattiva PT
+              <RefreshCw className="h-4 w-4 mr-2" />Riattiva PT
             </Button>
           ) : null
         }
       />
 
-      {/* Bulk Action Confirmation Dialog */}
+      {/* Bulk Action Confirmation */}
       <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -562,14 +596,11 @@ export function AdminPTsPage() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               Stai per {bulkAction === 'approve' ? 'approvare' : 'sospendere'} {selectedIds.size} Personal Trainer.
-              Questa azione può essere annullata successivamente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={executeBulkAction}>
-              Conferma
-            </AlertDialogAction>
+            <AlertDialogAction onClick={executeBulkAction}>Conferma</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
