@@ -50,6 +50,7 @@ import PTAppHome from "./pages/pt/PTAppHome";
 import PTAppAthletesPage from "./pages/pt/PTAppAthletesPage";
 import PTAppWorkoutsPage from "./pages/pt/PTAppWorkoutsPage";
 import PTAppChatPage from "./pages/pt/PTAppChatPage";
+import PTAppChatDetailPage from "./pages/pt/PTAppChatDetailPage";
 import PTAppCalendarPage from "./pages/pt/PTAppCalendarPage";
 import PTAppProfilePage from "./pages/pt/PTAppProfilePage";
 
@@ -59,6 +60,7 @@ import AtletaOnboardingPage from "./pages/atleta/AtletaOnboardingPage";
 import AtletaDiscoverPage from "./pages/atleta/AtletaDiscoverPage";
 import AtletaPTProfilePage from "./pages/atleta/AtletaPTProfilePage";
 import AtletaWorkoutPage from "./pages/atleta/AtletaWorkoutPage";
+import AtletaWorkoutDetailPage from "./pages/atleta/AtletaWorkoutDetailPage";
 import AtletaProgressPage from "./pages/atleta/AtletaProgressPage";
 import AtletaProfilePage from "./pages/atleta/AtletaProfilePage";
 import AtletaChatPage from "./pages/atleta/AtletaChatPage";
@@ -238,10 +240,7 @@ const App = () => (
             <Route path="/pt/app/chat/:atletaId" element={
               <PTAppRoute>
                 <AppLayout>
-                  <div className="p-4">
-                    <h2 className="text-xl font-bold">Conversazione</h2>
-                    <p className="text-muted-foreground mt-2">Chat dettagliata - Da implementare</p>
-                  </div>
+                  <PTAppChatDetailPage />
                 </AppLayout>
               </PTAppRoute>
             } />
@@ -298,12 +297,7 @@ const App = () => (
             } />
             <Route path="/app/workout/:workoutId" element={
               <AtletaRoute>
-                <AppLayout>
-                  <div className="p-4">
-                    <h2 className="text-xl font-bold">Dettaglio Workout</h2>
-                    <p className="text-muted-foreground mt-2">Esecuzione workout - Da implementare</p>
-                  </div>
-                </AppLayout>
+                <AtletaWorkoutDetailPage />
               </AtletaRoute>
             } />
             <Route path="/app/progress" element={
