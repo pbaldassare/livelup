@@ -1,194 +1,365 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Users, Dumbbell, Calendar, CreditCard, Clock, MessageSquare, ArrowRight, Loader2 } from 'lucide-react';
-import { usePTStats } from '@/hooks/usePTStats';
-import { StatsCard } from '@/components/dashboard/StatsCard';
 import { Link } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { usePTStats } from '@/hooks/usePTStats';
+import { KPICard, KPICardColored } from '@/components/dashboard/KPICard';
+import { SectionCard, InfoSection } from '@/components/dashboard/SectionCard';
+import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
+import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
+import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { 
+  Users, 
+  Dumbbell, 
+  Calendar, 
+  CreditCard, 
+  Clock, 
+  MessageSquare, 
+  ArrowRight, 
+  LayoutDashboard,
+  BarChart3,
+  TrendingUp,
+  CheckCircle2,
+  AlertCircle,
+  User
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { it } from 'date-fns/locale';
 
 // =====================================================
-// PT DASHBOARD - Home con statistiche reali
-// Solo per ruolo: pt (web dashboard)
+// PT DASHBOARD - Home con statistiche
+// Design: KPI cards, sezioni con bordo colorato
 // =====================================================
 
 export function PTDashboard() {
-  const { data: stats, isLoading, error } = usePTStats();
+  const { user } = useAuth();
+  const { data: stats, isLoading } = usePTStats();
+
+  // Fetch profile for welcome message
+  const { data: profile } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch pending connection requests
+  const { data: pendingRequests } = useQuery({
+    queryKey: ['pt-pending-requests-dashboard', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      const { data, error } = await supabase
+        .from('pt_atleta_connections')
+        .select('id, atleta_user_id, created_at')
+        .eq('pt_user_id', user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      // Fetch profiles
+      const requestsWithProfiles = await Promise.all(
+        (data || []).map(async (req) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, email')
+            .eq('user_id', req.atleta_user_id)
+            .single();
+          return { ...req, profile };
+        })
+      );
+
+      return requestsWithProfiles;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch upcoming events
+  const { data: upcomingEvents } = useQuery({
+    queryKey: ['pt-upcoming-events-dashboard', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      const today = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .select('id, title, start_datetime, event_type')
+        .eq('pt_user_id', user.id)
+        .eq('is_cancelled', false)
+        .gte('start_datetime', today)
+        .order('start_datetime', { ascending: true })
+        .limit(5);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const firstName = profile?.first_name || 'Coach';
 
   return (
     <div className="space-y-6 animate-in">
       {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Dashboard Personal Trainer</h2>
-          <p className="text-muted-foreground">
-            Gestisci i tuoi atleti, allenamenti e appuntamenti
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link to="/pt/athletes">
-              <Users className="h-4 w-4 mr-2" />
-              Atleti
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link to="/pt/workouts">
-              <Dumbbell className="h-4 w-4 mr-2" />
-              Nuovo Allenamento
-            </Link>
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats grid */}
-      {isLoading ? (
-        <div className="flex items-center justify-center h-32">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : error ? (
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardContent className="pt-6">
-            <p className="text-destructive">Errore nel caricamento delle statistiche</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="dashboard-grid">
-          <StatsCard
-            title="I Miei Atleti"
-            value={stats?.active_athletes ?? 0}
-            description={stats?.pending_requests ? `${stats.pending_requests} richieste pendenti` : 'Atleti attivi'}
-            icon={Users}
-          />
-
-          <StatsCard
-            title="Allenamenti Creati"
-            value={stats?.total_workouts ?? 0}
-            description={`${stats?.completed_workouts ?? 0} completati`}
-            icon={Dumbbell}
-          />
-
-          <StatsCard
-            title="Appuntamenti"
-            value={stats?.upcoming_events ?? 0}
-            description="Nei prossimi 7 giorni"
-            icon={Calendar}
-          />
-
-          <StatsCard
-            title="Messaggi"
-            value={stats?.unread_messages ?? 0}
-            description="Non letti"
-            icon={MessageSquare}
-          />
-        </div>
-      )}
-
-      {/* Quick Actions and Requests */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Pending Requests */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Richieste di collegamento</CardTitle>
-              <CardDescription>
-                Atleti che vogliono allenarsi con te
-              </CardDescription>
-            </div>
-            {stats?.pending_requests && stats.pending_requests > 0 && (
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-warning text-warning-foreground text-xs font-medium">
-                {stats.pending_requests}
-              </span>
+      <DashboardPageHeader
+        icon={<LayoutDashboard className="h-6 w-6" />}
+        title={`Dashboard Personal Trainer`}
+        subtitle={`Benvenuto, ${firstName} • ${user?.email}`}
+        badges={
+          <div className="flex gap-2">
+            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+              {stats?.active_athletes || 0} atleti
+            </Badge>
+            {(stats?.pending_requests ?? 0) > 0 && (
+              <Badge variant="outline" className="bg-warning/5 text-warning border-warning/20">
+                {stats?.pending_requests} richieste
+              </Badge>
             )}
-          </CardHeader>
-          <CardContent>
-            {stats?.pending_requests && stats.pending_requests > 0 ? (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Hai {stats.pending_requests} richieste in attesa di approvazione
-                </p>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/pt/athletes">
-                    Gestisci Richieste
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-24 text-muted-foreground">
-                <Clock className="h-8 w-8 mb-2 opacity-50" />
-                <p className="text-sm">Nessuna richiesta pendente</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Upcoming Events */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Prossimi appuntamenti</CardTitle>
-              <CardDescription>
-                Le tue sessioni in programma
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {stats?.upcoming_events && stats.upcoming_events > 0 ? (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Hai {stats.upcoming_events} eventi programmati questa settimana
-                </p>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/pt/calendar">
-                    Vedi Calendario
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-24 text-muted-foreground">
-                <Calendar className="h-8 w-8 mb-2 opacity-50" />
-                <p className="text-sm">Nessun evento in programma</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Links */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Azioni rapide</CardTitle>
-          <CardDescription>Accedi velocemente alle funzionalità principali</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+          </div>
+        }
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
               <Link to="/pt/athletes">
-                <Users className="h-5 w-5" />
-                <span>Gestisci Atleti</span>
+                <Users className="h-4 w-4 mr-2" />
+                Atleti
               </Link>
             </Button>
-            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+            <Button asChild>
               <Link to="/pt/workouts">
-                <Dumbbell className="h-5 w-5" />
-                <span>Crea Allenamento</span>
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
-              <Link to="/pt/messages">
-                <MessageSquare className="h-5 w-5" />
-                <span>Messaggi</span>
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
-              <Link to="/pt/settings">
-                <CreditCard className="h-5 w-5" />
-                <span>Profilo Pubblico</span>
+                <Dumbbell className="h-4 w-4 mr-2" />
+                Nuovo Allenamento
               </Link>
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        }
+      />
+
+      {/* Primary KPI Stats */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-5">
+                <Skeleton className="h-4 w-24 mb-2" />
+                <Skeleton className="h-8 w-16 mb-1" />
+                <Skeleton className="h-3 w-20" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <KPICard
+              title="I Miei Atleti"
+              value={stats?.active_athletes ?? 0}
+              subtitle="Atleti attivi"
+              icon={Users}
+              iconColor="primary"
+            />
+            <KPICard
+              title="Allenamenti Creati"
+              value={stats?.total_workouts ?? 0}
+              subtitle={`${stats?.completed_workouts ?? 0} completati`}
+              icon={Dumbbell}
+              iconColor="success"
+            />
+            <KPICard
+              title="Appuntamenti"
+              value={stats?.upcoming_events ?? 0}
+              subtitle="Prossimi 7 giorni"
+              icon={Calendar}
+              iconColor="info"
+            />
+            <KPICard
+              title="Messaggi"
+              value={stats?.unread_messages ?? 0}
+              subtitle="Non letti"
+              icon={MessageSquare}
+              iconColor="warning"
+            />
+          </>
+        )}
+      </div>
+
+      {/* Dashboard KPI Section */}
+      <SectionCard
+        title="Dashboard KPI"
+        subtitle="Panoramica delle performance"
+        icon={BarChart3}
+        iconColor="primary"
+      >
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <KPICardColored
+            title="Tasso Completamento"
+            value={stats?.total_workouts ? `${Math.round((stats.completed_workouts / stats.total_workouts) * 100)}%` : '0%'}
+            subtitle="Workout completati"
+            icon={TrendingUp}
+            color="blue"
+          />
+          <KPICardColored
+            title="Richieste Pendenti"
+            value={stats?.pending_requests ?? 0}
+            subtitle="Da approvare"
+            icon={Clock}
+            color="yellow"
+          />
+          <KPICardColored
+            title="Crescita Atleti"
+            value={`+${stats?.active_athletes ?? 0}`}
+            subtitle="Atleti questo mese"
+            icon={Users}
+            color="green"
+          />
+          <KPICardColored
+            title="Atleti"
+            value={stats?.active_athletes ?? 0}
+            subtitle="Collegati"
+            icon={CheckCircle2}
+            color="purple"
+          />
+        </div>
+      </SectionCard>
+
+      {/* Two columns section */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Pending Requests */}
+        <InfoSection
+          title="Richieste di collegamento"
+          icon={AlertCircle}
+          iconColor="yellow"
+          action={
+            pendingRequests && pendingRequests.length > 0 ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/pt/athletes">
+                  Gestisci
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : null
+          }
+        >
+          {pendingRequests && pendingRequests.length > 0 ? (
+            <div className="space-y-3">
+              {pendingRequests.map((req) => (
+                <div 
+                  key={req.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <User className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">
+                        {req.profile?.first_name} {req.profile?.last_name}
+                      </p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {req.profile?.email}
+                      </p>
+                    </div>
+                  </div>
+                  <DashboardStatusBadge status="pending" size="sm" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <CheckCircle2 className="h-10 w-10 mb-3 opacity-50" />
+              <p className="text-sm">Nessuna richiesta pendente</p>
+            </div>
+          )}
+        </InfoSection>
+
+        {/* Upcoming Events */}
+        <InfoSection
+          title="Prossimi appuntamenti"
+          icon={Calendar}
+          iconColor="blue"
+          action={
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/pt/calendar">
+                Calendario
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          }
+        >
+          {upcomingEvents && upcomingEvents.length > 0 ? (
+            <div className="space-y-3">
+              {upcomingEvents.map((event) => (
+                <div 
+                  key={event.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-info/10 text-info">
+                      <Calendar className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{event.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(event.start_datetime), "d MMM 'alle' HH:mm", { locale: it })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <Calendar className="h-10 w-10 mb-3 opacity-50" />
+              <p className="text-sm">Nessun evento in programma</p>
+            </div>
+          )}
+        </InfoSection>
+      </div>
+
+      {/* Quick Actions */}
+      <SectionCard
+        title="Azioni rapide"
+        subtitle="Accedi velocemente alle funzionalità principali"
+        icon={Dumbbell}
+        iconColor="green"
+      >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 justify-start">
+            <Link to="/pt/athletes">
+              <Users className="h-5 w-5 text-primary" />
+              <span>Gestisci Atleti</span>
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 justify-start">
+            <Link to="/pt/workouts">
+              <Dumbbell className="h-5 w-5 text-success" />
+              <span>Crea Allenamento</span>
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 justify-start">
+            <Link to="/pt/messages">
+              <MessageSquare className="h-5 w-5 text-info" />
+              <span>Messaggi</span>
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 justify-start">
+            <Link to="/pt/settings">
+              <CreditCard className="h-5 w-5 text-warning" />
+              <span>Profilo Pubblico</span>
+            </Link>
+          </Button>
+        </div>
+      </SectionCard>
     </div>
   );
 }
