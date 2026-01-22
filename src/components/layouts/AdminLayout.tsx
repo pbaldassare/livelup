@@ -12,15 +12,15 @@ import {
   HeadphonesIcon,
   Settings, 
   LogOut,
-  ChevronRight,
   Bell,
   Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 
 // =====================================================
 // ADMIN LAYOUT - Dashboard Web Admin
-// Solo per ruolo: admin
+// Design: Sidebar teal, cards bianche, layout pulito
 // =====================================================
 
 interface AdminLayoutProps {
@@ -82,71 +82,62 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return location.pathname.startsWith(href);
   };
 
-  // Get page title based on current route
-  const getPageTitle = () => {
-    const currentItem = navigationItems.find(item => 
-      item.exact ? location.pathname === item.href : location.pathname.startsWith(item.href)
-    );
-    return currentItem?.label ?? 'Dashboard Admin';
-  };
-
   return (
-    <div className="min-h-screen bg-background" data-role="admin">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-sidebar">
+    <div className="min-h-screen bg-muted/30" data-role="admin">
+      {/* Sidebar - Stile teal scuro */}
+      <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-[#0d4f4f] text-white">
         <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-16 items-center border-b border-sidebar-border px-6">
+          {/* Logo & Brand */}
+          <div className="flex h-16 items-center px-6 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg role-indicator-admin">
-                <Shield className="h-5 w-5 text-role-admin-foreground" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
+                <Shield className="h-5 w-5 text-white" />
               </div>
               <div>
-                <span className="text-sm font-semibold">Admin Panel</span>
-                <span className="block text-xs text-muted-foreground">Enterprise</span>
+                <span className="text-base font-semibold">FitPlatform</span>
+                <span className="block text-xs text-white/60 uppercase tracking-wider">Admin</span>
               </div>
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
-            {navigationItems.map((item) => {
-              const isActive = isActiveRoute(item.href, item.exact);
-              return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
-                    isActive
-                      ? 'bg-role-admin/10 text-role-admin font-medium'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                  {isActive && (
-                    <ChevronRight className="ml-auto h-4 w-4" />
-                  )}
-                </Link>
-              );
-            })}
+          <nav className="flex-1 py-4 px-3 overflow-y-auto">
+            <div className="space-y-1">
+              {navigationItems.map((item) => {
+                const isActive = isActiveRoute(item.href, item.exact);
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all',
+                      isActive
+                        ? 'bg-white text-[#0d4f4f] font-medium shadow-sm'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    )}
+                  >
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
           </nav>
 
           {/* User section */}
-          <div className="border-t border-sidebar-border p-4">
-            <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/50 p-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-role-admin text-role-admin-foreground text-sm font-medium">
+          <div className="border-t border-white/10 p-4">
+            <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white text-sm font-medium">
                 A
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Admin</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                <p className="text-sm font-medium text-white truncate">Admin</p>
+                <p className="text-xs text-white/60 truncate">{user?.email}</p>
               </div>
             </div>
             <Button
               variant="ghost"
-              className="w-full mt-2 justify-start text-muted-foreground"
+              className="w-full justify-start text-white/70 hover:text-white hover:bg-white/10"
               onClick={signOut}
             >
               <LogOut className="mr-2 h-4 w-4" />
@@ -159,17 +150,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Main content */}
       <div className="pl-64">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur px-6">
-          <div>
-            <h1 className="text-lg font-semibold">{getPageTitle()}</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-                3
-              </span>
-            </Button>
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-end border-b border-border bg-white px-6">
+          <div className="flex items-center gap-3">
+            <NotificationDropdown />
           </div>
         </header>
 

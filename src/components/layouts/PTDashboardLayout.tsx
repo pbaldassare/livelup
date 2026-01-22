@@ -11,15 +11,20 @@ import {
   CreditCard,
   Settings, 
   LogOut,
-  ChevronRight,
   Bell,
-  Smartphone
+  Smartphone,
+  FileText,
+  Megaphone,
+  User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 // =====================================================
 // PT DASHBOARD LAYOUT - Dashboard Web PT
-// Solo per ruolo: pt
+// Design: Sidebar teal, cards bianche, layout pulito
 // =====================================================
 
 interface PTDashboardLayoutProps {
@@ -69,6 +74,21 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
   const location = useLocation();
   const { signOut, user } = useAuth();
 
+  // Fetch profile for display
+  const { data: profile } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, avatar_url')
+        .eq('user_id', user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
   const isActiveRoute = (href: string, exact?: boolean) => {
     if (exact) {
       return location.pathname === href;
@@ -76,74 +96,81 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
     return location.pathname.startsWith(href);
   };
 
+  const displayName = profile 
+    ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Personal Trainer'
+    : 'Personal Trainer';
+    
+  const initials = profile
+    ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`
+    : 'PT';
+
   return (
-    <div className="min-h-screen bg-background" data-role="pt">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-sidebar">
+    <div className="min-h-screen bg-muted/30" data-role="pt">
+      {/* Sidebar - Stile teal scuro */}
+      <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-[#0d4f4f] text-white">
         <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-16 items-center border-b border-sidebar-border px-6">
+          {/* Logo & Brand */}
+          <div className="flex h-16 items-center px-6 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg role-indicator-pt">
-                <Dumbbell className="h-5 w-5 text-role-pt-foreground" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
+                <Dumbbell className="h-5 w-5 text-white" />
               </div>
               <div>
-                <span className="text-sm font-semibold">PT Dashboard</span>
-                <span className="block text-xs text-muted-foreground">Personal Trainer</span>
+                <span className="text-base font-semibold">FitPlatform</span>
+                <span className="block text-xs text-white/60 uppercase tracking-wider">Personal Trainer</span>
               </div>
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4">
-            {navigationItems.map((item) => {
-              const isActive = isActiveRoute(item.href, item.exact);
-              return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
-                    isActive
-                      ? 'bg-role-pt/10 text-role-pt font-medium'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                  {isActive && (
-                    <ChevronRight className="ml-auto h-4 w-4" />
-                  )}
-                </Link>
-              );
-            })}
+          <nav className="flex-1 py-4 px-3 overflow-y-auto">
+            <div className="space-y-1">
+              {navigationItems.map((item) => {
+                const isActive = isActiveRoute(item.href, item.exact);
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all',
+                      isActive
+                        ? 'bg-white text-[#0d4f4f] font-medium shadow-sm'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    )}
+                  >
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* App link */}
+            <div className="mt-6 pt-4 border-t border-white/10">
+              <Link 
+                to="/pt/app"
+                className="flex items-center gap-3 rounded-lg border border-dashed border-white/30 px-3 py-2.5 text-sm text-white/70 hover:border-white/50 hover:text-white transition-colors"
+              >
+                <Smartphone className="h-4 w-4" />
+                <span>Apri App PT</span>
+              </Link>
+            </div>
           </nav>
 
-          {/* App link */}
-          <div className="px-4 pb-2">
-            <Link 
-              to="/pt/app"
-              className="flex items-center gap-3 rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              <Smartphone className="h-4 w-4" />
-              Apri App PT
-            </Link>
-          </div>
-
           {/* User section */}
-          <div className="border-t border-sidebar-border p-4">
-            <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/50 p-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-role-pt text-role-pt-foreground text-sm font-medium">
-                PT
+          <div className="border-t border-white/10 p-4">
+            <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white text-sm font-medium">
+                {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Personal Trainer</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                <p className="text-sm font-medium text-white truncate">{displayName}</p>
+                <p className="text-xs text-white/60 truncate">{user?.email}</p>
               </div>
             </div>
             <Button
               variant="ghost"
-              className="w-full mt-2 justify-start text-muted-foreground"
+              className="w-full justify-start text-white/70 hover:text-white hover:bg-white/10"
               onClick={signOut}
             >
               <LogOut className="mr-2 h-4 w-4" />
@@ -156,17 +183,9 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
       {/* Main content */}
       <div className="pl-64">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur px-6">
-          <div>
-            <h1 className="text-lg font-semibold">Dashboard PT</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-                5
-              </span>
-            </Button>
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-end border-b border-border bg-white px-6">
+          <div className="flex items-center gap-3">
+            <NotificationDropdown />
           </div>
         </header>
 
