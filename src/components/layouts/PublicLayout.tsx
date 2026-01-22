@@ -85,6 +85,14 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 <li><Link to="/pts" className="hover:text-foreground transition-colors">Trova un PT</Link></li>
                 <li><Link to="/features" className="hover:text-foreground transition-colors">Funzionalità</Link></li>
                 <li><Link to="/pricing" className="hover:text-foreground transition-colors">Prezzi</Link></li>
+                {showInstallOption && (
+                  <li>
+                    <Link to="/install" className="hover:text-foreground transition-colors flex items-center gap-1.5">
+                      <Download className="h-3.5 w-3.5" />
+                      Installa App
+                    </Link>
+                  </li>
+                )}
               </ul>
             </div>
             <div>
