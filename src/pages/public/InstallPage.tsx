@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Logo } from '@/components/common/Logo';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 type DeviceType = 'ios' | 'android' | 'desktop' | 'unknown';
@@ -58,6 +58,7 @@ const androidSteps = [
 export function InstallPage() {
   const [deviceType, setDeviceType] = useState<DeviceType>('unknown');
   const { isInstallable, isInstalled, install } = useInstallPrompt();
+  const navigate = useNavigate();
 
   useEffect(() => {
     setDeviceType(getDeviceType());
@@ -67,6 +68,10 @@ export function InstallPage() {
     await install();
   };
 
+  const handleGoBack = () => {
+    navigate(-1);
+  };
+
   const steps = deviceType === 'ios' ? iosSteps : androidSteps;
 
   return (
@@ -74,10 +79,10 @@ export function InstallPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 glass border-b border-border/50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
+          <button onClick={handleGoBack} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <ArrowLeft className="w-5 h-5" />
             <span className="text-sm">Torna indietro</span>
-          </Link>
+          </button>
         </div>
       </header>
 

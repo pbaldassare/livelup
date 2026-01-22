@@ -23,8 +23,10 @@ import {
   HelpCircle,
   Laptop,
   Award,
-  MapPin
+  MapPin,
+  Download
 } from 'lucide-react';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 
 // =====================================================
 // PT APP PROFILE PAGE - Profilo PT (Mobile)
@@ -98,6 +100,9 @@ export function PTAppProfilePage() {
 
   // Loading state
   const isLoading = isLoadingProfile || isLoadingPT || isLoadingStats;
+  const { isInstalled, isInstallable, isIOS } = useInstallPrompt();
+  
+  const showInstallOption = !isInstalled && (isInstallable || isIOS);
 
   const handleSignOut = async () => {
     await signOut();
@@ -110,6 +115,7 @@ export function PTAppProfilePage() {
     : user?.email?.[0]?.toUpperCase() || 'P';
 
   const menuItems = [
+    ...(showInstallOption ? [{ icon: Download, label: 'Installa App', href: '/install', external: false }] : []),
     { icon: Laptop, label: 'Dashboard Web', href: '/pt', external: false },
     { icon: Settings, label: 'Impostazioni profilo', href: '/pt/settings', external: false },
     { icon: Bell, label: 'Notifiche', href: '/pt/app/notifications', external: false },
