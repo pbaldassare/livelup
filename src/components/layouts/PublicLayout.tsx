@@ -1,7 +1,9 @@
 import { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/common/Logo';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 
 // =====================================================
 // PUBLIC LAYOUT - Sito pubblico
@@ -13,6 +15,9 @@ interface PublicLayoutProps {
 }
 
 export function PublicLayout({ children }: PublicLayoutProps) {
+  const { isInstalled, isInstallable, isIOS } = useInstallPrompt();
+  const showInstallOption = !isInstalled && (isInstallable || isIOS);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -38,6 +43,14 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
           {/* Auth buttons */}
           <div className="flex items-center gap-3">
+            {showInstallOption && (
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/install" className="flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  Installa
+                </Link>
+              </Button>
+            )}
             <Button variant="ghost" asChild>
               <Link to="/auth">Accedi</Link>
             </Button>
