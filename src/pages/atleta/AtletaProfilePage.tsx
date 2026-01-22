@@ -21,11 +21,12 @@ import {
   List,
   Award,
   Heart,
-  FileText
+  Star
 } from 'lucide-react';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
 import { ProfileStats } from '@/components/app/ProfileStats';
 import { BadgeCard } from '@/components/app/BadgeCard';
+import { AtletaReviewsHistory } from '@/components/reviews/AtletaReviewsHistory';
 import { cn } from '@/lib/utils';
 
 // =====================================================
@@ -195,10 +196,10 @@ export function AtletaProfilePage() {
             <Heart className="h-5 w-5" />
           </TabsTrigger>
           <TabsTrigger 
-            value="journal" 
+            value="reviews" 
             className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3"
           >
-            <FileText className="h-5 w-5" />
+            <Star className="h-5 w-5" />
           </TabsTrigger>
         </TabsList>
 
@@ -237,11 +238,8 @@ export function AtletaProfilePage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="journal" className="mt-0 p-4">
-          <h2 className="text-xl font-bold text-app-foreground mb-4">Diario</h2>
-          <div className="text-center py-12 text-app-muted-foreground">
-            Inizia a scrivere il tuo diario
-          </div>
+        <TabsContent value="reviews" className="mt-0 p-4">
+          <AtletaReviewsHistory />
         </TabsContent>
       </Tabs>
 
