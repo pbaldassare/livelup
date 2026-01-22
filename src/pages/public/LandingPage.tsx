@@ -97,7 +97,7 @@ export function LandingPage() {
             <h2 className="text-3xl font-bold mb-4">Tutto in un'unica piattaforma</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Smetti di saltare tra decine di app e strumenti. 
-              FitPlatform centralizza tutto ciò di cui hai bisogno.
+              LIVELLAPP centralizza tutto ciò di cui hai bisogno.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -217,7 +217,7 @@ export function LandingPage() {
                 Pronto a rivoluzionare il tuo fitness business?
               </h2>
               <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-                Unisciti a centinaia di Personal Trainer che hanno già scelto FitPlatform 
+                Unisciti a centinaia di Personal Trainer che hanno già scelto LIVELLAPP 
                 per gestire i loro atleti in modo professionale.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">

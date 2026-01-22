@@ -11,12 +11,11 @@ import {
   Tag,
   HeadphonesIcon,
   Settings, 
-  LogOut,
-  Bell,
-  Shield
+  LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
+import { Logo } from '@/components/common/Logo';
 
 // =====================================================
 // ADMIN LAYOUT - Dashboard Web Admin
@@ -90,11 +89,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           {/* Logo & Brand */}
           <div className="flex h-16 items-center px-6 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
-                <Shield className="h-5 w-5 text-white" />
-              </div>
+              <Logo variant="icon" className="h-9 w-9 rounded-lg" />
               <div>
-                <span className="text-base font-semibold">FitPlatform</span>
+                <span className="text-base font-semibold">LIVELLAPP</span>
                 <span className="block text-xs text-white/60 uppercase tracking-wider">Admin</span>
               </div>
             </div>

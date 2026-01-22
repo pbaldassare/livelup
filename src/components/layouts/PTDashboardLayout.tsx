@@ -11,16 +11,13 @@ import {
   CreditCard,
   Settings, 
   LogOut,
-  Bell,
-  Smartphone,
-  FileText,
-  Megaphone,
-  User
+  Smartphone
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { Logo } from '@/components/common/Logo';
 
 // =====================================================
 // PT DASHBOARD LAYOUT - Dashboard Web PT
@@ -112,11 +109,9 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
           {/* Logo & Brand */}
           <div className="flex h-16 items-center px-6 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
-                <Dumbbell className="h-5 w-5 text-white" />
-              </div>
+              <Logo variant="icon" className="h-9 w-9 rounded-lg" />
               <div>
-                <span className="text-base font-semibold">FitPlatform</span>
+                <span className="text-base font-semibold">LIVELLAPP</span>
                 <span className="block text-xs text-white/60 uppercase tracking-wider">Personal Trainer</span>
               </div>
             </div>

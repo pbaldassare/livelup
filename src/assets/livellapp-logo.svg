@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Livello_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 230.96 53.47">
+  <defs>
+    <style>
+      .st0 {
+        fill: none;
+      }
+
+      .st1 {
+        fill: url(#Sfumatura_senza_nome);
+      }
+
+      .st2 {
+        fill: url(#Sfumatura_senza_nome_2);
+      }
+
+      .st3 {
+        clip-path: url(#clippath);
+      }
+    </style>
+    <linearGradient id="Sfumatura_senza_nome" data-name="Sfumatura senza nome" x1="-179.31" y1="-396.48" x2="-178.31" y2="-396.48" gradientTransform="translate(29541.06 65196.05) scale(164.37)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#881811"/>
+      <stop offset="1" stop-color="#e73235"/>
+    </linearGradient>
+    <clipPath id="clippath">
+      <path class="st0" d="M35.59,26.22l-4.97,9.27h9.94l9.64,17.98h11.09L41.13,15.88l-5.55,10.34h.01ZM28.67,0L0,53.47h31.42l6.01-11.09h-20.4L39.75,0h-11.09,0Z"/>
+    </clipPath>
+    <linearGradient id="Sfumatura_senza_nome_2" data-name="Sfumatura senza nome 2" x1="-187.79" y1="-397.97" x2="-186.79" y2="-397.97" gradientTransform="translate(-21248.57 10041.12) rotate(90) scale(53.47)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e73235"/>
+      <stop offset=".3" stop-color="#e43134"/>
+      <stop offset=".49" stop-color="#db2e30"/>
+      <stop offset=".65" stop-color="#cd2a2b"/>
+      <stop offset=".79" stop-color="#b82523"/>
+      <stop offset=".92" stop-color="#9e1e19"/>
+      <stop offset="1" stop-color="#881811"/>
+    </linearGradient>
+  </defs>
+  <path class="st1" d="M68.98,35.48v-18.44h3.82v15.82h11.55v2.62h-15.37ZM86.62,35.48v-18.44h3.79v18.44h-3.79ZM101.1,35.48l-8.67-18.44h4.3l6.86,15.23,7-15.23h3.99l-8.73,18.44h-4.75ZM116.55,35.48v-18.44h19.72v2.62h-15.9v5.33h9.68v2.48h-9.68v5.38h15.9v2.62h-19.72ZM138.87,35.48v-18.44h3.82v15.82h11.55v2.62h-15.37ZM180.11,31.79h-10.71l-1.59,3.68h-4.18l8.67-18.44h4.8l8.67,18.44h-4.04l-1.62-3.68h0ZM170.51,29.26h8.48l-4.27-9.68-4.21,9.68h0ZM191.58,28.92v6.55h-3.82v-18.44h13.86c4.94,0,6.55.75,6.55,4.41v3.07c0,3.68-1.7,4.41-6.55,4.41h-10.04,0ZM204.38,22.2c0-2.01-.84-2.54-3.43-2.54h-9.37v6.72h9.37c2.59,0,3.43-.5,3.43-2.57v-1.62h0ZM214.37,28.92v6.55h-3.82v-18.44h13.86c4.94,0,6.55.75,6.55,4.41v3.07c0,3.68-1.7,4.41-6.55,4.41h-10.04,0ZM227.17,22.2c0-2.01-.84-2.54-3.43-2.54h-9.37v6.72h9.37c2.59,0,3.43-.5,3.43-2.57v-1.62h0Z"/>
+  <g class="st3">
+    <rect class="st2" width="61.29" height="53.47"/>
+  </g>
+</svg>
