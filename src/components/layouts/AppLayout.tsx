@@ -31,14 +31,14 @@ export function AppLayout({ children }: AppLayoutProps) {
     ? [
         { label: 'Home', href: '/pt/app', icon: Home, exact: true },
         { label: 'Atleti', href: '/pt/app/athletes', icon: Users },
-        { label: 'Workout', href: '/pt/app/workouts', icon: Dumbbell },
+        { label: 'Schede', href: '/pt/app/workouts', icon: Dumbbell },
         { label: 'Chat', href: '/pt/app/chat', icon: MessageSquare },
         { label: 'Profilo', href: '/pt/app/profile', icon: User },
       ]
     : [
         { label: 'Home', href: '/app', icon: Home, exact: true },
         { label: 'Workout', href: '/app/workout', icon: Dumbbell },
-        { label: 'Scopri PT', href: '/app/discover', icon: Search },
+        { label: 'Scopri', href: '/app/discover', icon: Search },
         { label: 'Progressi', href: '/app/progress', icon: TrendingUp },
         { label: 'Profilo', href: '/app/profile', icon: User },
       ];
