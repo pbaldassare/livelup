@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home, 
   Dumbbell, 
@@ -21,6 +22,21 @@ import {
 interface AppLayoutProps {
   children: ReactNode;
 }
+
+const pageVariants = {
+  initial: {
+    opacity: 0,
+    y: 10,
+  },
+  animate: {
+    opacity: 1,
+    y: 0,
+  },
+  exit: {
+    opacity: 0,
+    y: -10,
+  },
+};
 
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
@@ -62,7 +78,18 @@ export function AppLayout({ children }: AppLayoutProps) {
     >
       {/* Main content area - leaves space for bottom nav */}
       <main className="flex-1 pb-20 safe-top">
-        {children}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="h-full"
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Bottom navigation - mobile style */}
@@ -81,10 +108,15 @@ export function AppLayout({ children }: AppLayoutProps) {
                     : 'text-muted-foreground'
                 )}
               >
-                <item.icon className={cn(
-                  'h-5 w-5 transition-transform',
-                  isActive && 'scale-110'
-                )} />
+                <motion.div
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ duration: 0.1 }}
+                >
+                  <item.icon className={cn(
+                    'h-5 w-5 transition-transform',
+                    isActive && 'scale-110'
+                  )} />
+                </motion.div>
                 <span className="text-[10px] font-medium">{item.label}</span>
               </Link>
             );
