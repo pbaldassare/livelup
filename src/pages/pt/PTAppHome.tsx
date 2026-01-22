@@ -1,32 +1,35 @@
-import { Link } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { usePTAppStats } from '@/hooks/usePTAppStats';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { MobileNav } from '@/components/app/MobileNav';
+import { AppHeader } from '@/components/app/AppHeader';
+import { WeekCalendar } from '@/components/app/WeekCalendar';
+import { CTABanner } from '@/components/app/CTABanner';
 import { 
   Users, 
   Dumbbell, 
   MessageSquare, 
   Calendar,
-  Bell,
   ChevronRight,
-  AlertCircle,
   Clock
 } from 'lucide-react';
-import { format, isToday } from 'date-fns';
+import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
 // =====================================================
 // PT APP HOME - Dashboard Mobile/PWA
+// Design: dark theme, lime accent, quick stats
 // Solo per ruolo: pt (app)
 // =====================================================
 
 export function PTAppHome() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data: stats, isLoading: statsLoading } = usePTAppStats();
 
   // Fetch profile for name
@@ -36,7 +39,7 @@ export function PTAppHome() {
       if (!user?.id) return null;
       const { data } = await supabase
         .from('profiles')
-        .select('first_name, last_name')
+        .select('first_name, last_name, avatar_url')
         .eq('user_id', user.id)
         .single();
       return data;
@@ -45,11 +48,10 @@ export function PTAppHome() {
   });
 
   // Fetch today's events
-  const { data: todayEvents, isLoading: eventsLoading } = useQuery({
+  const { data: todayEvents = [], isLoading: eventsLoading } = useQuery({
     queryKey: ['pt-today-events', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-
       const today = new Date();
       const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
       const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
@@ -70,12 +72,11 @@ export function PTAppHome() {
     enabled: !!user?.id,
   });
 
-  // Fetch pending requests for alert
-  const { data: pendingRequests } = useQuery({
+  // Fetch pending requests
+  const { data: pendingRequests = [] } = useQuery({
     queryKey: ['pt-pending-requests', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-
       const { data, error } = await supabase
         .from('pt_atleta_connections')
         .select('id, atleta_user_id, created_at')
@@ -86,197 +87,206 @@ export function PTAppHome() {
 
       if (error) throw error;
 
-      // Fetch profiles
       const requestsWithProfiles = await Promise.all(
         (data || []).map(async (req) => {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('first_name, last_name')
+            .select('first_name, last_name, avatar_url')
             .eq('user_id', req.atleta_user_id)
             .single();
           return { ...req, profile };
         })
       );
-
       return requestsWithProfiles;
     },
     enabled: !!user?.id,
   });
 
-  const firstName = profile?.first_name || 'Coach';
+  // Mock week data
+  const weekDays = [
+    { day: 'L', date: 20, isCompleted: true, isToday: false, isFuture: false },
+    { day: 'M', date: 21, isCompleted: true, isToday: false, isFuture: false },
+    { day: 'M', date: 22, isCompleted: false, isToday: false, isFuture: false },
+    { day: 'G', date: 23, isCompleted: false, isToday: true, isFuture: false },
+    { day: 'V', date: 24, isCompleted: false, isToday: false, isFuture: true },
+    { day: 'S', date: 25, isCompleted: false, isToday: false, isFuture: true },
+    { day: 'D', date: 26, isCompleted: false, isToday: false, isFuture: true },
+  ];
+
+  const avatarInitials = profile 
+    ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`.toUpperCase() 
+    : 'PT';
 
   return (
-    <div className="p-4 space-y-6 animate-in">
-      {/* Welcome header */}
-      <div className="pt-2">
-        <p className="text-sm text-muted-foreground">Ciao,</p>
-        <h1 className="text-2xl font-bold">{firstName}</h1>
-      </div>
+    <div className="min-h-screen bg-app-background text-app-foreground pb-20">
+      {/* Header */}
+      <AppHeader
+        avatarUrl={profile?.avatar_url || undefined}
+        avatarInitials={avatarInitials}
+        showNotifications
+        notificationCount={stats?.unread_messages || 0}
+        onAvatarPress={() => navigate('/pt/app/profile')}
+        onNotificationPress={() => {}}
+      >
+        <WeekCalendar days={weekDays} />
+      </AppHeader>
 
-      {/* Pending requests alert */}
-      {pendingRequests && pendingRequests.length > 0 && (
-        <Card className="border-warning/50 bg-warning/5">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-warning mt-0.5" />
-              <div className="flex-1">
-                <p className="font-medium">Nuove richieste</p>
-                <p className="text-sm text-muted-foreground">
-                  Hai {pendingRequests.length} richieste di connessione in attesa
-                </p>
-              </div>
-              <Button size="sm" asChild>
-                <Link to="/pt/app/athletes">Vedi</Link>
+      <main className="px-4 space-y-4 pt-2">
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard 
+            icon={Users} 
+            label="Atleti Attivi" 
+            value={statsLoading ? 0 : (stats?.active_athletes || 0)}
+            onClick={() => navigate('/pt/app/athletes')}
+          />
+          <StatCard 
+            icon={Clock} 
+            label="Richieste" 
+            value={statsLoading ? 0 : (stats?.pending_requests || 0)}
+            highlight={(stats?.pending_requests || 0) > 0}
+            onClick={() => navigate('/pt/app/athletes')}
+          />
+          <StatCard 
+            icon={Calendar} 
+            label="Eventi Oggi" 
+            value={statsLoading ? 0 : (stats?.today_events || 0)}
+            onClick={() => navigate('/pt/app/calendar')}
+          />
+          <StatCard 
+            icon={MessageSquare} 
+            label="Messaggi" 
+            value={statsLoading ? 0 : (stats?.unread_messages || 0)}
+            highlight={(stats?.unread_messages || 0) > 0}
+            onClick={() => navigate('/pt/app/chat')}
+          />
+        </div>
+
+        {/* Pending Requests */}
+        {pendingRequests.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+                Richieste in attesa
+              </h3>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-app-accent text-xs"
+                onClick={() => navigate('/pt/app/athletes')}
+              >
+                Vedi tutte
+                <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Quick stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link to="/pt/app/athletes">
-          <Card className="hover:bg-muted/50 transition-colors">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                  <Users className="h-5 w-5 text-primary" />
+            {pendingRequests.map((req) => (
+              <button 
+                key={req.id}
+                className="w-full flex items-center gap-3 bg-gray-900/60 rounded-xl p-3 border border-white/10 text-left active:scale-[0.98] transition-transform"
+                onClick={() => navigate('/pt/app/athletes')}
+              >
+                <Avatar className="h-12 w-12 ring-2 ring-app-accent/30">
+                  <AvatarImage src={req.profile?.avatar_url || undefined} />
+                  <AvatarFallback className="bg-gray-800 text-app-accent font-bold">
+                    {req.profile?.first_name?.[0]}{req.profile?.last_name?.[0]}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium truncate">
+                    {req.profile?.first_name} {req.profile?.last_name}
+                  </p>
+                  <p className="text-xs text-white/50">
+                    Richiesta {new Date(req.created_at).toLocaleDateString('it-IT')}
+                  </p>
                 </div>
-                <div>
-                  {statsLoading ? (
-                    <Skeleton className="h-8 w-12" />
-                  ) : (
-                    <p className="text-2xl font-bold">{stats?.activeAthletes || 0}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">Atleti</p>
+                <ChevronRight className="h-5 w-5 text-white/30 flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Today's Events */}
+        {todayEvents.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+                Oggi
+              </h3>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-app-accent text-xs"
+                onClick={() => navigate('/pt/app/calendar')}
+              >
+                Calendario
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+
+            {todayEvents.map((event) => (
+              <div 
+                key={event.id}
+                className="flex items-center gap-3 bg-gray-900/60 rounded-xl p-3 border border-white/10"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-app-accent/20">
+                  <Clock className="h-5 w-5 text-app-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium truncate">{event.title}</p>
+                  <p className="text-xs text-white/50">
+                    {format(new Date(event.start_datetime), 'HH:mm', { locale: it })}
+                  </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link to="/pt/app/calendar">
-          <Card className="hover:bg-muted/50 transition-colors">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                  <Calendar className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  {statsLoading ? (
-                    <Skeleton className="h-8 w-12" />
-                  ) : (
-                    <p className="text-2xl font-bold">{stats?.todayEvents || 0}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">Oggi</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
-      {/* Today's schedule */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Appuntamenti di oggi</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/pt/app/calendar">
-                Tutti
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Link>
-            </Button>
+            ))}
           </div>
-        </CardHeader>
-        <CardContent>
-          {eventsLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          ) : todayEvents && todayEvents.length > 0 ? (
-            <div className="space-y-2">
-              {todayEvents.map((event) => (
-                <div 
-                  key={event.id}
-                  className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                    <Clock className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{event.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(event.start_datetime), 'HH:mm', { locale: it })}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-20 text-muted-foreground text-sm">
-              Nessun appuntamento per oggi
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
 
-      {/* Quick actions */}
-      <div className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Azioni rapide</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <Link to="/pt/app/workouts">
-            <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <CardContent className="p-4 flex flex-col items-center gap-2">
-                <Dumbbell className="h-6 w-6 text-primary" />
-                <span className="text-sm font-medium">Schede</span>
-                {stats?.pendingRequests ? (
-                  <Badge variant="secondary" className="text-xs">
-                    Gestisci via web
-                  </Badge>
-                ) : null}
-              </CardContent>
-            </Card>
-          </Link>
-          <Link to="/pt/app/chat">
-            <Card className="cursor-pointer hover:bg-muted/50 transition-colors relative">
-              <CardContent className="p-4 flex flex-col items-center gap-2">
-                <MessageSquare className="h-6 w-6 text-primary" />
-                <span className="text-sm font-medium">Messaggi</span>
-                {stats?.unreadMessages ? (
-                  <Badge variant="default" className="absolute -top-1 -right-1">
-                    {stats.unreadMessages}
-                  </Badge>
-                ) : null}
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-      </div>
+        {/* Quick Actions */}
+        <CTABanner
+          title="Crea una nuova scheda"
+          subtitle="Usa la dashboard web per creare schede complete"
+          actionLabel="Vai alla Dashboard"
+          icon={Dumbbell}
+          onAction={() => window.open('/pt', '_blank')}
+        />
+      </main>
 
-      {/* Recent messages placeholder - could expand later */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Messaggi recenti</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/pt/app/chat">
-                Tutti
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Link>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-16 text-muted-foreground text-sm">
-            {stats?.unreadMessages 
-              ? `${stats.unreadMessages} messaggi non letti`
-              : 'Nessun messaggio recente'}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Bottom Navigation */}
+      <MobileNav role="pt" />
     </div>
+  );
+}
+
+// =====================================================
+// STAT CARD - Card statistiche compatta
+// =====================================================
+
+interface StatCardProps {
+  icon: React.ElementType;
+  label: string;
+  value: number;
+  highlight?: boolean;
+  onClick?: () => void;
+}
+
+function StatCard({ icon: Icon, label, value, highlight, onClick }: StatCardProps) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-3 bg-gray-900/60 rounded-xl p-4 border border-white/10 text-left active:scale-[0.98] transition-transform w-full"
+    >
+      <div className={`p-2.5 rounded-lg ${highlight ? 'bg-app-accent/20' : 'bg-gray-800'}`}>
+        <Icon className={`h-5 w-5 ${highlight ? 'text-app-accent' : 'text-white/60'}`} />
+      </div>
+      <div>
+        <p className={`text-2xl font-bold ${highlight ? 'text-app-accent' : 'text-white'}`}>
+          {value}
+        </p>
+        <p className="text-xs text-white/50">{label}</p>
+      </div>
+    </button>
   );
 }
 
