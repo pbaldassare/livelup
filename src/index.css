@@ -269,6 +269,34 @@
     @apply animate-pulse bg-muted rounded;
   }
 
+  /* Skeleton shimmer animation */
+  .skeleton-shimmer {
+    @apply relative overflow-hidden bg-muted rounded;
+  }
+
+  .skeleton-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--muted-foreground) / 0.08) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
   /* Grid layouts */
   .dashboard-grid {
     @apply grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
