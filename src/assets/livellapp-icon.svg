@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Livello_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 97.62 97.63">
+  <defs>
+    <style>
+      .st0 {
+        fill: none;
+      }
+
+      .st1 {
+        fill: #1d1d1b;
+      }
+
+      .st2 {
+        clip-path: url(#clippath-1);
+      }
+
+      .st3 {
+        fill: url(#Sfumatura_senza_nome_4);
+      }
+
+      .st4 {
+        clip-path: url(#clippath);
+      }
+    </style>
+    <clipPath id="clippath">
+      <rect class="st0" width="97.62" height="97.63"/>
+    </clipPath>
+    <clipPath id="clippath-1">
+      <path class="st0" d="M35.2,64.46l22.72-42.38h-11.09l-28.67,53.47h31.42l6.01-11.09h-20.4ZM79.46,75.55l-20.16-37.59-5.55,10.34-4.97,9.27h9.94l9.64,17.98h11.09Z"/>
+    </clipPath>
+    <linearGradient id="Sfumatura_senza_nome_4" data-name="Sfumatura senza nome 4" x1="-254.49" y1="475.35" x2="-253.49" y2="475.35" gradientTransform="translate(-25367.35 13629.2) rotate(90) scale(53.47 -53.47)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e73235"/>
+      <stop offset=".3" stop-color="#e43134"/>
+      <stop offset=".49" stop-color="#db2e30"/>
+      <stop offset=".65" stop-color="#cd2a2b"/>
+      <stop offset=".79" stop-color="#b82523"/>
+      <stop offset=".92" stop-color="#9e1e19"/>
+      <stop offset="1" stop-color="#881811"/>
+    </linearGradient>
+  </defs>
+  <g class="st4">
+    <rect class="st1" y="0" width="97.62" height="97.63" rx="10.08" ry="10.08"/>
+  </g>
+  <g class="st2">
+    <rect class="st3" x="18.17" y="22.08" width="61.29" height="53.47"/>
+  </g>
+</svg>

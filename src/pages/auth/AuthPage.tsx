@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Dumbbell, Shield, User, Loader2 } from 'lucide-react';
+import { Dumbbell, User, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { Logo } from '@/components/common/Logo';
 
 // =====================================================
 // AUTH PAGE - Login e Registrazione
@@ -118,11 +119,11 @@ export function AuthPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary mb-4">
-            <Dumbbell className="h-7 w-7 text-primary-foreground" />
+          <div className="inline-block mb-4">
+            <Logo variant="icon" className="h-16 w-16 mx-auto" />
           </div>
-          <h1 className="text-2xl font-bold">FitPlatform</h1>
-          <p className="text-muted-foreground">Piattaforma Fitness Enterprise</p>
+          <h1 className="text-2xl font-bold">LIVELLAPP</h1>
+          <p className="text-muted-foreground">La tua piattaforma fitness</p>
         </div>
 
         <Card>

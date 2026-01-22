@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Dumbbell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/common/Logo';
 
 // =====================================================
 // PUBLIC LAYOUT - Sito pubblico
@@ -19,11 +19,8 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
         <div className="container-wide flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Dumbbell className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-semibold">FitPlatform</span>
+          <Link to="/" className="flex items-center">
+            <Logo variant="full" className="h-8" />
           </Link>
 
           {/* Navigation */}
@@ -62,10 +59,8 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                  <Dumbbell className="h-4 w-4 text-primary-foreground" />
-                </div>
-                <span className="font-semibold">FitPlatform</span>
+                <Logo variant="icon" className="h-8 w-8" />
+                <span className="font-semibold">LIVELLAPP</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 La piattaforma enterprise per Personal Trainer e Atleti.
@@ -98,7 +93,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           </div>
           <div className="mt-8 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              © 2024 FitPlatform. Tutti i diritti riservati.
+              © 2024 LIVELLAPP. Tutti i diritti riservati.
             </p>
           </div>
         </div>
