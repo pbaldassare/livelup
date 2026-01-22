@@ -124,7 +124,7 @@ export function PTAppHome() {
         avatarUrl={profile?.avatar_url || undefined}
         avatarInitials={avatarInitials}
         showNotifications
-        notificationCount={stats?.unread_messages || 0}
+        notificationCount={stats?.unreadMessages || 0}
         onAvatarPress={() => navigate('/pt/app/profile')}
         onNotificationPress={() => {}}
       >
@@ -137,27 +137,27 @@ export function PTAppHome() {
           <StatCard 
             icon={Users} 
             label="Atleti Attivi" 
-            value={statsLoading ? 0 : (stats?.active_athletes || 0)}
+            value={statsLoading ? 0 : (stats?.activeAthletes || 0)}
             onClick={() => navigate('/pt/app/athletes')}
           />
           <StatCard 
             icon={Clock} 
             label="Richieste" 
-            value={statsLoading ? 0 : (stats?.pending_requests || 0)}
-            highlight={(stats?.pending_requests || 0) > 0}
+            value={statsLoading ? 0 : (stats?.pendingRequests || 0)}
+            highlight={(stats?.pendingRequests || 0) > 0}
             onClick={() => navigate('/pt/app/athletes')}
           />
           <StatCard 
             icon={Calendar} 
             label="Eventi Oggi" 
-            value={statsLoading ? 0 : (stats?.today_events || 0)}
+            value={statsLoading ? 0 : (stats?.todayEvents || 0)}
             onClick={() => navigate('/pt/app/calendar')}
           />
           <StatCard 
             icon={MessageSquare} 
             label="Messaggi" 
-            value={statsLoading ? 0 : (stats?.unread_messages || 0)}
-            highlight={(stats?.unread_messages || 0) > 0}
+            value={statsLoading ? 0 : (stats?.unreadMessages || 0)}
+            highlight={(stats?.unreadMessages || 0) > 0}
             onClick={() => navigate('/pt/app/chat')}
           />
         </div>
