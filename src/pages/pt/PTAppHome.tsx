@@ -1,15 +1,16 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { usePTAppStats } from '@/hooks/usePTAppStats';
+import { usePTConnectionRequests } from '@/hooks/usePTConnectionRequests';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { MobileNav } from '@/components/app/MobileNav';
 import { AppHeader } from '@/components/app/AppHeader';
 import { WeekCalendar } from '@/components/app/WeekCalendar';
 import { CTABanner } from '@/components/app/CTABanner';
+import { MobileNav } from '@/components/app/MobileNav';
+import { PTConnectionRequests } from '@/components/app/PTConnectionRequests';
 import { 
   Users, 
   Dumbbell, 
@@ -31,6 +32,7 @@ export function PTAppHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data: stats, isLoading: statsLoading } = usePTAppStats();
+  const { pendingCount } = usePTConnectionRequests();
 
   // Fetch profile for name
   const { data: profile } = useQuery({
@@ -68,36 +70,6 @@ export function PTAppHome() {
 
       if (error) throw error;
       return data || [];
-    },
-    enabled: !!user?.id,
-  });
-
-  // Fetch pending requests
-  const { data: pendingRequests = [] } = useQuery({
-    queryKey: ['pt-pending-requests', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('pt_atleta_connections')
-        .select('id, atleta_user_id, created_at')
-        .eq('pt_user_id', user.id)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (error) throw error;
-
-      const requestsWithProfiles = await Promise.all(
-        (data || []).map(async (req) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, avatar_url')
-            .eq('user_id', req.atleta_user_id)
-            .single();
-          return { ...req, profile };
-        })
-      );
-      return requestsWithProfiles;
     },
     enabled: !!user?.id,
   });
@@ -162,48 +134,9 @@ export function PTAppHome() {
           />
         </div>
 
-        {/* Pending Requests */}
-        {pendingRequests.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wide">
-                Richieste in attesa
-              </h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-app-accent text-xs"
-                onClick={() => navigate('/pt/app/athletes')}
-              >
-                Vedi tutte
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-
-            {pendingRequests.map((req) => (
-              <button 
-                key={req.id}
-                className="w-full flex items-center gap-3 bg-gray-900/60 rounded-xl p-3 border border-white/10 text-left active:scale-[0.98] transition-transform"
-                onClick={() => navigate('/pt/app/athletes')}
-              >
-                <Avatar className="h-12 w-12 ring-2 ring-app-accent/30">
-                  <AvatarImage src={req.profile?.avatar_url || undefined} />
-                  <AvatarFallback className="bg-gray-800 text-app-accent font-bold">
-                    {req.profile?.first_name?.[0]}{req.profile?.last_name?.[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium truncate">
-                    {req.profile?.first_name} {req.profile?.last_name}
-                  </p>
-                  <p className="text-xs text-white/50">
-                    Richiesta {new Date(req.created_at).toLocaleDateString('it-IT')}
-                  </p>
-                </div>
-                <ChevronRight className="h-5 w-5 text-white/30 flex-shrink-0" />
-              </button>
-            ))}
-          </div>
+        {/* Pending Connection Requests */}
+        {pendingCount > 0 && (
+          <PTConnectionRequests maxItems={3} showEmpty={false} />
         )}
 
         {/* Today's Events */}

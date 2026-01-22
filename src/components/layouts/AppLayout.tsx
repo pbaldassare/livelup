@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 import { cn } from '@/lib/utils';
 import { 
   Home, 
@@ -25,6 +25,9 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const { isPT, isAtleta } = usePermissions();
+  
+  // Enable realtime notifications
+  useRealtimeNotifications();
 
   // Navigation items based on role
   const navigationItems = isPT
