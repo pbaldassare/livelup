@@ -61,6 +61,7 @@ import AtletaPTProfilePage from "./pages/atleta/AtletaPTProfilePage";
 import AtletaWorkoutPage from "./pages/atleta/AtletaWorkoutPage";
 import AtletaProgressPage from "./pages/atleta/AtletaProgressPage";
 import AtletaProfilePage from "./pages/atleta/AtletaProfilePage";
+import AtletaChatPage from "./pages/atleta/AtletaChatPage";
 
 const queryClient = new QueryClient();
 
@@ -322,10 +323,14 @@ const App = () => (
             <Route path="/app/chat" element={
               <AtletaRoute>
                 <AppLayout>
-                  <div className="p-4">
-                    <h2 className="text-xl font-bold">Chat con il PT</h2>
-                    <p className="text-muted-foreground mt-2">Chat - Da implementare</p>
-                  </div>
+                  <AtletaChatPage />
+                </AppLayout>
+              </AtletaRoute>
+            } />
+            <Route path="/app/chat/:recipientId" element={
+              <AtletaRoute>
+                <AppLayout>
+                  <AtletaChatPage />
                 </AppLayout>
               </AtletaRoute>
             } />

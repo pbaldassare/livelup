@@ -1,14 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
@@ -16,24 +11,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { terminateConnection } from '@/lib/api/connections';
 import { toast } from 'sonner';
 import { 
-  User, 
-  Settings, 
   LogOut, 
   ChevronRight,
-  Star,
-  Dumbbell,
-  Target,
   Bell,
   Shield,
   HelpCircle,
-  Users,
   Edit,
-  LinkIcon,
-  Unlink
+  Unlink,
+  List,
+  Award,
+  Heart,
+  FileText
 } from 'lucide-react';
+import { ProfileHeader } from '@/components/app/ProfileHeader';
+import { ProfileStats } from '@/components/app/ProfileStats';
+import { BadgeCard } from '@/components/app/BadgeCard';
+import { cn } from '@/lib/utils';
 
 // =====================================================
-// ATLETA PROFILE PAGE - Profilo e impostazioni
+// ATLETA PROFILE PAGE - Design reference: Ladder_iOS_117/118
 // =====================================================
 
 export function AtletaProfilePage() {
@@ -42,19 +38,18 @@ export function AtletaProfilePage() {
   const { status, connection, ptName, refetch } = useAtletaStatus();
   const queryClient = useQueryClient();
   const [showEditSheet, setShowEditSheet] = useState(false);
+  const [activeTab, setActiveTab] = useState('badges');
 
   // Fetch profile
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
         .single();
-
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
@@ -66,15 +61,50 @@ export function AtletaProfilePage() {
     queryKey: ['atleta-profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-
       const { data, error } = await supabase
         .from('atleta_profiles')
         .select('*')
         .eq('user_id', user.id)
         .single();
-
       if (error && error.code !== 'PGRST116') throw error;
       return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch workout stats
+  const { data: stats } = useQuery({
+    queryKey: ['atleta-workout-stats', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return { workouts: 0, minutes: 0, calories: 0, cheers: 0 };
+      
+      const { data: workouts } = await supabase
+        .from('workouts')
+        .select('id, completed_at')
+        .eq('atleta_user_id', user.id)
+        .eq('status', 'completato');
+
+      return {
+        workouts: workouts?.length || 0,
+        minutes: (workouts?.length || 0) * 35, // Estimated
+        calories: (workouts?.length || 0) * 180, // Estimated
+        cheers: 0,
+      };
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch badges
+  const { data: badges } = useQuery({
+    queryKey: ['atleta-badges', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('atleta_badges')
+        .select('*, badges(*)')
+        .eq('atleta_user_id', user.id);
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!user?.id,
   });
@@ -100,178 +130,174 @@ export function AtletaProfilePage() {
     navigate('/auth');
   };
 
-  const fullName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
+  const handleSendMessage = () => {
+    if (connection?.pt_user_id) {
+      navigate(`/app/chat/${connection.pt_user_id}`);
+    }
+  };
+
+  const fullName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Atleta';
   const initials = profile 
     ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` 
     : user?.email?.[0]?.toUpperCase() || 'U';
 
+  const profileStats = [
+    { value: stats?.workouts || 0, label: 'Workouts', color: 'blue' as const, progress: 75 },
+    { value: stats?.minutes ? `${(stats.minutes / 1000).toFixed(1)}K` : '0', label: 'Minutes', color: 'blue' as const, progress: 60 },
+    { value: stats?.calories ? `${(stats.calories / 1000).toFixed(1)}K` : '0', label: 'Calories', color: 'orange' as const, progress: 80 },
+    { value: stats?.cheers || 0, label: 'Cheers', color: 'pink' as const, progress: 0 },
+  ];
+
   const menuItems = [
     { icon: Bell, label: 'Notifiche', href: '/app/notifications' },
-    { icon: Target, label: 'Obiettivi', href: '/app/goals' },
     { icon: Shield, label: 'Privacy', href: '/app/privacy' },
     { icon: HelpCircle, label: 'Aiuto', href: '/app/help' },
   ];
 
+  // Calculate streak (mock for now)
+  const streakCount = stats?.workouts ? Math.min(stats.workouts, 30) : 0;
+
   return (
-    <div className="pb-4">
-      {/* Header */}
-      <div className="p-4 space-y-4">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={profile?.avatar_url || undefined} />
-            <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
-          </Avatar>
-          
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">{fullName || 'Atleta'}</h1>
-            <p className="text-sm text-muted-foreground">{user?.email}</p>
-            
-            <Badge 
-              variant={status === 'collegato' ? 'default' : status === 'pending' ? 'secondary' : 'outline'}
-              className="mt-2"
-            >
-              {status === 'collegato' ? (
-                <>
-                  <LinkIcon className="h-3 w-3 mr-1" />
-                  Collegato
-                </>
-              ) : status === 'pending' ? (
-                'Richiesta in attesa'
-              ) : (
-                'Non collegato'
-              )}
-            </Badge>
-          </div>
-
-          <Button variant="ghost" size="icon" onClick={() => setShowEditSheet(true)}>
-            <Edit className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* PT Connection Card */}
-      <div className="p-4">
-        <Card className={status === 'collegato' ? 'border-primary/30 bg-primary/5' : ''}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Il mio Personal Trainer
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {status === 'collegato' && connection ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={connection.profiles?.avatar_url || undefined} />
-                    <AvatarFallback>
-                      {(connection.profiles?.first_name?.[0] || '') + (connection.profiles?.last_name?.[0] || '')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="font-medium">{ptName}</p>
-                    {connection.pt_profiles?.rating_avg && (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Star className="h-3 w-3 fill-warning text-warning" />
-                        {connection.pt_profiles.rating_avg.toFixed(1)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full">
-                      <Unlink className="h-4 w-4 mr-2" />
-                      Termina connessione
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Terminare la connessione?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Perderai accesso alle schede di allenamento e alla chat con {ptName}. 
-                        Potrai cercare un nuovo PT dopo la disconnessione.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Annulla</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => terminateMutation.mutate()}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Termina
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            ) : status === 'pending' ? (
-              <div className="text-center py-4">
-                <p className="text-sm text-muted-foreground">
-                  Hai una richiesta di connessione in attesa di approvazione
-                </p>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Non sei ancora collegato a un Personal Trainer
-                </p>
-                <Button asChild>
-                  <a href="/app/discover">Trova un PT</a>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+    <div className="min-h-screen bg-app-background pb-20">
+      {/* Profile Header */}
+      <ProfileHeader
+        name={fullName}
+        initials={initials}
+        avatarUrl={profile?.avatar_url}
+        coverUrl={null}
+        streakCount={streakCount}
+        subtitle={status === 'collegato' ? ptName || 'Elevate' : undefined}
+        onSendMessage={status === 'collegato' ? handleSendMessage : undefined}
+      />
 
       {/* Stats */}
-      {atletaProfile && (
-        <div className="grid grid-cols-2 gap-3 px-4 mb-4">
-          <Card>
-            <CardContent className="p-3 text-center">
-              <Dumbbell className="h-5 w-5 mx-auto text-primary mb-1" />
-              <p className="text-sm font-medium capitalize">{atletaProfile.fitness_level || 'N/D'}</p>
-              <p className="text-xs text-muted-foreground">Livello</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 text-center">
-              <Target className="h-5 w-5 mx-auto text-primary mb-1" />
-              <p className="text-sm font-medium">{atletaProfile.goals?.length || 0}</p>
-              <p className="text-xs text-muted-foreground">Obiettivi</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <ProfileStats stats={profileStats} className="border-b border-app-border" />
 
-      {/* Menu items */}
-      <div className="px-4 space-y-2">
-        {menuItems.map((item) => (
-          <Card 
-            key={item.label}
-            className="cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() => navigate(item.href)}
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full bg-transparent border-b border-app-border rounded-none p-0 h-auto">
+          <TabsTrigger 
+            value="activity" 
+            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3"
           >
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <item.icon className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">{item.label}</span>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </CardContent>
-          </Card>
+            <List className="h-5 w-5" />
+          </TabsTrigger>
+          <TabsTrigger 
+            value="badges" 
+            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3"
+          >
+            <Award className="h-5 w-5" />
+          </TabsTrigger>
+          <TabsTrigger 
+            value="favorites" 
+            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3"
+          >
+            <Heart className="h-5 w-5" />
+          </TabsTrigger>
+          <TabsTrigger 
+            value="journal" 
+            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3"
+          >
+            <FileText className="h-5 w-5" />
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="badges" className="mt-0 p-4">
+          <h2 className="text-xl font-bold text-app-foreground mb-6">Your Badges</h2>
+          
+          {/* Main badge with progress */}
+          <BadgeCard
+            name="Total Workouts"
+            value={stats?.workouts || 0}
+            variant="large"
+            progress={{ current: stats?.workouts || 0, max: 50 }}
+            className="mb-8"
+          />
+
+          {/* Milestones grid */}
+          <h3 className="text-lg font-bold text-app-foreground mb-4">Workout Milestones</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <BadgeCard name="Workout Minutes" value={`${stats?.minutes || 0}`} />
+            <BadgeCard name="Weekly Streaks" value={Math.floor((stats?.workouts || 0) / 7)} />
+            <BadgeCard name="Calories Burned" value={`${stats?.calories || 0}`} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-0 p-4">
+          <h2 className="text-xl font-bold text-app-foreground mb-4">Attività recente</h2>
+          <div className="text-center py-12 text-app-muted-foreground">
+            Nessuna attività recente
+          </div>
+        </TabsContent>
+
+        <TabsContent value="favorites" className="mt-0 p-4">
+          <h2 className="text-xl font-bold text-app-foreground mb-4">Preferiti</h2>
+          <div className="text-center py-12 text-app-muted-foreground">
+            Nessun workout nei preferiti
+          </div>
+        </TabsContent>
+
+        <TabsContent value="journal" className="mt-0 p-4">
+          <h2 className="text-xl font-bold text-app-foreground mb-4">Diario</h2>
+          <div className="text-center py-12 text-app-muted-foreground">
+            Inizia a scrivere il tuo diario
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Settings menu */}
+      <div className="px-4 mt-6 space-y-2">
+        {menuItems.map((item) => (
+          <button
+            key={item.label}
+            onClick={() => navigate(item.href)}
+            className="w-full flex items-center justify-between p-4 bg-app-muted rounded-xl hover:bg-app-muted/80 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <item.icon className="h-5 w-5 text-app-muted-foreground" />
+              <span className="font-medium text-app-foreground">{item.label}</span>
+            </div>
+            <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+          </button>
         ))}
+
+        {/* Terminate connection */}
+        {status === 'collegato' && connection && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="w-full flex items-center justify-between p-4 bg-app-muted rounded-xl hover:bg-app-muted/80 transition-colors">
+                <div className="flex items-center gap-3">
+                  <Unlink className="h-5 w-5 text-red-400" />
+                  <span className="font-medium text-red-400">Termina connessione PT</span>
+                </div>
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="bg-app-card border-app-border">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-app-foreground">Terminare la connessione?</AlertDialogTitle>
+                <AlertDialogDescription className="text-app-muted-foreground">
+                  Perderai accesso alle schede di allenamento e alla chat con {ptName}. 
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="bg-app-muted text-app-foreground border-app-border">Annulla</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => terminateMutation.mutate()}
+                  className="bg-red-500 text-white hover:bg-red-600"
+                >
+                  Termina
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       {/* Logout */}
-      <div className="px-4 mt-6">
+      <div className="px-4 mt-6 mb-8">
         <Button 
           variant="outline" 
-          className="w-full text-destructive hover:text-destructive"
+          className="w-full bg-transparent border-app-border text-red-400 hover:bg-red-500/10 hover:text-red-400"
           onClick={handleSignOut}
         >
           <LogOut className="h-4 w-4 mr-2" />
@@ -281,11 +307,11 @@ export function AtletaProfilePage() {
 
       {/* Edit profile sheet */}
       <Sheet open={showEditSheet} onOpenChange={setShowEditSheet}>
-        <SheetContent side="bottom" className="h-[60vh]">
+        <SheetContent side="bottom" className="h-[60vh] bg-app-background border-app-border">
           <SheetHeader>
-            <SheetTitle>Modifica profilo</SheetTitle>
+            <SheetTitle className="text-app-foreground">Modifica profilo</SheetTitle>
           </SheetHeader>
-          <div className="py-4 text-center text-muted-foreground">
+          <div className="py-4 text-center text-app-muted-foreground">
             Funzionalità in arrivo
           </div>
         </SheetContent>
