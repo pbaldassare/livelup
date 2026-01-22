@@ -25,6 +25,7 @@ import AuthPage from "./pages/auth/AuthPage";
 
 // Public pages
 import PTDiscoveryPage from "./pages/public/PTDiscoveryPage";
+import PTProfilePage from "./pages/public/PTProfilePage";
 
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -73,6 +74,7 @@ const App = () => (
             
             {/* Public PT Discovery page */}
             <Route path="/pts" element={<PTDiscoveryPage />} />
+            <Route path="/pts/:userId" element={<PTProfilePage />} />
 
             {/* ============================================= */}
             {/* ADMIN ROUTES - Solo ruolo admin              */}

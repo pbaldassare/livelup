@@ -101,15 +101,36 @@ export function PTAthletesPage() {
 
   // Accept request mutation
   const acceptMutation = useMutation({
-    mutationFn: async (connectionId: string) => {
+    mutationFn: async (conn: AtletaConnection) => {
       const { error } = await supabase
         .from('pt_atleta_connections')
         .update({ 
           status: 'attivo', 
           accepted_at: new Date().toISOString() 
         })
-        .eq('id', connectionId);
+        .eq('id', conn.id);
       if (error) throw error;
+
+      // Get PT name for notification
+      const { data: ptProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', user?.id)
+        .single();
+
+      const ptName = ptProfile 
+        ? `${ptProfile.first_name || ''} ${ptProfile.last_name || ''}`.trim() || 'Il tuo PT'
+        : 'Il tuo PT';
+
+      // Create notification for atleta
+      await supabase.from('notifications').insert({
+        user_id: conn.atleta_user_id,
+        type: 'connection_accepted',
+        title: 'Richiesta accettata!',
+        body: `${ptName} ha accettato la tua richiesta di connessione.`,
+        action_url: '/app',
+        data: { connection_id: conn.id, pt_user_id: user?.id },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-athletes'] });
@@ -122,12 +143,22 @@ export function PTAthletesPage() {
 
   // Reject request mutation
   const rejectMutation = useMutation({
-    mutationFn: async (connectionId: string) => {
+    mutationFn: async (conn: AtletaConnection) => {
       const { error } = await supabase
         .from('pt_atleta_connections')
         .update({ status: 'rifiutato' })
-        .eq('id', connectionId);
+        .eq('id', conn.id);
       if (error) throw error;
+
+      // Create notification for atleta
+      await supabase.from('notifications').insert({
+        user_id: conn.atleta_user_id,
+        type: 'connection_rejected',
+        title: 'Richiesta non accettata',
+        body: 'La tua richiesta di connessione non è stata accettata. Puoi cercare altri Personal Trainer.',
+        action_url: '/pts',
+        data: { pt_user_id: user?.id },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-athletes'] });
@@ -205,7 +236,7 @@ export function PTAthletesPage() {
             size="sm"
             variant="outline"
             className="text-success hover:text-success"
-            onClick={() => acceptMutation.mutate(conn.id)}
+            onClick={() => acceptMutation.mutate(conn)}
             disabled={acceptMutation.isPending}
           >
             <Check className="h-4 w-4 mr-1" />
@@ -215,7 +246,7 @@ export function PTAthletesPage() {
             size="sm"
             variant="outline"
             className="text-destructive hover:text-destructive"
-            onClick={() => rejectMutation.mutate(conn.id)}
+            onClick={() => rejectMutation.mutate(conn)}
             disabled={rejectMutation.isPending}
           >
             <X className="h-4 w-4 mr-1" />
