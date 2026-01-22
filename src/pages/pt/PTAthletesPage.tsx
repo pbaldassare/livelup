@@ -2,13 +2,24 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { PageHeader } from '@/components/dashboard/PageHeader';
-import { DataTable, Column } from '@/components/dashboard/DataTable';
-import { StatusBadge } from '@/components/dashboard/StatusBadge';
+import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
+import { KPICard } from '@/components/dashboard/KPICard';
+import { SectionCard } from '@/components/dashboard/SectionCard';
+import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
+import { DetailSheet, ProfileInfo } from '@/components/dashboard/DetailSheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
 import { 
   Users, 
   Search, 
@@ -17,12 +28,15 @@ import {
   Dumbbell,
   Check,
   X,
-  Clock
+  Clock,
+  UserCheck,
+  UserX,
+  History
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // =====================================================
-// PT ATHLETES PAGE - CRM Atleti
+// PT ATHLETES PAGE - CRM Atleti (Design System Updated)
 // Solo per ruolo: pt (web dashboard)
 // =====================================================
 
@@ -37,6 +51,7 @@ interface AtletaConnection {
     last_name: string | null;
     email: string | null;
     avatar_url: string | null;
+    phone: string | null;
   } | null;
   atleta_profiles: {
     level: string | null;
@@ -50,6 +65,8 @@ export function PTAthletesPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('active');
+  const [selectedAthlete, setSelectedAthlete] = useState<AtletaConnection | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // Fetch connections
   const { data: connections = [], isLoading } = useQuery({
@@ -76,7 +93,7 @@ export function PTAthletesPage() {
         (data || []).map(async (conn) => {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('first_name, last_name, email, avatar_url')
+            .select('first_name, last_name, email, avatar_url, phone')
             .eq('user_id', conn.atleta_user_id)
             .single();
 
@@ -183,136 +200,87 @@ export function PTAthletesPage() {
 
   const pendingCount = connections.filter(c => c.status === 'pending').length;
   const activeCount = connections.filter(c => c.status === 'attivo').length;
+  const terminatedCount = connections.filter(c => c.status === 'terminato').length;
 
-  const columns: Column<AtletaConnection>[] = [
-    {
-      key: 'atleta',
-      header: 'Atleta',
-      cell: (conn) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-role-atleta/10 text-role-atleta font-medium">
-            {conn.profiles?.first_name?.[0]}{conn.profiles?.last_name?.[0]}
-          </div>
-          <div>
-            <p className="font-medium">
-              {conn.profiles?.first_name} {conn.profiles?.last_name}
-            </p>
-            <p className="text-sm text-muted-foreground">{conn.profiles?.email}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'level',
-      header: 'Livello',
-      cell: (conn) => (
-        <span className="capitalize">{conn.atleta_profiles?.level || 'N/A'}</span>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Stato',
-      cell: (conn) => <StatusBadge status={conn.status} />,
-    },
-    {
-      key: 'since',
-      header: 'Dal',
-      cell: (conn) => (
-        <span className="text-sm text-muted-foreground">
-          {conn.accepted_at 
-            ? new Date(conn.accepted_at).toLocaleDateString('it-IT')
-            : new Date(conn.requested_at).toLocaleDateString('it-IT')
-          }
-        </span>
-      ),
-    },
-  ];
+  const handleViewDetail = (conn: AtletaConnection) => {
+    setSelectedAthlete(conn);
+    setDetailOpen(true);
+  };
 
-  const renderActions = (conn: AtletaConnection) => (
-    <div className="flex items-center gap-2">
-      {conn.status === 'pending' ? (
-        <>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-success hover:text-success"
-            onClick={() => acceptMutation.mutate(conn)}
-            disabled={acceptMutation.isPending}
-          >
-            <Check className="h-4 w-4 mr-1" />
-            Accetta
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-destructive hover:text-destructive"
-            onClick={() => rejectMutation.mutate(conn)}
-            disabled={rejectMutation.isPending}
-          >
-            <X className="h-4 w-4 mr-1" />
-            Rifiuta
-          </Button>
-        </>
-      ) : (
-        <>
-          <Button size="sm" variant="ghost">
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button size="sm" variant="ghost">
-            <MessageSquare className="h-4 w-4" />
-          </Button>
-          <Button size="sm" variant="ghost">
-            <Dumbbell className="h-4 w-4" />
-          </Button>
-        </>
-      )}
-    </div>
-  );
+  const getProfileInfo = (conn: AtletaConnection): ProfileInfo => ({
+    id: conn.id,
+    userId: conn.atleta_user_id,
+    firstName: conn.profiles?.first_name,
+    lastName: conn.profiles?.last_name,
+    email: conn.profiles?.email,
+    phone: conn.profiles?.phone,
+    avatarUrl: conn.profiles?.avatar_url,
+    status: conn.status,
+    createdAt: conn.requested_at,
+    role: 'atleta',
+  });
 
   return (
     <div className="space-y-6 animate-in">
-      <PageHeader
+      <DashboardPageHeader
         title="I Miei Atleti"
-        description="Gestisci i tuoi atleti e le richieste di collegamento"
-        icon={Users}
+        subtitle="Gestisci i tuoi atleti e le richieste di collegamento"
+        icon={<Users className="h-6 w-6" />}
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/pt' },
+          { label: 'Atleti' },
+        ]}
       />
 
-      {/* Stats Cards */}
+      {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Atleti Attivi</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-role-pt">{activeCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Richieste Pendenti</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-warning">{pendingCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Totale Storico</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{connections.length}</div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Atleti Attivi"
+          value={activeCount}
+          icon={UserCheck}
+          iconColor="success"
+        />
+        <KPICard
+          title="Richieste Pendenti"
+          value={pendingCount}
+          icon={Clock}
+          iconColor="warning"
+        />
+        <KPICard
+          title="Totale Storico"
+          value={connections.length}
+          icon={History}
+          iconColor="info"
+        />
       </div>
 
-      {/* Tabs and Table */}
-      <Card>
-        <CardHeader>
+      {/* Table Section */}
+      <SectionCard
+        title="Lista Atleti"
+        subtitle="Visualizza e gestisci tutti i tuoi atleti"
+        icon={Users}
+        iconColor="blue"
+      >
+        <div className="space-y-4">
+          {/* Search and Tabs */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <CardTitle>Lista Atleti</CardTitle>
-              <CardDescription>Visualizza e gestisci tutti i tuoi atleti</CardDescription>
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+              <TabsList>
+                <TabsTrigger value="active" className="gap-2">
+                  <UserCheck className="h-4 w-4" />
+                  Attivi ({activeCount})
+                </TabsTrigger>
+                <TabsTrigger value="pending" className="gap-2">
+                  <Clock className="h-4 w-4" />
+                  Richieste ({pendingCount})
+                </TabsTrigger>
+                <TabsTrigger value="terminated">
+                  <UserX className="h-4 w-4 mr-1" />
+                  Terminati ({terminatedCount})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -323,38 +291,172 @@ export function PTAthletesPage() {
               />
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="active" className="gap-2">
-                <Users className="h-4 w-4" />
-                Attivi ({activeCount})
-              </TabsTrigger>
-              <TabsTrigger value="pending" className="gap-2">
-                <Clock className="h-4 w-4" />
-                Richieste ({pendingCount})
-              </TabsTrigger>
-              <TabsTrigger value="terminated">
-                Terminati
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value={activeTab} className="mt-4">
-              <DataTable
-                columns={columns}
-                data={filteredConnections}
-                isLoading={isLoading}
-                emptyMessage={
-                  activeTab === 'pending' 
-                    ? 'Nessuna richiesta pendente'
-                    : 'Nessun atleta trovato'
-                }
-                actions={renderActions}
-              />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+
+          {/* Table */}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Atleta</TableHead>
+                  <TableHead>Livello</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead className="text-right">Azioni</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        Caricamento...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredConnections.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      {activeTab === 'pending' 
+                        ? 'Nessuna richiesta pendente'
+                        : 'Nessun atleta trovato'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredConnections.map((conn) => (
+                    <TableRow 
+                      key={conn.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleViewDetail(conn)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10 ring-2 ring-role-atleta/20">
+                            <AvatarImage src={conn.profiles?.avatar_url || undefined} />
+                            <AvatarFallback className="bg-role-atleta/10 text-role-atleta font-medium">
+                              {conn.profiles?.first_name?.[0]}{conn.profiles?.last_name?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">
+                              {conn.profiles?.first_name} {conn.profiles?.last_name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">{conn.profiles?.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="capitalize text-sm">
+                          {conn.atleta_profiles?.level || 'N/A'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <DashboardStatusBadge status={conn.status} size="sm" />
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {conn.accepted_at 
+                          ? new Date(conn.accepted_at).toLocaleDateString('it-IT')
+                          : new Date(conn.requested_at).toLocaleDateString('it-IT')
+                        }
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          {conn.status === 'pending' ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-success hover:text-success hover:bg-success/10"
+                                onClick={() => acceptMutation.mutate(conn)}
+                                disabled={acceptMutation.isPending}
+                              >
+                                <Check className="h-4 w-4 mr-1" />
+                                Accetta
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => rejectMutation.mutate(conn)}
+                                disabled={rejectMutation.isPending}
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Rifiuta
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button size="sm" variant="ghost" onClick={() => handleViewDetail(conn)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost">
+                                <MessageSquare className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost">
+                                <Dumbbell className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Detail Sheet */}
+      <DetailSheet
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        profile={selectedAthlete ? getProfileInfo(selectedAthlete) : null}
+        tags={selectedAthlete?.atleta_profiles?.goals || []}
+        stats={[
+          { label: 'Livello', value: selectedAthlete?.atleta_profiles?.level || 'N/A' },
+          { label: 'Stato', value: selectedAthlete?.atleta_profiles?.status || 'attivo' },
+        ]}
+        actions={
+          selectedAthlete?.status === 'attivo' ? (
+            <>
+              <Button className="flex-1" variant="outline">
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Messaggio
+              </Button>
+              <Button className="flex-1">
+                <Dumbbell className="h-4 w-4 mr-2" />
+                Assegna Scheda
+              </Button>
+            </>
+          ) : selectedAthlete?.status === 'pending' ? (
+            <>
+              <Button 
+                className="flex-1" 
+                variant="outline"
+                onClick={() => {
+                  if (selectedAthlete) rejectMutation.mutate(selectedAthlete);
+                  setDetailOpen(false);
+                }}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Rifiuta
+              </Button>
+              <Button 
+                className="flex-1"
+                onClick={() => {
+                  if (selectedAthlete) acceptMutation.mutate(selectedAthlete);
+                  setDetailOpen(false);
+                }}
+              >
+                <Check className="h-4 w-4 mr-2" />
+                Accetta
+              </Button>
+            </>
+          ) : null
+        }
+      />
     </div>
   );
 }
