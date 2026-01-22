@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,11 +13,8 @@ import {
   ChevronLeft, 
   Settings2, 
   Play, 
-  CheckCircle2,
   Clock,
   Dumbbell,
-  ChevronRight,
-  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -25,6 +22,7 @@ import { toast } from 'sonner';
 // =====================================================
 // ATLETA WORKOUT DETAIL PAGE - Workout execution
 // Design reference: Ladder_iOS_60, 61, 62
+// With framer-motion animations
 // =====================================================
 
 interface WorkoutExercise {
@@ -46,6 +44,25 @@ interface WorkoutExercise {
   };
 }
 
+// Animation variants
+const pageVariants = {
+  initial: { opacity: 0, scale: 0.98 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.98 },
+};
+
+const exerciseVariants = {
+  initial: { opacity: 0, x: 100 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -100 },
+};
+
+const slideUpVariants = {
+  initial: { opacity: 0, y: 50 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: 50 },
+};
+
 export function AtletaWorkoutDetailPage() {
   const { workoutId } = useParams<{ workoutId: string }>();
   const navigate = useNavigate();
@@ -60,6 +77,7 @@ export function AtletaWorkoutDetailPage() {
   const [showTimer, setShowTimer] = useState(false);
   const [completedSets, setCompletedSets] = useState<Record<string, number[]>>({});
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [exerciseDirection, setExerciseDirection] = useState(1);
 
   // Fetch workout with exercises
   const { data: workout, isLoading } = useQuery({
@@ -251,9 +269,19 @@ export function AtletaWorkoutDetailPage() {
     // Check if we need to move to next exercise
     if (currentExercise && (completedSets[currentExercise.id]?.length || 0) >= currentExercise.prescribed_sets) {
       if (currentExerciseIndex < totalExercises - 1) {
+        setExerciseDirection(1);
         setCurrentExerciseIndex(prev => prev + 1);
         setCurrentSet(1);
       }
+    }
+  };
+
+  // Navigate to previous exercise
+  const goToPreviousExercise = () => {
+    if (currentExerciseIndex > 0) {
+      setExerciseDirection(-1);
+      setCurrentExerciseIndex(prev => prev - 1);
+      setCurrentSet(1);
     }
   };
 
@@ -278,27 +306,43 @@ export function AtletaWorkoutDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-app-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-app-accent border-t-transparent rounded-full animate-spin" />
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+          className="w-8 h-8 border-2 border-app-accent border-t-transparent rounded-full"
+        />
       </div>
     );
   }
 
   if (!workout) {
     return (
-      <div className="min-h-screen bg-app-background p-4">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="min-h-screen bg-app-background p-4"
+      >
         <div className="text-center pt-20">
           <Dumbbell className="h-12 w-12 mx-auto text-app-muted-foreground mb-4" />
           <h2 className="text-xl font-bold text-app-foreground mb-2">Workout non trovato</h2>
-          <Button onClick={() => navigate('/app/workout')}>Torna ai workout</Button>
+          <Button onClick={() => navigate('/app/workout')} className="bg-app-accent text-app-accent-foreground">
+            Torna ai workout
+          </Button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Pre-workout screen
   if (!isWorkoutStarted) {
     return (
-      <div className="min-h-screen bg-app-background">
+      <motion.div 
+        variants={pageVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        className="min-h-screen bg-app-background"
+      >
         {/* Header */}
         <div className="sticky top-0 z-50 bg-app-background/95 backdrop-blur">
           <div className="flex items-center justify-between p-4">
@@ -306,7 +350,7 @@ export function AtletaWorkoutDetailPage() {
               variant="ghost"
               size="icon"
               onClick={() => navigate('/app/workout')}
-              className="text-app-foreground"
+              className="text-app-foreground hover:bg-app-muted"
             >
               <ChevronLeft className="h-6 w-6" />
             </Button>
@@ -317,7 +361,12 @@ export function AtletaWorkoutDetailPage() {
 
         <div className="p-4 space-y-6">
           {/* Workout info */}
-          <div className="text-center space-y-2">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-center space-y-2"
+          >
             <h2 className="text-2xl font-bold text-app-foreground">{workout.title}</h2>
             {workout.description && (
               <p className="text-app-muted-foreground">{workout.description}</p>
@@ -332,17 +381,20 @@ export function AtletaWorkoutDetailPage() {
                 <span>~{totalExercises * 5} min</span>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Exercise list preview */}
           <div className="space-y-3">
             <h3 className="font-semibold text-app-foreground">Esercizi</h3>
             {exercises.map((ex: WorkoutExercise, idx: number) => (
-              <div
+              <motion.div
                 key={ex.id}
-                className="flex items-center gap-3 p-3 bg-app-card rounded-xl"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.15 + idx * 0.05 }}
+                className="flex items-center gap-3 p-3 bg-app-card border border-app-border rounded-xl"
               >
-                <div className="w-8 h-8 rounded-full bg-app-accent/10 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-app-accent/20 flex items-center justify-center">
                   <span className="text-sm font-bold text-app-accent">{idx + 1}</span>
                 </div>
                 <div className="flex-1">
@@ -352,39 +404,60 @@ export function AtletaWorkoutDetailPage() {
                     {ex.prescribed_reps_max ? `-${ex.prescribed_reps_max}` : ''} rep
                   </p>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
 
           {/* PT notes */}
           {workout.notes_pt && (
-            <div className="bg-app-card rounded-xl p-4">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-app-card border border-app-border rounded-xl p-4"
+            >
               <h3 className="font-semibold text-app-foreground mb-2">Note del coach</h3>
               <p className="text-sm text-app-muted-foreground">{workout.notes_pt}</p>
-            </div>
+            </motion.div>
           )}
 
           {/* Start button */}
-          <Button
-            onClick={() => setIsWorkoutStarted(true)}
-            className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
           >
-            <Play className="h-5 w-5 mr-2" />
-            Inizia Allenamento
-          </Button>
+            <Button
+              onClick={() => setIsWorkoutStarted(true)}
+              className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
+            >
+              <Play className="h-5 w-5 mr-2" />
+              Inizia Allenamento
+            </Button>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Active workout screen
   return (
-    <div className="min-h-screen bg-app-background flex flex-col">
+    <motion.div 
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      className="min-h-screen bg-app-background flex flex-col"
+    >
       {/* Header with progress */}
-      <div className="sticky top-0 z-50 bg-app-background/95 backdrop-blur">
+      <motion.div 
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="sticky top-0 z-50 bg-app-background/95 backdrop-blur"
+      >
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-app-foreground">{formatTime(elapsedTime)}</span>
+            <span className="text-lg font-bold text-app-foreground tabular-nums">{formatTime(elapsedTime)}</span>
             <span className="text-app-muted-foreground">•</span>
             <span className="text-app-muted-foreground">{Math.round(workoutProgress)}%</span>
           </div>
@@ -392,7 +465,7 @@ export function AtletaWorkoutDetailPage() {
             variant="ghost"
             size="icon"
             onClick={() => navigate('/app/workout')}
-            className="text-app-foreground"
+            className="text-app-foreground hover:bg-app-muted"
           >
             <Settings2 className="h-5 w-5" />
           </Button>
@@ -401,10 +474,13 @@ export function AtletaWorkoutDetailPage() {
         {/* Progress segments */}
         <div className="flex gap-1 px-4 pb-2">
           {exercises.map((_: any, idx: number) => (
-            <div
+            <motion.div
               key={idx}
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ delay: idx * 0.05 }}
               className={cn(
-                'flex-1 h-1 rounded-full',
+                'flex-1 h-1 rounded-full origin-left',
                 idx < currentExerciseIndex
                   ? 'bg-app-accent'
                   : idx === currentExerciseIndex
@@ -414,29 +490,49 @@ export function AtletaWorkoutDetailPage() {
             />
           ))}
         </div>
+      </motion.div>
+
+      {/* Video area with animation */}
+      <div className="flex-1 relative overflow-hidden">
+        <AnimatePresence mode="wait" custom={exerciseDirection}>
+          <motion.div
+            key={currentExerciseIndex}
+            custom={exerciseDirection}
+            variants={exerciseVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="absolute inset-0"
+          >
+            <ExerciseVideoPlayer
+              videoUrl={currentExercise?.exercises?.video_url || undefined}
+              imageUrl={currentExercise?.exercises?.image_url || undefined}
+              exerciseName={currentExercise?.exercises?.name || 'Esercizio'}
+              setNumber={currentSet}
+              totalSets={currentExercise?.prescribed_sets || 1}
+              coachAvatar={ptProfile?.avatar_url || undefined}
+              coachName={`${ptProfile?.first_name || ''} ${ptProfile?.last_name || ''}`}
+            />
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      {/* Video area */}
-      <div className="flex-1 relative">
-        <ExerciseVideoPlayer
-          videoUrl={currentExercise?.exercises?.video_url || undefined}
-          imageUrl={currentExercise?.exercises?.image_url || undefined}
-          exerciseName={currentExercise?.exercises?.name || 'Esercizio'}
-          setNumber={currentSet}
-          totalSets={currentExercise?.prescribed_sets || 1}
-          coachAvatar={ptProfile?.avatar_url || undefined}
-          coachName={`${ptProfile?.first_name || ''} ${ptProfile?.last_name || ''}`}
+      {/* Bottom panel - Set tracker with animation */}
+      <motion.div
+        variants={slideUpVariants}
+        initial="initial"
+        animate="animate"
+        transition={{ delay: 0.2 }}
+      >
+        <SetTracker
+          sets={setsData}
+          currentSet={currentSet}
+          onSetComplete={handleSetComplete}
+          onSetChange={setCurrentSet}
+          restSeconds={currentExercise?.rest_seconds || 60}
         />
-      </div>
-
-      {/* Bottom panel - Set tracker */}
-      <SetTracker
-        sets={setsData}
-        currentSet={currentSet}
-        onSetComplete={handleSetComplete}
-        onSetChange={setCurrentSet}
-        restSeconds={currentExercise?.rest_seconds || 60}
-      />
+      </motion.div>
 
       {/* Rest timer sheet */}
       <Sheet open={showTimer} onOpenChange={setShowTimer}>
@@ -447,14 +543,18 @@ export function AtletaWorkoutDetailPage() {
             </SheetTitle>
           </SheetHeader>
 
-          <div className="py-8">
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="py-8"
+          >
             <WorkoutTimer
               initialSeconds={currentExercise?.rest_seconds || 60}
               onComplete={handleRestComplete}
               isRest={true}
               autoStart={true}
             />
-          </div>
+          </motion.div>
 
           <div className="text-center pb-4">
             <p className="text-app-muted-foreground mb-2">Prossimo:</p>
@@ -466,13 +566,13 @@ export function AtletaWorkoutDetailPage() {
           <Button
             onClick={handleRestComplete}
             variant="outline"
-            className="w-full rounded-full border-app-border text-app-foreground"
+            className="w-full rounded-full border-app-border text-app-foreground hover:bg-app-muted"
           >
             Salta recupero
           </Button>
         </SheetContent>
       </Sheet>
-    </div>
+    </motion.div>
   );
 }
 
