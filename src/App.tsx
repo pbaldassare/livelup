@@ -36,7 +36,7 @@ import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
 import AdminCouponsPage from "./pages/admin/AdminCouponsPage";
 import AdminSupportPage from "./pages/admin/AdminSupportPage";
 
-// PT Dashboard pages
+// PT Dashboard pages (Web)
 import PTDashboard from "./pages/pt/PTDashboard";
 import PTAthletesPage from "./pages/pt/PTAthletesPage";
 import PTWorkoutsPage from "./pages/pt/PTWorkoutsPage";
@@ -45,11 +45,22 @@ import PTMessagesPage from "./pages/pt/PTMessagesPage";
 import PTPaymentsPage from "./pages/pt/PTPaymentsPage";
 import PTSettingsPage from "./pages/pt/PTSettingsPage";
 
-// PT App pages
+// PT App pages (Mobile/PWA)
 import PTAppHome from "./pages/pt/PTAppHome";
+import PTAppAthletesPage from "./pages/pt/PTAppAthletesPage";
+import PTAppWorkoutsPage from "./pages/pt/PTAppWorkoutsPage";
+import PTAppChatPage from "./pages/pt/PTAppChatPage";
+import PTAppCalendarPage from "./pages/pt/PTAppCalendarPage";
+import PTAppProfilePage from "./pages/pt/PTAppProfilePage";
 
-// Atleta pages
+// Atleta App pages (Mobile/PWA)
 import AtletaAppHome from "./pages/atleta/AtletaAppHome";
+import AtletaOnboardingPage from "./pages/atleta/AtletaOnboardingPage";
+import AtletaDiscoverPage from "./pages/atleta/AtletaDiscoverPage";
+import AtletaPTProfilePage from "./pages/atleta/AtletaPTProfilePage";
+import AtletaWorkoutPage from "./pages/atleta/AtletaWorkoutPage";
+import AtletaProgressPage from "./pages/atleta/AtletaProgressPage";
+import AtletaProfilePage from "./pages/atleta/AtletaProfilePage";
 
 const queryClient = new QueryClient();
 
@@ -205,40 +216,45 @@ const App = () => (
             <Route path="/pt/app/athletes" element={
               <PTAppRoute>
                 <AppLayout>
-                  <div className="p-4">
-                    <h2 className="text-xl font-bold">Atleti</h2>
-                    <p className="text-muted-foreground mt-2">Shell - Da implementare</p>
-                  </div>
+                  <PTAppAthletesPage />
                 </AppLayout>
               </PTAppRoute>
             } />
             <Route path="/pt/app/workouts" element={
               <PTAppRoute>
                 <AppLayout>
-                  <div className="p-4">
-                    <h2 className="text-xl font-bold">Workout</h2>
-                    <p className="text-muted-foreground mt-2">Shell - Da implementare</p>
-                  </div>
+                  <PTAppWorkoutsPage />
                 </AppLayout>
               </PTAppRoute>
             } />
             <Route path="/pt/app/chat" element={
               <PTAppRoute>
                 <AppLayout>
+                  <PTAppChatPage />
+                </AppLayout>
+              </PTAppRoute>
+            } />
+            <Route path="/pt/app/chat/:atletaId" element={
+              <PTAppRoute>
+                <AppLayout>
                   <div className="p-4">
-                    <h2 className="text-xl font-bold">Chat</h2>
-                    <p className="text-muted-foreground mt-2">Shell - Da implementare</p>
+                    <h2 className="text-xl font-bold">Conversazione</h2>
+                    <p className="text-muted-foreground mt-2">Chat dettagliata - Da implementare</p>
                   </div>
+                </AppLayout>
+              </PTAppRoute>
+            } />
+            <Route path="/pt/app/calendar" element={
+              <PTAppRoute>
+                <AppLayout>
+                  <PTAppCalendarPage />
                 </AppLayout>
               </PTAppRoute>
             } />
             <Route path="/pt/app/profile" element={
               <PTAppRoute>
                 <AppLayout>
-                  <div className="p-4">
-                    <h2 className="text-xl font-bold">Il Mio Profilo</h2>
-                    <p className="text-muted-foreground mt-2">Shell - Da implementare</p>
-                  </div>
+                  <PTAppProfilePage />
                 </AppLayout>
               </PTAppRoute>
             } />
@@ -253,22 +269,38 @@ const App = () => (
                 </AppLayout>
               </AtletaRoute>
             } />
-            <Route path="/app/workout" element={
+            <Route path="/app/onboarding" element={
               <AtletaRoute>
-                <AppLayout>
-                  <div className="p-4">
-                    <h2 className="text-xl font-bold">I Miei Allenamenti</h2>
-                    <p className="text-muted-foreground mt-2">Shell - Da implementare</p>
-                  </div>
-                </AppLayout>
+                <AtletaOnboardingPage />
               </AtletaRoute>
             } />
             <Route path="/app/discover" element={
               <AtletaRoute>
                 <AppLayout>
+                  <AtletaDiscoverPage />
+                </AppLayout>
+              </AtletaRoute>
+            } />
+            <Route path="/app/pt/:userId" element={
+              <AtletaRoute>
+                <AppLayout>
+                  <AtletaPTProfilePage />
+                </AppLayout>
+              </AtletaRoute>
+            } />
+            <Route path="/app/workout" element={
+              <AtletaRoute>
+                <AppLayout>
+                  <AtletaWorkoutPage />
+                </AppLayout>
+              </AtletaRoute>
+            } />
+            <Route path="/app/workout/:workoutId" element={
+              <AtletaRoute>
+                <AppLayout>
                   <div className="p-4">
-                    <h2 className="text-xl font-bold">Scopri Personal Trainer</h2>
-                    <p className="text-muted-foreground mt-2">Shell - Ricerca PT da implementare</p>
+                    <h2 className="text-xl font-bold">Dettaglio Workout</h2>
+                    <p className="text-muted-foreground mt-2">Esecuzione workout - Da implementare</p>
                   </div>
                 </AppLayout>
               </AtletaRoute>
@@ -276,19 +308,23 @@ const App = () => (
             <Route path="/app/progress" element={
               <AtletaRoute>
                 <AppLayout>
-                  <div className="p-4">
-                    <h2 className="text-xl font-bold">I Miei Progressi</h2>
-                    <p className="text-muted-foreground mt-2">Shell - Da implementare</p>
-                  </div>
+                  <AtletaProgressPage />
                 </AppLayout>
               </AtletaRoute>
             } />
             <Route path="/app/profile" element={
               <AtletaRoute>
                 <AppLayout>
+                  <AtletaProfilePage />
+                </AppLayout>
+              </AtletaRoute>
+            } />
+            <Route path="/app/chat" element={
+              <AtletaRoute>
+                <AppLayout>
                   <div className="p-4">
-                    <h2 className="text-xl font-bold">Il Mio Profilo</h2>
-                    <p className="text-muted-foreground mt-2">Shell - Da implementare</p>
+                    <h2 className="text-xl font-bold">Chat con il PT</h2>
+                    <p className="text-muted-foreground mt-2">Chat - Da implementare</p>
                   </div>
                 </AppLayout>
               </AtletaRoute>
