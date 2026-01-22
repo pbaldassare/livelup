@@ -62,11 +62,16 @@
     --role-atleta: 199 89% 48%;
     --role-atleta-foreground: 0 0% 100%;
 
-    /* App/PWA accent - Lime/Chartreuse */
+    /* App/PWA accent - Lime/Chartreuse (Dark mobile theme) */
     --app-accent: 66 100% 50%;
     --app-accent-foreground: 0 0% 0%;
     --app-background: 0 0% 0%;
     --app-foreground: 0 0% 100%;
+    --app-muted: 0 0% 12%;
+    --app-muted-foreground: 0 0% 60%;
+    --app-border: 0 0% 18%;
+    --app-card: 0 0% 8%;
+    
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 220 10% 40%;
     --sidebar-primary: 160 84% 39%;
@@ -139,6 +144,10 @@
     --app-accent-foreground: 0 0% 0%;
     --app-background: 0 0% 0%;
     --app-foreground: 0 0% 100%;
+    --app-muted: 0 0% 12%;
+    --app-muted-foreground: 0 0% 60%;
+    --app-border: 0 0% 18%;
+    --app-card: 0 0% 8%;
 
     /* Sidebar - dark mode */
     --sidebar-background: 220 20% 8%;
