@@ -78,12 +78,16 @@ export default {
           atleta: "hsl(var(--role-atleta))",
           "atleta-foreground": "hsl(var(--role-atleta-foreground))",
         },
-        // App/PWA accent color (lime/chartreuse)
+        // App/PWA accent color (lime/chartreuse) - Dark mobile theme
         app: {
           accent: "hsl(var(--app-accent))",
           "accent-foreground": "hsl(var(--app-accent-foreground))",
           background: "hsl(var(--app-background))",
           foreground: "hsl(var(--app-foreground))",
+          muted: "hsl(var(--app-muted))",
+          "muted-foreground": "hsl(var(--app-muted-foreground))",
+          border: "hsl(var(--app-border))",
+          card: "hsl(var(--app-card))",
         },
       },
       borderRadius: {
