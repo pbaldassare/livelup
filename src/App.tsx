@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SplashScreen } from "@/components/common/SplashScreen";
+import { InstallBanner } from "@/components/pwa/InstallBanner";
 
 // Layouts
 import { AdminLayout } from "@/components/layouts/AdminLayout";
@@ -28,6 +29,7 @@ import AuthPage from "./pages/auth/AuthPage";
 // Public pages
 import PTDiscoveryPage from "./pages/public/PTDiscoveryPage";
 import PTProfilePage from "./pages/public/PTProfilePage";
+import InstallPage from "./pages/public/InstallPage";
 
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -93,6 +95,9 @@ const App = () => {
           />
         )}
         
+        {/* PWA Install Banner - shown on mobile */}
+        <InstallBanner />
+        
         <BrowserRouter>
           <AuthProvider>
             <Routes>
@@ -101,6 +106,7 @@ const App = () => {
               {/* ============================================= */}
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/install" element={<InstallPage />} />
               
               {/* Public PT Discovery page */}
               <Route path="/pts" element={<PTDiscoveryPage />} />
