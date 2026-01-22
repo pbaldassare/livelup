@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
+import { PTMapView } from '@/components/app/PTMapView';
 import { 
   Search, 
   MapPin, 
@@ -102,6 +103,9 @@ export function AtletaDiscoverPage() {
   
   // View state
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  
+  // Map state
+  const [selectedPT, setSelectedPT] = useState<PTWithDistance | null>(null);
   
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -507,22 +511,13 @@ export function AtletaDiscoverPage() {
 
       {/* Map View */}
       {viewMode === 'map' && (
-        <div className="h-[60vh] bg-app-muted flex items-center justify-center">
-          <div className="text-center p-4">
-            <Map className="h-12 w-12 mx-auto text-app-muted-foreground mb-4" />
-            <p className="text-app-muted-foreground">
-              Mappa in arrivo - integrazione Google Maps
-            </p>
-            {!userLocation && (
-              <Button 
-                onClick={requestLocation}
-                className="mt-4 bg-app-accent text-app-accent-foreground"
-              >
-                <Navigation className="h-4 w-4 mr-2" />
-                Attiva posizione
-              </Button>
-            )}
-          </div>
+        <div className="h-[60vh]">
+          <PTMapView 
+            pts={filteredPts}
+            userLocation={userLocation}
+            selectedPT={selectedPT}
+            onPTSelect={setSelectedPT}
+          />
         </div>
       )}
 
