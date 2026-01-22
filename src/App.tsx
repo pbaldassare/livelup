@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SplashScreen } from "@/components/common/SplashScreen";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
+import { PWAUpdatePrompt } from "@/components/pwa/PWAUpdatePrompt";
 
 // Layouts
 import { AdminLayout } from "@/components/layouts/AdminLayout";
@@ -97,6 +98,9 @@ const App = () => {
         
         {/* PWA Install Banner - shown on mobile */}
         <InstallBanner />
+        
+        {/* PWA Update Prompt */}
+        <PWAUpdatePrompt />
         
         <BrowserRouter>
           <AuthProvider>
