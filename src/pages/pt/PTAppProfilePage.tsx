@@ -1,20 +1,17 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { PTGalleryUpload } from '@/components/pt/PTGalleryUpload';
 import { PTReviewsManager } from '@/components/pt/PTReviewsManager';
 import { PushNotificationToggle } from '@/components/settings/PushNotificationToggle';
 import { 
-  User, 
   LogOut, 
   ChevronRight,
   Star,
@@ -38,7 +35,7 @@ export function PTAppProfilePage() {
   const { user, signOut } = useAuth();
 
   // Fetch profile
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -56,7 +53,7 @@ export function PTAppProfilePage() {
   });
 
   // Fetch PT profile
-  const { data: ptProfile } = useQuery({
+  const { data: ptProfile, isLoading: isLoadingPT } = useQuery({
     queryKey: ['pt-profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -74,7 +71,7 @@ export function PTAppProfilePage() {
   });
 
   // Fetch stats
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['pt-profile-stats', user?.id],
     queryFn: async () => {
       if (!user?.id) return { athletes: 0, reviews: 0 };
@@ -98,6 +95,9 @@ export function PTAppProfilePage() {
     },
     enabled: !!user?.id,
   });
+
+  // Loading state
+  const isLoading = isLoadingProfile || isLoadingPT || isLoadingStats;
 
   const handleSignOut = async () => {
     await signOut();
@@ -131,6 +131,53 @@ export function PTAppProfilePage() {
     sospeso: 'destructive',
     premium: 'default',
   };
+
+  // Skeleton loading state
+  if (isLoading) {
+    return (
+      <div className="pb-4">
+        {/* Header skeleton */}
+        <div className="p-4 space-y-4">
+          <div className="flex items-center gap-4">
+            <Skeleton variant="shimmer" shape="circle" className="h-20 w-20" />
+            <div className="flex-1 space-y-2">
+              <Skeleton variant="shimmer" className="h-6 w-40" />
+              <Skeleton variant="shimmer" className="h-4 w-32" />
+              <Skeleton variant="shimmer" className="h-5 w-24" />
+            </div>
+          </div>
+          
+          {/* Stats grid skeleton */}
+          <div className="grid grid-cols-3 gap-3">
+            {[1, 2, 3].map(i => (
+              <Card key={i}>
+                <CardContent className="p-3">
+                  <Skeleton variant="shimmer" className="h-5 w-5 mx-auto mb-1" />
+                  <Skeleton variant="shimmer" className="h-6 w-8 mx-auto mb-1" />
+                  <Skeleton variant="shimmer" className="h-3 w-12 mx-auto" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+        
+        <Separator />
+        
+        {/* Content skeleton */}
+        <div className="p-4 space-y-4">
+          <Skeleton variant="shimmer" className="h-16 w-full rounded-lg" />
+          <Skeleton variant="shimmer" className="h-24 w-full rounded-lg" />
+        </div>
+        
+        {/* Menu items skeleton */}
+        <div className="px-4 space-y-2 mt-4">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} variant="shimmer" className="h-14 w-full rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-4">
