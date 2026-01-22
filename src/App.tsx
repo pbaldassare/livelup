@@ -9,7 +9,6 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { PTDashboardLayout } from "@/components/layouts/PTDashboardLayout";
 import { AppLayout } from "@/components/layouts/AppLayout";
-import { PublicLayout } from "@/components/layouts/PublicLayout";
 
 // Route protection
 import { 
@@ -23,6 +22,9 @@ import {
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/auth/AuthPage";
+
+// Public pages
+import PTDiscoveryPage from "./pages/public/PTDiscoveryPage";
 
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -69,15 +71,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<AuthPage />} />
             
-            {/* Public pages with layout */}
-            <Route path="/pts" element={
-              <PublicLayout>
-                <div className="container-wide py-12">
-                  <h1 className="text-2xl font-bold">Trova un Personal Trainer</h1>
-                  <p className="text-muted-foreground mt-2">Shell - Lista PT da implementare</p>
-                </div>
-              </PublicLayout>
-            } />
+            {/* Public PT Discovery page */}
+            <Route path="/pts" element={<PTDiscoveryPage />} />
 
             {/* ============================================= */}
             {/* ADMIN ROUTES - Solo ruolo admin              */}

@@ -6,11 +6,15 @@ import {
   LayoutDashboard, 
   Users, 
   UserCog, 
-  Shield, 
+  CreditCard,
+  Receipt,
+  Tag,
+  HeadphonesIcon,
   Settings, 
   LogOut,
   ChevronRight,
-  Bell
+  Bell,
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -31,19 +35,34 @@ const navigationItems = [
     exact: true 
   },
   { 
-    label: 'Utenti', 
-    href: '/admin/users', 
-    icon: Users 
-  },
-  { 
     label: 'Personal Trainers', 
     href: '/admin/pts', 
     icon: UserCog 
   },
   { 
-    label: 'Permessi', 
-    href: '/admin/permissions', 
-    icon: Shield 
+    label: 'Atleti', 
+    href: '/admin/athletes', 
+    icon: Users 
+  },
+  { 
+    label: 'Abbonamenti', 
+    href: '/admin/subscriptions', 
+    icon: CreditCard 
+  },
+  { 
+    label: 'Pagamenti', 
+    href: '/admin/payments', 
+    icon: Receipt 
+  },
+  { 
+    label: 'Coupon', 
+    href: '/admin/coupons', 
+    icon: Tag 
+  },
+  { 
+    label: 'Supporto', 
+    href: '/admin/support', 
+    icon: HeadphonesIcon 
   },
   { 
     label: 'Impostazioni', 
@@ -61,6 +80,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       return location.pathname === href;
     }
     return location.pathname.startsWith(href);
+  };
+
+  // Get page title based on current route
+  const getPageTitle = () => {
+    const currentItem = navigationItems.find(item => 
+      item.exact ? location.pathname === item.href : location.pathname.startsWith(item.href)
+    );
+    return currentItem?.label ?? 'Dashboard Admin';
   };
 
   return (
@@ -82,7 +109,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4">
+          <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
             {navigationItems.map((item) => {
               const isActive = isActiveRoute(item.href, item.exact);
               return (
@@ -134,7 +161,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {/* Header */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur px-6">
           <div>
-            <h1 className="text-lg font-semibold">Dashboard Admin</h1>
+            <h1 className="text-lg font-semibold">{getPageTitle()}</h1>
           </div>
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" className="relative">
