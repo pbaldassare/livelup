@@ -91,7 +91,7 @@ export function PTProfilePage() {
 
       const { data: ptProfile, error: ptError } = await supabase
         .from('pt_profiles')
-        .select('*')
+        .select('*, gallery_photos')
         .eq('user_id', userId)
         .eq('is_discoverable', true)
         .single();
@@ -107,7 +107,7 @@ export function PTProfilePage() {
       if (profileError) throw profileError;
 
       return {
-        pt: ptProfile as PTProfile,
+        pt: ptProfile as PTProfile & { gallery_photos?: string[] },
         profile: profile as Profile,
       };
     },
@@ -271,8 +271,8 @@ export function PTProfilePage() {
   const hasPendingRequest = existingConnection?.status === 'pending';
   const isConnected = existingConnection?.status === 'active';
 
-  // Mock gallery photos (in real app, fetch from pt_content_library)
-  const galleryPhotos: string[] = [];
+  // Gallery photos from pt_profiles
+  const galleryPhotos = pt.gallery_photos || [];
 
   return (
     <div className="min-h-screen bg-background">

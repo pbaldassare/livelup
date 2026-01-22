@@ -10,6 +10,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { PTGalleryUpload } from '@/components/pt/PTGalleryUpload';
+import { PushNotificationToggle } from '@/components/settings/PushNotificationToggle';
 import { 
   User, 
   LogOut, 
@@ -229,11 +231,21 @@ export function PTAppProfilePage() {
                 </div>
               )}
             </CardContent>
-          </Card>
-        </div>
-      )}
+        </Card>
+      </div>
+    )}
 
-      {/* Menu items */}
+    {/* Gallery Upload */}
+    <div className="px-4 mb-4">
+      <PTGalleryUpload />
+    </div>
+
+    {/* Push Notifications */}
+    <div className="px-4 mb-4">
+      <PushNotificationToggle />
+    </div>
+
+    {/* Menu items */}
       <div className="px-4 space-y-2">
         {menuItems.map((item) => (
           <Card 

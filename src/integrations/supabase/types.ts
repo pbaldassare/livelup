@@ -885,6 +885,7 @@ export type Database = {
           created_at: string
           currency: string | null
           experience_years: number | null
+          gallery_photos: string[] | null
           hourly_rate: number | null
           id: string
           is_discoverable: boolean | null
@@ -913,6 +914,7 @@ export type Database = {
           created_at?: string
           currency?: string | null
           experience_years?: number | null
+          gallery_photos?: string[] | null
           hourly_rate?: number | null
           id?: string
           is_discoverable?: boolean | null
@@ -941,6 +943,7 @@ export type Database = {
           created_at?: string
           currency?: string | null
           experience_years?: number | null
+          gallery_photos?: string[] | null
           hourly_rate?: number | null
           id?: string
           is_discoverable?: boolean | null
@@ -998,6 +1001,36 @@ export type Database = {
           pt_user_id?: string
           rating?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1522,6 +1555,10 @@ export type Database = {
       }
       can_atleta_connect_to_pt: {
         Args: { _atleta_user_id: string }
+        Returns: boolean
+      }
+      can_atleta_review_pt: {
+        Args: { _atleta_user_id: string; _pt_user_id: string }
         Returns: boolean
       }
       can_pt_accept_athletes: {

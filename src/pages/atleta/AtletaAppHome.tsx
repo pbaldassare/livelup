@@ -11,6 +11,7 @@ import { WeekCalendar } from '@/components/app/WeekCalendar';
 import { WorkoutCard, CompactWorkoutCard } from '@/components/app/WorkoutCard';
 import { CTABanner, AchievementBanner } from '@/components/app/CTABanner';
 import { TeammatesRow } from '@/components/app/TeammatesRow';
+import { ReviewPromptCard } from '@/components/reviews/ReviewPromptCard';
 import { 
   Search, 
   MessageSquare,
@@ -175,6 +176,14 @@ export function AtletaAppHome() {
         ) : (
           // COLLEGATO
           <>
+            {/* Review Prompt - shows if can review */}
+            {connection && (
+              <ReviewPromptCard
+                ptUserId={connection.pt_user_id}
+                ptName={ptName || 'il tuo PT'}
+              />
+            )}
+
             {/* Achievement Banner */}
             <AchievementBanner
               title="Check in con il tuo coach e fissa un obiettivo"
