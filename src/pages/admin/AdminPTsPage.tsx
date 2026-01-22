@@ -91,7 +91,7 @@ export function AdminPTsPage() {
 
   // Update PT status mutation
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ userId, newStatus }: { userId: string; newStatus: string }) => {
+    mutationFn: async ({ userId, newStatus }: { userId: string; newStatus: 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium' }) => {
       const { error } = await supabase
         .from('pt_profiles')
         .update({ status: newStatus })
