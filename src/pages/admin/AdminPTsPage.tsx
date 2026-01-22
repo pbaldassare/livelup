@@ -7,7 +7,7 @@ import { SectionCard } from '@/components/dashboard/SectionCard';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
 import { DetailSheet, ProfileInfo } from '@/components/dashboard/DetailSheet';
 import { TablePagination } from '@/components/dashboard/TablePagination';
-import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { DataTableSkeleton } from '@/components/skeletons';
 import { InlineEditText, InlineEditSelect, InlineEditTags } from '@/components/dashboard/InlineEditCells';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -420,8 +420,8 @@ export function AdminPTsPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
-                      <LoadingSpinner variant="dots" size="sm" />
+                    <TableCell colSpan={8} className="p-0 border-0">
+                      <DataTableSkeleton rows={5} columns={5} showSearch={false} />
                     </TableCell>
                   </TableRow>
                 ) : paginatedPTs.length === 0 ? (

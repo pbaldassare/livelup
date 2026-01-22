@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { DashboardSkeleton, WorkoutCardSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { useQuery } from '@tanstack/react-query';
@@ -121,10 +121,7 @@ export function AtletaAppHome() {
 
       <main className="px-4 space-y-4 pt-2">
         {statusLoading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-32 w-full bg-white/10" />
-            <Skeleton className="h-48 w-full bg-white/10" />
-          </div>
+          <DashboardSkeleton />
         ) : !isConnected && !hasPendingRequest ? (
           // NON COLLEGATO
           <>
@@ -208,7 +205,7 @@ export function AtletaAppHome() {
 
             {/* Today's Workout */}
             {workoutLoading ? (
-              <Skeleton className="h-64 w-full bg-white/10" />
+              <WorkoutCardSkeleton />
             ) : todayWorkout ? (
               <WorkoutCard
                 title={todayWorkout.title}
