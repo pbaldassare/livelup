@@ -78,6 +78,13 @@ export default {
           atleta: "hsl(var(--role-atleta))",
           "atleta-foreground": "hsl(var(--role-atleta-foreground))",
         },
+        // App/PWA accent color (lime/chartreuse)
+        app: {
+          accent: "hsl(var(--app-accent))",
+          "accent-foreground": "hsl(var(--app-accent-foreground))",
+          background: "hsl(var(--app-background))",
+          foreground: "hsl(var(--app-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
