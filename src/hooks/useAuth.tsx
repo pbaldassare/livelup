@@ -121,6 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           emailRedirectTo: redirectUrl,
+          data: {
+            role: selectedRole, // Il trigger handle_new_user_role leggerà questo valore
+          },
         },
       });
 
@@ -132,9 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error('Errore durante la registrazione') };
       }
 
-      // Note: Role will be assigned via trigger or manually by admin
-      // For now, we'll try to insert the role directly
-      // This may fail due to RLS - in that case, admin will need to assign role
+      // Il ruolo viene assegnato automaticamente dal trigger on_auth_user_created
+      // che crea anche i profili specifici (pt_profiles o atleta_profiles)
       
       return { error: null };
     } catch (error) {
