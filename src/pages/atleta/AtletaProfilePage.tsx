@@ -34,6 +34,7 @@ import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
 import { ProfileStats } from '@/components/app/ProfileStats';
 import { BadgeCard } from '@/components/app/BadgeCard';
+import { ActivityHistory } from '@/components/app/ActivityHistory';
 import { AtletaReviewsHistory } from '@/components/reviews/AtletaReviewsHistory';
 import { ProfilePageSkeleton } from '@/components/skeletons';
 import { cn } from '@/lib/utils';
@@ -233,11 +234,12 @@ export function AtletaProfilePage() {
         name={fullName}
         initials={initials}
         avatarUrl={profile?.avatar_url}
-        coverUrl={null}
+        coverUrl={profile?.cover_url}
         streakCount={streakCount}
         subtitle={status === 'collegato' ? ptName || 'Elevate' : undefined}
         onSendMessage={status === 'collegato' ? handleSendMessage : undefined}
         editable={true}
+        editableCover={true}
       />
 
       {/* Stats */}
@@ -330,9 +332,7 @@ export function AtletaProfilePage() {
 
         <TabsContent value="activity" className="mt-0 p-4">
           <h2 className="text-xl font-bold text-app-foreground mb-4">Attività recente</h2>
-          <div className="text-center py-12 text-app-muted-foreground">
-            Nessuna attività recente
-          </div>
+          <ActivityHistory />
         </TabsContent>
 
         <TabsContent value="favorites" className="mt-0 p-4">
