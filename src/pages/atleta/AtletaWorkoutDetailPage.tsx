@@ -10,7 +10,7 @@ import { ExerciseVideoPlayer } from '@/components/app/ExerciseVideoPlayer';
 import { WorkoutTimer } from '@/components/app/WorkoutTimer';
 import { SetTracker } from '@/components/app/SetTracker';
 import { 
-  ChevronLeft, 
+  ArrowLeft, 
   Settings2, 
   Play, 
   Clock,
@@ -346,14 +346,12 @@ export function AtletaWorkoutDetailPage() {
         {/* Header */}
         <div className="sticky top-0 z-50 bg-app-background/95 backdrop-blur">
           <div className="flex items-center justify-between p-4">
-            <Button
-              variant="ghost"
-              size="icon"
+            <button 
               onClick={() => navigate('/app/workout')}
-              className="text-app-foreground hover:bg-app-muted"
+              className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
             >
-              <ChevronLeft className="h-6 w-6" />
-            </Button>
+              <ArrowLeft className="h-5 w-5 text-app-foreground" />
+            </button>
             <h1 className="font-semibold text-app-foreground">{workout.title}</h1>
             <div className="w-10" />
           </div>

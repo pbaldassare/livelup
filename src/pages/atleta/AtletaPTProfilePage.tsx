@@ -204,15 +204,12 @@ export function AtletaPTProfilePage() {
     <div className="pb-24 bg-app-background min-h-screen">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-app-card border-b border-app-border p-4">
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <button 
           onClick={() => navigate(-1)}
-          className="text-app-foreground hover:bg-app-muted"
+          className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Indietro
-        </Button>
+          <ArrowLeft className="h-5 w-5 text-app-foreground" />
+        </button>
       </div>
 
       {/* Profile header */}
