@@ -1,170 +1,287 @@
 
-# Piano: Tema Scuro Coerente per Workout Page
+# Piano: Completamento Profilo Atleta
 
 ## Problema Identificato
-La pagina workout usa i colori standard light-mode (`bg-background`, `Card`, `text-muted-foreground`) mentre il resto dell'app PWA usa il tema scuro con le variabili `app-*`:
+Dalla screenshot emergono diverse funzionalità mancanti nella pagina profilo:
+
+1. **Nessun upload foto profilo** - L'avatar mostra solo iniziali "LF"
+2. **Dati personali assenti** - Email, cellulare, indirizzo non visualizzati
+3. **Notifiche → 404** - Route `/app/notifications` non esiste
+4. **Privacy → 404** - Route `/app/privacy` non esiste
+5. **Elimina account assente** - Nessuna opzione per cancellare l'account
+
+---
+
+## Parte 1: Storage Bucket per Avatar
+
+### Migrazione Database
+Creare bucket `avatars` per upload foto profilo:
+
+```sql
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true);
+
+-- RLS policy: utenti possono gestire la propria cartella
+CREATE POLICY "Users can upload own avatar"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Users can update own avatar"
+ON storage.objects FOR UPDATE
+USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Users can delete own avatar"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Anyone can view avatars"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'avatars');
+```
+
+---
+
+## Parte 2: Pagina Notifiche
+
+### Nuovo File: `src/pages/atleta/AtletaNotificationsPage.tsx`
+
+Pagina dedicata per visualizzare e gestire le notifiche:
+
+```text
++------------------------------------------+
+|  ← Notifiche                   Mark All  |
++------------------------------------------+
+| [🔔] Nuovo allenamento                   |
+|     Il tuo PT ha preparato una scheda    |
+|     2 ore fa                        •    |
++------------------------------------------+
+| [💬] Nuovo messaggio                     |
+|     Marco ti ha scritto                  |
+|     Ieri                                 |
++------------------------------------------+
+| [🏆] Badge guadagnato!                   |
+|     Hai completato 10 workout            |
+|     3 giorni fa                          |
++------------------------------------------+
+```
+
+Componenti:
+- Header con back button e "Segna tutto letto"
+- Lista notifiche con icone per tipo
+- Indicatore unread (pallino colorato)
+- Swipe to delete (mobile)
+- Empty state quando vuoto
+
+---
+
+## Parte 3: Pagina Settings (Privacy + Elimina Account)
+
+### Nuovo File: `src/pages/atleta/AtletaSettingsPage.tsx`
+
+Pagina impostazioni con sezioni:
+
+```text
++------------------------------------------+
+|  ← Impostazioni                          |
++------------------------------------------+
+| ACCOUNT                                  |
+| [👤] Modifica profilo              →     |
+| [📧] Email: luca@example.com       →     |
+| [📱] Telefono: +39 333...          →     |
++------------------------------------------+
+| PRIVACY                                  |
+| [🔒] Visibilità profilo            →     |
+| [📊] Condivisione dati             →     |
+| [🔔] Notifiche push          [switch]    |
++------------------------------------------+
+| ACCOUNT PERICOLOSO                       |
+| [🗑️] Elimina account          [rosso]   |
++------------------------------------------+
+```
+
+### Funzionalità Elimina Account
+- Dialog di conferma con input email per verifica
+- Chiama edge function `delete-user` esistente
+- Logout automatico dopo eliminazione
+
+---
+
+## Parte 4: Upload Foto Profilo
+
+### Aggiornamento ProfileHeader
+
+Aggiungere icona camera sopra l'avatar:
+
+```text
+       +--------+
+       |   LF   |  ← Avatar attuale
+       |  [📷]  |  ← Overlay con camera icon
+       +--------+
+```
+
+Al click:
+1. Apre file picker (solo immagini)
+2. Mostra preview in dialog
+3. Upload su storage `avatars/{user_id}/avatar.{ext}`
+4. Aggiorna `profiles.avatar_url`
+
+---
+
+## Parte 5: Sezione Dati Personali
+
+### Aggiornamento AtletaProfilePage
+
+Aggiungere sezione sopra il menu:
+
+```text
++------------------------------------------+
+| I TUOI DATI                              |
++------------------------------------------+
+| 📧 Email                                 |
+|    luca.ferrari@email.com                |
++------------------------------------------+
+| 📱 Telefono                              |
+|    +39 333 1234567                       |
++------------------------------------------+
+| 📍 Città                                 |
+|    Milano                                |
++------------------------------------------+
+|        [Modifica dati]                   |
++------------------------------------------+
+```
+
+Cliccando "Modifica dati":
+- Sheet bottom con form campi editabili
+- Salvataggio su tabella `profiles`
+
+---
+
+## File da Creare/Modificare
+
+| File | Azione |
+|------|--------|
+| `src/pages/atleta/AtletaNotificationsPage.tsx` | **Nuovo** - Pagina notifiche |
+| `src/pages/atleta/AtletaSettingsPage.tsx` | **Nuovo** - Impostazioni + privacy + elimina |
+| `src/components/app/ProfileHeader.tsx` | **Modifica** - Aggiungere upload foto |
+| `src/pages/atleta/AtletaProfilePage.tsx` | **Modifica** - Sezione dati personali |
+| `src/App.tsx` | **Modifica** - Aggiungere route mancanti |
+
+---
+
+## Route da Aggiungere
+
+```typescript
+// App.tsx - Nuove route atleta
+<Route path="/app/notifications" element={
+  <AtletaRoute>
+    <AppLayout>
+      <AtletaNotificationsPage />
+    </AppLayout>
+  </AtletaRoute>
+} />
+
+<Route path="/app/settings" element={
+  <AtletaRoute>
+    <AppLayout>
+      <AtletaSettingsPage />
+    </AppLayout>
+  </AtletaRoute>
+} />
+```
+
+---
+
+## Migrazione Storage
+
+```sql
+-- Bucket per avatar utenti
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true);
+
+-- Policy: upload propria cartella
+CREATE POLICY "Users can upload own avatar"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'avatars' 
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Policy: update propri file
+CREATE POLICY "Users can update own avatar"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'avatars' 
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Policy: delete propri file
+CREATE POLICY "Users can delete own avatar"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'avatars' 
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Policy: lettura pubblica
+CREATE POLICY "Public avatar access"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'avatars');
+```
+
+---
+
+## Flusso Elimina Account
+
+```text
+1. Atleta clicca "Elimina account"
+   |
+   v
+2. Dialog: "Sei sicuro? Scrivi la tua email per confermare"
+   |
+   v
+3. Input email verificato
+   |
+   v
+4. Chiamata edge function delete-user
+   |
+   v
+5. Cleanup cascata:
+   - atleta_profiles
+   - atleta_badges
+   - workouts
+   - progress_tracking
+   - chats/messages
+   - notifications
+   - pt_atleta_connections
+   - atleta_pt_subscriptions
+   |
+   v
+6. Eliminazione auth.users
+   |
+   v
+7. Redirect a /auth
+```
+
+---
+
+## Criteri di Accettazione
+
+1. ✅ Avatar cliccabile per upload nuova foto
+2. ✅ Sezione "I tuoi dati" mostra email, telefono, città
+3. ✅ Form modifica dati personali funzionante
+4. ✅ Pagina /app/notifications funzionante con lista notifiche
+5. ✅ Pagina /app/settings con opzioni privacy
+6. ✅ Pulsante "Elimina account" con doppia conferma
+7. ✅ Tutte le pagine con tema scuro coerente (app-*)
+
+---
+
+## Stile Consistente
+
+Tutte le nuove pagine useranno le variabili tema scuro:
 - `bg-app-background` (nero)
-- `text-app-foreground` (bianco)
 - `bg-app-card` (grigio scuro)
-- `border-app-border`
-- `text-app-accent` (lime)
-
-## File da Modificare
-
-### 1. AppLayout.tsx - Layout Base
-Cambiare il container principale da tema light a tema scuro:
-
-```text
-Attuale: bg-background, border-border, bg-background/95
-Nuovo:   bg-app-background, border-app-border, bg-app-card/95
-```
-
-Elementi da aggiornare:
-- Container principale: `bg-app-background`
-- Bottom navigation: `bg-app-card/95`, `border-app-border`
-- Link attivi: `text-app-accent` invece di `text-primary`
-- Link inattivi: `text-app-muted-foreground`
-
-### 2. AtletaWorkoutPage.tsx - Lista Allenamenti
-Applicare tema scuro a tutti i componenti:
-
-**Header**
-- Titolo: `text-app-foreground`
-- Sottotitolo: `text-app-muted-foreground`
-
-**Today's Workout Card (highlight)**
-- Background: `bg-app-accent/10 border-app-accent/30`
-- Badge: stile app-accent
-- Button: `bg-app-accent text-app-accent-foreground`
-
-**Tabs**
-- TabsList: `bg-app-muted`
-- TabsTrigger attivo: `bg-app-card text-app-foreground`
-
-**WorkoutCard Component**
-- Card: `bg-app-card border-app-border hover:bg-app-muted`
-- Icone status: colori app-accent/success
-- Testo: `text-app-foreground`, `text-app-muted-foreground`
-
-**Empty States**
-- Card dashed: `border-app-border bg-app-card/50`
-- Icone: `text-app-muted-foreground`
-
-### 3. Componenti UI Usati
-Creare override inline per mantenere compatibilita:
-- Badge: className override per tema scuro
-- Card: className override per bg-app-card
-
-## Dettaglio Modifiche
-
-### AppLayout.tsx
-
-```typescript
-// Container
-<div className="min-h-screen bg-app-background flex flex-col" ...>
-
-// Main content  
-<main className="flex-1 pb-20 safe-top text-app-foreground">
-
-// Bottom nav
-<nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-app-border bg-app-card/95 backdrop-blur safe-bottom">
-
-// Links
-className={cn(
-  '...',
-  isActive ? 'text-app-accent' : 'text-app-muted-foreground'
-)}
-```
-
-### AtletaWorkoutPage.tsx
-
-```typescript
-// Container locked state
-<div className="p-4 space-y-6 bg-app-background min-h-screen">
-  <h1 className="text-2xl font-bold text-app-foreground">
-
-// Card locked
-<Card className="border-dashed bg-app-card border-app-border">
-  <Lock className="text-app-muted-foreground" />
-  <h3 className="font-semibold text-app-foreground">
-  <p className="text-app-muted-foreground">
-  <Button className="bg-app-accent text-app-accent-foreground">
-
-// Main container
-<div className="pb-4 bg-app-background min-h-screen">
-
-// Header
-<h1 className="text-2xl font-bold text-app-foreground">
-<p className="text-sm text-app-muted-foreground">
-
-// Today highlight card
-<Card className="bg-app-accent/10 border-app-accent/20">
-  <Badge className="bg-app-accent text-app-accent-foreground">
-  <h2 className="text-lg font-bold text-app-foreground">
-  <Button className="w-full bg-app-accent text-app-accent-foreground">
-
-// Tabs
-<TabsList className="w-full bg-app-muted">
-  <TabsTrigger className="flex-1 data-[state=active]:bg-app-card data-[state=active]:text-app-foreground">
-
-// Empty state cards
-<Card className="border-dashed bg-app-card/50 border-app-border">
-
-// WorkoutCard function
-<Card className="bg-app-card border-app-border hover:bg-app-muted transition-colors">
-  <div className="w-10 h-10 rounded-full bg-app-accent/20">
-    <StatusIcon className="text-app-accent" />
-  <h3 className="font-semibold text-app-foreground truncate">
-  <ChevronRight className="text-app-muted-foreground" />
-  <span className="text-app-muted-foreground">
-  <Badge className="mt-2 text-xs bg-app-muted border-app-border text-app-muted-foreground">
-```
-
-## Risultato Atteso
-
-```text
-Prima (screenshot):
-+---------------------------+
-|  I miei allenamenti       |  <- bianco
-|  [Programma] [Completati] |  <- tabs grigi
-|  +---------------------+  |
-|  | HIIT Cardio Blast   |  |  <- card bianca
-|  | 29 gen - 4 esercizi |  |
-|  +---------------------+  |
-|  +---------------------+  |
-|  | Full Body           |  |  <- card bianca
-|  +---------------------+  |
-+---------------------------+
-
-Dopo:
-+---------------------------+
-|  I miei allenamenti       |  <- nero, testo bianco
-|  [Programma] [Completati] |  <- tabs scuri, accent lime
-|  +---------------------+  |
-|  | HIIT Cardio Blast   |  |  <- card grigio scuro
-|  | 29 gen - 4 esercizi |  |  <- testo grigio chiaro
-|  +---------------------+  |
-|  +---------------------+  |
-|  | Full Body           |  |  <- card grigio scuro
-|  +---------------------+  |
-+---------------------------+
-```
-
-## Coerenza con Design System
-
-Le variabili CSS `app-*` sono gia definite in index.css:
-- `--app-accent: 66 100% 50%` (lime)
-- `--app-background: 0 0% 0%` (nero puro)
-- `--app-foreground: 0 0% 100%` (bianco)
-- `--app-card: 0 0% 8%` (grigio scuro)
-- `--app-muted: 0 0% 12%` (grigio medio)
-- `--app-border: 0 0% 18%` (bordo grigio)
-
-Questo corrisponde esattamente al design di AtletaWorkoutDetailPage e alle reference "Ladder-inspired" gia implementate.
-
-## File Coinvolti
-
-| File | Modifiche |
-|------|-----------|
-| `src/components/layouts/AppLayout.tsx` | Tema scuro container + nav |
-| `src/pages/atleta/AtletaWorkoutPage.tsx` | Tutti i componenti con classi app-* |
+- `text-app-foreground` (bianco)
+- `text-app-muted-foreground` (grigio chiaro)
+- `border-app-border` (bordo grigio)
+- `text-app-accent` / `bg-app-accent` (lime per accenti)
