@@ -445,13 +445,14 @@ export function AdminPTsPage() {
                 Nuovo PT
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
               <DialogHeader>
                 <DialogTitle>Nuovo Personal Trainer</DialogTitle>
                 <DialogDescription>
                   Crea un nuovo account Personal Trainer sulla piattaforma
                 </DialogDescription>
               </DialogHeader>
+              <div className="flex-1 min-h-0 overflow-y-auto pr-2">
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -540,7 +541,8 @@ export function AdminPTsPage() {
                   </Select>
                 </div>
               </div>
-              <DialogFooter>
+              </div>
+              <DialogFooter className="pt-4 border-t">
                 <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
                   Annulla
                 </Button>
