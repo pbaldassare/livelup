@@ -10,43 +10,67 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
-import { CreditCard, Plus, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { CreditCard, Plus, MoreHorizontal, Edit, Trash2, Star, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { SubscriptionPlanForm, SubscriptionPlanFormData } from '@/components/admin/SubscriptionPlanForm';
+import { Database } from '@/integrations/supabase/types';
+
+type SubscriptionType = Database['public']['Enums']['subscription_type'];
+type AppRole = Database['public']['Enums']['app_role'];
 
 interface SubscriptionPlan {
   id: string;
   name: string;
   description: string | null;
-  target_role: string;
-  plan_type: string;
+  target_role: AppRole;
+  plan_type: SubscriptionType;
   price_monthly: number;
   price_yearly: number | null;
   currency: string;
-  trial_days: number;
+  trial_days: number | null;
   is_active: boolean;
-  is_featured: boolean;
+  is_featured: boolean | null;
+  features: unknown;
+  max_athletes: number | null;
+  includes_chat: boolean | null;
+  includes_video_calls: boolean | null;
+  includes_analytics: boolean | null;
+  storage_gb: number | null;
+  stripe_price_id: string | null;
+  sort_order: number | null;
   created_at: string;
+}
+
+interface SubscriptionStats {
+  subscription_type: SubscriptionType;
+  price_monthly: number | null;
 }
 
 export function AdminSubscriptionsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
+  const [deletePlanId, setDeletePlanId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch plans
@@ -63,17 +87,117 @@ export function AdminSubscriptionsPage() {
     },
   });
 
-  // Fetch active subscriptions count
-  const { data: subscriptionStats } = useQuery({
-    queryKey: ['subscription-stats'],
+  // Fetch active subscriptions for stats
+  const { data: activeSubscriptions } = useQuery({
+    queryKey: ['active-subscriptions-stats'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('subscriptions')
-        .select('subscription_type, status')
+        .select('subscription_type, price_monthly')
         .eq('status', 'attivo');
 
       if (error) throw error;
-      return data;
+      return data as SubscriptionStats[];
+    },
+  });
+
+  // Calculate estimated monthly revenue
+  const estimatedRevenue = activeSubscriptions?.reduce((sum, sub) => {
+    return sum + (sub.price_monthly || 0);
+  }, 0) || 0;
+
+  // Create plan mutation
+  const createPlanMutation = useMutation({
+    mutationFn: async (data: SubscriptionPlanFormData) => {
+      const { error } = await supabase
+        .from('subscription_plans')
+        .insert({
+          name: data.name,
+          description: data.description || null,
+          target_role: data.target_role,
+          plan_type: data.plan_type,
+          price_monthly: data.price_monthly,
+          price_yearly: data.price_yearly,
+          trial_days: data.trial_days,
+          features: data.features,
+          max_athletes: data.max_athletes,
+          includes_chat: data.includes_chat,
+          includes_video_calls: data.includes_video_calls,
+          includes_analytics: data.includes_analytics,
+          storage_gb: data.storage_gb,
+          stripe_price_id: data.stripe_price_id || null,
+          is_active: data.is_active,
+          is_featured: data.is_featured,
+          sort_order: data.sort_order,
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
+      toast.success('Piano creato con successo');
+      handleCloseDialog();
+    },
+    onError: (error) => {
+      toast.error('Errore: ' + error.message);
+    },
+  });
+
+  // Update plan mutation
+  const updatePlanMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: SubscriptionPlanFormData }) => {
+      const { error } = await supabase
+        .from('subscription_plans')
+        .update({
+          name: data.name,
+          description: data.description || null,
+          target_role: data.target_role,
+          plan_type: data.plan_type,
+          price_monthly: data.price_monthly,
+          price_yearly: data.price_yearly,
+          trial_days: data.trial_days,
+          features: data.features,
+          max_athletes: data.max_athletes,
+          includes_chat: data.includes_chat,
+          includes_video_calls: data.includes_video_calls,
+          includes_analytics: data.includes_analytics,
+          storage_gb: data.storage_gb,
+          stripe_price_id: data.stripe_price_id || null,
+          is_active: data.is_active,
+          is_featured: data.is_featured,
+          sort_order: data.sort_order,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
+      toast.success('Piano aggiornato');
+      handleCloseDialog();
+    },
+    onError: (error) => {
+      toast.error('Errore: ' + error.message);
+    },
+  });
+
+  // Delete plan mutation
+  const deletePlanMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('subscription_plans')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
+      toast.success('Piano eliminato');
+      setDeletePlanId(null);
+    },
+    onError: (error) => {
+      toast.error('Errore: ' + error.message);
     },
   });
 
@@ -89,21 +213,47 @@ export function AdminSubscriptionsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
-      toast.success('Piano aggiornato');
+      toast.success('Stato aggiornato');
     },
     onError: (error) => {
       toast.error('Errore: ' + error.message);
     },
   });
 
+  const handleOpenCreate = () => {
+    setEditingPlan(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleOpenEdit = (plan: SubscriptionPlan) => {
+    setEditingPlan(plan);
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingPlan(null);
+  };
+
+  const handleSubmit = (data: SubscriptionPlanFormData) => {
+    if (editingPlan) {
+      updatePlanMutation.mutate({ id: editingPlan.id, data });
+    } else {
+      createPlanMutation.mutate(data);
+    }
+  };
+
   const columns: Column<SubscriptionPlan>[] = [
     {
       key: 'name',
       header: 'Piano',
       cell: (plan) => (
-        <div>
-          <p className="font-medium">{plan.name}</p>
-          <p className="text-xs text-muted-foreground">{plan.description}</p>
+        <div className="flex items-center gap-2">
+          {plan.is_featured && <Star className="h-4 w-4 text-warning fill-warning" />}
+          <div>
+            <p className="font-medium">{plan.name}</p>
+            <p className="text-xs text-muted-foreground line-clamp-1">{plan.description}</p>
+          </div>
         </div>
       ),
     },
@@ -112,9 +262,18 @@ export function AdminSubscriptionsPage() {
       header: 'Target',
       cell: (plan) => (
         <StatusBadge 
-          status={plan.target_role} 
+          status={plan.target_role === 'pt' ? 'PT' : 'Atleta'} 
           variant={plan.target_role === 'pt' ? 'success' : 'info'} 
         />
+      ),
+    },
+    {
+      key: 'plan_type',
+      header: 'Tipo',
+      cell: (plan) => (
+        <Badge variant="outline" className="capitalize">
+          {plan.plan_type.replace('_', ' ')}
+        </Badge>
       ),
     },
     {
@@ -134,7 +293,7 @@ export function AdminSubscriptionsPage() {
     {
       key: 'trial',
       header: 'Trial',
-      cell: (plan) => `${plan.trial_days} giorni`,
+      cell: (plan) => `${plan.trial_days || 0} giorni`,
     },
     {
       key: 'is_active',
@@ -148,16 +307,42 @@ export function AdminSubscriptionsPage() {
         />
       ),
     },
+    {
+      key: 'actions',
+      header: '',
+      cell: (plan) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleOpenEdit(plan)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Modifica
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setDeletePlanId(plan.id)}
+              className="text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Elimina
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
   ];
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Piani e Abbonamenti"
-        description="Gestisci i piani di abbonamento e visualizza le subscription attive"
+        description="Gestisci i piani di abbonamento della piattaforma"
         icon={CreditCard}
         actions={
-          <Button onClick={() => setIsDialogOpen(true)}>
+          <Button onClick={handleOpenCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Nuovo Piano
           </Button>
@@ -186,19 +371,21 @@ export function AdminSubscriptionsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {subscriptionStats?.length || 0}
+              {activeSubscriptions?.length || 0}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
               Entrate Stimate/Mese
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">€ --</p>
-            <p className="text-xs text-muted-foreground">Da calcolare</p>
+            <p className="text-2xl font-bold">
+              €{estimatedRevenue.toFixed(2)}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -212,56 +399,73 @@ export function AdminSubscriptionsPage() {
         showPagination={false}
       />
 
-      {/* Create/Edit Dialog placeholder */}
+      {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Nuovo Piano</DialogTitle>
+            <DialogTitle>
+              {editingPlan ? 'Modifica Piano' : 'Nuovo Piano'}
+            </DialogTitle>
             <DialogDescription>
-              Crea un nuovo piano di abbonamento
+              {editingPlan
+                ? 'Modifica i dettagli del piano di abbonamento'
+                : 'Crea un nuovo piano di abbonamento per la piattaforma'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Nome Piano</Label>
-              <Input placeholder="Es. Premium PT" />
-            </div>
-            <div className="space-y-2">
-              <Label>Descrizione</Label>
-              <Textarea placeholder="Descrizione del piano..." />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Target</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleziona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pt">Personal Trainer</SelectItem>
-                    <SelectItem value="atleta">Atleta</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Prezzo Mensile (€)</Label>
-                <Input type="number" placeholder="29.99" />
-              </div>
-            </div>
+          <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+            <SubscriptionPlanForm
+              initialData={
+                editingPlan
+                  ? {
+                      name: editingPlan.name,
+                      description: editingPlan.description || '',
+                      target_role: editingPlan.target_role,
+                      plan_type: editingPlan.plan_type,
+                      price_monthly: editingPlan.price_monthly,
+                      price_yearly: editingPlan.price_yearly,
+                      trial_days: editingPlan.trial_days || 14,
+                      features: Array.isArray(editingPlan.features) ? editingPlan.features as string[] : [],
+                      max_athletes: editingPlan.max_athletes,
+                      includes_chat: editingPlan.includes_chat ?? true,
+                      includes_video_calls: editingPlan.includes_video_calls ?? false,
+                      includes_analytics: editingPlan.includes_analytics ?? false,
+                      storage_gb: editingPlan.storage_gb || 1,
+                      stripe_price_id: editingPlan.stripe_price_id || '',
+                      is_active: editingPlan.is_active,
+                      is_featured: editingPlan.is_featured ?? false,
+                      sort_order: editingPlan.sort_order || 0,
+                    }
+                  : undefined
+              }
+              onSubmit={handleSubmit}
+              onCancel={handleCloseDialog}
+              isLoading={createPlanMutation.isPending || updatePlanMutation.isPending}
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Annulla
-            </Button>
-            <Button onClick={() => {
-              toast.info('Funzionalità da implementare');
-              setIsDialogOpen(false);
-            }}>
-              Crea Piano
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletePlanId} onOpenChange={() => setDeletePlanId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare il piano?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Questa azione è irreversibile. Il piano verrà eliminato permanentemente.
+              Gli abbonamenti esistenti non saranno influenzati.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletePlanId && deletePlanMutation.mutate(deletePlanId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

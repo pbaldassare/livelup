@@ -91,6 +91,65 @@ export type Database = {
         }
         Relationships: []
       }
+      atleta_pt_subscriptions: {
+        Row: {
+          atleta_user_id: string
+          created_at: string
+          currency: string
+          expires_at: string | null
+          id: string
+          notes: string | null
+          package_id: string | null
+          price_paid: number
+          pt_user_id: string
+          sessions_total: number | null
+          sessions_used: number | null
+          started_at: string
+          status: Database["public"]["Enums"]["pt_subscription_status"]
+          updated_at: string
+        }
+        Insert: {
+          atleta_user_id: string
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          notes?: string | null
+          package_id?: string | null
+          price_paid: number
+          pt_user_id: string
+          sessions_total?: number | null
+          sessions_used?: number | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["pt_subscription_status"]
+          updated_at?: string
+        }
+        Update: {
+          atleta_user_id?: string
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          notes?: string | null
+          package_id?: string | null
+          price_paid?: number
+          pt_user_id?: string
+          sessions_total?: number | null
+          sessions_used?: number | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["pt_subscription_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atleta_pt_subscriptions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "pt_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -878,6 +937,66 @@ export type Database = {
         }
         Relationships: []
       }
+      pt_packages: {
+        Row: {
+          created_at: string
+          currency: string
+          description: string | null
+          duration_days: number | null
+          id: string
+          includes_chat: boolean | null
+          includes_video_calls: boolean | null
+          is_active: boolean
+          is_featured: boolean | null
+          max_workouts_per_week: number | null
+          name: string
+          package_type: Database["public"]["Enums"]["package_type"]
+          price: number
+          pt_user_id: string
+          sessions_count: number | null
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          duration_days?: number | null
+          id?: string
+          includes_chat?: boolean | null
+          includes_video_calls?: boolean | null
+          is_active?: boolean
+          is_featured?: boolean | null
+          max_workouts_per_week?: number | null
+          name: string
+          package_type: Database["public"]["Enums"]["package_type"]
+          price: number
+          pt_user_id: string
+          sessions_count?: number | null
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          duration_days?: number | null
+          id?: string
+          includes_chat?: boolean | null
+          includes_video_calls?: boolean | null
+          is_active?: boolean
+          is_featured?: boolean | null
+          max_workouts_per_week?: number | null
+          name?: string
+          package_type?: Database["public"]["Enums"]["package_type"]
+          price?: number
+          pt_user_id?: string
+          sessions_count?: number | null
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pt_profiles: {
         Row: {
           bio: string | null
@@ -1614,6 +1733,10 @@ export type Database = {
           upcoming_events: number
         }[]
       }
+      get_sessions_remaining: {
+        Args: { _subscription_id: string }
+        Returns: number
+      }
       get_subscription_status: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["subscription_status"]
@@ -1654,6 +1777,13 @@ export type Database = {
       coupon_type: "percentage" | "fixed_amount"
       event_type: "allenamento" | "evento" | "gara" | "raduno" | "altro"
       fitness_level: "principiante" | "intermedio" | "avanzato" | "agonista"
+      package_type:
+        | "sessioni"
+        | "mensile"
+        | "trimestrale"
+        | "semestrale"
+        | "annuale"
+        | "custom"
       payment_method: "stripe" | "paypal" | "bank_transfer" | "cash"
       payment_status: "pending" | "completed" | "failed" | "refunded"
       pt_level: "junior" | "senior" | "elite"
@@ -1663,6 +1793,7 @@ export type Database = {
         | "attivo"
         | "sospeso"
         | "premium"
+      pt_subscription_status: "attivo" | "completato" | "scaduto" | "cancellato"
       relation_origin: "ricerca" | "invito" | "referral" | "qr"
       relation_status: "richiesta" | "attivo" | "rifiutato" | "terminato"
       subscription_status: "attivo" | "scaduto" | "bloccato" | "trial"
@@ -1807,6 +1938,14 @@ export const Constants = {
       coupon_type: ["percentage", "fixed_amount"],
       event_type: ["allenamento", "evento", "gara", "raduno", "altro"],
       fitness_level: ["principiante", "intermedio", "avanzato", "agonista"],
+      package_type: [
+        "sessioni",
+        "mensile",
+        "trimestrale",
+        "semestrale",
+        "annuale",
+        "custom",
+      ],
       payment_method: ["stripe", "paypal", "bank_transfer", "cash"],
       payment_status: ["pending", "completed", "failed", "refunded"],
       pt_level: ["junior", "senior", "elite"],
@@ -1817,6 +1956,7 @@ export const Constants = {
         "sospeso",
         "premium",
       ],
+      pt_subscription_status: ["attivo", "completato", "scaduto", "cancellato"],
       relation_origin: ["ricerca", "invito", "referral", "qr"],
       relation_status: ["richiesta", "attivo", "rifiutato", "terminato"],
       subscription_status: ["attivo", "scaduto", "bloccato", "trial"],

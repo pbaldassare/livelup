@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { PageLoader } from '@/components/common/PageLoader';
 import { PTAvailabilityManager } from '@/components/pt/PTAvailabilityManager';
+import { PTPackagesManager } from '@/components/pt/PTPackagesManager';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +23,8 @@ import {
   Euro,
   Eye,
   Save,
-  Clock
+  Clock,
+  Package
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -155,10 +157,14 @@ export function PTSettingsPage() {
       />
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="profile" className="gap-2">
             <User className="h-4 w-4" />
             Profilo Pubblico
+          </TabsTrigger>
+          <TabsTrigger value="packages" className="gap-2">
+            <Package className="h-4 w-4" />
+            Pacchetti
           </TabsTrigger>
           <TabsTrigger value="pricing" className="gap-2">
             <Euro className="h-4 w-4" />
@@ -325,6 +331,11 @@ export function PTSettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Packages Tab */}
+        <TabsContent value="packages" className="space-y-6">
+          <PTPackagesManager />
         </TabsContent>
 
         {/* Pricing Tab */}
