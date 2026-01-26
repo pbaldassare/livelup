@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/dashboard/PageHeader';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { StatusBadge } from '@/components/dashboard/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Users, MoreHorizontal, Eye, Ban, RefreshCw } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Users, MoreHorizontal, Eye, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link, useSearchParams } from 'react-router-dom';
 
@@ -36,10 +47,39 @@ interface AtletaListItem {
   } | null;
 }
 
+const FITNESS_LEVELS = [
+  { value: 'principiante', label: 'Principiante' },
+  { value: 'intermedio', label: 'Intermedio' },
+  { value: 'avanzato', label: 'Avanzato' },
+  { value: 'agonista', label: 'Agonista' },
+];
+
+const GOAL_OPTIONS = [
+  'Perdita peso',
+  'Aumento massa',
+  'Tonificazione',
+  'Resistenza',
+  'Forza',
+  'Flessibilità',
+  'Salute generale',
+  'Sport specifico',
+];
+
 export function AdminAthletesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get('status') || 'all';
   const queryClient = useQueryClient();
+  
+  // Create Athlete Dialog state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newAtleta, setNewAtleta] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    fitness_level: 'intermedio',
+    goals: [] as string[],
+  });
 
   // Fetch Athletes
   const { data: athletes, isLoading } = useQuery({
@@ -72,6 +112,59 @@ export function AdminAthletesPage() {
       return result as AtletaListItem[];
     },
   });
+
+  // Create Athlete mutation
+  const createAtletaMutation = useMutation({
+    mutationFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error('Non autenticato');
+
+      const response = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newAtleta.email,
+          password: newAtleta.password,
+          firstName: newAtleta.firstName,
+          lastName: newAtleta.lastName,
+          role: 'atleta',
+          profileData: {
+            fitness_level: newAtleta.fitness_level,
+            goals: newAtleta.goals
+          }
+        }
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-athletes'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      toast.success('Atleta creato con successo');
+      setCreateDialogOpen(false);
+      setNewAtleta({
+        email: '',
+        password: '',
+        firstName: '',
+        lastName: '',
+        fitness_level: 'intermedio',
+        goals: [],
+      });
+    },
+    onError: (error) => toast.error('Errore: ' + error.message)
+  });
+
+  const handleCreateAtleta = () => {
+    if (!newAtleta.email || !newAtleta.password || !newAtleta.firstName || !newAtleta.lastName) {
+      toast.error('Compila tutti i campi obbligatori');
+      return;
+    }
+    if (newAtleta.password.length < 8) {
+      toast.error('La password deve avere almeno 8 caratteri');
+      return;
+    }
+    createAtletaMutation.mutate();
+  };
 
   const columns: Column<AtletaListItem>[] = [
     {
@@ -145,6 +238,95 @@ export function AdminAthletesPage() {
         title="Gestione Atleti"
         description="Visualizza e gestisci gli atleti della piattaforma"
         icon={Users}
+        actions={
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Nuovo Atleta
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Nuovo Atleta</DialogTitle>
+                <DialogDescription>
+                  Crea un nuovo account atleta sulla piattaforma
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="atleta-email">Email *</Label>
+                    <Input
+                      id="atleta-email"
+                      type="email"
+                      placeholder="email@esempio.com"
+                      value={newAtleta.email}
+                      onChange={(e) => setNewAtleta({ ...newAtleta, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="atleta-password">Password *</Label>
+                    <Input
+                      id="atleta-password"
+                      type="password"
+                      placeholder="Min. 8 caratteri"
+                      value={newAtleta.password}
+                      onChange={(e) => setNewAtleta({ ...newAtleta, password: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="atleta-firstName">Nome *</Label>
+                    <Input
+                      id="atleta-firstName"
+                      placeholder="Marco"
+                      value={newAtleta.firstName}
+                      onChange={(e) => setNewAtleta({ ...newAtleta, firstName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="atleta-lastName">Cognome *</Label>
+                    <Input
+                      id="atleta-lastName"
+                      placeholder="Bianchi"
+                      value={newAtleta.lastName}
+                      onChange={(e) => setNewAtleta({ ...newAtleta, lastName: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="atleta-level">Livello Fitness</Label>
+                  <Select
+                    value={newAtleta.fitness_level}
+                    onValueChange={(value) => setNewAtleta({ ...newAtleta, fitness_level: value })}
+                  >
+                    <SelectTrigger id="atleta-level">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FITNESS_LEVELS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                  Annulla
+                </Button>
+                <Button onClick={handleCreateAtleta} disabled={createAtletaMutation.isPending}>
+                  {createAtletaMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Crea Atleta
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        }
       />
 
       {/* Filters */}

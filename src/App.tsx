@@ -36,10 +36,13 @@ import InstallPage from "./pages/public/InstallPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminPTsPage from "./pages/admin/AdminPTsPage";
 import AdminAthletesPage from "./pages/admin/AdminAthletesPage";
+import AdminAthleteDetailPage from "./pages/admin/AdminAthleteDetailPage";
 import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
 import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
 import AdminCouponsPage from "./pages/admin/AdminCouponsPage";
 import AdminSupportPage from "./pages/admin/AdminSupportPage";
+import AdminTicketDetailPage from "./pages/admin/AdminTicketDetailPage";
+import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 
 // PT Dashboard pages (Web)
@@ -140,6 +143,13 @@ const App = () => {
                   </AdminLayout>
                 </AdminRoute>
               } />
+              <Route path="/admin/athletes/:userId" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminAthleteDetailPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
               <Route path="/admin/subscriptions" element={
                 <AdminRoute>
                   <AdminLayout>
@@ -165,6 +175,20 @@ const App = () => {
                 <AdminRoute>
                   <AdminLayout>
                     <AdminSupportPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/support/:ticketId" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminTicketDetailPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/audit-log" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminAuditLogPage />
                   </AdminLayout>
                 </AdminRoute>
               } />
