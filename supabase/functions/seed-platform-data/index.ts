@@ -57,7 +57,26 @@ Deno.serve(async (req) => {
 
     console.log('Users found:', { pt1Id, pt2Id, pt3Id, atleta1Id, atleta2Id, atleta3Id });
 
-    // 2. Fix template ownership - assign templates to real PTs
+    // 2. Update base exercises with missing video/image URLs
+    console.log('Updating base exercises with media...');
+    const exerciseMediaUpdates = [
+      { name: 'Trazioni', video_url: 'https://www.youtube.com/watch?v=eGo4IYlbE5g', image_url: 'https://images.unsplash.com/photo-1598971639058-fab3c3109a00?w=800' },
+      { name: 'Push-up', video_url: 'https://www.youtube.com/watch?v=IODxDxX7oi4', image_url: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800' },
+      { name: 'Plank', video_url: 'https://www.youtube.com/watch?v=ASdvN_XEl_c', image_url: 'https://images.unsplash.com/photo-1566241142559-40e1dab266c6?w=800' },
+      { name: 'Corsa', video_url: 'https://www.youtube.com/watch?v=_kGESn8ArrU', image_url: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800' },
+      { name: 'Burpees', video_url: 'https://www.youtube.com/watch?v=TU8QYVW0gDU', image_url: 'https://images.unsplash.com/photo-1601422407692-ec4eeec1d9b3?w=800' },
+    ];
+
+    for (const update of exerciseMediaUpdates) {
+      await supabase
+        .from('exercises')
+        .update({ video_url: update.video_url, image_url: update.image_url })
+        .eq('name', update.name)
+        .is('video_url', null);
+    }
+    results.exercises_media_updated = exerciseMediaUpdates.length;
+
+    // 3. Fix template ownership - assign templates to real PTs
     console.log('Fixing template ownership...');
     const { data: templates } = await supabase
       .from('workout_templates')
