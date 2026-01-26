@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { AthleteSubscriptionsTab } from '@/components/pt/AthleteSubscriptionsTab';
 import { 
   Users, 
   Search, 
@@ -18,7 +19,8 @@ import {
   ChevronRight,
   Clock,
   CheckCircle2,
-  UserPlus
+  UserPlus,
+  Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -110,6 +112,10 @@ export function PTAppAthletesPage() {
         <TabsList className="w-full">
           <TabsTrigger value="active" className="flex-1">Attivi</TabsTrigger>
           <TabsTrigger value="pending" className="flex-1">Richieste</TabsTrigger>
+          <TabsTrigger value="subscriptions" className="flex-1 gap-1">
+            <Package className="h-3 w-3" />
+            Abbonamenti
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="mt-4 space-y-3">
@@ -138,6 +144,10 @@ export function PTAppAthletesPage() {
           ) : (
             <EmptyState type="pending" />
           )}
+        </TabsContent>
+
+        <TabsContent value="subscriptions" className="mt-4">
+          <AthleteSubscriptionsTab />
         </TabsContent>
       </Tabs>
     </div>
