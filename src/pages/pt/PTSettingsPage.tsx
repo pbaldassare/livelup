@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/dashboard/PageHeader';
 import { PageLoader } from '@/components/common/PageLoader';
 import { PTAvailabilityManager } from '@/components/pt/PTAvailabilityManager';
 import { PTPackagesManager } from '@/components/pt/PTPackagesManager';
+import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,14 +25,20 @@ import {
   Eye,
   Save,
   Clock,
-  Package
+  Package,
+  Navigation,
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // =====================================================
 // PT SETTINGS PAGE - Profilo Pubblico e Impostazioni
+// Include geolocalizzazione con Google Maps API
 // Solo per ruolo: pt (web dashboard)
 // =====================================================
+
+const GOOGLE_MAPS_API_KEY = 'AIzaSyA76iVcQpSnl76_G6bJVnEeOUmWVd7278I';
 
 interface PTProfile {
   id: string;
@@ -48,6 +55,8 @@ interface PTProfile {
   offers_in_person: boolean | null;
   location_city: string | null;
   location_country: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
   is_discoverable: boolean | null;
   status: string;
 }
@@ -63,6 +72,7 @@ interface Profile {
 export function PTSettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [isLocating, setIsLocating] = useState(false);
 
   // Fetch profile
   const { data: profile } = useQuery({
@@ -134,6 +144,85 @@ export function PTSettingsPage() {
 
   const handleSave = () => {
     updateProfileMutation.mutate(formData);
+  };
+
+  // Request GPS location
+  const requestLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocalizzazione non supportata dal browser');
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+
+        try {
+          // Reverse geocoding to get city name
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`
+          );
+          const data = await response.json();
+
+          if (data.results && data.results[0]) {
+            const addressComponents = data.results[0].address_components;
+            const city = addressComponents.find(
+              (c: any) => c.types.includes('locality') || c.types.includes('administrative_area_level_3')
+            )?.long_name;
+            const country = addressComponents.find(
+              (c: any) => c.types.includes('country')
+            )?.long_name;
+
+            setFormData({
+              ...formData,
+              location_city: city || formData.location_city || '',
+              location_country: country || formData.location_country || '',
+              location_lat: latitude,
+              location_lng: longitude,
+            });
+
+            toast.success('Posizione aggiornata');
+          } else {
+            // Still save coordinates even without city name
+            setFormData({
+              ...formData,
+              location_lat: latitude,
+              location_lng: longitude,
+            });
+            toast.success('Coordinate GPS salvate');
+          }
+        } catch (error) {
+          console.error('Geocoding error:', error);
+          // Save coordinates anyway
+          setFormData({
+            ...formData,
+            location_lat: latitude,
+            location_lng: longitude,
+          });
+          toast.success('Coordinate GPS salvate');
+        }
+
+        setIsLocating(false);
+      },
+      (error) => {
+        setIsLocating(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error('Permesso di geolocalizzazione negato');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error('Posizione non disponibile');
+            break;
+          case error.TIMEOUT:
+            toast.error('Timeout richiesta posizione');
+            break;
+          default:
+            toast.error('Impossibile ottenere la posizione');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
   };
 
   const saveButton = (
@@ -305,10 +394,46 @@ export function PTSettingsPage() {
                 Località
               </CardTitle>
               <CardDescription>
-                Dove operi
+                Dove operi - gli atleti potranno trovarti più facilmente
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* GPS Button */}
+              <Button
+                variant="outline"
+                onClick={requestLocation}
+                disabled={isLocating}
+                className="w-full"
+              >
+                {isLocating ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Navigation className="h-4 w-4 mr-2" />
+                )}
+                Usa la mia posizione
+              </Button>
+
+              <div className="text-center text-sm text-muted-foreground">oppure</div>
+
+              {/* Places Autocomplete */}
+              <div className="space-y-2">
+                <Label>Cerca città</Label>
+                <PlacesAutocomplete
+                  value={formData.location_city || ''}
+                  onChange={(value) => setFormData({ ...formData, location_city: value })}
+                  onPlaceSelect={(place) => {
+                    setFormData({
+                      ...formData,
+                      location_city: place.name,
+                      location_lat: place.geometry.location.lat,
+                      location_lng: place.geometry.location.lng,
+                    });
+                  }}
+                  placeholder="Cerca la tua città..."
+                />
+              </div>
+
+              {/* Manual fields */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="city">Città</Label>
@@ -329,6 +454,14 @@ export function PTSettingsPage() {
                   />
                 </div>
               </div>
+
+              {/* GPS coordinates indicator */}
+              {formData.location_lat && formData.location_lng && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Coordinate GPS salvate ({formData.location_lat.toFixed(4)}, {formData.location_lng.toFixed(4)})</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

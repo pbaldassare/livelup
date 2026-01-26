@@ -1,13 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { toast } from 'sonner';
 import {
   Package,
   Calendar,
@@ -17,10 +19,13 @@ import {
   AlertTriangle,
   History,
   Dumbbell,
+  RefreshCcw,
+  Loader2,
 } from 'lucide-react';
 
 // =====================================================
 // ATLETA SUBSCRIPTION HISTORY - Dashboard abbonamenti
+// Include banner rinnovo e richiesta automatica
 // =====================================================
 
 interface PTSubscription {
@@ -36,6 +41,9 @@ interface PTSubscription {
   currency: string;
   notes: string | null;
   created_at: string;
+  renewal_requested_at: string | null;
+  renewal_status: 'pending' | 'approved' | 'rejected' | null;
+  auto_renew: boolean | null;
   pt_packages: {
     name: string;
     package_type: string;
@@ -51,6 +59,7 @@ interface PTSubscription {
 
 export function AtletaSubscriptionHistory() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Fetch subscriptions
   const { data: subscriptions, isLoading } = useQuery({
@@ -90,6 +99,43 @@ export function AtletaSubscriptionHistory() {
     enabled: !!user?.id,
   });
 
+  // Request renewal mutation
+  const requestRenewalMutation = useMutation({
+    mutationFn: async (subscription: PTSubscription) => {
+      // Update subscription with renewal request
+      const { error: updateError } = await supabase
+        .from('atleta_pt_subscriptions')
+        .update({
+          renewal_requested_at: new Date().toISOString(),
+          renewal_status: 'pending',
+        })
+        .eq('id', subscription.id);
+
+      if (updateError) throw updateError;
+
+      // Send notification to PT
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: subscription.pt_user_id,
+          type: 'renewal_request',
+          title: 'Richiesta rinnovo abbonamento',
+          body: 'Un atleta ha richiesto il rinnovo del proprio abbonamento',
+          data: { subscription_id: subscription.id },
+          action_url: '/pt/app/athletes?tab=subscriptions',
+        });
+
+      if (notifError) throw notifError;
+    },
+    onSuccess: () => {
+      toast.success('Richiesta di rinnovo inviata al tuo PT!');
+      queryClient.invalidateQueries({ queryKey: ['atleta-pt-subscriptions'] });
+    },
+    onError: () => {
+      toast.error('Errore durante l\'invio della richiesta');
+    },
+  });
+
   const activeSubscriptions = subscriptions?.filter((s) => s.status === 'attivo') || [];
   const historySubscriptions = subscriptions?.filter((s) => s.status !== 'attivo') || [];
 
@@ -126,6 +172,30 @@ export function AtletaSubscriptionHistory() {
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  // Check if renewal banner should be shown
+  const shouldShowRenewalBanner = (sub: PTSubscription): { show: boolean; reason: string } => {
+    if (sub.status !== 'attivo') return { show: false, reason: '' };
+    if (sub.renewal_status === 'pending') return { show: false, reason: '' };
+
+    // Sessions low
+    if (sub.sessions_total) {
+      const remaining = (sub.sessions_total || 0) - (sub.sessions_used || 0);
+      if (remaining <= 2) {
+        return { show: true, reason: `Solo ${remaining} session${remaining === 1 ? 'e' : 'i'} rimast${remaining === 1 ? 'a' : 'e'}` };
+      }
+    }
+
+    // Expiring soon
+    if (sub.expires_at) {
+      const daysLeft = differenceInDays(new Date(sub.expires_at), new Date());
+      if (daysLeft <= 7 && daysLeft >= 0) {
+        return { show: true, reason: `Scade tra ${daysLeft} giorn${daysLeft === 1 ? 'o' : 'i'}` };
+      }
+    }
+
+    return { show: false, reason: '' };
   };
 
   if (isLoading) {
@@ -170,7 +240,15 @@ export function AtletaSubscriptionHistory() {
             Abbonamenti attivi
           </h3>
           {activeSubscriptions.map((sub) => (
-            <SubscriptionCard key={sub.id} subscription={sub} getStatusBadge={getStatusBadge} featured />
+            <SubscriptionCard
+              key={sub.id}
+              subscription={sub}
+              getStatusBadge={getStatusBadge}
+              renewalInfo={shouldShowRenewalBanner(sub)}
+              onRequestRenewal={() => requestRenewalMutation.mutate(sub)}
+              isRequestingRenewal={requestRenewalMutation.isPending}
+              featured
+            />
           ))}
         </div>
       )}
@@ -183,7 +261,14 @@ export function AtletaSubscriptionHistory() {
             Storico
           </h3>
           {historySubscriptions.map((sub) => (
-            <SubscriptionCard key={sub.id} subscription={sub} getStatusBadge={getStatusBadge} />
+            <SubscriptionCard
+              key={sub.id}
+              subscription={sub}
+              getStatusBadge={getStatusBadge}
+              renewalInfo={{ show: false, reason: '' }}
+              onRequestRenewal={() => {}}
+              isRequestingRenewal={false}
+            />
           ))}
         </div>
       )}
@@ -207,10 +292,16 @@ export function AtletaSubscriptionHistory() {
 function SubscriptionCard({
   subscription: sub,
   getStatusBadge,
+  renewalInfo,
+  onRequestRenewal,
+  isRequestingRenewal,
   featured = false,
 }: {
   subscription: PTSubscription;
   getStatusBadge: (status: string) => React.ReactNode;
+  renewalInfo: { show: boolean; reason: string };
+  onRequestRenewal: () => void;
+  isRequestingRenewal: boolean;
   featured?: boolean;
 }) {
   const ptName =
@@ -224,6 +315,54 @@ function SubscriptionCard({
   return (
     <Card className={`${featured ? 'bg-gradient-to-br from-app-accent/10 to-app-accent/5 border-app-accent/20' : 'bg-white/5 border-white/10'}`}>
       <CardContent className="pt-4">
+        {/* Renewal Banner */}
+        {renewalInfo.show && (
+          <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-amber-400">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <span className="text-sm font-medium">{renewalInfo.reason}</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 flex-shrink-0"
+                onClick={onRequestRenewal}
+                disabled={isRequestingRenewal}
+              >
+                {isRequestingRenewal ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <RefreshCcw className="h-3 w-3 mr-1" />
+                    Rinnova
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Pending renewal status */}
+        {sub.renewal_status === 'pending' && (
+          <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <div className="flex items-center gap-2 text-blue-400">
+              <Clock className="h-4 w-4" />
+              <span className="text-sm">Richiesta di rinnovo in attesa di conferma dal PT</span>
+            </div>
+          </div>
+        )}
+
+        {/* Approved renewal */}
+        {sub.renewal_status === 'approved' && (
+          <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+            <div className="flex items-center gap-2 text-green-400">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="text-sm">Rinnovo approvato</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-start justify-between gap-3">
           {/* PT info */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
