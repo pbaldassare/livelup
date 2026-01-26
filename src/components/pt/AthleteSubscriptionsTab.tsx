@@ -39,7 +39,9 @@ import {
   AlertTriangle,
   Loader2,
   Users,
+  PlusCircle,
 } from 'lucide-react';
+import { CreateSubscriptionDialog } from './CreateSubscriptionDialog';
 
 // =====================================================
 // ATHLETE SUBSCRIPTIONS TAB - Gestione abbonamenti PT
@@ -81,7 +83,7 @@ export function AthleteSubscriptionsTab() {
     subscription: AthleteSubscription | null;
   }>({ type: null, subscription: null });
   const [actionValue, setActionValue] = useState('');
-
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   // Fetch subscriptions
   const { data: subscriptions, isLoading } = useQuery({
     queryKey: ['pt-athlete-subscriptions', user?.id],
@@ -252,26 +254,32 @@ export function AthleteSubscriptionsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <Package className="h-4 w-4 text-muted-foreground" />
-              <span className="text-2xl font-bold">{subscriptions?.length || 0}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Totali</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <span className="text-2xl font-bold">{activeCount}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Attivi</p>
-          </CardContent>
-        </Card>
+      {/* Header with Create Button */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-4">
+          <Card className="flex-1">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-muted-foreground" />
+                <span className="text-2xl font-bold">{subscriptions?.length || 0}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Totali</p>
+            </CardContent>
+          </Card>
+          <Card className="flex-1">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span className="text-2xl font-bold">{activeCount}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Attivi</p>
+            </CardContent>
+          </Card>
+        </div>
+        <Button onClick={() => setCreateDialogOpen(true)}>
+          <PlusCircle className="h-4 w-4 mr-2" />
+          Nuovo Abbonamento
+        </Button>
       </div>
 
       {/* Subscriptions list */}
@@ -488,6 +496,12 @@ export function AthleteSubscriptionsTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Subscription Dialog */}
+      <CreateSubscriptionDialog 
+        open={createDialogOpen} 
+        onOpenChange={setCreateDialogOpen} 
+      />
     </div>
   );
 }

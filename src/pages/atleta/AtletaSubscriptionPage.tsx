@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AtletaSubscriptionHistory } from '@/components/atleta/AtletaSubscriptionHistory';
 import { 
   CreditCard, 
   Check, 
@@ -19,7 +21,8 @@ import {
   AlertTriangle,
   Clock,
   Zap,
-  Shield
+  Shield,
+  Package,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -56,6 +59,7 @@ export function AtletaSubscriptionPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('abbonamenti');
 
   // Fetch current subscription
   const { data: subscription, isLoading: subLoading } = useQuery({
@@ -147,174 +151,193 @@ export function AtletaSubscriptionPage() {
             <Skeleton className="h-64 w-full bg-white/10" />
           </div>
         ) : (
-          <>
-            {/* Current Subscription Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <Card className="bg-gradient-to-br from-gray-900 to-gray-800 border-white/10">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-white flex items-center gap-2">
-                      <CreditCard className="h-5 w-5 text-app-accent" />
-                      Il tuo abbonamento
-                    </CardTitle>
-                    {currentStatus && (
-                      <Badge 
-                        className={`${currentStatus.color} text-white`}
-                      >
-                        {currentStatus.label}
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {subscription ? (
-                    <>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-white/50">Piano</p>
-                          <p className="font-medium text-white capitalize">
-                            {subscription.subscription_type?.replace('_', ' ') || 'Free'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-white/50">Prezzo</p>
-                          <p className="font-medium text-white">
-                            {subscription.price_monthly 
-                              ? `€${subscription.price_monthly}/mese` 
-                              : 'Gratuito'}
-                          </p>
-                        </div>
-                      </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="w-full bg-white/5">
+              <TabsTrigger value="abbonamenti" className="flex-1 gap-1">
+                <Package className="h-4 w-4" />
+                I miei PT
+              </TabsTrigger>
+              <TabsTrigger value="piani" className="flex-1 gap-1">
+                <Crown className="h-4 w-4" />
+                Piani app
+              </TabsTrigger>
+            </TabsList>
 
-                      {isTrial && subscription.trial_ends_at && (
-                        <Alert className="bg-blue-500/10 border-blue-500/20">
-                          <Clock className="h-4 w-4 text-blue-400" />
-                          <AlertTitle className="text-blue-400">Periodo di prova</AlertTitle>
-                          <AlertDescription className="text-blue-300/80">
-                            Scade il {format(new Date(subscription.trial_ends_at), "d MMMM yyyy", { locale: it })}
-                          </AlertDescription>
-                        </Alert>
-                      )}
+            {/* PT Subscriptions Tab */}
+            <TabsContent value="abbonamenti" className="mt-4">
+              <AtletaSubscriptionHistory />
+            </TabsContent>
 
-                      {isExpired && (
-                        <Alert className="bg-red-500/10 border-red-500/20">
-                          <AlertTriangle className="h-4 w-4 text-red-400" />
-                          <AlertTitle className="text-red-400">Abbonamento scaduto</AlertTitle>
-                          <AlertDescription className="text-red-300/80">
-                            Rinnova il tuo abbonamento per continuare ad utilizzare tutte le funzionalità.
-                          </AlertDescription>
-                        </Alert>
+            {/* App Plans Tab */}
+            <TabsContent value="piani" className="mt-4 space-y-6">
+              {/* Current Subscription Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Card className="bg-gradient-to-br from-gray-900 to-gray-800 border-white/10">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <CreditCard className="h-5 w-5 text-app-accent" />
+                        Il tuo abbonamento app
+                      </CardTitle>
+                      {currentStatus && (
+                        <Badge 
+                          className={`${currentStatus.color} text-white`}
+                        >
+                          {currentStatus.label}
+                        </Badge>
                       )}
-
-                      {subscription.next_billing_at && (
-                        <div className="text-sm text-white/50">
-                          Prossimo rinnovo: {format(new Date(subscription.next_billing_at), "d MMMM yyyy", { locale: it })}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-white/60">Nessun abbonamento attivo</p>
-                      <p className="text-sm text-white/40 mt-1">
-                        Scegli un piano per sbloccare tutte le funzionalità
-                      </p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {subscription ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-xs text-white/50">Piano</p>
+                            <p className="font-medium text-white capitalize">
+                              {subscription.subscription_type?.replace('_', ' ') || 'Free'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/50">Prezzo</p>
+                            <p className="font-medium text-white">
+                              {subscription.price_monthly 
+                                ? `€${subscription.price_monthly}/mese` 
+                                : 'Gratuito'}
+                            </p>
+                          </div>
+                        </div>
 
-            {/* Available Plans */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold text-white">Piani disponibili</h2>
-              
-              {plans.length === 0 ? (
-                <Card className="bg-gray-900/60 border-white/10">
-                  <CardContent className="py-8 text-center">
-                    <p className="text-white/50">Nessun piano disponibile al momento</p>
+                        {isTrial && subscription.trial_ends_at && (
+                          <Alert className="bg-blue-500/10 border-blue-500/20">
+                            <Clock className="h-4 w-4 text-blue-400" />
+                            <AlertTitle className="text-blue-400">Periodo di prova</AlertTitle>
+                            <AlertDescription className="text-blue-300/80">
+                              Scade il {format(new Date(subscription.trial_ends_at), "d MMMM yyyy", { locale: it })}
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        {isExpired && (
+                          <Alert className="bg-red-500/10 border-red-500/20">
+                            <AlertTriangle className="h-4 w-4 text-red-400" />
+                            <AlertTitle className="text-red-400">Abbonamento scaduto</AlertTitle>
+                            <AlertDescription className="text-red-300/80">
+                              Rinnova il tuo abbonamento per continuare ad utilizzare tutte le funzionalità.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        {subscription.next_billing_at && (
+                          <div className="text-sm text-white/50">
+                            Prossimo rinnovo: {format(new Date(subscription.next_billing_at), "d MMMM yyyy", { locale: it })}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-white/60">Nessun abbonamento attivo</p>
+                        <p className="text-sm text-white/40 mt-1">
+                          Scegli un piano per sbloccare tutte le funzionalità
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-              ) : (
-                plans.map((plan, index) => (
-                  <motion.div
-                    key={plan.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card 
-                      className={`bg-gray-900/60 border transition-all cursor-pointer ${
-                        plan.is_featured 
-                          ? 'border-app-accent ring-1 ring-app-accent/50' 
-                          : 'border-white/10 hover:border-white/20'
-                      } ${selectedPlan === plan.id ? 'ring-2 ring-app-accent' : ''}`}
-                      onClick={() => setSelectedPlan(plan.id)}
+              </motion.div>
+
+              {/* Available Plans */}
+              <div className="space-y-4">
+                <h2 className="text-lg font-bold text-white">Piani disponibili</h2>
+                
+                {plans.length === 0 ? (
+                  <Card className="bg-gray-900/60 border-white/10">
+                    <CardContent className="py-8 text-center">
+                      <p className="text-white/50">Nessun piano disponibile al momento</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  plans.map((plan, index) => (
+                    <motion.div
+                      key={plan.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
                     >
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-white flex items-center gap-2">
-                            {plan.is_featured && <Crown className="h-5 w-5 text-app-accent" />}
-                            {plan.name}
-                          </CardTitle>
-                          {plan.is_featured && (
-                            <Badge className="bg-app-accent text-black">Consigliato</Badge>
+                      <Card 
+                        className={`bg-gray-900/60 border transition-all cursor-pointer ${
+                          plan.is_featured 
+                            ? 'border-app-accent ring-1 ring-app-accent/50' 
+                            : 'border-white/10 hover:border-white/20'
+                        } ${selectedPlan === plan.id ? 'ring-2 ring-app-accent' : ''}`}
+                        onClick={() => setSelectedPlan(plan.id)}
+                      >
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-white flex items-center gap-2">
+                              {plan.is_featured && <Crown className="h-5 w-5 text-app-accent" />}
+                              {plan.name}
+                            </CardTitle>
+                            {plan.is_featured && (
+                              <Badge className="bg-app-accent text-black">Consigliato</Badge>
+                            )}
+                          </div>
+                          {plan.description && (
+                            <CardDescription className="text-white/60">
+                              {plan.description}
+                            </CardDescription>
                           )}
-                        </div>
-                        {plan.description && (
-                          <CardDescription className="text-white/60">
-                            {plan.description}
-                          </CardDescription>
-                        )}
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-baseline gap-1 mb-4">
-                          <span className="text-3xl font-bold text-white">€{plan.price_monthly}</span>
-                          <span className="text-white/50">/mese</span>
-                        </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-baseline gap-1 mb-4">
+                            <span className="text-3xl font-bold text-white">€{plan.price_monthly}</span>
+                            <span className="text-white/50">/mese</span>
+                          </div>
 
-                        <div className="space-y-2">
-                          {plan.features.map((feature, i) => (
-                            <div key={i} className="flex items-center gap-2 text-sm text-white/80">
-                              <Check className="h-4 w-4 text-app-accent flex-shrink-0" />
-                              <span>{String(feature)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                      <CardFooter>
-                        <Button 
-                          className={`w-full ${
-                            plan.is_featured 
-                              ? 'bg-app-accent hover:bg-app-accent/90 text-black' 
-                              : 'bg-white/10 hover:bg-white/20 text-white'
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            upgradeMutation.mutate(plan.id);
-                          }}
-                          disabled={upgradeMutation.isPending}
-                        >
-                          {subscription?.subscription_type === plan.name.toLowerCase() 
-                            ? 'Piano attuale' 
-                            : 'Scegli questo piano'
-                          }
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  </motion.div>
-                ))
-              )}
-            </div>
+                          <div className="space-y-2">
+                            {plan.features.map((feature, i) => (
+                              <div key={i} className="flex items-center gap-2 text-sm text-white/80">
+                                <Check className="h-4 w-4 text-app-accent flex-shrink-0" />
+                                <span>{String(feature)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                        <CardFooter>
+                          <Button 
+                            className={`w-full ${
+                              plan.is_featured 
+                                ? 'bg-app-accent hover:bg-app-accent/90 text-black' 
+                                : 'bg-white/10 hover:bg-white/20 text-white'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              upgradeMutation.mutate(plan.id);
+                            }}
+                            disabled={upgradeMutation.isPending}
+                          >
+                            {subscription?.subscription_type === plan.name.toLowerCase() 
+                              ? 'Piano attuale' 
+                              : 'Scegli questo piano'
+                            }
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    </motion.div>
+                  ))
+                )}
+              </div>
 
-            {/* Security Note */}
-            <div className="flex items-center gap-2 text-xs text-white/40 justify-center">
-              <Shield className="h-4 w-4" />
-              <span>Pagamenti sicuri con Stripe</span>
-            </div>
-          </>
+              {/* Security Note */}
+              <div className="flex items-center gap-2 text-xs text-white/40 justify-center">
+                <Shield className="h-4 w-4" />
+                <span>Pagamenti sicuri con Stripe</span>
+              </div>
+            </TabsContent>
+          </Tabs>
         )}
       </main>
     </div>
