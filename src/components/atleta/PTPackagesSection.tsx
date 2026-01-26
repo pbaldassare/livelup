@@ -113,13 +113,13 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
 
   if (isLoading) {
     return (
-      <Card className="mx-4 mb-4">
+      <Card className="mx-4 mb-4 bg-app-card border-app-border">
         <CardHeader>
-          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-6 w-32 bg-app-muted" />
         </CardHeader>
         <CardContent className="space-y-4">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full bg-app-muted" />
+          <Skeleton className="h-24 w-full bg-app-muted" />
         </CardContent>
       </Card>
     );
@@ -129,20 +129,20 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
     <div className="mx-4 mb-4 space-y-4">
       {/* Active Subscription Banner */}
       {activeSubscription && (
-        <Card className="bg-primary/5 border-primary/20">
+        <Card className="bg-app-accent/10 border-app-accent/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base flex items-center gap-2 text-app-foreground">
+              <CheckCircle2 className="h-4 w-4 text-app-accent" />
               Il tuo abbonamento attivo
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-medium">
+                <span className="font-medium text-app-foreground">
                   {activeSubscription.pt_packages?.name || 'Pacchetto custom'}
                 </span>
-                <Badge variant="secondary" className="bg-primary/10 text-primary">
+                <Badge className="bg-app-accent text-app-accent-foreground">
                   Attivo
                 </Badge>
               </div>
@@ -150,8 +150,8 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
               {activeSubscription.sessions_total !== null ? (
                 <div>
                   <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-muted-foreground">Sessioni utilizzate</span>
-                    <span className="font-medium">
+                    <span className="text-app-muted-foreground">Sessioni utilizzate</span>
+                    <span className="font-medium text-app-foreground">
                       {activeSubscription.sessions_used || 0} / {activeSubscription.sessions_total}
                     </span>
                   </div>
@@ -161,17 +161,17 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
                         activeSubscription.sessions_total) *
                       100
                     }
-                    className="h-2"
+                    className="h-2 bg-app-muted [&>div]:bg-app-accent"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-app-muted-foreground mt-1">
                     {(activeSubscription.sessions_total || 0) -
                       (activeSubscription.sessions_used || 0)}{' '}
                     sessioni rimanenti
                   </p>
                 </div>
               ) : activeSubscription.expires_at ? (
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-2 text-sm text-app-muted-foreground">
+                  <Calendar className="h-4 w-4" />
                   <span>
                     Scade il{' '}
                     {format(new Date(activeSubscription.expires_at), 'dd MMMM yyyy', {
@@ -187,10 +187,10 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
 
       {/* Available Packages */}
       {packages && packages.length > 0 && (
-        <Card>
+        <Card className="bg-app-card border-app-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="h-4 w-4" />
+            <CardTitle className="text-base flex items-center gap-2 text-app-foreground">
+              <Package className="h-4 w-4 text-app-accent" />
               Pacchetti disponibili
             </CardTitle>
           </CardHeader>
@@ -201,12 +201,12 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
               return (
                 <div
                   key={pkg.id}
-                  className="border rounded-lg p-4 space-y-3 relative"
+                  className="border border-app-border bg-app-muted/50 rounded-xl p-4 space-y-3 relative"
                 >
                   {/* Featured badge */}
                   {pkg.is_featured && (
                     <Badge
-                      className="absolute -top-2 -right-2 bg-warning text-warning-foreground"
+                      className="absolute -top-2 -right-2 bg-app-accent text-app-accent-foreground"
                     >
                       <Star className="h-3 w-3 mr-1" />
                       In evidenza
@@ -216,8 +216,8 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
                   {/* Header */}
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="font-semibold">{pkg.name}</h4>
-                      <p className="text-sm text-muted-foreground">
+                      <h4 className="font-semibold text-app-foreground">{pkg.name}</h4>
+                      <p className="text-sm text-app-muted-foreground">
                         {isSessionBased
                           ? `${pkg.sessions_count} sessioni`
                           : pkg.duration_days
@@ -226,9 +226,9 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
                       </p>
                     </div>
                     <div className="text-right">
-                      <span className="text-xl font-bold">€{pkg.price}</span>
+                      <span className="text-xl font-bold text-app-foreground">€{pkg.price}</span>
                       {!isSessionBased && pkg.duration_days && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-app-muted-foreground">
                           {(pkg.price / (pkg.duration_days / 30)).toFixed(0)}€/mese
                         </p>
                       )}
@@ -237,25 +237,25 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
 
                   {/* Description */}
                   {pkg.description && (
-                    <p className="text-sm text-muted-foreground">{pkg.description}</p>
+                    <p className="text-sm text-app-muted-foreground">{pkg.description}</p>
                   )}
 
                   {/* Features */}
                   <div className="flex flex-wrap gap-2">
                     {pkg.includes_chat && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs border-app-border text-app-muted-foreground">
                         <MessageSquare className="h-3 w-3 mr-1" />
                         Chat inclusa
                       </Badge>
                     )}
                     {pkg.includes_video_calls && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs border-app-border text-app-muted-foreground">
                         <Video className="h-3 w-3 mr-1" />
                         Video call
                       </Badge>
                     )}
                     {pkg.max_workouts_per_week && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs border-app-border text-app-muted-foreground">
                         <Dumbbell className="h-3 w-3 mr-1" />
                         Max {pkg.max_workouts_per_week}/sett
                       </Badge>
@@ -264,7 +264,7 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
 
                   {/* CTA */}
                   <Button
-                    className="w-full"
+                    className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
                     onClick={() => requestPurchaseMutation.mutate(pkg.id)}
                     disabled={requestPurchaseMutation.isPending || !!activeSubscription}
                   >
@@ -286,10 +286,10 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
 
       {/* Empty state if no packages */}
       {(!packages || packages.length === 0) && !activeSubscription && (
-        <Card className="border-dashed">
+        <Card className="border-dashed border-app-border bg-app-card/50">
           <CardContent className="py-8 text-center">
-            <Package className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">
+            <Package className="h-10 w-10 mx-auto text-app-muted-foreground mb-3" />
+            <p className="text-sm text-app-muted-foreground">
               Nessun pacchetto disponibile al momento
             </p>
           </CardContent>
