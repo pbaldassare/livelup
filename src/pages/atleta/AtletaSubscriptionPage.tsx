@@ -17,7 +17,7 @@ import {
   Check, 
   Star, 
   Crown, 
-  ChevronLeft,
+  ArrowLeft,
   AlertTriangle,
   Clock,
   Zap,
@@ -132,14 +132,12 @@ export function AtletaSubscriptionPage() {
       {/* Header */}
       <div className="sticky top-0 z-40 bg-app-background/95 backdrop-blur-lg border-b border-white/10">
         <div className="flex items-center gap-3 p-4">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button 
             onClick={() => navigate(-1)}
-            className="text-white/60"
+            className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
           >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
+            <ArrowLeft className="h-5 w-5 text-app-foreground" />
+          </button>
           <h1 className="text-lg font-bold">Abbonamento</h1>
         </div>
       </div>
