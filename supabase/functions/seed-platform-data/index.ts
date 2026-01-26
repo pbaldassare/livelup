@@ -433,7 +433,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 9. Create calendar events
+    // 9. Create calendar events (including 4 public events with GPS coordinates)
     console.log('Creating calendar events...');
     const { data: existingEvents } = await supabase
       .from('calendar_events')
@@ -444,17 +444,71 @@ Deno.serve(async (req) => {
     if (!existingEvents || existingEvents.length === 0) {
       const now = new Date();
       const events = [
-        // PT1 events
+        // PT1 private events
         { creator_user_id: pt1Id, pt_user_id: pt1Id, atleta_user_id: atleta1Id, title: 'Allenamento - Full Body', event_type: 'allenamento', start_datetime: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000 + 10 * 60 * 60 * 1000).toISOString(), end_datetime: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000 + 11 * 60 * 60 * 1000).toISOString(), location: 'Palestra FitLife', is_public: false },
         { creator_user_id: pt1Id, pt_user_id: pt1Id, atleta_user_id: atleta1Id, title: 'Check-in Settimanale', event_type: 'altro', start_datetime: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000 + 9 * 60 * 60 * 1000).toISOString(), end_datetime: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000 + 9.5 * 60 * 60 * 1000).toISOString(), description: 'Verifica progressi e obiettivi', is_public: false },
         { creator_user_id: pt1Id, pt_user_id: pt1Id, atleta_user_id: atleta3Id, title: 'Valutazione Iniziale', event_type: 'allenamento', start_datetime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000 + 15 * 60 * 60 * 1000).toISOString(), end_datetime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000 + 16 * 60 * 60 * 1000).toISOString(), location: 'Palestra FitLife', description: 'Prima sessione di valutazione', is_public: false },
-        // PT2 events
+        // PT2 private events
         { creator_user_id: pt2Id, pt_user_id: pt2Id, atleta_user_id: atleta2Id, title: 'Allenamento Cardio', event_type: 'allenamento', start_datetime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000 + 18 * 60 * 60 * 1000).toISOString(), end_datetime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000 + 19 * 60 * 60 * 1000).toISOString(), is_public: false },
-        // Public events
-        { creator_user_id: pt1Id, pt_user_id: pt1Id, title: 'Raduno Fitness Estivo', event_type: 'raduno', start_datetime: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000 + 9 * 60 * 60 * 1000).toISOString(), end_datetime: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000 + 13 * 60 * 60 * 1000).toISOString(), location: 'Parco Centrale', description: 'Evento gratuito aperto a tutti! Allenamento di gruppo e divertimento.', is_public: true, is_all_day: false },
-        { creator_user_id: pt2Id, pt_user_id: pt2Id, title: 'Workshop Nutrizione Sportiva', event_type: 'evento', start_datetime: new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000 + 10 * 60 * 60 * 1000).toISOString(), end_datetime: new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000 + 12 * 60 * 60 * 1000).toISOString(), location: 'Online - Zoom', description: 'Impara i fondamenti della nutrizione per ottimizzare le tue performance.', is_public: true },
-        // Gara
-        { creator_user_id: pt3Id, pt_user_id: pt3Id, title: 'Gara CrossFit Amatoriale', event_type: 'gara', start_datetime: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000 + 8 * 60 * 60 * 1000).toISOString(), end_datetime: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000).toISOString(), location: 'CrossFit Box Milano', description: 'Competizione amichevole per tutti i livelli.', is_public: true },
+        
+        // ===== 4 PUBLIC EVENTS WITH GPS COORDINATES =====
+        // 1. CrossFit Day Brescia - Raduno (+7 giorni)
+        { 
+          creator_user_id: pt1Id, 
+          pt_user_id: pt1Id, 
+          title: 'CrossFit Day Brescia', 
+          event_type: 'raduno', 
+          start_datetime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 9 * 60 * 60 * 1000).toISOString(), 
+          end_datetime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000).toISOString(), 
+          location: 'CrossFit Box Brescia, Via San Zeno 99, Brescia', 
+          location_lat: 45.5416,
+          location_lng: 10.2118,
+          description: 'Grande raduno CrossFit aperto a tutti i livelli! WOD di gruppo, sfide a squadre e tanto divertimento. Portate energia e voglia di sudare! 💪', 
+          is_public: true, 
+          is_all_day: false 
+        },
+        // 2. Cena Fit Milano - Evento (+14 giorni)
+        { 
+          creator_user_id: pt2Id, 
+          pt_user_id: pt2Id, 
+          title: 'Cena Fit Milano', 
+          event_type: 'evento', 
+          start_datetime: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000 + 20 * 60 * 60 * 1000).toISOString(), 
+          end_datetime: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000 + 23 * 60 * 60 * 1000).toISOString(), 
+          location: 'Ristorante Healthy Bites, Corso Como 15, Milano', 
+          location_lat: 45.4642,
+          location_lng: 9.1900,
+          description: 'Serata speciale per la community fitness! Menù studiato apposta per chi si allena: proteine, verdure e gusto. Occasione perfetta per conoscersi! 🍽️', 
+          is_public: true 
+        },
+        // 3. Yoga al Parco Roma - Raduno (+10 giorni)
+        { 
+          creator_user_id: pt3Id, 
+          pt_user_id: pt3Id, 
+          title: 'Yoga al Parco', 
+          event_type: 'raduno', 
+          start_datetime: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000 + 7 * 60 * 60 * 1000).toISOString(), 
+          end_datetime: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000 + 9 * 60 * 60 * 1000).toISOString(), 
+          location: 'Villa Borghese, Piazzale del Museo Borghese, Roma', 
+          location_lat: 41.9028,
+          location_lng: 12.4964,
+          description: 'Sessione di yoga all\'alba nel cuore di Roma. Adatto a tutti i livelli, portate il vostro tappetino! Pratica Vinyasa con meditazione finale. 🧘‍♀️', 
+          is_public: true 
+        },
+        // 4. Gara Corsa 5K Torino - Gara (+21 giorni)
+        { 
+          creator_user_id: pt1Id, 
+          pt_user_id: pt1Id, 
+          title: 'Gara Corsa 5K', 
+          event_type: 'gara', 
+          start_datetime: new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000 + 8 * 60 * 60 * 1000).toISOString(), 
+          end_datetime: new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000 + 12 * 60 * 60 * 1000).toISOString(), 
+          location: 'Parco del Valentino, Torino', 
+          location_lat: 45.0703,
+          location_lng: 7.6869,
+          description: 'Corsa amatoriale lungo il Po! Percorso di 5km adatto a tutti. Premiazioni per categorie età e tempo. Iscrizione gratuita per i membri della community! 🏃‍♂️', 
+          is_public: true 
+        },
       ];
 
       const { data: createdEvents, error: eventsError } = await supabase
@@ -466,6 +520,40 @@ Deno.serve(async (req) => {
         console.error('Error creating events:', eventsError);
       } else {
         results.events_created = createdEvents?.length || 0;
+        
+        // Add mock participants to public events
+        if (createdEvents) {
+          const publicEvents = createdEvents.filter((e: { is_public: boolean }) => e.is_public);
+          const participantInserts = [];
+          
+          for (const event of publicEvents) {
+            // Add 3-8 random participants from our test users
+            const allUsers = [atleta1Id, atleta2Id, atleta3Id, pt1Id, pt2Id, pt3Id];
+            const numParticipants = 3 + Math.floor(Math.random() * 6); // 3-8
+            const shuffled = allUsers.sort(() => 0.5 - Math.random());
+            const participants = shuffled.slice(0, Math.min(numParticipants, allUsers.length));
+            
+            for (const userId of participants) {
+              participantInserts.push({
+                event_id: event.id,
+                user_id: userId,
+                status: 'registered'
+              });
+            }
+          }
+          
+          if (participantInserts.length > 0) {
+            const { error: participantsError } = await supabase
+              .from('event_participants')
+              .insert(participantInserts);
+            
+            if (participantsError) {
+              console.error('Error creating event participants:', participantsError);
+            } else {
+              results.event_participants_created = participantInserts.length;
+            }
+          }
+        }
       }
     }
 
