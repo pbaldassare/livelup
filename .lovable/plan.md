@@ -1,199 +1,175 @@
 
-# Piano: Pagina Preferenze Notifiche (Solo Permessi)
+# Piano: Standardizzazione Pulsante Indietro nelle Pagine Atleta
 
 ## Problema Identificato
-La pagina `/app/notifications` attualmente mostra la lista delle notifiche, ma l'utente vuole che mostri solo le **impostazioni e permessi** per le notifiche. La lista notifiche rimarrà solo nel dropdown dell'header.
+Analizzando il codice, il pulsante "indietro" è implementato in modo **inconsistente** nelle pagine Atleta:
+
+| Pagina | Implementazione | Funziona? |
+|--------|-----------------|-----------|
+| AtletaSettingsPage | `<button className="p-2 -ml-2 hover:bg-app-muted rounded-lg">` | ✅ |
+| AtletaHelpPage | `<button className="p-2 -ml-2 hover:bg-app-muted rounded-full">` | ✅ |
+| AtletaNotificationsPage | `<Button variant="ghost" size="icon">` | ❌ |
+| AtletaSubscriptionPage | `<Button variant="ghost" size="icon" className="text-white/60">` | ❓ |
+| AtletaWorkoutDetailPage | `<Button variant="ghost" size="icon">` | ❓ |
+| AtletaPTProfilePage | `<Button variant="ghost" size="sm">` con testo | ❓ |
+
+### Cause del Malfunzionamento
+1. **Stile ghost**: Il `Button variant="ghost"` usa `hover:bg-accent` che nel tema scuro potrebbe non essere visibile o avere conflitti
+2. **Area cliccabile**: Il bottone nativo con `p-2` ha un'area touch migliore
+3. **Feedback visivo**: `hover:bg-app-muted` dà feedback chiaro nel tema scuro, mentre `hover:bg-accent` potrebbe non essere percepibile
 
 ---
 
-## Nuova Struttura Pagina
+## Soluzione
 
-```text
-+------------------------------------------+
-| ← Notifiche                              |
-+------------------------------------------+
-| PUSH                                     |
-+------------------------------------------+
-| [🔔] Notifiche Push           [switch]  |
-|     Ricevi notifiche anche ad app chiusa |
-+------------------------------------------+
-| (Se denied)                              |
-| ⚠️ Permesso negato. Modifica le          |
-|    impostazioni del browser.             |
-+------------------------------------------+
+Standardizzare TUTTE le pagine Atleta con lo stesso pattern funzionante:
 
-| CATEGORIE                                |
-+------------------------------------------+
-| [💬] Messaggi                  [switch]  |
-|     Nuovi messaggi dal tuo PT            |
-+------------------------------------------+
-| [🏋️] Workout                   [switch]  |
-|     Nuovi allenamenti assegnati          |
-+------------------------------------------+
-| [🤝] Connessioni               [switch]  |
-|     Richieste e aggiornamenti            |
-+------------------------------------------+
-| [💳] Abbonamenti               [switch]  |
-|     Rinnovi e nuovi piani                |
-+------------------------------------------+
-| [⭐] Recensioni                [switch]  |
-|     Risposte alle tue recensioni         |
-+------------------------------------------+
-| [🏆] Badge                     [switch]  |
-|     Traguardi e obiettivi                |
-+------------------------------------------+
-| [📅] Promemoria                [switch]  |
-|     Eventi e reminder                    |
-+------------------------------------------+
-```
-
----
-
-## Categorie Notifiche
-
-| Categoria | Tipi inclusi | Icona | Colore |
-|-----------|--------------|-------|--------|
-| Messaggi | `message` | MessageSquare | Blu |
-| Workout | `workout`, `workout_assigned`, `workout_completed` | Dumbbell | Lime |
-| Connessioni | `connection`, `connection_*` | UserPlus | Verde |
-| Abbonamenti | `subscription_*`, `renewal_*` | CreditCard | Viola |
-| Acquisti | `package_purchase_*`, `payment` | ShoppingBag | Arancione |
-| Recensioni | `review`, `review_response` | Star | Rosa |
-| Badge | `badge`, `achievement` | Award | Giallo |
-| Calendario | `event`, `reminder` | Calendar | Ciano |
-
----
-
-## Implementazione Preferenze
-
-Le preferenze verranno salvate nella tabella `profiles` in un nuovo campo JSON `notification_preferences`:
-
-```json
-{
-  "messages": true,
-  "workouts": true,
-  "connections": true,
-  "subscriptions": true,
-  "purchases": true,
-  "reviews": true,
-  "badges": true,
-  "calendar": true
-}
-```
-
----
-
-## Migrazione Database
-
-Aggiungere colonna `notification_preferences` alla tabella profiles:
-
-```sql
-ALTER TABLE profiles 
-ADD COLUMN IF NOT EXISTS notification_preferences jsonb 
-DEFAULT '{"messages":true,"workouts":true,"connections":true,"subscriptions":true,"purchases":true,"reviews":true,"badges":true,"calendar":true}'::jsonb;
+```typescript
+<button 
+  onClick={() => navigate(-1)}
+  className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
+>
+  <ArrowLeft className="h-5 w-5 text-app-foreground" />
+</button>
 ```
 
 ---
 
 ## File da Modificare
 
-| File | Modifiche |
-|------|-----------|
-| `src/pages/atleta/AtletaNotificationsPage.tsx` | Riscrivere completamente: rimuovere lista notifiche, aggiungere toggle permessi per push e categorie |
-| Migrazione DB | Aggiungere campo `notification_preferences` |
+### 1. AtletaNotificationsPage.tsx
+**Da:**
+```typescript
+<Button
+  variant="ghost"
+  size="icon"
+  onClick={() => navigate(-1)}
+  className="text-app-foreground"
+>
+  <ArrowLeft className="h-5 w-5" />
+</Button>
+```
+
+**A:**
+```typescript
+<button 
+  onClick={() => navigate(-1)}
+  className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
+>
+  <ArrowLeft className="h-5 w-5 text-app-foreground" />
+</button>
+```
+
+### 2. AtletaSubscriptionPage.tsx
+**Da:**
+```typescript
+<Button
+  variant="ghost"
+  size="icon"
+  onClick={() => navigate(-1)}
+  className="text-white/60"
+>
+  <ChevronLeft className="h-6 w-6" />
+</Button>
+```
+
+**A:**
+```typescript
+<button 
+  onClick={() => navigate(-1)}
+  className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
+>
+  <ArrowLeft className="h-5 w-5 text-app-foreground" />
+</button>
+```
+Nota: Cambiare anche `ChevronLeft` → `ArrowLeft` per coerenza visiva.
+
+### 3. AtletaWorkoutDetailPage.tsx
+**Da:**
+```typescript
+<Button
+  variant="ghost"
+  size="icon"
+  onClick={() => navigate('/app/workout')}
+  className="text-app-foreground hover:bg-app-muted"
+>
+  <ChevronLeft className="h-6 w-6" />
+</Button>
+```
+
+**A:**
+```typescript
+<button 
+  onClick={() => navigate('/app/workout')}
+  className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
+>
+  <ArrowLeft className="h-5 w-5 text-app-foreground" />
+</button>
+```
+
+### 4. AtletaPTProfilePage.tsx
+**Da:**
+```typescript
+<Button 
+  variant="ghost" 
+  size="sm" 
+  onClick={() => navigate(-1)}
+  className="text-app-foreground hover:bg-app-muted"
+>
+  <ArrowLeft className="h-4 w-4 mr-2" />
+  Indietro
+</Button>
+```
+
+**A:**
+```typescript
+<button 
+  onClick={() => navigate(-1)}
+  className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
+>
+  <ArrowLeft className="h-5 w-5 text-app-foreground" />
+</button>
+```
+Nota: Rimuovere il testo "Indietro" per uniformità con le altre pagine.
 
 ---
 
-## Dettaglio UI
+## Pattern Standardizzato
 
-### Sezione Push
-- Toggle principale per push notifications (usa `PushNotificationToggle` esistente ma integrato nel layout card)
-- Stato permesso browser visibile
-- Messaggio di errore se denied
-
-### Sezione Categorie
-- Card con lista di toggle
-- Ogni toggle ha:
-  - Icona colorata (coerente con colori notifica)
-  - Nome categoria
-  - Descrizione breve
-  - Switch on/off
-- Modifiche salvate automaticamente con debounce
-
-### Stile
-- Tema scuro coerente (`bg-app-background`, `bg-app-card`, etc.)
-- Icone con colori distintivi per categoria
-- Switch con accent lime quando attivo
-
----
-
-## Codice Componente
+Per tutte le pagine Atleta PWA:
 
 ```typescript
-// Categorie definite
-const NOTIFICATION_CATEGORIES = [
-  {
-    key: 'messages',
-    label: 'Messaggi',
-    description: 'Nuovi messaggi dal tuo PT',
-    icon: MessageSquare,
-    colorClass: 'text-blue-400 bg-blue-400/10'
-  },
-  {
-    key: 'workouts',
-    label: 'Workout',
-    description: 'Nuovi allenamenti assegnati',
-    icon: Dumbbell,
-    colorClass: 'text-app-accent bg-app-accent/10'
-  },
-  // ... altre categorie
-];
-
-// Stato preferenze
-const [preferences, setPreferences] = useState({
-  messages: true,
-  workouts: true,
-  connections: true,
-  subscriptions: true,
-  purchases: true,
-  reviews: true,
-  badges: true,
-  calendar: true
-});
-
-// Toggle singola categoria
-const handleToggle = (key: string) => {
-  const updated = { ...preferences, [key]: !preferences[key] };
-  setPreferences(updated);
-  savePreferences(updated);
-};
+// Header con pulsante indietro
+<div className="sticky top-0 z-10 bg-app-background/95 backdrop-blur-sm border-b border-app-border">
+  <div className="flex items-center gap-3 p-4">
+    <button 
+      onClick={() => navigate(-1)}  // oppure path specifico se necessario
+      className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
+    >
+      <ArrowLeft className="h-5 w-5 text-app-foreground" />
+    </button>
+    <h1 className="text-xl font-bold text-app-foreground">Titolo Pagina</h1>
+  </div>
+</div>
 ```
 
 ---
 
-## Flusso Salvataggio
+## Riepilogo Modifiche
 
-1. Utente toggle una categoria
-2. Stato locale aggiornato immediatamente
-3. Debounce 500ms per evitare salvataggi multipli
-4. Update su `profiles.notification_preferences`
-5. Toast success se salvato
+| File | Modifica |
+|------|----------|
+| `src/pages/atleta/AtletaNotificationsPage.tsx` | Button → button nativo |
+| `src/pages/atleta/AtletaSubscriptionPage.tsx` | Button → button nativo + ArrowLeft |
+| `src/pages/atleta/AtletaWorkoutDetailPage.tsx` | Button → button nativo + ArrowLeft |
+| `src/pages/atleta/AtletaPTProfilePage.tsx` | Button con testo → button nativo solo icona |
 
 ---
 
 ## Risultato Atteso
 
-- La pagina `/app/notifications` mostra SOLO le impostazioni permessi
-- Toggle master per push notifications con stato browser
-- Toggle per ogni categoria di notifica
-- Preferenze salvate nel profilo
-- La lista notifiche rimane nel dropdown header
-- UI coerente con tema scuro lime
-
----
-
-## Note Tecniche
-
-- Le preferenze potrebbero essere usate lato edge function per filtrare quali notifiche push inviare
-- Per ora salviamo le preferenze come riferimento futuro
-- Il toggle push principale usa il hook `usePushNotifications` esistente
+- Pulsante indietro funzionante su tutte le pagine
+- Stile visivo coerente (icona ArrowLeft 20x20)
+- Hover state visibile nel tema scuro (bg-app-muted)
+- Area touch ottimale (padding p-2)
+- Animazione smooth (transition-colors)
