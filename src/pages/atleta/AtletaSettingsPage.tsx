@@ -21,7 +21,6 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft,
   User,
-  Bell,
   Shield,
   Eye,
   Share2,
@@ -29,7 +28,6 @@ import {
   ChevronRight,
   AlertTriangle
 } from 'lucide-react';
-import { PushNotificationToggle } from '@/components/settings/PushNotificationToggle';
 
 // =====================================================
 // ATLETA SETTINGS PAGE - Impostazioni e Privacy
@@ -174,26 +172,6 @@ export function AtletaSettingsPage() {
           </div>
         </section>
 
-        {/* Notifications Section */}
-        <section>
-          <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">
-            Notifiche
-          </h2>
-          <div className="bg-app-card rounded-xl overflow-hidden divide-y divide-app-border">
-            <div className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <Bell className="h-5 w-5 text-app-muted-foreground" />
-                <div>
-                  <p className="font-medium text-app-foreground">Notifiche push</p>
-                  <p className="text-sm text-app-muted-foreground">
-                    Ricevi notifiche sul dispositivo
-                  </p>
-                </div>
-              </div>
-              <PushNotificationToggle />
-            </div>
-          </div>
-        </section>
 
         {/* Danger Zone */}
         <section>
