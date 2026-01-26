@@ -69,7 +69,8 @@ import {
   Star,
   CheckSquare,
   Plus,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
@@ -142,6 +143,10 @@ export function AdminPTsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<'approve' | 'suspend' | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [ptToDelete, setPtToDelete] = useState<PTListItem | null>(null);
   
   // Create PT Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -343,6 +348,31 @@ export function AdminPTsPage() {
         specializations: [],
         status: 'attivo'
       });
+    },
+    onError: (error) => toast.error('Errore: ' + error.message)
+  });
+
+  // Delete PT mutation
+  const deletePTMutation = useMutation({
+    mutationFn: async (pt: PTListItem) => {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error('Non autenticato');
+
+      const response = await supabase.functions.invoke('delete-user', {
+        body: { userId: pt.user_id, role: 'pt' }
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pts'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      toast.success('Personal Trainer eliminato con successo');
+      setDeleteDialogOpen(false);
+      setPtToDelete(null);
+      setDetailOpen(false);
     },
     onError: (error) => toast.error('Errore: ' + error.message)
   });
@@ -723,6 +753,17 @@ export function AdminPTsPage() {
                                   Riattiva
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setPtToDelete(pt);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Elimina PT
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -761,24 +802,42 @@ export function AdminPTsPage() {
           { label: 'Città', value: selectedPT?.location_city || 'Non specificata' },
         ]}
         actions={
-          selectedPT?.status === 'in_attesa_approvazione' ? (
-            <>
-              <Button className="flex-1" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
-                <Ban className="h-4 w-4 mr-2" />Rifiuta
+          <>
+            <div className="flex gap-2 w-full">
+              {selectedPT?.status === 'in_attesa_approvazione' && (
+                <>
+                  <Button className="flex-1" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
+                    <Ban className="h-4 w-4 mr-2" />Rifiuta
+                  </Button>
+                  <Button className="flex-1" onClick={() => handleApprove(selectedPT.user_id)}>
+                    <Check className="h-4 w-4 mr-2" />Approva
+                  </Button>
+                </>
+              )}
+              {selectedPT?.status === 'attivo' && (
+                <Button className="flex-1" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
+                  <Ban className="h-4 w-4 mr-2" />Sospendi PT
+                </Button>
+              )}
+              {selectedPT?.status === 'sospeso' && (
+                <Button className="flex-1" onClick={() => handleReactivate(selectedPT.user_id)}>
+                  <RefreshCw className="h-4 w-4 mr-2" />Riattiva PT
+                </Button>
+              )}
+            </div>
+            {selectedPT && (
+              <Button 
+                variant="destructive" 
+                className="w-full mt-2"
+                onClick={() => {
+                  setPtToDelete(selectedPT);
+                  setDeleteDialogOpen(true);
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />Elimina PT
               </Button>
-              <Button className="flex-1" onClick={() => handleApprove(selectedPT.user_id)}>
-                <Check className="h-4 w-4 mr-2" />Approva
-              </Button>
-            </>
-          ) : selectedPT?.status === 'attivo' ? (
-            <Button className="w-full" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
-              <Ban className="h-4 w-4 mr-2" />Sospendi PT
-            </Button>
-          ) : selectedPT?.status === 'sospeso' ? (
-            <Button className="w-full" onClick={() => handleReactivate(selectedPT.user_id)}>
-              <RefreshCw className="h-4 w-4 mr-2" />Riattiva PT
-            </Button>
-          ) : null
+            )}
+          </>
         }
       />
 
@@ -796,6 +855,51 @@ export function AdminPTsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Annulla</AlertDialogCancel>
             <AlertDialogAction onClick={executeBulkAction}>Conferma</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete PT Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Elimina Personal Trainer</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Stai per eliminare definitivamente <strong>{ptToDelete?.profiles?.first_name} {ptToDelete?.profiles?.last_name}</strong>.
+              </p>
+              <p className="text-destructive font-medium">
+                Questa azione è irreversibile e cancellerà tutti i dati associati:
+              </p>
+              <ul className="list-disc list-inside text-sm text-muted-foreground">
+                <li>Profilo e credenziali</li>
+                <li>Allenamenti e template creati</li>
+                <li>Connessioni con atleti</li>
+                <li>Chat e messaggi</li>
+                <li>Recensioni ricevute</li>
+                <li>Eventi calendario</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePTMutation.isPending}>Annulla</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => ptToDelete && deletePTMutation.mutate(ptToDelete)}
+              disabled={deletePTMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletePTMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Eliminazione...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Elimina definitivamente
+                </>
+              )}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
