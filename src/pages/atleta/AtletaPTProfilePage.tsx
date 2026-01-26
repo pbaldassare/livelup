@@ -181,28 +181,35 @@ export function AtletaPTProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 space-y-4">
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
+      <div className="p-4 space-y-4 bg-app-background min-h-screen">
+        <Skeleton className="h-32 w-full rounded-xl bg-app-muted" />
+        <Skeleton className="h-24 w-full bg-app-muted" />
+        <Skeleton className="h-24 w-full bg-app-muted" />
       </div>
     );
   }
 
   if (!pt) {
     return (
-      <div className="p-4 text-center py-12">
-        <h2 className="text-xl font-bold mb-2">PT non trovato</h2>
-        <Button onClick={() => navigate(-1)}>Torna indietro</Button>
+      <div className="p-4 text-center py-12 bg-app-background min-h-screen">
+        <h2 className="text-xl font-bold mb-2 text-app-foreground">PT non trovato</h2>
+        <Button onClick={() => navigate(-1)} className="bg-app-accent text-app-accent-foreground">
+          Torna indietro
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 bg-app-background min-h-screen">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-background border-b border-border p-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+      <div className="sticky top-0 z-40 bg-app-card border-b border-app-border p-4">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => navigate(-1)}
+          className="text-app-foreground hover:bg-app-muted"
+        >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Indietro
         </Button>
@@ -211,27 +218,27 @@ export function AtletaPTProfilePage() {
       {/* Profile header */}
       <div className="p-4 space-y-4">
         <div className="flex items-start gap-4">
-          <Avatar className="h-20 w-20">
+          <Avatar className="h-20 w-20 border-2 border-app-border">
             <AvatarImage src={pt.profiles?.avatar_url || undefined} />
-            <AvatarFallback className="text-2xl">
+            <AvatarFallback className="text-2xl bg-app-muted text-app-foreground">
               {(pt.profiles?.first_name?.[0] || '') + (pt.profiles?.last_name?.[0] || '')}
             </AvatarFallback>
           </Avatar>
           
           <div className="flex-1">
-            <h1 className="text-xl font-bold">
+            <h1 className="text-xl font-bold text-app-foreground">
               {pt.profiles?.first_name} {pt.profiles?.last_name}
             </h1>
             
             {pt.rating_avg && pt.rating_avg > 0 && (
               <div className="flex items-center gap-1 text-sm mt-1">
                 <Star className="h-4 w-4 fill-warning text-warning" />
-                <span className="font-medium">{pt.rating_avg.toFixed(1)}</span>
-                <span className="text-muted-foreground">({pt.review_count} recensioni)</span>
+                <span className="font-medium text-app-foreground">{pt.rating_avg.toFixed(1)}</span>
+                <span className="text-app-muted-foreground">({pt.review_count} recensioni)</span>
               </div>
             )}
             
-            <div className="flex flex-wrap gap-2 mt-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-2 mt-2 text-sm text-app-muted-foreground">
               {pt.location_city && (
                 <span className="flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
@@ -251,19 +258,19 @@ export function AtletaPTProfilePage() {
         {/* Price & Modality */}
         <div className="flex gap-2">
           {pt.hourly_rate && (
-            <Badge variant="secondary" className="gap-1">
+            <Badge className="gap-1 bg-app-muted border border-app-border text-app-foreground">
               <Euro className="h-3 w-3" />
               {pt.hourly_rate}/ora
             </Badge>
           )}
           {pt.offers_online && (
-            <Badge variant="secondary" className="gap-1">
+            <Badge className="gap-1 bg-app-muted border border-app-border text-app-foreground">
               <Wifi className="h-3 w-3" />
               Online
             </Badge>
           )}
           {pt.offers_in_person && (
-            <Badge variant="secondary" className="gap-1">
+            <Badge className="gap-1 bg-app-muted border border-app-border text-app-foreground">
               <Users className="h-3 w-3" />
               In presenza
             </Badge>
@@ -274,22 +281,24 @@ export function AtletaPTProfilePage() {
         {pt.specializations && pt.specializations.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {pt.specializations.map((spec: string, i: number) => (
-              <Badge key={i} variant="outline">{spec}</Badge>
+              <Badge key={i} variant="outline" className="border-app-border text-app-muted-foreground">
+                {spec}
+              </Badge>
             ))}
           </div>
         )}
       </div>
 
-      <Separator />
+      <Separator className="bg-app-border" />
 
       {/* Bio */}
       {pt.bio && (
-        <Card className="m-4">
+        <Card className="m-4 bg-app-card border-app-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Chi sono</CardTitle>
+            <CardTitle className="text-base text-app-foreground">Chi sono</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+            <p className="text-sm text-app-muted-foreground whitespace-pre-wrap">
               {pt.bio}
             </p>
           </CardContent>
@@ -298,12 +307,12 @@ export function AtletaPTProfilePage() {
 
       {/* Method */}
       {pt.method_description && (
-        <Card className="mx-4 mb-4">
+        <Card className="mx-4 mb-4 bg-app-card border-app-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Il mio metodo</CardTitle>
+            <CardTitle className="text-base text-app-foreground">Il mio metodo</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+            <p className="text-sm text-app-muted-foreground whitespace-pre-wrap">
               {pt.method_description}
             </p>
           </CardContent>
@@ -312,17 +321,19 @@ export function AtletaPTProfilePage() {
 
       {/* Certifications */}
       {pt.certifications && pt.certifications.length > 0 && (
-        <Card className="mx-4 mb-4">
+        <Card className="mx-4 mb-4 bg-app-card border-app-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Award className="h-4 w-4" />
+            <CardTitle className="text-base flex items-center gap-2 text-app-foreground">
+              <Award className="h-4 w-4 text-app-accent" />
               Certificazioni
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {pt.certifications.map((cert: string, i: number) => (
-                <Badge key={i} variant="secondary">{cert}</Badge>
+                <Badge key={i} className="bg-app-muted border border-app-border text-app-foreground">
+                  {cert}
+                </Badge>
               ))}
             </div>
           </CardContent>
@@ -331,10 +342,10 @@ export function AtletaPTProfilePage() {
 
       {/* Availability */}
       {availability && availability.length > 0 && (
-        <Card className="mx-4 mb-4">
+        <Card className="mx-4 mb-4 bg-app-card border-app-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
+            <CardTitle className="text-base flex items-center gap-2 text-app-foreground">
+              <Calendar className="h-4 w-4 text-app-accent" />
               Disponibilità
             </CardTitle>
           </CardHeader>
@@ -342,9 +353,9 @@ export function AtletaPTProfilePage() {
             <div className="grid grid-cols-2 gap-2">
               {availability.map((slot: any) => (
                 <div key={slot.id} className="text-sm flex items-center gap-2">
-                  <Clock className="h-3 w-3 text-muted-foreground" />
-                  <span className="font-medium">{DAYS[slot.day_of_week]}:</span>
-                  <span className="text-muted-foreground">
+                  <Clock className="h-3 w-3 text-app-muted-foreground" />
+                  <span className="font-medium text-app-foreground">{DAYS[slot.day_of_week]}:</span>
+                  <span className="text-app-muted-foreground">
                     {slot.start_time?.slice(0, 5)} - {slot.end_time?.slice(0, 5)}
                   </span>
                 </div>
@@ -356,10 +367,10 @@ export function AtletaPTProfilePage() {
 
       {/* Reviews */}
       {reviews && reviews.length > 0 && (
-        <Card className="mx-4 mb-4">
+        <Card className="mx-4 mb-4 bg-app-card border-app-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Star className="h-4 w-4" />
+            <CardTitle className="text-base flex items-center gap-2 text-app-foreground">
+              <Star className="h-4 w-4 text-app-accent" />
               Recensioni
             </CardTitle>
           </CardHeader>
@@ -369,12 +380,12 @@ export function AtletaPTProfilePage() {
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={review.profiles?.avatar_url || undefined} />
-                    <AvatarFallback>
+                    <AvatarFallback className="bg-app-muted text-app-foreground text-sm">
                       {(review.profiles?.first_name?.[0] || '')}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">
+                    <p className="text-sm font-medium text-app-foreground">
                       {review.profiles?.first_name} {review.profiles?.last_name?.[0]}.
                     </p>
                     <div className="flex items-center gap-1">
@@ -385,9 +396,9 @@ export function AtletaPTProfilePage() {
                   </div>
                 </div>
                 {review.comment && (
-                  <p className="text-sm text-muted-foreground">{review.comment}</p>
+                  <p className="text-sm text-app-muted-foreground">{review.comment}</p>
                 )}
-                <Separator />
+                <Separator className="bg-app-border" />
               </div>
             ))}
           </CardContent>
@@ -400,29 +411,29 @@ export function AtletaPTProfilePage() {
       )}
 
       {/* Fixed CTA */}
-      <div className="fixed bottom-20 left-0 right-0 p-4 bg-background border-t border-border safe-bottom">
+      <div className="fixed bottom-20 left-0 right-0 p-4 bg-app-card border-t border-app-border safe-bottom">
         <div className="max-w-lg mx-auto">
           {isConnectedToThisPT ? (
-            <Button className="w-full" disabled>
+            <Button className="w-full bg-app-accent text-app-accent-foreground" disabled>
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Già collegato
             </Button>
           ) : isPendingThisPT ? (
-            <Button className="w-full" disabled variant="secondary">
+            <Button className="w-full bg-app-muted text-app-muted-foreground" disabled>
               <Clock className="h-4 w-4 mr-2" />
               Richiesta in attesa
             </Button>
           ) : isConnected ? (
-            <Button className="w-full" disabled variant="secondary">
+            <Button className="w-full bg-app-muted text-app-muted-foreground" disabled>
               Sei già collegato a un altro PT
             </Button>
           ) : !user ? (
-            <Button className="w-full" asChild>
+            <Button className="w-full bg-app-accent text-app-accent-foreground" asChild>
               <a href="/auth">Accedi per richiedere connessione</a>
             </Button>
           ) : (
             <Button 
-              className="w-full" 
+              className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90" 
               onClick={() => requestMutation.mutate()}
               disabled={requestMutation.isPending}
             >
