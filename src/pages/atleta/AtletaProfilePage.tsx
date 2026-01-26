@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
@@ -14,7 +16,7 @@ import {
   LogOut, 
   ChevronRight,
   Bell,
-  Shield,
+  Settings,
   HelpCircle,
   Edit,
   Unlink,
@@ -22,7 +24,11 @@ import {
   Award,
   Heart,
   Star,
-  Download
+  Download,
+  Mail,
+  Phone,
+  MapPin,
+  Save
 } from 'lucide-react';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
@@ -44,6 +50,15 @@ export function AtletaProfilePage() {
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [activeTab, setActiveTab] = useState('badges');
   const { isInstalled, isInstallable, isIOS } = useInstallPrompt();
+  
+  // Edit form state
+  const [editForm, setEditForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
   
   const showInstallOption = !isInstalled && (isInstallable || isIOS);
 
@@ -146,6 +161,41 @@ export function AtletaProfilePage() {
     }
   };
 
+  const handleOpenEditSheet = () => {
+    setEditForm({
+      first_name: profile?.first_name || '',
+      last_name: profile?.last_name || '',
+      email: profile?.email || user?.email || '',
+      phone: profile?.phone || '',
+    });
+    setShowEditSheet(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: editForm.first_name,
+          last_name: editForm.last_name,
+          phone: editForm.phone,
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      toast.success('Profilo aggiornato!');
+      setShowEditSheet(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Errore durante il salvataggio');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const fullName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Atleta';
   const initials = profile 
     ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` 
@@ -161,7 +211,7 @@ export function AtletaProfilePage() {
   const menuItems = [
     ...(showInstallOption ? [{ icon: Download, label: 'Installa App', href: '/install' }] : []),
     { icon: Bell, label: 'Notifiche', href: '/app/notifications' },
-    { icon: Shield, label: 'Privacy', href: '/app/privacy' },
+    { icon: Settings, label: 'Impostazioni', href: '/app/settings' },
     { icon: HelpCircle, label: 'Aiuto', href: '/app/help' },
   ];
 
@@ -187,13 +237,49 @@ export function AtletaProfilePage() {
         streakCount={streakCount}
         subtitle={status === 'collegato' ? ptName || 'Elevate' : undefined}
         onSendMessage={status === 'collegato' ? handleSendMessage : undefined}
+        editable={true}
       />
 
       {/* Stats */}
       <ProfileStats stats={profileStats} className="border-b border-app-border" />
 
+      {/* Personal Data Section */}
+      <div className="px-4 pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider">
+            I tuoi dati
+          </h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleOpenEditSheet}
+            className="text-app-accent hover:text-app-accent hover:bg-app-accent/10 -mr-2"
+          >
+            <Edit className="h-4 w-4 mr-1" />
+            Modifica
+          </Button>
+        </div>
+        
+        <div className="bg-app-card rounded-xl overflow-hidden divide-y divide-app-border">
+          <div className="flex items-center gap-3 p-4">
+            <Mail className="h-5 w-5 text-app-muted-foreground" />
+            <div>
+              <p className="text-xs text-app-muted-foreground">Email</p>
+              <p className="text-app-foreground">{profile?.email || user?.email || '-'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4">
+            <Phone className="h-5 w-5 text-app-muted-foreground" />
+            <div>
+              <p className="text-xs text-app-muted-foreground">Telefono</p>
+              <p className="text-app-foreground">{profile?.phone || '-'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
         <TabsList className="w-full bg-transparent border-b border-app-border rounded-none p-0 h-auto">
           <TabsTrigger 
             value="activity" 
@@ -323,12 +409,64 @@ export function AtletaProfilePage() {
 
       {/* Edit profile sheet */}
       <Sheet open={showEditSheet} onOpenChange={setShowEditSheet}>
-        <SheetContent side="bottom" className="h-[60vh] bg-app-background border-app-border">
+        <SheetContent side="bottom" className="h-auto max-h-[80vh] bg-app-background border-app-border">
           <SheetHeader>
-            <SheetTitle className="text-app-foreground">Modifica profilo</SheetTitle>
+            <SheetTitle className="text-app-foreground">Modifica dati</SheetTitle>
           </SheetHeader>
-          <div className="py-4 text-center text-app-muted-foreground">
-            Funzionalità in arrivo
+          <div className="py-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="first_name" className="text-app-foreground">Nome</Label>
+                <Input
+                  id="first_name"
+                  value={editForm.first_name}
+                  onChange={(e) => setEditForm(f => ({ ...f, first_name: e.target.value }))}
+                  className="mt-1 bg-app-muted border-app-border text-app-foreground"
+                />
+              </div>
+              <div>
+                <Label htmlFor="last_name" className="text-app-foreground">Cognome</Label>
+                <Input
+                  id="last_name"
+                  value={editForm.last_name}
+                  onChange={(e) => setEditForm(f => ({ ...f, last_name: e.target.value }))}
+                  className="mt-1 bg-app-muted border-app-border text-app-foreground"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="email" className="text-app-foreground">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={editForm.email}
+                disabled
+                className="mt-1 bg-app-muted/50 border-app-border text-app-muted-foreground"
+              />
+              <p className="text-xs text-app-muted-foreground mt-1">L'email non può essere modificata</p>
+            </div>
+            
+            <div>
+              <Label htmlFor="phone" className="text-app-foreground">Telefono</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm(f => ({ ...f, phone: e.target.value }))}
+                placeholder="+39 333 1234567"
+                className="mt-1 bg-app-muted border-app-border text-app-foreground"
+              />
+            </div>
+            
+            <Button
+              onClick={handleSaveProfile}
+              disabled={isSaving}
+              className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isSaving ? 'Salvataggio...' : 'Salva modifiche'}
+            </Button>
           </div>
         </SheetContent>
       </Sheet>
