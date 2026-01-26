@@ -17,12 +17,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+import { InlineEditText, InlineEditSelect } from '@/components/dashboard/InlineEditCells';
 import { 
   Dumbbell, 
   Plus, 
   Search, 
   Copy, 
-  Edit, 
   Trash2,
   FileText,
   Users,
@@ -240,6 +240,32 @@ export function PTWorkoutsPage() {
     },
   });
 
+  // Update template mutation (inline edit)
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, field, value }: { id: string; field: 'title' | 'difficulty_level'; value: string }) => {
+      const { error } = await supabase
+        .from('workout_templates')
+        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
+      toast.success('Template aggiornato');
+    },
+    onError: () => {
+      toast.error('Errore durante l\'aggiornamento');
+    },
+  });
+
+  // Difficulty options for inline edit
+  const difficultyOptions = [
+    { value: 'principiante', label: 'Principiante' },
+    { value: 'intermedio', label: 'Intermedio' },
+    { value: 'avanzato', label: 'Avanzato' },
+    { value: 'agonista', label: 'Agonista' },
+  ];
+
   // Filter data
   const filteredTemplates = templates.filter((t) =>
     t.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -257,9 +283,13 @@ export function PTWorkoutsPage() {
       key: 'title',
       header: 'Titolo',
       cell: (template) => (
-        <div>
-          <p className="font-medium">{template.title}</p>
-          <p className="text-sm text-muted-foreground line-clamp-1">
+        <div className="min-w-[200px]">
+          <InlineEditText
+            value={template.title}
+            onSave={(value) => updateTemplateMutation.mutate({ id: template.id, field: 'title', value })}
+            placeholder="Nome template..."
+          />
+          <p className="text-sm text-muted-foreground line-clamp-1 px-2">
             {template.description || 'Nessuna descrizione'}
           </p>
         </div>
@@ -268,7 +298,14 @@ export function PTWorkoutsPage() {
     {
       key: 'difficulty',
       header: 'Difficoltà',
-      cell: (template) => <StatusBadge status={template.difficulty_level} />,
+      cell: (template) => (
+        <InlineEditSelect
+          value={template.difficulty_level}
+          options={difficultyOptions}
+          onSave={(value) => updateTemplateMutation.mutate({ id: template.id, field: 'difficulty_level', value })}
+          placeholder="Seleziona..."
+        />
+      ),
     },
     {
       key: 'category',
@@ -306,9 +343,6 @@ export function PTWorkoutsPage() {
         title="Assegna ad atleta"
       >
         <UserPlus className="h-4 w-4" />
-      </Button>
-      <Button size="sm" variant="ghost" title="Modifica">
-        <Edit className="h-4 w-4" />
       </Button>
       <Button 
         size="sm" 
@@ -369,7 +403,7 @@ export function PTWorkoutsPage() {
   const workoutActions = (workout: Workout) => (
     <div className="flex items-center gap-2">
       <Button size="sm" variant="ghost">
-        <Edit className="h-4 w-4" />
+        <Eye className="h-4 w-4" />
       </Button>
     </div>
   );
