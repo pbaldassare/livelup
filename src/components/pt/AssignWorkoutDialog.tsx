@@ -275,13 +275,13 @@ export function AssignWorkoutDialog({
                     <SelectItem key={athlete.atleta_user_id} value={athlete.atleta_user_id}>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
-                          <AvatarImage src={athlete.profile.avatar_url || undefined} />
+                          <AvatarImage src={athlete.profile?.avatar_url || undefined} />
                           <AvatarFallback className="text-xs">
-                            {athlete.profile.first_name?.[0]}{athlete.profile.last_name?.[0]}
+                            {athlete.profile?.first_name?.[0]}{athlete.profile?.last_name?.[0]}
                           </AvatarFallback>
                         </Avatar>
                         <span>
-                          {athlete.profile.first_name} {athlete.profile.last_name}
+                          {athlete.profile?.first_name || 'Atleta'} {athlete.profile?.last_name || ''}
                         </span>
                       </div>
                     </SelectItem>
