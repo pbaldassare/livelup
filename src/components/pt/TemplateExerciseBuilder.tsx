@@ -24,14 +24,11 @@ import {
   Plus, 
   Trash2, 
   GripVertical, 
-  Search,
   Dumbbell,
-  Clock,
-  ChevronUp,
-  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 // =====================================================
 // TEMPLATE EXERCISE BUILDER
@@ -172,26 +169,52 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
     },
   });
 
-  // Reorder mutation
+  // Reorder mutation for drag and drop
   const reorderMutation = useMutation({
-    mutationFn: async ({ id, direction }: { id: string; direction: 'up' | 'down' }) => {
-      const currentIndex = templateExercises.findIndex(te => te.id === id);
-      if (currentIndex === -1) return;
-
-      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-      if (targetIndex < 0 || targetIndex >= templateExercises.length) return;
-
-      const current = templateExercises[currentIndex];
-      const target = templateExercises[targetIndex];
-
-      // Swap order indices
-      await supabase.from('template_exercises').update({ order_index: target.order_index }).eq('id', current.id);
-      await supabase.from('template_exercises').update({ order_index: current.order_index }).eq('id', target.id);
+    mutationFn: async (reorderedExercises: { id: string; order_index: number }[]) => {
+      // Update all exercises with new order indices
+      const updates = reorderedExercises.map(({ id, order_index }) =>
+        supabase.from('template_exercises').update({ order_index }).eq('id', id)
+      );
+      
+      await Promise.all(updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['template-exercises', templateId] });
     },
+    onError: () => {
+      toast.error('Errore durante il riordinamento');
+    },
   });
+
+  // Handle drag end
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+
+    const sourceIndex = result.source.index;
+    const destinationIndex = result.destination.index;
+
+    if (sourceIndex === destinationIndex) return;
+
+    // Create a new array with the reordered items
+    const reordered = Array.from(templateExercises);
+    const [removed] = reordered.splice(sourceIndex, 1);
+    reordered.splice(destinationIndex, 0, removed);
+
+    // Update order indices
+    const updates = reordered.map((item, index) => ({
+      id: item.id,
+      order_index: index,
+    }));
+
+    // Optimistically update the cache
+    queryClient.setQueryData(['template-exercises', templateId], 
+      reordered.map((item, index) => ({ ...item, order_index: index }))
+    );
+
+    // Persist to database
+    reorderMutation.mutate(updates);
+  };
 
   // Filter exercises not already in template
   const availableExercises = exercises.filter(
@@ -217,7 +240,7 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
         <div>
           <h4 className="font-medium">Esercizi nel Template</h4>
           <p className="text-sm text-muted-foreground">
-            {templateExercises.length} esercizi configurati
+            {templateExercises.length} esercizi configurati • Trascina per riordinare
           </p>
         </div>
         <Popover open={searchOpen} onOpenChange={setSearchOpen}>
@@ -264,7 +287,7 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
         </Popover>
       </div>
 
-      {/* Exercise List */}
+      {/* Exercise List with Drag and Drop */}
       {templateExercises.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -275,119 +298,130 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
           </CardContent>
         </Card>
       ) : (
-        <ScrollArea className="h-[400px] pr-4">
-          <div className="space-y-3">
-            {templateExercises.map((te, index) => (
-              <Card key={te.id} className="overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex gap-4">
-                    {/* Order Controls */}
-                    <div className="flex flex-col items-center justify-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => reorderMutation.mutate({ id: te.id, direction: 'up' })}
-                        disabled={index === 0}
-                      >
-                        <ChevronUp className="h-4 w-4" />
-                      </Button>
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {index + 1}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => reorderMutation.mutate({ id: te.id, direction: 'down' })}
-                        disabled={index === templateExercises.length - 1}
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {/* Exercise Info */}
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{te.exercise?.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {te.exercise?.category} • {te.exercise?.muscle_groups.join(', ')}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => removeExerciseMutation.mutate(te.id)}
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="template-exercises">
+            {(provided, snapshot) => (
+              <ScrollArea className="h-[400px] pr-4">
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={cn(
+                    "space-y-3 min-h-[100px] transition-colors rounded-lg p-1",
+                    snapshot.isDraggingOver && "bg-accent/50"
+                  )}
+                >
+                  {templateExercises.map((te, index) => (
+                    <Draggable key={te.id} draggableId={te.id} index={index}>
+                      {(provided, snapshot) => (
+                        <Card
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={cn(
+                            "overflow-hidden transition-shadow",
+                            snapshot.isDragging && "shadow-lg ring-2 ring-primary"
+                          )}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                          <CardContent className="p-4">
+                            <div className="flex gap-4">
+                              {/* Drag Handle */}
+                              <div
+                                {...provided.dragHandleProps}
+                                className="flex flex-col items-center justify-center gap-1 cursor-grab active:cursor-grabbing"
+                              >
+                                <GripVertical className="h-5 w-5 text-muted-foreground" />
+                                <span className="text-sm font-medium text-muted-foreground">
+                                  {index + 1}
+                                </span>
+                              </div>
 
-                      {/* Configuration */}
-                      <div className="grid grid-cols-4 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Serie</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={te.sets}
-                            onChange={(e) => updateExerciseMutation.mutate({
-                              id: te.id,
-                              sets: parseInt(e.target.value) || 3
-                            })}
-                            className="h-8"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Reps Min</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={te.reps_min ?? ''}
-                            onChange={(e) => updateExerciseMutation.mutate({
-                              id: te.id,
-                              reps_min: parseInt(e.target.value) || null
-                            })}
-                            className="h-8"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Reps Max</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={te.reps_max ?? ''}
-                            onChange={(e) => updateExerciseMutation.mutate({
-                              id: te.id,
-                              reps_max: parseInt(e.target.value) || null
-                            })}
-                            className="h-8"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Recupero (s)</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            step={15}
-                            value={te.rest_seconds ?? 60}
-                            onChange={(e) => updateExerciseMutation.mutate({
-                              id: te.id,
-                              rest_seconds: parseInt(e.target.value) || 60
-                            })}
-                            className="h-8"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </ScrollArea>
+                              {/* Exercise Info */}
+                              <div className="flex-1 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="font-medium">{te.exercise?.name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {te.exercise?.category} • {te.exercise?.muscle_groups.join(', ')}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-destructive hover:text-destructive"
+                                    onClick={() => removeExerciseMutation.mutate(te.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+
+                                {/* Configuration */}
+                                <div className="grid grid-cols-4 gap-3">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Serie</Label>
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      value={te.sets}
+                                      onChange={(e) => updateExerciseMutation.mutate({
+                                        id: te.id,
+                                        sets: parseInt(e.target.value) || 3
+                                      })}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Reps Min</Label>
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      value={te.reps_min ?? ''}
+                                      onChange={(e) => updateExerciseMutation.mutate({
+                                        id: te.id,
+                                        reps_min: parseInt(e.target.value) || null
+                                      })}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Reps Max</Label>
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      value={te.reps_max ?? ''}
+                                      onChange={(e) => updateExerciseMutation.mutate({
+                                        id: te.id,
+                                        reps_max: parseInt(e.target.value) || null
+                                      })}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Recupero (s)</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step={15}
+                                      value={te.rest_seconds ?? 60}
+                                      onChange={(e) => updateExerciseMutation.mutate({
+                                        id: te.id,
+                                        rest_seconds: parseInt(e.target.value) || 60
+                                      })}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              </ScrollArea>
+            )}
+          </Droppable>
+        </DragDropContext>
       )}
     </div>
   );
