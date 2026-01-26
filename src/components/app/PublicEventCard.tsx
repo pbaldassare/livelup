@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,7 +18,8 @@ import {
   Clock,
   User,
   Loader2,
-  Check
+  Check,
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -56,6 +58,7 @@ const EVENT_TYPE_CONFIG = {
 
 export function PublicEventCard({ event, onRegistrationChange }: PublicEventProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistered, setIsRegistered] = useState(event.is_registered);
   const [participantCount, setParticipantCount] = useState(event.participant_count);
@@ -130,12 +133,22 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
     ? `${event.organizer.first_name || ''} ${event.organizer.last_name || ''}`.trim()
     : 'Organizzatore';
 
+  const goToDetail = () => {
+    navigate(`/app/events/${event.id}`);
+  };
+
   return (
-    <Card className="overflow-hidden bg-app-card border-app-border">
+    <Card 
+      className="overflow-hidden bg-app-card border-app-border cursor-pointer hover:border-app-accent/50 transition-colors"
+      onClick={goToDetail}
+    >
       {/* Event Type Badge */}
-      <div className={cn("px-4 py-2 flex items-center gap-2", typeConfig.color)}>
-        <TypeIcon className="h-4 w-4" />
-        <span className="text-sm font-medium">{typeConfig.label}</span>
+      <div className={cn("px-4 py-2 flex items-center justify-between", typeConfig.color)}>
+        <div className="flex items-center gap-2">
+          <TypeIcon className="h-4 w-4" />
+          <span className="text-sm font-medium">{typeConfig.label}</span>
+        </div>
+        <ChevronRight className="h-4 w-4 opacity-70" />
       </div>
 
       <CardContent className="p-4 space-y-4">
@@ -203,7 +216,10 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
 
         {/* Action Button */}
         <Button
-          onClick={handleRegistration}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleRegistration();
+          }}
           disabled={isLoading}
           className={cn(
             "w-full",
