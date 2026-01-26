@@ -79,6 +79,7 @@ import AtletaSubscriptionPage from "./pages/atleta/AtletaSubscriptionPage";
 import AtletaNotificationsPage from "./pages/atleta/AtletaNotificationsPage";
 import AtletaSettingsPage from "./pages/atleta/AtletaSettingsPage";
 import AtletaHelpPage from "./pages/atleta/AtletaHelpPage";
+import AtletaEventDetailPage from "./pages/atleta/AtletaEventDetailPage";
 
 const queryClient = new QueryClient();
 
@@ -417,6 +418,13 @@ const App = () => {
                 <AtletaRoute>
                   <AppLayout>
                     <AtletaHelpPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/events/:eventId" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaEventDetailPage />
                   </AppLayout>
                 </AtletaRoute>
               } />

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { CreatePublicEventDialog } from '@/components/pt/CreatePublicEventDialog';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -14,7 +15,8 @@ import {
   MapPin,
   Users,
   Dumbbell,
-  Video
+  Video,
+  Plus
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -28,12 +30,16 @@ const EVENT_TYPE_CONFIG = {
   allenamento: { label: 'Allenamento', icon: Dumbbell, color: 'bg-primary' },
   appuntamento: { label: 'Appuntamento', icon: Users, color: 'bg-info' },
   video_call: { label: 'Video call', icon: Video, color: 'bg-warning' },
+  raduno: { label: 'Raduno', icon: Users, color: 'bg-lime-500' },
+  evento: { label: 'Evento', icon: CalendarIcon, color: 'bg-violet-500' },
+  gara: { label: 'Gara', icon: Dumbbell, color: 'bg-orange-500' },
   altro: { label: 'Altro', icon: CalendarIcon, color: 'bg-muted' },
 };
 
 export function PTAppCalendarPage() {
   const { user } = useAuth();
   const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -98,13 +104,30 @@ export function PTAppCalendarPage() {
 
   return (
     <div className="pb-4">
+      {/* Create Event Dialog */}
+      <CreatePublicEventDialog 
+        open={showCreateEvent} 
+        onOpenChange={setShowCreateEvent}
+        selectedDate={selectedDate}
+      />
+      
       {/* Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border p-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold">Calendario</h1>
-          <Button variant="outline" size="sm" onClick={goToToday}>
-            Oggi
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              onClick={() => setShowCreateEvent(true)}
+              className="bg-primary text-primary-foreground"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Evento
+            </Button>
+            <Button variant="outline" size="sm" onClick={goToToday}>
+              Oggi
+            </Button>
+          </div>
         </div>
 
         {/* Week navigation */}
