@@ -25,7 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import {
   Package,
@@ -40,11 +40,15 @@ import {
   Loader2,
   Users,
   PlusCircle,
+  RefreshCcw,
+  Check,
+  X,
 } from 'lucide-react';
 import { CreateSubscriptionDialog } from './CreateSubscriptionDialog';
 
 // =====================================================
 // ATHLETE SUBSCRIPTIONS TAB - Gestione abbonamenti PT
+// Include gestione richieste di rinnovo
 // =====================================================
 
 interface AthleteSubscription {
@@ -61,6 +65,9 @@ interface AthleteSubscription {
   currency: string;
   notes: string | null;
   created_at: string;
+  renewal_requested_at: string | null;
+  renewal_status: 'pending' | 'approved' | 'rejected' | null;
+  auto_renew: boolean | null;
   pt_packages: {
     name: string;
     package_type: string;
@@ -84,6 +91,7 @@ export function AthleteSubscriptionsTab() {
   }>({ type: null, subscription: null });
   const [actionValue, setActionValue] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
   // Fetch subscriptions
   const { data: subscriptions, isLoading } = useQuery({
     queryKey: ['pt-athlete-subscriptions', user?.id],
@@ -149,6 +157,100 @@ export function AthleteSubscriptionsTab() {
     },
   });
 
+  // Approve renewal mutation
+  const approveRenewalMutation = useMutation({
+    mutationFn: async (subscription: AthleteSubscription) => {
+      // Mark old subscription as completed
+      const { error: updateError } = await supabase
+        .from('atleta_pt_subscriptions')
+        .update({
+          status: 'completato',
+          renewal_status: 'approved',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', subscription.id);
+
+      if (updateError) throw updateError;
+
+      // Calculate new expiry date
+      const durationDays = subscription.pt_packages?.duration_days || 30;
+      const newExpiry = addDays(new Date(), durationDays);
+
+      // Create new subscription
+      const { error: insertError } = await supabase
+        .from('atleta_pt_subscriptions')
+        .insert({
+          atleta_user_id: subscription.atleta_user_id,
+          pt_user_id: subscription.pt_user_id,
+          package_id: subscription.package_id,
+          status: 'attivo',
+          sessions_total: subscription.sessions_total,
+          sessions_used: 0,
+          expires_at: subscription.sessions_total ? null : newExpiry.toISOString(),
+          started_at: new Date().toISOString(),
+          price_paid: subscription.price_paid,
+          currency: subscription.currency,
+        });
+
+      if (insertError) throw insertError;
+
+      // Notify athlete
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: subscription.atleta_user_id,
+          type: 'renewal_approved',
+          title: 'Rinnovo approvato!',
+          body: 'Il tuo abbonamento è stato rinnovato con successo',
+          action_url: '/app/subscription',
+        });
+
+      if (notifError) console.error('Notification error:', notifError);
+    },
+    onSuccess: () => {
+      toast.success('Rinnovo approvato, nuovo abbonamento creato');
+      queryClient.invalidateQueries({ queryKey: ['pt-athlete-subscriptions'] });
+    },
+    onError: (error: any) => {
+      toast.error('Errore durante l\'approvazione: ' + error.message);
+    },
+  });
+
+  // Reject renewal mutation
+  const rejectRenewalMutation = useMutation({
+    mutationFn: async (subscription: AthleteSubscription) => {
+      const { error: updateError } = await supabase
+        .from('atleta_pt_subscriptions')
+        .update({
+          renewal_status: 'rejected',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', subscription.id);
+
+      if (updateError) throw updateError;
+
+      // Notify athlete
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: subscription.atleta_user_id,
+          type: 'renewal_rejected',
+          title: 'Richiesta di rinnovo declinata',
+          body: 'La tua richiesta di rinnovo non è stata approvata. Contatta il tuo PT per maggiori informazioni.',
+          action_url: '/app/subscription',
+        });
+
+      if (notifError) console.error('Notification error:', notifError);
+    },
+    onSuccess: () => {
+      toast.success('Richiesta di rinnovo rifiutata');
+      queryClient.invalidateQueries({ queryKey: ['pt-athlete-subscriptions'] });
+    },
+    onError: (error: any) => {
+      toast.error('Errore: ' + error.message);
+    },
+  });
+
   const handleAction = () => {
     if (!actionDialog.subscription) return;
 
@@ -165,7 +267,7 @@ export function AthleteSubscriptionsTab() {
           id: subscription.id,
           updates: {
             sessions_total: (subscription.sessions_total || 0) + sessionsToAdd,
-            status: 'attivo', // Riattiva se era completato
+            status: 'attivo',
           },
         });
         break;
@@ -184,7 +286,7 @@ export function AthleteSubscriptionsTab() {
           id: subscription.id,
           updates: {
             expires_at: currentExpiry.toISOString(),
-            status: 'attivo', // Riattiva se era scaduto
+            status: 'attivo',
           },
         });
         break;
@@ -241,6 +343,7 @@ export function AthleteSubscriptionsTab() {
   };
 
   const activeCount = subscriptions?.filter((s) => s.status === 'attivo').length || 0;
+  const pendingRenewals = subscriptions?.filter((s) => s.renewal_status === 'pending').length || 0;
 
   if (isLoading) {
     return (
@@ -255,9 +358,9 @@ export function AthleteSubscriptionsTab() {
   return (
     <div className="space-y-6">
       {/* Header with Create Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex gap-4">
-          <Card className="flex-1">
+          <Card className="flex-1 min-w-[100px]">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-muted-foreground" />
@@ -266,7 +369,7 @@ export function AthleteSubscriptionsTab() {
               <p className="text-xs text-muted-foreground mt-1">Totali</p>
             </CardContent>
           </Card>
-          <Card className="flex-1">
+          <Card className="flex-1 min-w-[100px]">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -275,6 +378,17 @@ export function AthleteSubscriptionsTab() {
               <p className="text-xs text-muted-foreground mt-1">Attivi</p>
             </CardContent>
           </Card>
+          {pendingRenewals > 0 && (
+            <Card className="flex-1 min-w-[100px] border-orange-500/20">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <RefreshCcw className="h-4 w-4 text-orange-500" />
+                  <span className="text-2xl font-bold text-orange-600">{pendingRenewals}</span>
+                </div>
+                <p className="text-xs text-orange-600 mt-1">Rinnovi in attesa</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>
           <PlusCircle className="h-4 w-4 mr-2" />
@@ -297,10 +411,54 @@ export function AthleteSubscriptionsTab() {
             const progressPercent = isSessionBased && sub.sessions_total
               ? ((sub.sessions_used || 0) / sub.sessions_total) * 100
               : 0;
+            const hasPendingRenewal = sub.renewal_status === 'pending';
 
             return (
-              <Card key={sub.id}>
+              <Card key={sub.id} className={hasPendingRenewal ? 'border-orange-500/30' : ''}>
                 <CardContent className="pt-4">
+                  {/* Renewal Request Banner */}
+                  {hasPendingRenewal && (
+                    <div className="mb-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2 text-orange-600">
+                          <RefreshCcw className="h-4 w-4" />
+                          <span className="text-sm font-medium">Richiesta di rinnovo in attesa</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => approveRenewalMutation.mutate(sub)}
+                            disabled={approveRenewalMutation.isPending || rejectRenewalMutation.isPending}
+                          >
+                            {approveRenewalMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Check className="h-4 w-4 mr-1" />
+                                Approva
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => rejectRenewalMutation.mutate(sub)}
+                            disabled={approveRenewalMutation.isPending || rejectRenewalMutation.isPending}
+                          >
+                            {rejectRenewalMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <X className="h-4 w-4 mr-1" />
+                                Rifiuta
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-start justify-between gap-4">
                     {/* Athlete info */}
                     <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -490,7 +648,9 @@ export function AthleteSubscriptionsTab() {
               disabled={updateMutation.isPending}
               variant={actionDialog.type === 'cancel' ? 'destructive' : 'default'}
             >
-              {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {updateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Conferma
             </Button>
           </DialogFooter>
@@ -498,9 +658,9 @@ export function AthleteSubscriptionsTab() {
       </Dialog>
 
       {/* Create Subscription Dialog */}
-      <CreateSubscriptionDialog 
-        open={createDialogOpen} 
-        onOpenChange={setCreateDialogOpen} 
+      <CreateSubscriptionDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
       />
     </div>
   );

@@ -94,6 +94,7 @@ export type Database = {
       atleta_pt_subscriptions: {
         Row: {
           atleta_user_id: string
+          auto_renew: boolean | null
           created_at: string
           currency: string
           expires_at: string | null
@@ -102,6 +103,8 @@ export type Database = {
           package_id: string | null
           price_paid: number
           pt_user_id: string
+          renewal_requested_at: string | null
+          renewal_status: string | null
           sessions_total: number | null
           sessions_used: number | null
           started_at: string
@@ -110,6 +113,7 @@ export type Database = {
         }
         Insert: {
           atleta_user_id: string
+          auto_renew?: boolean | null
           created_at?: string
           currency?: string
           expires_at?: string | null
@@ -118,6 +122,8 @@ export type Database = {
           package_id?: string | null
           price_paid: number
           pt_user_id: string
+          renewal_requested_at?: string | null
+          renewal_status?: string | null
           sessions_total?: number | null
           sessions_used?: number | null
           started_at?: string
@@ -126,6 +132,7 @@ export type Database = {
         }
         Update: {
           atleta_user_id?: string
+          auto_renew?: boolean | null
           created_at?: string
           currency?: string
           expires_at?: string | null
@@ -134,6 +141,8 @@ export type Database = {
           package_id?: string | null
           price_paid?: number
           pt_user_id?: string
+          renewal_requested_at?: string | null
+          renewal_status?: string | null
           sessions_total?: number | null
           sessions_used?: number | null
           started_at?: string
