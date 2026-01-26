@@ -1,193 +1,170 @@
 
-# Piano: Completamento Dati Piattaforma + Fix Video Player
+# Piano: Tema Scuro Coerente per Workout Page
 
-## Problema
-Dalle screenshot emergono due problemi principali:
-1. **Video esercizi neri** - Il player usa `<video>` ma i link sono YouTube (non supportato)
-2. **Milestones a zero** - Nessun workout completato nel database, tutti in stato "attivo"
+## Problema Identificato
+La pagina workout usa i colori standard light-mode (`bg-background`, `Card`, `text-muted-foreground`) mentre il resto dell'app PWA usa il tema scuro con le variabili `app-*`:
+- `bg-app-background` (nero)
+- `text-app-foreground` (bianco)
+- `bg-app-card` (grigio scuro)
+- `border-app-border`
+- `text-app-accent` (lime)
 
-Inoltre ci sono 5 esercizi base senza video/immagini (Trazioni, Push-up, Plank, Corsa, Burpees).
+## File da Modificare
 
----
-
-## Parte 1: Fix Video Player per YouTube
-
-### Problema Tecnico
-Il componente `ExerciseVideoPlayer` usa:
-```jsx
-<video src={videoUrl} /> // Non funziona con YouTube!
-```
-
-### Soluzione
-Modificare il componente per:
-1. Rilevare se l'URL e YouTube
-2. Usare iframe con URL embed per YouTube
-3. Mostrare immagine come fallback se disponibile
-4. Usare thumbnail YouTube automatica
+### 1. AppLayout.tsx - Layout Base
+Cambiare il container principale da tema light a tema scuro:
 
 ```text
-URL YouTube: https://www.youtube.com/watch?v=ABC123
-     |
-     v
-Estrai video ID: ABC123
-     |
-     v
-Thumbnail: https://img.youtube.com/vi/ABC123/maxresdefault.jpg
-Embed: https://www.youtube.com/embed/ABC123?autoplay=1&mute=1&loop=1
+Attuale: bg-background, border-border, bg-background/95
+Nuovo:   bg-app-background, border-app-border, bg-app-card/95
 ```
 
-### File da Modificare
-- `src/components/app/ExerciseVideoPlayer.tsx`
+Elementi da aggiornare:
+- Container principale: `bg-app-background`
+- Bottom navigation: `bg-app-card/95`, `border-app-border`
+- Link attivi: `text-app-accent` invece di `text-primary`
+- Link inattivi: `text-app-muted-foreground`
 
----
+### 2. AtletaWorkoutPage.tsx - Lista Allenamenti
+Applicare tema scuro a tutti i componenti:
 
-## Parte 2: Aggiornamento Seed Database
+**Header**
+- Titolo: `text-app-foreground`
+- Sottotitolo: `text-app-muted-foreground`
 
-### Aggiornare Edge Function per:
+**Today's Workout Card (highlight)**
+- Background: `bg-app-accent/10 border-app-accent/30`
+- Badge: stile app-accent
+- Button: `bg-app-accent text-app-accent-foreground`
 
-#### A) Completare esercizi base (aggiungere video/immagini)
-- Trazioni: video e immagine
-- Push-up: video e immagine  
-- Plank: video e immagine
-- Corsa: video e immagine
-- Burpees: video e immagine (duplicato)
+**Tabs**
+- TabsList: `bg-app-muted`
+- TabsTrigger attivo: `bg-app-card text-app-foreground`
 
-#### B) Creare workout completati
-- Atleta1: 4 workout (2 completati, 2 attivi)
-- Atleta2: 2 workout completati
-- Atleta3: 2 workout attivi
+**WorkoutCard Component**
+- Card: `bg-app-card border-app-border hover:bg-app-muted`
+- Icone status: colori app-accent/success
+- Testo: `text-app-foreground`, `text-app-muted-foreground`
 
-#### C) Aggiungere dati mancanti
-- Eventi calendario (8 eventi)
-- Notifiche (10 notifiche)
-- Badge assegnati agli atleti
-- Progress tracking con dati reali
+**Empty States**
+- Card dashed: `border-app-border bg-app-card/50`
+- Icone: `text-app-muted-foreground`
 
-### File da Modificare
-- `supabase/functions/seed-platform-data/index.ts`
+### 3. Componenti UI Usati
+Creare override inline per mantenere compatibilita:
+- Badge: className override per tema scuro
+- Card: className override per bg-app-card
 
----
+## Dettaglio Modifiche
 
-## Dettaglio Tecnico
-
-### ExerciseVideoPlayer Aggiornato
+### AppLayout.tsx
 
 ```typescript
-// Helper per estrarre video ID da YouTube
-function getYouTubeVideoId(url: string): string | null {
-  const match = url.match(
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?\/]+)/
-  );
-  return match ? match[1] : null;
-}
+// Container
+<div className="min-h-screen bg-app-background flex flex-col" ...>
 
-// Nel componente
-const youtubeId = videoUrl ? getYouTubeVideoId(videoUrl) : null;
-const thumbnailUrl = youtubeId 
-  ? `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
-  : imageUrl;
+// Main content  
+<main className="flex-1 pb-20 safe-top text-app-foreground">
 
-// Render
-{youtubeId ? (
-  <img 
-    src={thumbnailUrl}
-    alt={exerciseName}
-    className="absolute inset-0 w-full h-full object-cover"
-  />
-) : videoUrl ? (
-  <video src={videoUrl} ... />
-) : ...}
+// Bottom nav
+<nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-app-border bg-app-card/95 backdrop-blur safe-bottom">
+
+// Links
+className={cn(
+  '...',
+  isActive ? 'text-app-accent' : 'text-app-muted-foreground'
+)}
 ```
 
-### Dati Seed Aggiuntivi
+### AtletaWorkoutPage.tsx
 
 ```typescript
-// 1. Update esercizi base
-await supabaseAdmin.from('exercises')
-  .update({ 
-    video_url: 'https://www.youtube.com/watch?v=eGo4IYlbE5g',
-    image_url: 'https://images.unsplash.com/photo-1598971639058-fab3c3109a00?w=400'
-  })
-  .eq('name', 'Trazioni');
+// Container locked state
+<div className="p-4 space-y-6 bg-app-background min-h-screen">
+  <h1 className="text-2xl font-bold text-app-foreground">
 
-// 2. Workout completati
-const workoutsCompleted = [
-  { 
-    title: 'Upper Body Power',
-    status: 'completato',
-    completed_at: subDays(new Date(), 3).toISOString(),
-    atleta_user_id: atleta1Id,
-    pt_user_id: pt1Id,
-  },
-  // ... altri
-];
+// Card locked
+<Card className="border-dashed bg-app-card border-app-border">
+  <Lock className="text-app-muted-foreground" />
+  <h3 className="font-semibold text-app-foreground">
+  <p className="text-app-muted-foreground">
+  <Button className="bg-app-accent text-app-accent-foreground">
 
-// 3. Calendar events
-const events = [
-  {
-    title: 'Allenamento con Marco',
-    event_type: 'allenamento',
-    start_datetime: addDays(new Date(), 1),
-    pt_user_id: pt1Id,
-    atleta_user_id: atleta1Id,
-    creator_user_id: pt1Id,
-  },
-  // ... altri
-];
+// Main container
+<div className="pb-4 bg-app-background min-h-screen">
 
-// 4. Notifiche
-const notifications = [
-  {
-    user_id: atleta1Id,
-    type: 'workout',
-    title: 'Nuovo allenamento disponibile!',
-    body: 'Il tuo PT ha preparato una nuova scheda',
-    action_url: '/app/workout',
-  },
-  // ... altre
-];
+// Header
+<h1 className="text-2xl font-bold text-app-foreground">
+<p className="text-sm text-app-muted-foreground">
+
+// Today highlight card
+<Card className="bg-app-accent/10 border-app-accent/20">
+  <Badge className="bg-app-accent text-app-accent-foreground">
+  <h2 className="text-lg font-bold text-app-foreground">
+  <Button className="w-full bg-app-accent text-app-accent-foreground">
+
+// Tabs
+<TabsList className="w-full bg-app-muted">
+  <TabsTrigger className="flex-1 data-[state=active]:bg-app-card data-[state=active]:text-app-foreground">
+
+// Empty state cards
+<Card className="border-dashed bg-app-card/50 border-app-border">
+
+// WorkoutCard function
+<Card className="bg-app-card border-app-border hover:bg-app-muted transition-colors">
+  <div className="w-10 h-10 rounded-full bg-app-accent/20">
+    <StatusIcon className="text-app-accent" />
+  <h3 className="font-semibold text-app-foreground truncate">
+  <ChevronRight className="text-app-muted-foreground" />
+  <span className="text-app-muted-foreground">
+  <Badge className="mt-2 text-xs bg-app-muted border-app-border text-app-muted-foreground">
 ```
 
----
-
-## Flusso Esecuzione
+## Risultato Atteso
 
 ```text
-1. Fix ExerciseVideoPlayer
-   |
-   v
-2. Aggiorna seed-platform-data
-   |
-   v  
-3. Deploy edge function
-   |
-   v
-4. Esegui seed
-   |
-   v
-5. Verifica:
-   - Video mostrano thumbnail YouTube
-   - Milestones mostrano numeri reali
-   - Calendario ha eventi
-   - Notifiche presenti
+Prima (screenshot):
++---------------------------+
+|  I miei allenamenti       |  <- bianco
+|  [Programma] [Completati] |  <- tabs grigi
+|  +---------------------+  |
+|  | HIIT Cardio Blast   |  |  <- card bianca
+|  | 29 gen - 4 esercizi |  |
+|  +---------------------+  |
+|  +---------------------+  |
+|  | Full Body           |  |  <- card bianca
+|  +---------------------+  |
++---------------------------+
+
+Dopo:
++---------------------------+
+|  I miei allenamenti       |  <- nero, testo bianco
+|  [Programma] [Completati] |  <- tabs scuri, accent lime
+|  +---------------------+  |
+|  | HIIT Cardio Blast   |  |  <- card grigio scuro
+|  | 29 gen - 4 esercizi |  |  <- testo grigio chiaro
+|  +---------------------+  |
+|  +---------------------+  |
+|  | Full Body           |  |  <- card grigio scuro
+|  +---------------------+  |
++---------------------------+
 ```
 
----
+## Coerenza con Design System
 
-## Criteri di Accettazione
+Le variabili CSS `app-*` sono gia definite in index.css:
+- `--app-accent: 66 100% 50%` (lime)
+- `--app-background: 0 0% 0%` (nero puro)
+- `--app-foreground: 0 0% 100%` (bianco)
+- `--app-card: 0 0% 8%` (grigio scuro)
+- `--app-muted: 0 0% 12%` (grigio medio)
+- `--app-border: 0 0% 18%` (bordo grigio)
 
-1. Gli esercizi con video YouTube mostrano la thumbnail invece di schermo nero
-2. Tutti i 49 esercizi hanno video_url e image_url popolati
-3. Almeno 4 workout sono in stato "completato"
-4. Le milestone nella pagina profilo atleta mostrano valori > 0
-5. Il calendario ha eventi schedulati per la settimana
-6. L'atleta ha notifiche da visualizzare
+Questo corrisponde esattamente al design di AtletaWorkoutDetailPage e alle reference "Ladder-inspired" gia implementate.
 
----
+## File Coinvolti
 
-## File da Creare/Modificare
-
-| File | Azione |
-|------|--------|
-| `src/components/app/ExerciseVideoPlayer.tsx` | Modifica - supporto YouTube |
-| `supabase/functions/seed-platform-data/index.ts` | Modifica - dati aggiuntivi |
+| File | Modifiche |
+|------|-----------|
+| `src/components/layouts/AppLayout.tsx` | Tema scuro container + nav |
+| `src/pages/atleta/AtletaWorkoutPage.tsx` | Tutti i componenti con classi app-* |
