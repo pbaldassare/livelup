@@ -1,442 +1,222 @@
 
-# Piano: Rinnovo Automatico Abbonamenti + Geolocalizzazione con Maps API
+# Piano: Fix Build Error + Popolamento Dati Completo
 
 ## Panoramica
 
-Implementazione di due funzionalità:
-1. **Sistema di rinnovo automatico abbonamenti** con conferma atleta e notifica al PT
-2. **Integrazione geolocalizzazione con Google Maps API** per PT nelle impostazioni profilo
+Il piano si divide in due parti:
+1. **Fix del build error PWA** - Il bundle è troppo grande (2.18 MB) per il precache limit di default
+2. **Popolamento dati massivo** - Creare un seed completo per rendere la piattaforma viva
 
 ---
 
-## Parte 1: Sistema Rinnovo Automatico Abbonamenti
+## Parte 1: Fix Build Error PWA
 
-### 1.1 Flusso di Rinnovo
-
-```text
-Abbonamento in scadenza
-        |
-        v
-7 giorni prima --> Notifica automatica all'atleta
-        |
-        v
-Atleta riceve banner "Rinnova abbonamento"
-        |
-        v
-    [ Rinnova ] --> Crea richiesta di rinnovo
-        |
-        v
-PT riceve notifica --> [ Conferma ] / [ Rifiuta ]
-        |
-        v
-Se conferma: nuovo abbonamento creato + notifica atleta
+### Problema
+Il file JS principale supera il limite di 2 MiB per il precache di Workbox:
+```
+assets/index-C-YbA1kf.js is 2.18 MB, and won't be precached.
 ```
 
-### 1.2 Nuove Colonne Database
-
-Aggiungere alla tabella `atleta_pt_subscriptions`:
-- `renewal_requested_at`: timestamp della richiesta di rinnovo
-- `renewal_status`: enum ('pending', 'approved', 'rejected', null)
-- `auto_renew`: boolean per abilitare rinnovo automatico (default false)
-
-```sql
-ALTER TABLE public.atleta_pt_subscriptions
-  ADD COLUMN renewal_requested_at TIMESTAMPTZ,
-  ADD COLUMN renewal_status TEXT CHECK (renewal_status IN ('pending', 'approved', 'rejected')),
-  ADD COLUMN auto_renew BOOLEAN DEFAULT false;
-```
-
-### 1.3 Componente Atleta: Banner Rinnovo
-
-Aggiornare `AtletaSubscriptionHistory.tsx`:
-- Mostrare banner quando abbonamento scade entro 7 giorni
-- Mostrare avviso quando sessioni rimanenti sono <= 2
-- Pulsante "Richiedi Rinnovo" che invia notifica al PT
+### Soluzione
+Configurare `maximumFileSizeToCacheInBytes` nel vite.config.ts:
 
 ```typescript
-// Logica per mostrare il banner
-const isExpiringSoon = sub.expires_at && 
-  differenceInDays(new Date(sub.expires_at), new Date()) <= 7;
-const isSessionsLow = sub.sessions_total && 
-  (sub.sessions_total - (sub.sessions_used || 0)) <= 2;
-```
-
-### 1.4 Componente PT: Gestione Richieste Rinnovo
-
-Aggiornare `AthleteSubscriptionsTab.tsx`:
-- Mostrare badge "Richiesta rinnovo" sugli abbonamenti con richiesta pendente
-- Pulsanti "Conferma" / "Rifiuta" per gestire la richiesta
-- Conferma crea nuovo abbonamento automaticamente
-
-### 1.5 Mutation Richiesta Rinnovo (Atleta)
-
-```typescript
-const requestRenewalMutation = useMutation({
-  mutationFn: async (subscriptionId: string) => {
-    // Aggiorna abbonamento con richiesta
-    await supabase.from('atleta_pt_subscriptions')
-      .update({ 
-        renewal_requested_at: new Date().toISOString(),
-        renewal_status: 'pending'
-      })
-      .eq('id', subscriptionId);
-    
-    // Invia notifica al PT
-    await supabase.from('notifications').insert({
-      user_id: subscription.pt_user_id,
-      type: 'renewal_request',
-      title: 'Richiesta rinnovo abbonamento',
-      body: `Un atleta ha richiesto il rinnovo del pacchetto`,
-      data: { subscription_id: subscriptionId },
-      action_url: '/pt/app/athletes?tab=subscriptions'
-    });
-  }
-});
-```
-
-### 1.6 Mutation Approvazione Rinnovo (PT)
-
-```typescript
-const approveRenewalMutation = useMutation({
-  mutationFn: async ({ subscriptionId, originalSub }) => {
-    // Marca vecchio abbonamento come completato
-    await supabase.from('atleta_pt_subscriptions')
-      .update({ 
-        status: 'completato',
-        renewal_status: 'approved'
-      })
-      .eq('id', subscriptionId);
-    
-    // Crea nuovo abbonamento identico
-    const newExpiry = addDays(new Date(), originalSub.duration_days || 30);
-    await supabase.from('atleta_pt_subscriptions').insert({
-      atleta_user_id: originalSub.atleta_user_id,
-      pt_user_id: originalSub.pt_user_id,
-      package_id: originalSub.package_id,
-      status: 'attivo',
-      sessions_total: originalSub.sessions_total,
-      sessions_used: 0,
-      expires_at: newExpiry,
-      started_at: new Date(),
-      price_paid: originalSub.price_paid,
-      currency: originalSub.currency,
-    });
-    
-    // Notifica atleta
-    await supabase.from('notifications').insert({
-      user_id: originalSub.atleta_user_id,
-      type: 'renewal_approved',
-      title: 'Rinnovo approvato!',
-      body: 'Il tuo abbonamento e stato rinnovato con successo',
-      action_url: '/app/subscription'
-    });
-  }
-});
-```
-
----
-
-## Parte 2: Geolocalizzazione con Google Maps API per PT
-
-### 2.1 Dove Integrare
-
-Nella pagina `PTSettingsPage.tsx`, sezione "Localita", aggiungere:
-- Pulsante "Usa la mia posizione" con icona GPS
-- Integrazione con `PlacesAutocomplete` gia esistente
-- Salvataggio automatico di `location_lat` e `location_lng`
-
-### 2.2 Modifica PTSettingsPage.tsx
-
-Aggiungere nella sezione Localita:
-
-```typescript
-import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
-
-// Stato per loading geolocation
-const [isLocating, setIsLocating] = useState(false);
-
-// Funzione per richiedere posizione GPS
-const requestLocation = () => {
-  if (!navigator.geolocation) {
-    toast.error('Geolocalizzazione non supportata');
-    return;
-  }
-
-  setIsLocating(true);
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      const { latitude, longitude } = position.coords;
-      
-      // Reverse geocoding per ottenere citta
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`
-      );
-      const data = await response.json();
-      
-      if (data.results && data.results[0]) {
-        const city = data.results[0].address_components.find(
-          c => c.types.includes('locality')
-        )?.long_name;
-        const country = data.results[0].address_components.find(
-          c => c.types.includes('country')
-        )?.long_name;
-        
-        setFormData({
-          ...formData,
-          location_city: city || '',
-          location_country: country || '',
-          location_lat: latitude,
-          location_lng: longitude,
-        });
-      }
-      
-      setIsLocating(false);
-      toast.success('Posizione aggiornata');
-    },
-    () => {
-      setIsLocating(false);
-      toast.error('Impossibile ottenere la posizione');
-    },
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
-};
-```
-
-### 2.3 UI Sezione Localita Aggiornata
-
-```tsx
-<Card>
-  <CardHeader>
-    <CardTitle className="flex items-center gap-2">
-      <MapPin className="h-5 w-5" />
-      Localita
-    </CardTitle>
-    <CardDescription>
-      Dove operi - gli atleti potranno trovarti piu facilmente
-    </CardDescription>
-  </CardHeader>
-  <CardContent className="space-y-4">
-    {/* Pulsante GPS */}
-    <Button
-      variant="outline"
-      onClick={requestLocation}
-      disabled={isLocating}
-      className="w-full"
-    >
-      {isLocating ? (
-        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-      ) : (
-        <Navigation className="h-4 w-4 mr-2" />
-      )}
-      Usa la mia posizione
-    </Button>
-    
-    <div className="text-center text-sm text-muted-foreground">oppure</div>
-    
-    {/* Autocomplete citta */}
-    <div className="space-y-2">
-      <Label>Cerca citta</Label>
-      <PlacesAutocomplete
-        value={formData.location_city || ''}
-        onChange={(value) => setFormData({ ...formData, location_city: value })}
-        onPlaceSelect={(place) => {
-          setFormData({
-            ...formData,
-            location_city: place.name,
-            location_lat: place.geometry.location.lat,
-            location_lng: place.geometry.location.lng,
-          });
-        }}
-        placeholder="Cerca la tua citta..."
-      />
-    </div>
-    
-    {/* Campi manuali (readonly se GPS usato) */}
-    <div className="grid gap-4 md:grid-cols-2">
-      <div className="space-y-2">
-        <Label htmlFor="city">Citta</Label>
-        <Input
-          id="city"
-          value={formData.location_city || ''}
-          onChange={(e) => setFormData({ ...formData, location_city: e.target.value })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="country">Paese</Label>
-        <Input
-          id="country"
-          value={formData.location_country || ''}
-          onChange={(e) => setFormData({ ...formData, location_country: e.target.value })}
-        />
-      </div>
-    </div>
-    
-    {/* Indicatore coordinate salvate */}
-    {formData.location_lat && formData.location_lng && (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded">
-        <MapPin className="h-4 w-4 text-green-500" />
-        Coordinate GPS salvate
-      </div>
-    )}
-  </CardContent>
-</Card>
-```
-
-### 2.4 Aggiornare formData per includere lat/lng
-
-```typescript
-interface PTProfile {
-  // ... existing fields
-  location_lat: number | null;
-  location_lng: number | null;
+workbox: {
+  maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB
+  globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+  // ... rest of config
 }
+```
+
+### File da Modificare
+- `vite.config.ts` - Aggiungere limite file size
+
+---
+
+## Parte 2: Popolamento Dati Database
+
+Creare una nuova Edge Function `seed-platform-data` che popola la piattaforma con dati realistici.
+
+### 2.1 Dati da Creare
+
+#### PT Packages (9 pacchetti - 3 per ogni PT)
+Ogni PT avrà 3 pacchetti:
+- Pacchetto Base (5 sessioni, EUR 80)
+- Pacchetto Standard (10 sessioni, EUR 150)
+- Pacchetto Premium (abbonamento mensile, EUR 200)
+
+#### Abbonamenti Atleta-PT (3 abbonamenti)
+- Atleta1 ha abbonamento attivo con PT1 (10 sessioni, 3 usate)
+- Atleta2 ha abbonamento scaduto con PT2
+- Atleta3 ha abbonamento trial con PT1
+
+#### Workout Assegnati (10 workout)
+- 4 workout per Atleta1 (2 completati, 2 attivi)
+- 2 workout per Atleta2 (pending connection)
+- 2 workout per Atleta3
+
+#### Workout Exercises (per ogni workout)
+- Copiare esercizi dai template ai workout
+
+#### Chat e Messaggi
+- Chat tra PT1 e Atleta1 (15 messaggi)
+- Chat tra PT2 e Atleta2 (5 messaggi)
+- Conversazioni realistiche su allenamenti
+
+#### Recensioni PT (6 recensioni)
+- 3 recensioni per PT1 (4-5 stelle)
+- 2 recensioni per PT2 (4-5 stelle)
+- 1 recensione per PT3 (5 stelle)
+
+#### Eventi Calendario (8 eventi)
+- Allenamenti schedulati per la settimana
+- Un evento "raduno" pubblico
+- Sessioni di valutazione
+
+#### Progress Tracking Atleta (20 entries)
+- 10 entries per Atleta1 (ultimi 30 giorni)
+- 5 entries per Atleta2
+- 5 entries per Atleta3
+- Peso, misure, mood, energia, sonno
+
+#### Badges Aggiuntivi (6 nuovi badges)
+- workout_streak_30 (30 giorni consecutivi)
+- goal_achieved (obiettivo raggiunto)
+- first_review (prima recensione)
+- weight_loss_5 (5kg persi)
+- perfect_form (tecnica perfetta)
+- early_bird (allenamento mattutino)
+
+#### Notifiche (10 notifiche)
+- Notifiche workout
+- Notifiche messaggi
+- Notifiche badge ottenuti
+
+### 2.2 Fix Template Ownership
+Aggiornare i template esistenti per assegnarli ai PT reali:
+- Template 1-4 -> PT1 (Marco Rossi)
+- Template 5-7 -> PT2 (Laura Bianchi)
+- Template 8-10 -> PT3 (Giuseppe Verdi)
+
+---
+
+## Struttura Edge Function
+
+```typescript
+// supabase/functions/seed-platform-data/index.ts
+
+Deno.serve(async (req) => {
+  // 1. Get existing user IDs from profiles
+  // 2. Fix template ownership
+  // 3. Create PT packages
+  // 4. Create subscriptions
+  // 5. Create more connections (atleta3 -> pt1)
+  // 6. Create workouts with exercises
+  // 7. Create chats and messages
+  // 8. Create reviews
+  // 9. Create calendar events
+  // 10. Create progress tracking data
+  // 11. Create additional badges
+  // 12. Create notifications
+  
+  return Response.json({ success: true, data: {...} })
+})
 ```
 
 ---
 
 ## File da Creare/Modificare
 
-### Database (Migration)
-1. `supabase/migrations/xxx_subscription_renewal.sql` - Nuove colonne per rinnovo
+### Fix Build
+1. `vite.config.ts` - Aumentare limite PWA
 
-### Frontend
-1. `src/components/atleta/AtletaSubscriptionHistory.tsx` - Banner rinnovo + richiesta
-2. `src/components/pt/AthleteSubscriptionsTab.tsx` - Gestione richieste rinnovo
-3. `src/pages/pt/PTSettingsPage.tsx` - Integrazione GPS + PlacesAutocomplete
+### Edge Function
+1. `supabase/functions/seed-platform-data/index.ts` - Nuovo seed completo
 
 ---
 
-## Dettaglio Tecnico
+## Dati Esempio
 
-### Banner Rinnovo Atleta
-
-```typescript
-// Condizioni per mostrare il banner
-const showRenewalBanner = (sub) => {
-  if (sub.status !== 'attivo') return false;
-  
-  // Sessioni basse
-  if (sub.sessions_total) {
-    const remaining = sub.sessions_total - (sub.sessions_used || 0);
-    if (remaining <= 2) return true;
-  }
-  
-  // Scadenza vicina
-  if (sub.expires_at) {
-    const daysLeft = differenceInDays(new Date(sub.expires_at), new Date());
-    if (daysLeft <= 7 && daysLeft >= 0) return true;
-  }
-  
-  return false;
-};
+### PT Package
+```json
+{
+  "pt_user_id": "...",
+  "name": "Percorso Trasformazione",
+  "package_type": "sessioni",
+  "sessions_count": 10,
+  "price": 150,
+  "description": "10 sessioni personalizzate per raggiungere i tuoi obiettivi",
+  "includes_chat": true,
+  "includes_video_calls": false,
+  "is_active": true,
+  "is_featured": true
+}
 ```
 
-### Gestione Rinnovo PT
+### Chat Message
+```json
+{
+  "chat_id": "...",
+  "sender_user_id": "...",
+  "content": "Ciao! Pronto per l'allenamento di oggi?",
+  "is_read": true
+}
+```
 
-```typescript
-// Badge per richieste pendenti
-{sub.renewal_status === 'pending' && (
-  <Badge className="bg-orange-500/20 text-orange-400">
-    <Clock className="h-3 w-3 mr-1" />
-    Richiesta rinnovo
-  </Badge>
-)}
+### Progress Entry
+```json
+{
+  "atleta_user_id": "...",
+  "tracked_date": "2026-01-20",
+  "weight_kg": 75.5,
+  "energy_level": 4,
+  "mood_level": 5,
+  "sleep_hours": 7.5,
+  "sleep_quality": 4,
+  "notes": "Mi sento in forma oggi!"
+}
+```
 
-// Azioni rinnovo
-{sub.renewal_status === 'pending' && (
-  <div className="flex gap-2">
-    <Button size="sm" onClick={() => approveRenewal(sub)}>
-      <Check className="h-4 w-4 mr-1" />
-      Approva
-    </Button>
-    <Button size="sm" variant="outline" onClick={() => rejectRenewal(sub.id)}>
-      <X className="h-4 w-4 mr-1" />
-      Rifiuta
-    </Button>
-  </div>
-)}
+### Review
+```json
+{
+  "pt_user_id": "...",
+  "atleta_user_id": "...",
+  "rating": 5,
+  "comment": "Marco è un trainer eccezionale! Mi ha aiutato a raggiungere i miei obiettivi in modo professionale e motivante.",
+  "is_verified": true,
+  "is_visible": true
+}
 ```
 
 ---
 
-## Flusso Completo
+## Esecuzione
 
-```text
-                    RINNOVO ABBONAMENTI
-                    ===================
+Dopo il deploy della Edge Function, verrà chiamata una volta per popolare tutti i dati. La funzione è idempotente - controlla se i dati esistono prima di inserirli.
 
-  [Atleta Dashboard]              [PT Dashboard]
-        |                               |
-        v                               |
-  Vede banner                           |
-  "2 sessioni rimaste"                  |
-        |                               |
-        v                               |
-  Click "Rinnova"                       |
-        |                               |
-        +------- Notifica ------------>-+
-                                        |
-                                        v
-                                  Vede richiesta
-                                  con badge arancione
-                                        |
-                                        v
-                                  Click "Approva"
-                                        |
-        +<------ Notifica -------------+
-        |                               |
-        v                               v
-  Riceve conferma              Nuovo abbonamento creato
-  "Rinnovo approvato!"         (stesso pacchetto, date nuove)
+---
 
+## Risultato Finale
 
-                    GEOLOCALIZZAZIONE PT
-                    ====================
-
-  [PT Settings]
-        |
-        v
-  Click "Usa la mia posizione"
-        |
-        v
-  Browser chiede permesso
-        |
-        v
-  GPS acquisito
-        |
-        v
-  Reverse geocoding Maps API
-        |
-        v
-  Compila automaticamente:
-  - location_city
-  - location_country
-  - location_lat
-  - location_lng
-        |
-        v
-  Click "Salva"
-        |
-        v
-  PT ora visibile su mappa
-  nella ricerca atleti
-```
+Dopo l'esecuzione:
+- 3 PT con 3 pacchetti ciascuno
+- 3 atleti con abbonamenti, workout e progressi
+- Chat attive con messaggi reali
+- Recensioni visibili sui profili PT
+- Calendario con eventi schedulati
+- Dashboard analytics con dati reali
+- 10 badges totali per gamification
 
 ---
 
 ## Criteri di Accettazione
 
-### Rinnovo Abbonamenti
-1. L'atleta vede un banner quando le sessioni sono <= 2 o la scadenza e entro 7 giorni
-2. L'atleta puo richiedere il rinnovo con un click
-3. Il PT riceve una notifica per la richiesta
-4. Il PT puo approvare o rifiutare la richiesta
-5. L'approvazione crea automaticamente un nuovo abbonamento
-6. L'atleta riceve notifica dell'esito
-
-### Geolocalizzazione PT
-1. Il PT puo usare "Usa la mia posizione" per rilevare GPS
-2. Il sistema compila automaticamente citta e coordinate
-3. Il PT puo anche cercare la citta con autocomplete
-4. Le coordinate vengono salvate per la ricerca su mappa
-5. L'atleta vede il PT sulla mappa nella pagina di scoperta
+1. Il build completa senza errori PWA
+2. Ogni PT ha almeno 3 pacchetti visibili
+3. Atleta1 vede il suo abbonamento attivo con sessioni rimanenti
+4. Le chat mostrano conversazioni reali
+5. I profili PT mostrano recensioni con rating
+6. Il calendario mostra eventi futuri
+7. La sezione progressi mostra grafici con dati
+8. Le analytics PT/Admin mostrano revenue e trend
