@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -45,6 +46,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { 
   UserCog, 
   MoreHorizontal, 
@@ -57,7 +67,9 @@ import {
   Clock,
   UserX,
   Star,
-  CheckSquare
+  CheckSquare,
+  Plus,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
@@ -130,6 +142,19 @@ export function AdminPTsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<'approve' | 'suspend' | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  
+  // Create PT Dialog state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newPT, setNewPT] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    level: 'junior' as PTLevel,
+    location_city: '',
+    specializations: [] as string[],
+    status: 'attivo' as 'registrato' | 'attivo'
+  });
 
   // Fetch PTs
   const { data: pts = [], isLoading } = useQuery({
@@ -277,6 +302,51 @@ export function AdminPTsPage() {
     onError: (error) => toast.error('Errore: ' + error.message),
   });
 
+  // Create PT mutation
+  const createPTMutation = useMutation({
+    mutationFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error('Non autenticato');
+
+      const response = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newPT.email,
+          password: newPT.password,
+          firstName: newPT.firstName,
+          lastName: newPT.lastName,
+          role: 'pt',
+          profileData: {
+            level: newPT.level,
+            location_city: newPT.location_city || null,
+            specializations: newPT.specializations,
+            status: newPT.status
+          }
+        }
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pts'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      toast.success('Personal Trainer creato con successo');
+      setCreateDialogOpen(false);
+      setNewPT({
+        email: '',
+        password: '',
+        firstName: '',
+        lastName: '',
+        level: 'junior',
+        location_city: '',
+        specializations: [],
+        status: 'attivo'
+      });
+    },
+    onError: (error) => toast.error('Errore: ' + error.message)
+  });
+
   const handleBulkAction = (action: 'approve' | 'suspend') => {
     setBulkAction(action);
     setConfirmDialogOpen(true);
@@ -302,6 +372,18 @@ export function AdminPTsPage() {
     setDetailOpen(true);
   };
 
+  const handleCreatePT = () => {
+    if (!newPT.email || !newPT.password || !newPT.firstName || !newPT.lastName) {
+      toast.error('Compila tutti i campi obbligatori');
+      return;
+    }
+    if (newPT.password.length < 8) {
+      toast.error('La password deve avere almeno 8 caratteri');
+      return;
+    }
+    createPTMutation.mutate();
+  };
+
   const getProfileInfo = (pt: PTListItem): ProfileInfo => ({
     id: pt.id,
     userId: pt.user_id,
@@ -325,6 +407,121 @@ export function AdminPTsPage() {
           { label: 'Admin', href: '/admin' },
           { label: 'Personal Trainers' },
         ]}
+        actions={
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Nuovo PT
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Nuovo Personal Trainer</DialogTitle>
+                <DialogDescription>
+                  Crea un nuovo account Personal Trainer sulla piattaforma
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pt-email">Email *</Label>
+                    <Input
+                      id="pt-email"
+                      type="email"
+                      placeholder="email@esempio.com"
+                      value={newPT.email}
+                      onChange={(e) => setNewPT({ ...newPT, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pt-password">Password *</Label>
+                    <Input
+                      id="pt-password"
+                      type="password"
+                      placeholder="Min. 8 caratteri"
+                      value={newPT.password}
+                      onChange={(e) => setNewPT({ ...newPT, password: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pt-firstName">Nome *</Label>
+                    <Input
+                      id="pt-firstName"
+                      placeholder="Mario"
+                      value={newPT.firstName}
+                      onChange={(e) => setNewPT({ ...newPT, firstName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pt-lastName">Cognome *</Label>
+                    <Input
+                      id="pt-lastName"
+                      placeholder="Rossi"
+                      value={newPT.lastName}
+                      onChange={(e) => setNewPT({ ...newPT, lastName: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pt-level">Livello</Label>
+                    <Select
+                      value={newPT.level}
+                      onValueChange={(value) => setNewPT({ ...newPT, level: value as PTLevel })}
+                    >
+                      <SelectTrigger id="pt-level">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LEVEL_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pt-city">Città</Label>
+                    <Input
+                      id="pt-city"
+                      placeholder="Milano"
+                      value={newPT.location_city}
+                      onChange={(e) => setNewPT({ ...newPT, location_city: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pt-status">Stato iniziale</Label>
+                  <Select
+                    value={newPT.status}
+                    onValueChange={(value) => setNewPT({ ...newPT, status: value as 'registrato' | 'attivo' })}
+                  >
+                    <SelectTrigger id="pt-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="registrato">Registrato (da approvare)</SelectItem>
+                      <SelectItem value="attivo">Attivo (già approvato)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                  Annulla
+                </Button>
+                <Button onClick={handleCreatePT} disabled={createPTMutation.isPending}>
+                  {createPTMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Crea Personal Trainer
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        }
       />
 
       {/* KPI Cards */}
