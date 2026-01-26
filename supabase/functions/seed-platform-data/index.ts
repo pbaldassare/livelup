@@ -721,6 +721,123 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 13. Create PUBLIC EVENTS with GPS coordinates
+    console.log('Creating public events...');
+    const { data: existingPublicEvents } = await supabase
+      .from('calendar_events')
+      .select('id')
+      .eq('is_public', true)
+      .limit(1);
+
+    if (!existingPublicEvents || existingPublicEvents.length === 0) {
+      const now = new Date();
+      const publicEvents = [
+        // CrossFit Day Brescia - organized by PT1
+        {
+          creator_user_id: pt1Id,
+          pt_user_id: pt1Id,
+          title: 'CrossFit Day Brescia',
+          description: 'Giornata di allenamento CrossFit aperta a tutti! Porterai il tuo corpo al limite con WOD intensi e divertenti. Adatto a tutti i livelli.',
+          event_type: 'raduno',
+          is_public: true,
+          start_datetime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          end_datetime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 5 * 60 * 60 * 1000).toISOString(),
+          location: 'CrossFit Box Brescia, Via Triumplina 84, Brescia',
+          location_lat: 45.5416,
+          location_lng: 10.2118,
+        },
+        // Cena Fit Milano - organized by PT2
+        {
+          creator_user_id: pt2Id,
+          pt_user_id: pt2Id,
+          title: 'Cena Fit Milano',
+          description: 'Serata speciale con cena healthy e networking tra appassionati di fitness. Menu studiato da nutrizionisti sportivi.',
+          event_type: 'evento',
+          is_public: true,
+          start_datetime: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000 + 20 * 60 * 60 * 1000).toISOString(),
+          end_datetime: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000 + 23 * 60 * 60 * 1000).toISOString(),
+          location: 'Ristorante FitFood, Corso Buenos Aires 45, Milano',
+          location_lat: 45.4773,
+          location_lng: 9.2138,
+        },
+        // Yoga al Parco Roma - organized by PT3
+        {
+          creator_user_id: pt3Id,
+          pt_user_id: pt3Id,
+          title: 'Yoga al Parco Roma',
+          description: 'Sessione di yoga all\'aperto nel cuore di Roma. Porta il tuo tappetino e goditi una mattinata di relax e benessere.',
+          event_type: 'raduno',
+          is_public: true,
+          start_datetime: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000 + 9 * 60 * 60 * 1000).toISOString(),
+          end_datetime: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000 + 11 * 60 * 60 * 1000).toISOString(),
+          location: 'Villa Borghese, Piazzale del Museo Borghese, Roma',
+          location_lat: 41.9142,
+          location_lng: 12.4922,
+        },
+        // Gara Corsa 5K Torino - organized by PT1
+        {
+          creator_user_id: pt1Id,
+          pt_user_id: pt1Id,
+          title: 'Gara Corsa 5K Torino',
+          description: 'Gara amatoriale di corsa 5K lungo il Po. Tutti i partecipanti riceveranno una maglietta ufficiale. Premi per i primi classificati!',
+          event_type: 'gara',
+          is_public: true,
+          start_datetime: new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000 + 8 * 60 * 60 * 1000).toISOString(),
+          end_datetime: new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000 + 12 * 60 * 60 * 1000).toISOString(),
+          location: 'Parco del Valentino, Corso Massimo d\'Azeglio, Torino',
+          location_lat: 45.0553,
+          location_lng: 7.6869,
+        },
+      ];
+
+      const { data: createdEvents, error: eventsError } = await supabase
+        .from('calendar_events')
+        .insert(publicEvents)
+        .select();
+
+      if (eventsError) {
+        console.error('Error creating public events:', eventsError);
+      } else {
+        results.public_events_created = createdEvents?.length || 0;
+
+        // Add participants to events
+        if (createdEvents && createdEvents.length > 0) {
+          const allUserIds = [pt1Id, pt2Id, pt3Id, atleta1Id, atleta2Id, atleta3Id];
+          const eventParticipants = [];
+
+          for (const event of createdEvents) {
+            // Add creator as participant
+            eventParticipants.push({
+              event_id: event.id,
+              user_id: event.creator_user_id,
+              status: 'registered'
+            });
+
+            // Add 2-5 random additional participants
+            const shuffled = allUserIds.filter(id => id !== event.creator_user_id).sort(() => 0.5 - Math.random());
+            const numParticipants = Math.floor(Math.random() * 4) + 2;
+            for (let i = 0; i < numParticipants && i < shuffled.length; i++) {
+              eventParticipants.push({
+                event_id: event.id,
+                user_id: shuffled[i],
+                status: 'registered'
+              });
+            }
+          }
+
+          const { error: participantsError } = await supabase
+            .from('event_participants')
+            .insert(eventParticipants);
+
+          if (participantsError) {
+            console.error('Error creating event participants:', participantsError);
+          } else {
+            results.event_participants_created = eventParticipants.length;
+          }
+        }
+      }
+    }
+
     console.log('Seed completed!', results);
 
     return new Response(JSON.stringify({ 
