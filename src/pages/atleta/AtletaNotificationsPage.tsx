@@ -14,7 +14,11 @@ import {
   Award,
   UserPlus,
   CheckCheck,
-  Trash2
+  Trash2,
+  CreditCard,
+  Star,
+  Calendar,
+  ShoppingBag
 } from 'lucide-react';
 
 // =====================================================
@@ -23,15 +27,50 @@ import {
 
 const getNotificationIcon = (type: string) => {
   switch (type) {
+    // Messaggi
     case 'message':
       return MessageSquare;
+    
+    // Workout
     case 'workout':
+    case 'workout_assigned':
+    case 'workout_completed':
       return Dumbbell;
+    
+    // Connessioni
+    case 'connection':
+    case 'connection_request':
+    case 'connection_accepted':
+    case 'connection_rejected':
+      return UserPlus;
+    
+    // Abbonamenti
+    case 'subscription_created':
+    case 'renewal_approved':
+    case 'renewal_requested':
+    case 'subscription_expiring':
+      return CreditCard;
+    
+    // Acquisti
+    case 'package_purchase_request':
+    case 'payment':
+      return ShoppingBag;
+    
+    // Recensioni
+    case 'review':
+    case 'review_response':
+      return Star;
+    
+    // Badge/Achievement
     case 'badge':
     case 'achievement':
       return Award;
-    case 'connection':
-      return UserPlus;
+    
+    // Calendario
+    case 'event':
+    case 'reminder':
+      return Calendar;
+    
     default:
       return Bell;
   }
@@ -39,15 +78,53 @@ const getNotificationIcon = (type: string) => {
 
 const getNotificationColor = (type: string) => {
   switch (type) {
+    // Messaggi - Blu
     case 'message':
       return 'text-blue-400 bg-blue-400/10';
+    
+    // Workout - Lime (accent)
     case 'workout':
+    case 'workout_assigned':
+    case 'workout_completed':
       return 'text-app-accent bg-app-accent/10';
+    
+    // Connessioni - Verde
+    case 'connection':
+    case 'connection_request':
+    case 'connection_accepted':
+      return 'text-green-400 bg-green-400/10';
+    
+    // Connessione rifiutata - Rosso
+    case 'connection_rejected':
+      return 'text-red-400 bg-red-400/10';
+    
+    // Abbonamenti - Viola
+    case 'subscription_created':
+    case 'renewal_approved':
+    case 'renewal_requested':
+    case 'subscription_expiring':
+      return 'text-purple-400 bg-purple-400/10';
+    
+    // Pagamenti/Acquisti - Arancione
+    case 'package_purchase_request':
+    case 'payment':
+      return 'text-orange-400 bg-orange-400/10';
+    
+    // Recensioni - Rosa
+    case 'review':
+    case 'review_response':
+      return 'text-pink-400 bg-pink-400/10';
+    
+    // Badge - Giallo/Oro
     case 'badge':
     case 'achievement':
       return 'text-yellow-400 bg-yellow-400/10';
-    case 'connection':
-      return 'text-green-400 bg-green-400/10';
+    
+    // Calendario - Ciano
+    case 'event':
+    case 'reminder':
+      return 'text-cyan-400 bg-cyan-400/10';
+    
     default:
       return 'text-app-muted-foreground bg-app-muted';
   }
