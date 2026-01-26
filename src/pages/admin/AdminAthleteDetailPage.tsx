@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -5,10 +6,21 @@ import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader'
 import { SectionCard } from '@/components/dashboard/SectionCard';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   User, 
   ArrowLeft, 
@@ -19,7 +31,12 @@ import {
   Activity,
   Link2,
   Dumbbell,
-  AlertTriangle
+  AlertTriangle,
+  Trash2,
+  Loader2,
+  Check,
+  X,
+  Pencil
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -29,6 +46,15 @@ export function AdminAthleteDetailPage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  
+  // Edit states
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [emailValue, setEmailValue] = useState('');
+  const [phoneValue, setPhoneValue] = useState('');
+  
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Fetch athlete details
   const { data: athlete, isLoading } = useQuery({
@@ -111,6 +137,57 @@ export function AdminAthleteDetailPage() {
     onError: (error) => toast.error('Errore: ' + error.message)
   });
 
+  // Update profile mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: async ({ field, value }: { field: string; value: string }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ [field]: value })
+        .eq('user_id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-athlete-detail', userId] });
+      toast.success('Profilo aggiornato');
+      setEditingEmail(false);
+      setEditingPhone(false);
+    },
+    onError: (error) => toast.error('Errore: ' + error.message)
+  });
+
+  // Delete mutation
+  const deleteAtletaMutation = useMutation({
+    mutationFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error('Non autenticato');
+
+      const response = await supabase.functions.invoke('delete-user', {
+        body: { userId, role: 'atleta' }
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Atleta eliminato con successo');
+      navigate('/admin/athletes');
+    },
+    onError: (error) => toast.error('Errore: ' + error.message)
+  });
+
+  const handleSaveEmail = () => {
+    if (!emailValue.trim()) {
+      toast.error('Email non valida');
+      return;
+    }
+    updateProfileMutation.mutate({ field: 'email', value: emailValue.trim() });
+  };
+
+  const handleSavePhone = () => {
+    updateProfileMutation.mutate({ field: 'phone', value: phoneValue.trim() });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -146,10 +223,19 @@ export function AdminAthleteDetailPage() {
           { label: athlete.profile?.first_name || 'Dettaglio' }
         ]}
         actions={
-          <Button variant="outline" onClick={() => navigate('/admin/athletes')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Indietro
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/admin/athletes')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Indietro
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Elimina
+            </Button>
+          </div>
         }
       />
 
@@ -174,14 +260,94 @@ export function AdminAthleteDetailPage() {
             <Separator />
             
             <div className="space-y-3 text-sm">
+              {/* Editable Email */}
               <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span>{athlete.profile?.email || 'N/A'}</span>
+                <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                {editingEmail ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Input
+                      type="email"
+                      value={emailValue}
+                      onChange={(e) => setEmailValue(e.target.value)}
+                      className="h-8 text-sm"
+                      autoFocus
+                    />
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8"
+                      onClick={handleSaveEmail}
+                      disabled={updateProfileMutation.isPending}
+                    >
+                      <Check className="h-4 w-4 text-success" />
+                    </Button>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8"
+                      onClick={() => setEditingEmail(false)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-1 group cursor-pointer" 
+                    onClick={() => {
+                      setEmailValue(athlete.profile?.email || '');
+                      setEditingEmail(true);
+                    }}
+                  >
+                    <span className="flex-1">{athlete.profile?.email || 'N/A'}</span>
+                    <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                )}
               </div>
+              
+              {/* Editable Phone */}
               <div className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{athlete.profile?.phone || 'N/A'}</span>
+                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                {editingPhone ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Input
+                      type="tel"
+                      value={phoneValue}
+                      onChange={(e) => setPhoneValue(e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="+39 xxx xxx xxxx"
+                      autoFocus
+                    />
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8"
+                      onClick={handleSavePhone}
+                      disabled={updateProfileMutation.isPending}
+                    >
+                      <Check className="h-4 w-4 text-success" />
+                    </Button>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8"
+                      onClick={() => setEditingPhone(false)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-1 group cursor-pointer" 
+                    onClick={() => {
+                      setPhoneValue(athlete.profile?.phone || '');
+                      setEditingPhone(true);
+                    }}
+                  >
+                    <span className="flex-1">{athlete.profile?.phone || 'N/A'}</span>
+                    <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                )}
               </div>
+              
+              {/* Non-editable registration date */}
               <div className="flex items-center gap-3">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span>
@@ -310,6 +476,37 @@ export function AdminAthleteDetailPage() {
           </SectionCard>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Elimina Atleta</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Stai per eliminare definitivamente <strong>{athlete.profile?.first_name} {athlete.profile?.last_name}</strong>.
+              </p>
+              <p className="text-destructive font-medium">
+                Questa azione è irreversibile.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteAtletaMutation.isPending}>Annulla</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => deleteAtletaMutation.mutate()}
+              disabled={deleteAtletaMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteAtletaMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Eliminazione...</>
+              ) : (
+                <><Trash2 className="h-4 w-4 mr-2" />Elimina</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

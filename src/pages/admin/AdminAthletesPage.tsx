@@ -12,6 +12,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Select,
@@ -29,7 +30,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Users, MoreHorizontal, Eye, Plus, Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Users, MoreHorizontal, Eye, Plus, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link, useSearchParams } from 'react-router-dom';
 
@@ -80,6 +91,10 @@ export function AdminAthletesPage() {
     fitness_level: 'intermedio',
     goals: [] as string[],
   });
+  
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [atletaToDelete, setAtletaToDelete] = useState<AtletaListItem | null>(null);
 
   // Fetch Athletes
   const { data: athletes, isLoading } = useQuery({
@@ -150,6 +165,30 @@ export function AdminAthletesPage() {
         fitness_level: 'intermedio',
         goals: [],
       });
+    },
+    onError: (error) => toast.error('Errore: ' + error.message)
+  });
+
+  // Delete Atleta mutation
+  const deleteAtletaMutation = useMutation({
+    mutationFn: async (atleta: AtletaListItem) => {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error('Non autenticato');
+
+      const response = await supabase.functions.invoke('delete-user', {
+        body: { userId: atleta.user_id, role: 'atleta' }
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-athletes'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      toast.success('Atleta eliminato con successo');
+      setDeleteDialogOpen(false);
+      setAtletaToDelete(null);
     },
     onError: (error) => toast.error('Errore: ' + error.message)
   });
@@ -227,6 +266,17 @@ export function AdminAthletesPage() {
             <Eye className="mr-2 h-4 w-4" />
             Visualizza
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem 
+          onClick={() => {
+            setAtletaToDelete(atleta);
+            setDeleteDialogOpen(true);
+          }}
+          className="text-destructive focus:text-destructive"
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Elimina Atleta
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -358,6 +408,51 @@ export function AdminAthletesPage() {
         emptyMessage="Nessun atleta trovato"
         actions={actions}
       />
+
+      {/* Delete Atleta Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Elimina Atleta</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Stai per eliminare definitivamente <strong>{atletaToDelete?.profiles?.first_name} {atletaToDelete?.profiles?.last_name}</strong>.
+              </p>
+              <p className="text-destructive font-medium">
+                Questa azione è irreversibile e cancellerà tutti i dati associati:
+              </p>
+              <ul className="list-disc list-inside text-sm text-muted-foreground">
+                <li>Profilo e credenziali</li>
+                <li>Allenamenti e progressi</li>
+                <li>Connessioni con PT</li>
+                <li>Chat e messaggi</li>
+                <li>Recensioni inviate</li>
+                <li>Badge e achievement</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteAtletaMutation.isPending}>Annulla</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => atletaToDelete && deleteAtletaMutation.mutate(atletaToDelete)}
+              disabled={deleteAtletaMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteAtletaMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Eliminazione...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Elimina definitivamente
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
