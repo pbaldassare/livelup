@@ -303,7 +303,7 @@ export function PTWorkoutsPage() {
           Nuovo Template
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl max-h-[90vh]">
+      <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto top-[5%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%]">
         <DialogHeader>
           <DialogTitle>Crea Nuovo Template</DialogTitle>
           <DialogDescription>
