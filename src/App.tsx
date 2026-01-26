@@ -78,6 +78,7 @@ import AtletaChatPage from "./pages/atleta/AtletaChatPage";
 import AtletaSubscriptionPage from "./pages/atleta/AtletaSubscriptionPage";
 import AtletaNotificationsPage from "./pages/atleta/AtletaNotificationsPage";
 import AtletaSettingsPage from "./pages/atleta/AtletaSettingsPage";
+import AtletaHelpPage from "./pages/atleta/AtletaHelpPage";
 
 const queryClient = new QueryClient();
 
@@ -409,6 +410,13 @@ const App = () => {
                 <AtletaRoute>
                   <AppLayout>
                     <AtletaSettingsPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/help" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaHelpPage />
                   </AppLayout>
                 </AtletaRoute>
               } />

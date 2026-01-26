@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Zap, Camera, Loader2 } from 'lucide-react';
+import { Zap, Camera, Loader2, ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,6 +23,7 @@ interface ProfileHeaderProps {
   onSendMessage?: () => void;
   className?: string;
   editable?: boolean;
+  editableCover?: boolean;
 }
 
 export function ProfileHeader({
@@ -35,11 +36,14 @@ export function ProfileHeader({
   onSendMessage,
   className,
   editable = true,
+  editableCover = true,
 }: ProfileHeaderProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
 
   const handleAvatarClick = () => {
     if (editable && fileInputRef.current) {
@@ -106,10 +110,84 @@ export function ProfileHeader({
     }
   };
 
+  const handleCoverClick = () => {
+    if (editableCover && coverInputRef.current) {
+      coverInputRef.current.click();
+    }
+  };
+
+  const handleCoverChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      toast.error('Per favore seleziona un\'immagine');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('L\'immagine deve essere inferiore a 10MB');
+      return;
+    }
+
+    setIsUploadingCover(true);
+    try {
+      // Generate unique filename
+      const ext = file.name.split('.').pop() || 'jpg';
+      const fileName = `${user.id}/cover.${ext}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('cover-images')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('cover-images')
+        .getPublicUrl(fileName);
+
+      // Add cache buster
+      const urlWithCacheBuster = `${publicUrl}?t=${Date.now()}`;
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ cover_url: urlWithCacheBuster })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      toast.success('Immagine di copertina aggiornata!');
+    } catch (error: any) {
+      console.error('Cover upload error:', error);
+      toast.error(error.message || 'Errore durante l\'upload');
+    } finally {
+      setIsUploadingCover(false);
+      // Reset input
+      if (coverInputRef.current) {
+        coverInputRef.current.value = '';
+      }
+    }
+  };
+
   return (
     <div className={cn('relative', className)}>
+      {/* Hidden cover file input */}
+      <input
+        ref={coverInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleCoverChange}
+        className="hidden"
+      />
+      
       {/* Cover Image */}
-      <div className="h-48 w-full bg-app-muted overflow-hidden">
+      <div className="h-48 w-full bg-app-muted overflow-hidden relative group">
         {coverUrl ? (
           <img 
             src={coverUrl} 
@@ -118,6 +196,32 @@ export function ProfileHeader({
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-app-muted to-app-background" />
+        )}
+        
+        {/* Cover edit button */}
+        {editableCover && (
+          <button
+            onClick={handleCoverClick}
+            disabled={isUploadingCover}
+            className={cn(
+              "absolute bottom-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full transition-all",
+              "bg-black/60 text-white text-sm font-medium",
+              "opacity-0 group-hover:opacity-100",
+              isUploadingCover && "opacity-100"
+            )}
+          >
+            {isUploadingCover ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Caricamento...
+              </>
+            ) : (
+              <>
+                <ImagePlus className="h-4 w-4" />
+                Modifica cover
+              </>
+            )}
+          </button>
         )}
       </div>
 
