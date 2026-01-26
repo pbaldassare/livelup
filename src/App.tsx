@@ -48,7 +48,9 @@ import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 // PT Dashboard pages (Web)
 import PTDashboard from "./pages/pt/PTDashboard";
 import PTAthletesPage from "./pages/pt/PTAthletesPage";
+import PTAthleteDetailPage from "./pages/pt/PTAthleteDetailPage";
 import PTWorkoutsPage from "./pages/pt/PTWorkoutsPage";
+import PTTemplateDetailPage from "./pages/pt/PTTemplateDetailPage";
 import PTCalendarPage from "./pages/pt/PTCalendarPage";
 import PTMessagesPage from "./pages/pt/PTMessagesPage";
 import PTPaymentsPage from "./pages/pt/PTPaymentsPage";
@@ -217,10 +219,24 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/athletes/:atletaId" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAthleteDetailPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
               <Route path="/pt/workouts" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>
                     <PTWorkoutsPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/templates/:templateId" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTTemplateDetailPage />
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
