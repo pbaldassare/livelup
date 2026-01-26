@@ -1,10 +1,13 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { StatusBadge } from '@/components/dashboard/StatusBadge';
+import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
+import { TemplateExerciseBuilder } from '@/components/pt/TemplateExerciseBuilder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +24,9 @@ import {
   Edit, 
   Trash2,
   FileText,
-  Users
+  Users,
+  Eye,
+  UserPlus
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -55,10 +60,14 @@ interface Workout {
 
 export function PTWorkoutsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('templates');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [editExercisesDialogOpen, setEditExercisesDialogOpen] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
     title: '',
     description: '',
@@ -205,10 +214,29 @@ export function PTWorkoutsPage() {
 
   const templateActions = (template: WorkoutTemplate) => (
     <div className="flex items-center gap-2">
-      <Button size="sm" variant="ghost">
+      <Button 
+        size="sm" 
+        variant="ghost"
+        onClick={() => navigate(`/pt/templates/${template.id}`)}
+        title="Gestisci esercizi"
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+      <Button 
+        size="sm" 
+        variant="ghost"
+        onClick={() => {
+          setSelectedTemplateId(template.id);
+          setIsAssignDialogOpen(true);
+        }}
+        title="Assegna ad atleta"
+      >
+        <UserPlus className="h-4 w-4" />
+      </Button>
+      <Button size="sm" variant="ghost" title="Modifica">
         <Edit className="h-4 w-4" />
       </Button>
-      <Button size="sm" variant="ghost">
+      <Button size="sm" variant="ghost" title="Duplica">
         <Copy className="h-4 w-4" />
       </Button>
       <Button 
@@ -216,6 +244,7 @@ export function PTWorkoutsPage() {
         variant="ghost" 
         className="text-destructive"
         onClick={() => deleteTemplateMutation.mutate(template.id)}
+        title="Elimina"
       >
         <Trash2 className="h-4 w-4" />
       </Button>
@@ -460,6 +489,13 @@ export function PTWorkoutsPage() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Assign Workout Dialog */}
+      <AssignWorkoutDialog
+        open={isAssignDialogOpen}
+        onOpenChange={setIsAssignDialogOpen}
+        preselectedTemplateId={selectedTemplateId || undefined}
+      />
     </div>
   );
 }

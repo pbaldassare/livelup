@@ -51,6 +51,34 @@ export function PTCalendarPage() {
     end_datetime: '',
     location: '',
     is_public: false,
+    atleta_user_id: '',
+  });
+
+  // Fetch connected athletes for dropdown
+  const { data: athletes = [] } = useQuery({
+    queryKey: ['connected-athletes', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('pt_atleta_connections')
+        .select('atleta_user_id')
+        .eq('pt_user_id', user.id)
+        .eq('status', 'active');
+      if (error) throw error;
+      
+      const enriched = await Promise.all(
+        (data || []).map(async (conn) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('user_id', conn.atleta_user_id)
+            .single();
+          return { id: conn.atleta_user_id, name: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() };
+        })
+      );
+      return enriched;
+    },
+    enabled: !!user?.id,
   });
 
   // Fetch events
@@ -88,6 +116,7 @@ export function PTCalendarPage() {
           end_datetime: newEvent.end_datetime || null,
           location: newEvent.location || null,
           is_public: newEvent.is_public,
+          atleta_user_id: newEvent.atleta_user_id || null,
         }]);
 
       if (error) throw error;
@@ -104,6 +133,7 @@ export function PTCalendarPage() {
         end_datetime: '',
         location: '',
         is_public: false,
+        atleta_user_id: '',
       });
     },
     onError: () => {
@@ -186,6 +216,24 @@ export function PTCalendarPage() {
               </SelectContent>
             </Select>
           </div>
+          {athletes.length > 0 && (
+            <div className="space-y-2">
+              <Label>Atleta (opzionale)</Label>
+              <Select
+                value={newEvent.atleta_user_id}
+                onValueChange={(value) => setNewEvent({ ...newEvent, atleta_user_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona atleta..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {athletes.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="start">Inizio</Label>

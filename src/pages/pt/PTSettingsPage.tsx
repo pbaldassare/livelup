@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { PageLoader } from '@/components/common/PageLoader';
+import { PTAvailabilityManager } from '@/components/pt/PTAvailabilityManager';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +21,8 @@ import {
   Award,
   Euro,
   Eye,
-  Save
+  Save,
+  Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -161,6 +163,10 @@ export function PTSettingsPage() {
           <TabsTrigger value="pricing" className="gap-2">
             <Euro className="h-4 w-4" />
             Prezzi
+          </TabsTrigger>
+          <TabsTrigger value="availability" className="gap-2">
+            <Clock className="h-4 w-4" />
+            Disponibilità
           </TabsTrigger>
           <TabsTrigger value="visibility" className="gap-2">
             <Eye className="h-4 w-4" />
@@ -405,6 +411,11 @@ export function PTSettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Availability Tab */}
+        <TabsContent value="availability" className="space-y-6">
+          <PTAvailabilityManager />
         </TabsContent>
 
         {/* Visibility Tab */}
