@@ -55,6 +55,7 @@ interface TemplateExercise {
   reps_max: number | null;
   rest_seconds: number | null;
   notes: string | null;
+  tempo: string | null;
   exercise?: Exercise;
 }
 
@@ -90,7 +91,7 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
       const { data, error } = await supabase
         .from('template_exercises')
         .select(`
-          *,
+          id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo,
           exercises (*)
         `)
         .eq('template_id', templateId)
@@ -138,7 +139,7 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
 
   // Update exercise mutation
   const updateExerciseMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; sets?: number; reps_min?: number; reps_max?: number; rest_seconds?: number; notes?: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; sets?: number; reps_min?: number; reps_max?: number; rest_seconds?: number; notes?: string | null; tempo?: string | null }) => {
       const { error } = await supabase
         .from('template_exercises')
         .update(data)
@@ -409,6 +410,40 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
                                       className="h-8"
                                     />
                                   </div>
+                                </div>
+
+                                {/* Tempo field - 4 inputs for cadence */}
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Tempo (cadenza movimento)</Label>
+                                  <div className="flex items-center gap-1">
+                                    {(() => {
+                                      const tempoParts = (te.tempo || '').split('-');
+                                      const labels = ['Ecc.', 'Pausa', 'Conc.', 'Pausa'];
+                                      return labels.map((label, i) => (
+                                        <div key={i} className="flex-1">
+                                          <Input
+                                            type="number"
+                                            min={0}
+                                            max={9}
+                                            placeholder="0"
+                                            value={tempoParts[i] || ''}
+                                            onChange={(e) => {
+                                              const newParts = [...(te.tempo || '0-0-0-0').split('-')];
+                                              while (newParts.length < 4) newParts.push('0');
+                                              newParts[i] = e.target.value || '0';
+                                              updateExerciseMutation.mutate({
+                                                id: te.id,
+                                                tempo: newParts.join('-')
+                                              });
+                                            }}
+                                            className="h-8 text-center px-1"
+                                          />
+                                          <span className="text-[10px] text-muted-foreground text-center block mt-0.5">{label}</span>
+                                        </div>
+                                      ));
+                                    })()}
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground">Es: 3-1-2-0 = 3s discesa, 1s pausa, 2s risalita, 0s pausa</p>
                                 </div>
 
                                 {/* Notes field */}
