@@ -1,186 +1,96 @@
 
-# Piano: Espansione Tipi di Notifiche
+# Piano: Pagina Preferenze Notifiche (Solo Permessi)
 
 ## Problema Identificato
-Dalla screenshot e dall'analisi del codice, emergono due problemi:
-
-1. **Mapping incompleto**: La pagina notifiche gestisce solo 4 tipi (`message`, `workout`, `badge`, `connection`) ma nel sistema esistono molti più tipi
-2. **Tutte le notifiche mostrano lo stesso titolo** ("Nuovo messaggio") perché non sono mappati correttamente i tipi esistenti
-
-## Tipi di Notifiche Esistenti nel Sistema
-
-Analizzando il codice, questi sono i tipi creati:
-
-| Tipo | Creato da | Descrizione |
-|------|-----------|-------------|
-| `message` | Trigger DB | Nuovo messaggio chat |
-| `connection` | Trigger DB | Cambio stato connessione |
-| `connection_request` | AtletaPTProfilePage | Richiesta connessione inviata |
-| `connection_accepted` | usePTConnectionRequests | Richiesta accettata |
-| `workout` | (generico) | Allenamenti |
-| `workout_assigned` | AssignWorkoutDialog | Nuovo allenamento assegnato |
-| `subscription_created` | CreateSubscriptionDialog | Abbonamento attivato |
-| `renewal_approved` | AthleteSubscriptionsTab | Rinnovo approvato |
-| `package_purchase_request` | PTPackagesSection | Richiesta acquisto pacchetto |
-| `review` | PTReviewForm | Nuova recensione ricevuta |
-| `review_response` | PTReviewsManager | Risposta a recensione |
-| `badge` | (generico) | Badge guadagnato |
-| `achievement` | (generico) | Traguardo raggiunto |
+La pagina `/app/notifications` attualmente mostra la lista delle notifiche, ma l'utente vuole che mostri solo le **impostazioni e permessi** per le notifiche. La lista notifiche rimarrà solo nel dropdown dell'header.
 
 ---
 
-## Soluzione
-
-### Espansione Mapping Icone
-
-Aggiungere tutti i tipi mancanti:
-
-```typescript
-const getNotificationIcon = (type: string) => {
-  switch (type) {
-    // Messaggi
-    case 'message':
-      return MessageSquare;
-    
-    // Workout
-    case 'workout':
-    case 'workout_assigned':
-    case 'workout_completed':
-      return Dumbbell;
-    
-    // Connessioni
-    case 'connection':
-    case 'connection_request':
-    case 'connection_accepted':
-    case 'connection_rejected':
-      return UserPlus;
-    
-    // Abbonamenti
-    case 'subscription_created':
-    case 'renewal_approved':
-    case 'renewal_requested':
-    case 'subscription_expiring':
-      return CreditCard;
-    
-    // Acquisti
-    case 'package_purchase_request':
-    case 'payment':
-      return ShoppingBag;
-    
-    // Recensioni
-    case 'review':
-    case 'review_response':
-      return Star;
-    
-    // Badge/Achievement
-    case 'badge':
-    case 'achievement':
-      return Award;
-    
-    // Calendario
-    case 'event':
-    case 'reminder':
-      return Calendar;
-    
-    default:
-      return Bell;
-  }
-};
-```
-
-### Espansione Mapping Colori
-
-Definire colori distintivi per ogni categoria:
-
-```typescript
-const getNotificationColor = (type: string) => {
-  switch (type) {
-    // Messaggi - Blu
-    case 'message':
-      return 'text-blue-400 bg-blue-400/10';
-    
-    // Workout - Lime (accent)
-    case 'workout':
-    case 'workout_assigned':
-    case 'workout_completed':
-      return 'text-app-accent bg-app-accent/10';
-    
-    // Connessioni - Verde
-    case 'connection':
-    case 'connection_request':
-    case 'connection_accepted':
-      return 'text-green-400 bg-green-400/10';
-    
-    // Connessione rifiutata - Rosso
-    case 'connection_rejected':
-      return 'text-red-400 bg-red-400/10';
-    
-    // Abbonamenti - Viola
-    case 'subscription_created':
-    case 'renewal_approved':
-    case 'renewal_requested':
-    case 'subscription_expiring':
-      return 'text-purple-400 bg-purple-400/10';
-    
-    // Pagamenti/Acquisti - Arancione
-    case 'package_purchase_request':
-    case 'payment':
-      return 'text-orange-400 bg-orange-400/10';
-    
-    // Recensioni - Rosa
-    case 'review':
-    case 'review_response':
-      return 'text-pink-400 bg-pink-400/10';
-    
-    // Badge - Giallo/Oro
-    case 'badge':
-    case 'achievement':
-      return 'text-yellow-400 bg-yellow-400/10';
-    
-    // Calendario - Ciano
-    case 'event':
-    case 'reminder':
-      return 'text-cyan-400 bg-cyan-400/10';
-    
-    default:
-      return 'text-app-muted-foreground bg-app-muted';
-  }
-};
-```
-
----
-
-## Visualizzazione Finale
+## Nuova Struttura Pagina
 
 ```text
 +------------------------------------------+
-|  ← Notifiche                   Segna tutte|
-|    7 non lette                            |
+| ← Notifiche                              |
 +------------------------------------------+
-| [💬] Nuovo messaggio              •  🗑️  |  <- Blu
-|     Ti aspetto domani alle 10             |
-|     circa 4 ore fa                        |
+| PUSH                                     |
 +------------------------------------------+
-| [🏋️] Nuovo allenamento!           •  🗑️  |  <- Lime
-|     Il tuo PT ti ha assegnato...          |
-|     circa 4 ore fa                        |
+| [🔔] Notifiche Push           [switch]  |
+|     Ricevi notifiche anche ad app chiusa |
 +------------------------------------------+
-| [🤝] Richiesta accettata! 🎉     •  🗑️  |  <- Verde
-|     Marco ha accettato la richiesta       |
-|     circa 5 ore fa                        |
+| (Se denied)                              |
+| ⚠️ Permesso negato. Modifica le          |
+|    impostazioni del browser.             |
 +------------------------------------------+
-| [💳] Nuovo abbonamento attivato! •  🗑️  |  <- Viola
-|     Il tuo PT ha attivato...              |
-|     ieri                                  |
+
+| CATEGORIE                                |
 +------------------------------------------+
-| [⭐] Nuova recensione ricevuta!   •  🗑️  |  <- Rosa
-|     Hai ricevuto una recensione 5 stelle  |
-|     2 giorni fa                           |
+| [💬] Messaggi                  [switch]  |
+|     Nuovi messaggi dal tuo PT            |
 +------------------------------------------+
-| [🏆] Badge guadagnato!            •  🗑️  |  <- Giallo
-|     Hai completato 10 workout             |
-|     3 giorni fa                           |
+| [🏋️] Workout                   [switch]  |
+|     Nuovi allenamenti assegnati          |
 +------------------------------------------+
+| [🤝] Connessioni               [switch]  |
+|     Richieste e aggiornamenti            |
++------------------------------------------+
+| [💳] Abbonamenti               [switch]  |
+|     Rinnovi e nuovi piani                |
++------------------------------------------+
+| [⭐] Recensioni                [switch]  |
+|     Risposte alle tue recensioni         |
++------------------------------------------+
+| [🏆] Badge                     [switch]  |
+|     Traguardi e obiettivi                |
++------------------------------------------+
+| [📅] Promemoria                [switch]  |
+|     Eventi e reminder                    |
++------------------------------------------+
+```
+
+---
+
+## Categorie Notifiche
+
+| Categoria | Tipi inclusi | Icona | Colore |
+|-----------|--------------|-------|--------|
+| Messaggi | `message` | MessageSquare | Blu |
+| Workout | `workout`, `workout_assigned`, `workout_completed` | Dumbbell | Lime |
+| Connessioni | `connection`, `connection_*` | UserPlus | Verde |
+| Abbonamenti | `subscription_*`, `renewal_*` | CreditCard | Viola |
+| Acquisti | `package_purchase_*`, `payment` | ShoppingBag | Arancione |
+| Recensioni | `review`, `review_response` | Star | Rosa |
+| Badge | `badge`, `achievement` | Award | Giallo |
+| Calendario | `event`, `reminder` | Calendar | Ciano |
+
+---
+
+## Implementazione Preferenze
+
+Le preferenze verranno salvate nella tabella `profiles` in un nuovo campo JSON `notification_preferences`:
+
+```json
+{
+  "messages": true,
+  "workouts": true,
+  "connections": true,
+  "subscriptions": true,
+  "purchases": true,
+  "reviews": true,
+  "badges": true,
+  "calendar": true
+}
+```
+
+---
+
+## Migrazione Database
+
+Aggiungere colonna `notification_preferences` alla tabella profiles:
+
+```sql
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS notification_preferences jsonb 
+DEFAULT '{"messages":true,"workouts":true,"connections":true,"subscriptions":true,"purchases":true,"reviews":true,"badges":true,"calendar":true}'::jsonb;
 ```
 
 ---
@@ -189,37 +99,101 @@ const getNotificationColor = (type: string) => {
 
 | File | Modifiche |
 |------|-----------|
-| `src/pages/atleta/AtletaNotificationsPage.tsx` | Espandere `getNotificationIcon` e `getNotificationColor` con tutti i tipi, aggiungere nuove icone (CreditCard, Star, Calendar, ShoppingBag) |
+| `src/pages/atleta/AtletaNotificationsPage.tsx` | Riscrivere completamente: rimuovere lista notifiche, aggiungere toggle permessi per push e categorie |
+| Migrazione DB | Aggiungere campo `notification_preferences` |
 
 ---
 
-## Import Aggiuntivi
+## Dettaglio UI
+
+### Sezione Push
+- Toggle principale per push notifications (usa `PushNotificationToggle` esistente ma integrato nel layout card)
+- Stato permesso browser visibile
+- Messaggio di errore se denied
+
+### Sezione Categorie
+- Card con lista di toggle
+- Ogni toggle ha:
+  - Icona colorata (coerente con colori notifica)
+  - Nome categoria
+  - Descrizione breve
+  - Switch on/off
+- Modifiche salvate automaticamente con debounce
+
+### Stile
+- Tema scuro coerente (`bg-app-background`, `bg-app-card`, etc.)
+- Icone con colori distintivi per categoria
+- Switch con accent lime quando attivo
+
+---
+
+## Codice Componente
 
 ```typescript
-import { 
-  ArrowLeft,
-  Bell,
-  MessageSquare,
-  Dumbbell,
-  Award,
-  UserPlus,
-  CheckCheck,
-  Trash2,
-  // Nuovi import
-  CreditCard,
-  Star,
-  Calendar,
-  ShoppingBag,
-  UserX  // per connection_rejected
-} from 'lucide-react';
+// Categorie definite
+const NOTIFICATION_CATEGORIES = [
+  {
+    key: 'messages',
+    label: 'Messaggi',
+    description: 'Nuovi messaggi dal tuo PT',
+    icon: MessageSquare,
+    colorClass: 'text-blue-400 bg-blue-400/10'
+  },
+  {
+    key: 'workouts',
+    label: 'Workout',
+    description: 'Nuovi allenamenti assegnati',
+    icon: Dumbbell,
+    colorClass: 'text-app-accent bg-app-accent/10'
+  },
+  // ... altre categorie
+];
+
+// Stato preferenze
+const [preferences, setPreferences] = useState({
+  messages: true,
+  workouts: true,
+  connections: true,
+  subscriptions: true,
+  purchases: true,
+  reviews: true,
+  badges: true,
+  calendar: true
+});
+
+// Toggle singola categoria
+const handleToggle = (key: string) => {
+  const updated = { ...preferences, [key]: !preferences[key] };
+  setPreferences(updated);
+  savePreferences(updated);
+};
 ```
+
+---
+
+## Flusso Salvataggio
+
+1. Utente toggle una categoria
+2. Stato locale aggiornato immediatamente
+3. Debounce 500ms per evitare salvataggi multipli
+4. Update su `profiles.notification_preferences`
+5. Toast success se salvato
 
 ---
 
 ## Risultato Atteso
 
-- Ogni tipo di notifica avrà un'icona distintiva
-- Colori differenziati per categoria (messaggi blu, workout lime, connessioni verde, abbonamenti viola, etc.)
-- Migliore identificabilità visiva dei diversi tipi di notifica
-- Sistema pronto per futuri tipi di notifica
+- La pagina `/app/notifications` mostra SOLO le impostazioni permessi
+- Toggle master per push notifications con stato browser
+- Toggle per ogni categoria di notifica
+- Preferenze salvate nel profilo
+- La lista notifiche rimane nel dropdown header
+- UI coerente con tema scuro lime
 
+---
+
+## Note Tecniche
+
+- Le preferenze potrebbero essere usate lato edge function per filtrare quali notifiche push inviare
+- Per ora salviamo le preferenze come riferimento futuro
+- Il toggle push principale usa il hook `usePushNotifications` esistente
