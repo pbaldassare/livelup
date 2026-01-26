@@ -288,7 +288,7 @@ export function PTReviewsManager() {
 
       {/* Reply Dialog */}
       <Dialog open={!!replyingTo} onOpenChange={(open) => !open && setReplyingTo(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {replyingTo?.pt_response ? 'Modifica risposta' : 'Rispondi alla recensione'}

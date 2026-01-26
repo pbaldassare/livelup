@@ -167,6 +167,79 @@ export function PTWorkoutsPage() {
     },
   });
 
+  // Duplicate template mutation
+  const duplicateTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      if (!user?.id) throw new Error('Not authenticated');
+
+      // 1. Fetch the original template
+      const { data: originalTemplate, error: templateError } = await supabase
+        .from('workout_templates')
+        .select('*')
+        .eq('id', templateId)
+        .single();
+      
+      if (templateError) throw templateError;
+
+      // 2. Create a copy of the template
+      const { data: newTemplate, error: insertError } = await supabase
+        .from('workout_templates')
+        .insert({
+          pt_user_id: user.id,
+          title: `${originalTemplate.title} (Copia)`,
+          description: originalTemplate.description,
+          difficulty_level: originalTemplate.difficulty_level,
+          category: originalTemplate.category,
+          estimated_duration: originalTemplate.estimated_duration,
+          is_public: false,
+          tags: originalTemplate.tags,
+        })
+        .select()
+        .single();
+      
+      if (insertError) throw insertError;
+
+      // 3. Fetch exercises from the original template
+      const { data: originalExercises, error: exercisesError } = await supabase
+        .from('template_exercises')
+        .select('*')
+        .eq('template_id', templateId)
+        .order('order_index');
+      
+      if (exercisesError) throw exercisesError;
+
+      // 4. Copy exercises to the new template
+      if (originalExercises && originalExercises.length > 0) {
+        const newExercises = originalExercises.map((exercise) => ({
+          template_id: newTemplate.id,
+          exercise_id: exercise.exercise_id,
+          order_index: exercise.order_index,
+          sets: exercise.sets,
+          reps_min: exercise.reps_min,
+          reps_max: exercise.reps_max,
+          rest_seconds: exercise.rest_seconds,
+          tempo: exercise.tempo,
+          notes: exercise.notes,
+        }));
+
+        const { error: copyError } = await supabase
+          .from('template_exercises')
+          .insert(newExercises);
+        
+        if (copyError) throw copyError;
+      }
+
+      return newTemplate;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
+      toast.success('Template duplicato con successo');
+    },
+    onError: () => {
+      toast.error('Errore durante la duplicazione del template');
+    },
+  });
+
   // Filter data
   const filteredTemplates = templates.filter((t) =>
     t.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -237,7 +310,13 @@ export function PTWorkoutsPage() {
       <Button size="sm" variant="ghost" title="Modifica">
         <Edit className="h-4 w-4" />
       </Button>
-      <Button size="sm" variant="ghost" title="Duplica">
+      <Button 
+        size="sm" 
+        variant="ghost" 
+        title="Duplica"
+        onClick={() => duplicateTemplateMutation.mutate(template.id)}
+        disabled={duplicateTemplateMutation.isPending}
+      >
         <Copy className="h-4 w-4" />
       </Button>
       <Button 

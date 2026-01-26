@@ -181,13 +181,14 @@ export function PTCalendarPage() {
           Nuovo Evento
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Crea Nuovo Evento</DialogTitle>
           <DialogDescription>
             Aggiungi un nuovo evento al calendario
           </DialogDescription>
         </DialogHeader>
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="title">Titolo</Label>
@@ -273,7 +274,8 @@ export function PTCalendarPage() {
             />
           </div>
         </div>
-        <div className="flex justify-end gap-2">
+        </div>
+        <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
             Annulla
           </Button>

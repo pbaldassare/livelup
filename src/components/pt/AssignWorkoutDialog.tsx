@@ -245,7 +245,7 @@ export function AssignWorkoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Dumbbell className="h-5 w-5" />
@@ -256,6 +256,7 @@ export function AssignWorkoutDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
         <div className="space-y-6 py-4">
           {/* Athlete Selection */}
           <div className="space-y-2">
@@ -451,8 +452,9 @@ export function AssignWorkoutDialog({
             />
           </div>
         </div>
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annulla
           </Button>
