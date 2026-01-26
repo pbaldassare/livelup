@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -408,6 +409,20 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
                                       className="h-8"
                                     />
                                   </div>
+                                </div>
+
+                                {/* Notes field */}
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Note e istruzioni</Label>
+                                  <Textarea
+                                    placeholder="Aggiungi istruzioni specifiche per l'atleta..."
+                                    value={te.notes ?? ''}
+                                    onChange={(e) => updateExerciseMutation.mutate({
+                                      id: te.id,
+                                      notes: e.target.value || null
+                                    })}
+                                    className="min-h-[60px] text-sm resize-none"
+                                  />
                                 </div>
                               </div>
                             </div>
