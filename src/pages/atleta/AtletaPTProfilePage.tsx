@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { requestConnection } from '@/lib/api/connections';
+import { PTPackagesSection } from '@/components/atleta/PTPackagesSection';
 import { toast } from 'sonner';
 import { 
   ArrowLeft,
@@ -391,6 +392,11 @@ export function AtletaPTProfilePage() {
             ))}
           </CardContent>
         </Card>
+      )}
+
+      {/* PT Packages Section */}
+      {userId && (
+        <PTPackagesSection ptUserId={userId} isConnected={isConnectedToThisPT} />
       )}
 
       {/* Fixed CTA */}
