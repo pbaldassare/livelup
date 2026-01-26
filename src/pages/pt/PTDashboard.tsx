@@ -8,6 +8,7 @@ import { KPICard, KPICardColored } from '@/components/dashboard/KPICard';
 import { SectionCard, InfoSection } from '@/components/dashboard/SectionCard';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
+import { PTAnalyticsCharts } from '@/components/dashboard/PTAnalyticsCharts';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -317,6 +318,9 @@ export function PTDashboard() {
           )}
         </InfoSection>
       </div>
+
+      {/* Analytics Charts */}
+      <PTAnalyticsCharts />
 
       {/* Quick Actions */}
       <SectionCard

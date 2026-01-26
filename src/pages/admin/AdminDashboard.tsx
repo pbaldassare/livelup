@@ -10,6 +10,7 @@ import { KPICard, KPICardColored } from '@/components/dashboard/KPICard';
 import { SectionCard, InfoSection } from '@/components/dashboard/SectionCard';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { DashboardStatusBadge, TagBadge } from '@/components/dashboard/DashboardStatusBadge';
+import { AdminRevenueCharts } from '@/components/dashboard/AdminRevenueCharts';
 import { 
   Users, 
   UserCog, 
@@ -227,6 +228,9 @@ export function AdminDashboard() {
           </div>
         </InfoSection>
       </div>
+
+      {/* Platform Revenue Analytics */}
+      <AdminRevenueCharts />
 
       {/* Quick Actions CTA */}
       <Card className="bg-muted/30 border-dashed">
