@@ -1,271 +1,298 @@
 
-# Piano: Sistema Abbonamenti Completo con Piani Personalizzabili
+# Piano: Sistema Abbonamenti - Funzionalita Complete
 
 ## Panoramica
 
-Implementazione di un sistema di abbonamenti a due livelli:
-1. **Piani Piattaforma (Admin)**: Piani standard gestiti dall'amministratore (es. PT Base, PT Premium, Atleta Free, Atleta Premium)
-2. **Pacchetti PT Personalizzati**: Ogni Personal Trainer puo creare pacchetti specifici per i propri atleti (es. 10 sedute, mensile, trimestrale)
+Implementazione di tre funzionalita chiave per completare il sistema abbonamenti PT-Atleta:
 
-## Architettura del Sistema
+1. **Decremento automatico sessioni**: Quando un atleta completa un workout, le sessioni rimanenti nel suo abbonamento PT vengono decrementate
+2. **Gestione abbonamenti lato PT**: Dashboard per visualizzare chi ha acquistato pacchetti, sessioni rimanenti e scadenze
+3. **Visualizzazione pacchetti lato atleta**: Nella pagina del PT connesso, mostrare i pacchetti disponibili con CTA per richiedere l'acquisto
+
+---
+
+## Parte 1: Decremento Automatico Sessioni
+
+### 1.1 Logica di Business
+
+Quando un atleta completa un workout:
+- Verificare se ha un abbonamento attivo con il PT che ha creato il workout
+- Se l'abbonamento e a sessioni (`package_type = 'sessioni'`), incrementare `sessions_used`
+- Se `sessions_used >= sessions_total`, aggiornare lo status a `completato`
+
+### 1.2 Implementazione Database - Trigger
+
+Creare un trigger PostgreSQL che si attiva quando un workout viene completato:
+
+```sql
+CREATE OR REPLACE FUNCTION public.decrement_subscription_session()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  subscription_record RECORD;
+BEGIN
+  -- Solo se il workout e stato completato (status cambia a 'completato')
+  IF NEW.status = 'completato' AND (OLD.status IS NULL OR OLD.status != 'completato') THEN
+    -- Trova abbonamento attivo a sessioni per questa coppia atleta-PT
+    SELECT * INTO subscription_record
+    FROM public.atleta_pt_subscriptions
+    WHERE atleta_user_id = NEW.atleta_user_id
+      AND pt_user_id = NEW.pt_user_id
+      AND status = 'attivo'
+      AND sessions_total IS NOT NULL
+    ORDER BY created_at DESC
+    LIMIT 1;
+    
+    IF FOUND THEN
+      -- Incrementa sessioni usate
+      UPDATE public.atleta_pt_subscriptions
+      SET 
+        sessions_used = COALESCE(sessions_used, 0) + 1,
+        status = CASE 
+          WHEN COALESCE(sessions_used, 0) + 1 >= sessions_total THEN 'completato'::pt_subscription_status
+          ELSE status
+        END,
+        updated_at = now()
+      WHERE id = subscription_record.id;
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_workout_completed
+  AFTER UPDATE ON public.workouts
+  FOR EACH ROW
+  EXECUTE FUNCTION public.decrement_subscription_session();
+```
+
+### 1.3 File da Modificare
+- `supabase/migrations/xxx_workout_session_decrement.sql` (nuovo)
+
+---
+
+## Parte 2: Gestione Abbonamenti Lato PT
+
+### 2.1 Nuovo Tab in PTAthletesPage
+
+Aggiungere un nuovo tab "Abbonamenti" nella pagina atleti del PT che mostra:
+- Lista atleti con abbonamenti attivi
+- Nome pacchetto acquistato
+- Tipo (sessioni/temporale)
+- Sessioni rimanenti (per pacchetti a sessioni)
+- Data scadenza (per abbonamenti temporali)
+- Stato abbonamento
+- Azioni: estendi, aggiungi sessioni bonus
+
+### 2.2 Query Abbonamenti
+
+```typescript
+const { data: subscriptions } = useQuery({
+  queryKey: ['pt-athlete-subscriptions', user?.id],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from('atleta_pt_subscriptions')
+      .select(`
+        *,
+        pt_packages (name, package_type, sessions_count, duration_days),
+        profiles:atleta_user_id (first_name, last_name, avatar_url, email)
+      `)
+      .eq('pt_user_id', user?.id)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data;
+  }
+});
+```
+
+### 2.3 UI Components
+
+**Tabella Abbonamenti:**
+| Atleta | Pacchetto | Tipo | Sessioni | Scadenza | Stato | Azioni |
+|--------|-----------|------|----------|----------|-------|--------|
+| Avatar + Nome | Nome pkg | Badge | 5/10 | 15/02/2026 | Attivo | Estendi |
+
+**Azioni disponibili:**
+- "Aggiungi sessioni" (solo per pacchetti a sessioni)
+- "Estendi scadenza" (solo per abbonamenti temporali)
+- "Segna come completato"
+- "Annulla abbonamento"
+
+### 2.4 File da Modificare
+- `src/pages/pt/PTAthletesPage.tsx` - Aggiungere tab Abbonamenti
+- `src/components/pt/AthleteSubscriptionsTab.tsx` (nuovo) - Componente tab
+
+---
+
+## Parte 3: Visualizzazione Pacchetti Lato Atleta
+
+### 3.1 Sezione Pacchetti in AtletaPTProfilePage
+
+Aggiungere una nuova Card dopo le recensioni che mostra:
+- Lista pacchetti attivi offerti dal PT
+- Per ogni pacchetto: nome, descrizione, prezzo, features
+- Badge "In evidenza" per pacchetti consigliati
+- Pulsante "Richiedi Acquisto"
+
+### 3.2 Query Pacchetti PT
+
+```typescript
+const { data: packages } = useQuery({
+  queryKey: ['pt-packages-public', userId],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from('pt_packages')
+      .select('*')
+      .eq('pt_user_id', userId)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    
+    if (error) throw error;
+    return data;
+  },
+  enabled: !!userId && isConnectedToThisPT, // Solo se connesso
+});
+```
+
+### 3.3 Componente PackageCard
 
 ```text
-+------------------------+
-|   ADMIN DASHBOARD      |
-|------------------------|
-|  Gestione Piani        |
-|  Piattaforma           |
-|  (subscription_plans)  |
-+----------+-------------+
-           |
-           v
-+------------------------+       +------------------------+
-|   PT DASHBOARD         |       |   ATLETA APP           |
-|------------------------|       |------------------------|
-|  - Vede piano attivo   |       |  - Vede abbonamento    |
-|  - Crea pacchetti      |       |    piattaforma         |
-|    personalizzati      |       |  - Vede pacchetti PT   |
-|  (pt_packages)         |       |  - Acquista/Rinnova    |
-+------------------------+       +------------------------+
++----------------------------------+
+| [In Evidenza]                    |
+| Percorso Trasformazione      EUR |
+| 10 sessioni                  150 |
+|----------------------------------|
+| Include chat, video call         |
+| Max 3 workout/settimana          |
+|----------------------------------|
+| [Richiedi Acquisto]              |
++----------------------------------+
 ```
 
----
+### 3.4 Richiesta Acquisto
 
-## Parte 1: Completamento Gestione Admin
+Per ora, il pulsante "Richiedi Acquisto":
+1. Crea una notifica al PT
+2. Mostra toast di conferma all'atleta
+3. (Futuro: integrazione Stripe)
 
-### 1.1 Database (Nessuna Modifica)
-La tabella `subscription_plans` esiste gia con tutti i campi necessari.
-
-### 1.2 AdminSubscriptionsPage.tsx - Funzionalita Complete
-
-Implementare:
-- **Creazione Piano**: Form completo con tutti i campi (nome, descrizione, target, tipo, prezzi, features, trial, ecc.)
-- **Modifica Piano**: Dialog per modificare piani esistenti
-- **Eliminazione Piano**: Conferma e soft-delete (disattivazione)
-- **Ordinamento**: Drag and drop per sort_order
-- **Statistiche Migliorate**: Calcolo entrate stimate basato su abbonamenti attivi
-
-Campi del form di creazione:
-- Nome piano (obbligatorio)
-- Descrizione
-- Target: PT o Atleta
-- Tipo piano: atleta_free, atleta_premium, pt_base, pt_premium
-- Prezzo mensile (obbligatorio)
-- Prezzo annuale (opzionale, con sconto automatico suggerito)
-- Giorni trial (default 14)
-- Features (array dinamico con aggiunta/rimozione)
-- Max atleti (solo per PT)
-- Include chat, video call, analytics
-- Storage GB
-- Stripe Price ID (per integrazione futura)
-- Attivo / In evidenza
-
----
-
-## Parte 2: Pacchetti Personalizzati PT
-
-### 2.1 Nuova Tabella Database: pt_packages
-
-Creare una nuova tabella per i pacchetti personalizzati dei PT:
-
-```sql
-CREATE TYPE package_type AS ENUM ('sessioni', 'mensile', 'trimestrale', 'semestrale', 'annuale', 'custom');
-
-CREATE TABLE public.pt_packages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  pt_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  -- Info base
-  name TEXT NOT NULL,
-  description TEXT,
-  package_type package_type NOT NULL,
-  
-  -- Pricing
-  price DECIMAL(10,2) NOT NULL,
-  currency TEXT NOT NULL DEFAULT 'EUR',
-  
-  -- Per pacchetti a sessioni
-  sessions_count INTEGER, -- NULL per abbonamenti temporali
-  
-  -- Per abbonamenti temporali
-  duration_days INTEGER, -- NULL per pacchetti a sessioni
-  
-  -- Features e limiti
-  includes_chat BOOLEAN DEFAULT true,
-  includes_video_calls BOOLEAN DEFAULT false,
-  max_workouts_per_week INTEGER,
-  
-  -- Visibilita
-  is_active BOOLEAN NOT NULL DEFAULT true,
-  is_featured BOOLEAN DEFAULT false,
-  
-  -- Metadata
-  sort_order INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- RLS Policies
-ALTER TABLE public.pt_packages ENABLE ROW LEVEL SECURITY;
-
--- PT puo gestire i propri pacchetti
-CREATE POLICY "PT can manage own packages"
-  ON public.pt_packages FOR ALL
-  USING (auth.uid() = pt_user_id AND is_pt(auth.uid()));
-
--- Atleti collegati possono vedere i pacchetti del loro PT
-CREATE POLICY "Connected atleti can view PT packages"
-  ON public.pt_packages FOR SELECT
-  USING (is_atleta(auth.uid()) AND are_connected(pt_user_id, auth.uid()) AND is_active = true);
-
--- Admin puo vedere tutti
-CREATE POLICY "Admins can view all packages"
-  ON public.pt_packages FOR SELECT
-  USING (is_admin(auth.uid()));
+```typescript
+const requestPurchaseMutation = useMutation({
+  mutationFn: async (packageId: string) => {
+    await supabase.from('notifications').insert({
+      user_id: ptUserId,
+      type: 'package_purchase_request',
+      title: 'Richiesta acquisto pacchetto',
+      body: `Un atleta vuole acquistare un pacchetto`,
+      data: { package_id: packageId, atleta_user_id: user?.id },
+      action_url: '/pt/athletes?tab=subscriptions'
+    });
+  },
+  onSuccess: () => {
+    toast.success('Richiesta inviata al tuo PT!');
+  }
+});
 ```
 
-### 2.2 Nuova Tabella: atleta_pt_subscriptions
+### 3.5 Visualizzazione Abbonamento Attivo
 
-Per tracciare gli acquisti di pacchetti PT da parte degli atleti:
+Se l'atleta ha gia un abbonamento attivo con questo PT, mostrare:
+- Banner con dettagli abbonamento corrente
+- Sessioni rimanenti o data scadenza
+- Progress bar per sessioni
 
-```sql
-CREATE TYPE pt_subscription_status AS ENUM ('attivo', 'completato', 'scaduto', 'cancellato');
-
-CREATE TABLE public.atleta_pt_subscriptions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  atleta_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  pt_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  package_id UUID REFERENCES public.pt_packages(id) ON DELETE SET NULL,
-  
-  -- Status
-  status pt_subscription_status NOT NULL DEFAULT 'attivo',
-  
-  -- Per pacchetti a sessioni
-  sessions_total INTEGER,
-  sessions_used INTEGER DEFAULT 0,
-  sessions_remaining INTEGER GENERATED ALWAYS AS (sessions_total - sessions_used) STORED,
-  
-  -- Per abbonamenti temporali
-  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  expires_at TIMESTAMPTZ,
-  
-  -- Pricing info (snapshot al momento dell'acquisto)
-  price_paid DECIMAL(10,2) NOT NULL,
-  currency TEXT NOT NULL DEFAULT 'EUR',
-  
-  -- Metadata
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- RLS Policies
-ALTER TABLE public.atleta_pt_subscriptions ENABLE ROW LEVEL SECURITY;
-
--- Atleta vede i propri abbonamenti
-CREATE POLICY "Atleta can view own subscriptions"
-  ON public.atleta_pt_subscriptions FOR SELECT
-  USING (auth.uid() = atleta_user_id AND is_atleta(auth.uid()));
-
--- PT vede abbonamenti dei propri atleti
-CREATE POLICY "PT can view and manage subscriptions"
-  ON public.atleta_pt_subscriptions FOR ALL
-  USING (auth.uid() = pt_user_id AND is_pt(auth.uid()));
-
--- Admin vede tutto
-CREATE POLICY "Admins can manage all"
-  ON public.atleta_pt_subscriptions FOR ALL
-  USING (is_admin(auth.uid()));
-```
-
----
-
-## Parte 3: Interfacce Utente
-
-### 3.1 PT Dashboard - Nuova Sezione "I Miei Pacchetti"
-
-Aggiungere in PTSettingsPage.tsx o creare una nuova pagina dedicata:
-
-**Lista Pacchetti:**
-- Card per ogni pacchetto con nome, tipo, prezzo, sessioni/durata
-- Badge "In evidenza" per pacchetti consigliati
-- Toggle attivo/disattivo inline
-- Pulsanti modifica/elimina
-
-**Dialog Creazione/Modifica:**
-- Nome pacchetto
-- Tipo (sessioni / mensile / trimestrale / semestrale / annuale / custom)
-- Se tipo = sessioni: numero sessioni
-- Se tipo temporale: durata automatica in giorni
-- Prezzo
-- Descrizione
-- Include chat / video call
-- Max allenamenti/settimana
-
-### 3.2 Atleta App - Visualizzazione Pacchetti PT
-
-Nella pagina di dettaglio PT o in una sezione dedicata:
-- Lista pacchetti offerti dal PT connesso
-- Card con prezzo, descrizione, features
-- Pulsante "Acquista" (per ora toast, integrazione Stripe futura)
-
-### 3.3 PT Dashboard - Gestione Abbonamenti Atleti
-
-Nuova sezione per vedere:
-- Quali atleti hanno acquistato pacchetti
-- Stato (attivo, sessioni rimanenti, scadenza)
-- Possibilita di aggiungere sessioni bonus
-- Storico acquisti
+### 3.6 File da Modificare
+- `src/pages/atleta/AtletaPTProfilePage.tsx` - Aggiungere sezione pacchetti
+- `src/components/atleta/PTPackagesSection.tsx` (nuovo) - Componente sezione pacchetti
 
 ---
 
 ## File da Creare/Modificare
 
 ### Database (Migration)
-1. `supabase/migrations/xxx_pt_packages.sql` - Nuove tabelle e policies
+1. `supabase/migrations/xxx_workout_session_trigger.sql` - Trigger decremento sessioni
 
 ### Frontend
-1. `src/pages/admin/AdminSubscriptionsPage.tsx` - Completare CRUD piani
-2. `src/pages/pt/PTSettingsPage.tsx` - Aggiungere tab "I Miei Pacchetti"
-3. `src/components/pt/PTPackagesManager.tsx` - Nuovo componente gestione pacchetti
-4. `src/pages/atleta/AtletaPTProfilePage.tsx` - Mostrare pacchetti PT
-5. `src/pages/pt/PTAthletesPage.tsx` - Sezione abbonamenti atleti
+1. `src/pages/pt/PTAthletesPage.tsx` - Aggiungere tab Abbonamenti
+2. `src/components/pt/AthleteSubscriptionsTab.tsx` (nuovo) - Tab gestione abbonamenti
+3. `src/pages/atleta/AtletaPTProfilePage.tsx` - Aggiungere sezione pacchetti
+4. `src/components/atleta/PTPackagesSection.tsx` (nuovo) - Sezione pacchetti
 
 ---
 
-## Dettaglio Implementazione Step-by-Step
+## Dettaglio Tecnico
 
-### Step 1: Admin - Completare Gestione Piani
-- Form state con useState per tutti i campi
-- Mutation per INSERT/UPDATE/DELETE
-- Validazione campi obbligatori
-- Dialog separato per modifica vs creazione
-- Calcolo entrate stimate: somma(prezzo * abbonamenti attivi per tipo)
+### Struttura AthleteSubscriptionsTab
 
-### Step 2: Database - Nuove Tabelle
-- Creare migration con enum, tabelle, RLS
-- Trigger per updated_at
+```typescript
+interface AthleteSubscription {
+  id: string;
+  atleta_user_id: string;
+  status: 'attivo' | 'completato' | 'scaduto' | 'cancellato';
+  sessions_total: number | null;
+  sessions_used: number | null;
+  expires_at: string | null;
+  started_at: string;
+  pt_packages: {
+    name: string;
+    package_type: string;
+  } | null;
+  profiles: {
+    first_name: string;
+    last_name: string;
+    avatar_url: string;
+  } | null;
+}
+```
 
-### Step 3: PT - Gestione Pacchetti
-- Query per fetch pacchetti del PT
-- CRUD mutations
-- UI con DataTable o Cards
-- Dialog creazione simile ad Admin
+### Struttura PTPackagesSection
 
-### Step 4: Atleta - Visualizzazione
-- Query pacchetti del PT connesso
-- Cards con info e CTA acquisto
+```typescript
+interface PTPackageProps {
+  ptUserId: string;
+  isConnected: boolean;
+}
 
-### Step 5: PT - Monitoraggio Abbonamenti
-- Dashboard abbonamenti attivi
-- Azioni: estendi, aggiungi sessioni
+// Mostra solo se connesso, altrimenti CTA per connettersi prima
+```
+
+---
+
+## Flusso Utente Completo
+
+```text
+1. PT crea pacchetti (PTSettingsPage -> PTPackagesManager)
+                    |
+                    v
+2. Atleta si connette e vede pacchetti (AtletaPTProfilePage -> PTPackagesSection)
+                    |
+                    v
+3. Atleta richiede acquisto -> Notifica al PT
+                    |
+                    v
+4. PT conferma e crea abbonamento (PTAthletesPage -> AthleteSubscriptionsTab)
+                    |
+                    v
+5. Atleta completa workout -> Trigger decrementa sessioni
+                    |
+                    v
+6. PT monitora progressi (PTAthletesPage -> AthleteSubscriptionsTab)
+```
 
 ---
 
 ## Criteri di Accettazione
 
-1. Admin puo creare, modificare, disattivare piani piattaforma con tutti i campi
-2. PT puo creare pacchetti personalizzati (sessioni o temporali)
-3. Atleti connessi vedono i pacchetti del proprio PT
-4. Sistema traccia abbonamenti atleta-PT con sessioni rimanenti o scadenza
-5. RLS impedisce accessi non autorizzati
-6. UI coerente con design system esistente (teal per admin/PT, dark+lime per atleta)
+1. Quando un atleta completa un workout, le sessioni del suo abbonamento vengono decrementate automaticamente
+2. Il PT puo vedere tutti gli abbonamenti dei propri atleti con sessioni rimanenti e scadenze
+3. Il PT puo aggiungere sessioni bonus o estendere scadenze
+4. L'atleta connesso vede i pacchetti del proprio PT
+5. L'atleta puo richiedere l'acquisto di un pacchetto (notifica al PT)
+6. L'atleta vede il proprio abbonamento attivo con sessioni rimanenti
+7. RLS protegge i dati: PT vede solo i propri abbonamenti, atleta vede solo i propri
+
