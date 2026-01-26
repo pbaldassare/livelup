@@ -1,287 +1,213 @@
 
-# Piano: Completamento Profilo Atleta
+# Piano: Coordinamento Colori AtletaPTProfilePage
 
 ## Problema Identificato
-Dalla screenshot emergono diverse funzionalità mancanti nella pagina profilo:
+Dalla screenshot, la pagina profilo PT vista dall'atleta usa il tema chiaro standard invece del tema scuro "Ladder-inspired" usato nel resto dell'app PWA:
 
-1. **Nessun upload foto profilo** - L'avatar mostra solo iniziali "LF"
-2. **Dati personali assenti** - Email, cellulare, indirizzo non visualizzati
-3. **Notifiche → 404** - Route `/app/notifications` non esiste
-4. **Privacy → 404** - Route `/app/privacy` non esiste
-5. **Elimina account assente** - Nessuna opzione per cancellare l'account
+- Header: `bg-background`, `border-border` (bianco)
+- Testi: `text-muted-foreground` (grigio chiaro su bianco)
+- Card: stile light con `bg-primary/5`
+- Fixed CTA: `bg-background` (bianco)
 
----
+## Variabili Tema Scuro da Usare
 
-## Parte 1: Storage Bucket per Avatar
-
-### Migrazione Database
-Creare bucket `avatars` per upload foto profilo:
-
-```sql
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('avatars', 'avatars', true);
-
--- RLS policy: utenti possono gestire la propria cartella
-CREATE POLICY "Users can upload own avatar"
-ON storage.objects FOR INSERT
-WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
-
-CREATE POLICY "Users can update own avatar"
-ON storage.objects FOR UPDATE
-USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
-
-CREATE POLICY "Users can delete own avatar"
-ON storage.objects FOR DELETE
-USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
-
-CREATE POLICY "Anyone can view avatars"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'avatars');
-```
+Le variabili CSS `app-*` definite:
+- `bg-app-background` → nero puro (#000)
+- `bg-app-card` → grigio scuro (8%)
+- `text-app-foreground` → bianco
+- `text-app-muted-foreground` → grigio chiaro
+- `border-app-border` → grigio bordo (18%)
+- `bg-app-accent`, `text-app-accent` → lime (#D4FF00)
 
 ---
 
-## Parte 2: Pagina Notifiche
+## File da Modificare
 
-### Nuovo File: `src/pages/atleta/AtletaNotificationsPage.tsx`
+### 1. AtletaPTProfilePage.tsx
 
-Pagina dedicata per visualizzare e gestire le notifiche:
+| Sezione | Attuale | Nuovo |
+|---------|---------|-------|
+| Container | `pb-24` | `pb-24 bg-app-background min-h-screen` |
+| Header sticky | `bg-background border-b border-border` | `bg-app-card border-b border-app-border` |
+| Back button | `variant="ghost"` | `variant="ghost" className="text-app-foreground hover:bg-app-muted"` |
+| Nome PT | default | `text-app-foreground` |
+| Rating text | `text-muted-foreground` | `text-app-muted-foreground` |
+| Location/exp | `text-muted-foreground` | `text-app-muted-foreground` |
+| Badges | `variant="secondary"` | `className="bg-app-muted border-app-border text-app-foreground"` |
+| Cards (Bio, Metodo, etc.) | `Card` default | `className="bg-app-card border-app-border"` |
+| CardTitle | default | `text-app-foreground` |
+| Card text | `text-muted-foreground` | `text-app-muted-foreground` |
+| Separator | default | `className="bg-app-border"` |
+| Fixed CTA bar | `bg-background border-t border-border` | `bg-app-card border-t border-app-border` |
+| CTA Button "Già collegato" | default | `bg-app-accent text-app-accent-foreground` |
+
+### 2. PTPackagesSection.tsx
+
+| Sezione | Attuale | Nuovo |
+|---------|---------|-------|
+| Active subscription card | `bg-primary/5 border-primary/20` | `bg-app-accent/10 border-app-accent/20` |
+| CardTitle icon | `text-primary` | `text-app-accent` |
+| Active badge | `bg-primary/10 text-primary` | `bg-app-accent text-app-accent-foreground` |
+| Progress bar | default | aggiungere classe per accento lime |
+| Card disponibili | default | `className="bg-app-card border-app-border"` |
+| Package item border | `border rounded-lg` | `border border-app-border bg-app-card/50 rounded-xl` |
+| Featured badge | `bg-warning text-warning-foreground` | `bg-app-accent text-app-accent-foreground` |
+| Package title | default | `text-app-foreground` |
+| Package price | default | `text-app-foreground` |
+| Package description | `text-muted-foreground` | `text-app-muted-foreground` |
+| Badge outline | `variant="outline"` | `className="border-app-border text-app-muted-foreground"` |
+| CTA Button | default | `bg-app-accent text-app-accent-foreground hover:bg-app-accent/90` |
+| Empty state | `border-dashed` | `border-dashed border-app-border bg-app-card/50` |
+| Empty state icon/text | `text-muted-foreground` | `text-app-muted-foreground` |
+
+---
+
+## Mapping Visivo
 
 ```text
+PRIMA (tema light):
 +------------------------------------------+
-|  ← Notifiche                   Mark All  |
+| ← Indietro                               |  <- header bianco
 +------------------------------------------+
-| [🔔] Nuovo allenamento                   |
-|     Il tuo PT ha preparato una scheda    |
-|     2 ore fa                        •    |
+|  [Avatar] Marco Rossi                    |  <- sfondo bianco
+|          ⭐ 4.8 (15 recensioni)          |
+|  📍 Milano  🏆 5 anni exp                |
+|                                          |
+|  [€50/ora] [Online] [In presenza]        |  <- badge grigi
 +------------------------------------------+
-| [💬] Nuovo messaggio                     |
-|     Marco ti ha scritto                  |
-|     Ieri                                 |
+|  ┌─────────────────────────────────────┐ |
+|  │ ✓ Il tuo abbonamento attivo         │ |  <- card bianca bordo blu
+|  │   Percorso Trasformazione   Attivo  │ |
+|  │   [====█████------] 3/10            │ |
+|  └─────────────────────────────────────┘ |
 +------------------------------------------+
-| [🏆] Badge guadagnato!                   |
-|     Hai completato 10 workout            |
-|     3 giorni fa                          |
-+------------------------------------------+
-```
 
-Componenti:
-- Header con back button e "Segna tutto letto"
-- Lista notifiche con icone per tipo
-- Indicatore unread (pallino colorato)
-- Swipe to delete (mobile)
-- Empty state quando vuoto
-
----
-
-## Parte 3: Pagina Settings (Privacy + Elimina Account)
-
-### Nuovo File: `src/pages/atleta/AtletaSettingsPage.tsx`
-
-Pagina impostazioni con sezioni:
-
-```text
+DOPO (tema scuro):
 +------------------------------------------+
-|  ← Impostazioni                          |
+| ← Indietro                               |  <- header grigio scuro
 +------------------------------------------+
-| ACCOUNT                                  |
-| [👤] Modifica profilo              →     |
-| [📧] Email: luca@example.com       →     |
-| [📱] Telefono: +39 333...          →     |
+|  [Avatar] Marco Rossi                    |  <- sfondo nero
+|          ⭐ 4.8 (15 recensioni)          |  <- testo bianco
+|  📍 Milano  🏆 5 anni exp                |  <- testo grigio
+|                                          |
+|  [€50/ora] [Online] [In presenza]        |  <- badge scuri
 +------------------------------------------+
-| PRIVACY                                  |
-| [🔒] Visibilità profilo            →     |
-| [📊] Condivisione dati             →     |
-| [🔔] Notifiche push          [switch]    |
-+------------------------------------------+
-| ACCOUNT PERICOLOSO                       |
-| [🗑️] Elimina account          [rosso]   |
+|  ┌─────────────────────────────────────┐ |
+|  │ ✓ Il tuo abbonamento attivo         │ |  <- card nera bordo lime
+|  │   Percorso Trasformazione   Attivo  │ |  <- badge lime
+|  │   [████████████-----] 3/10          │ |  <- barra lime
+|  └─────────────────────────────────────┘ |
 +------------------------------------------+
 ```
 
-### Funzionalità Elimina Account
-- Dialog di conferma con input email per verifica
-- Chiama edge function `delete-user` esistente
-- Logout automatico dopo eliminazione
-
 ---
 
-## Parte 4: Upload Foto Profilo
+## Dettaglio Modifiche
 
-### Aggiornamento ProfileHeader
-
-Aggiungere icona camera sopra l'avatar:
-
-```text
-       +--------+
-       |   LF   |  ← Avatar attuale
-       |  [📷]  |  ← Overlay con camera icon
-       +--------+
-```
-
-Al click:
-1. Apre file picker (solo immagini)
-2. Mostra preview in dialog
-3. Upload su storage `avatars/{user_id}/avatar.{ext}`
-4. Aggiorna `profiles.avatar_url`
-
----
-
-## Parte 5: Sezione Dati Personali
-
-### Aggiornamento AtletaProfilePage
-
-Aggiungere sezione sopra il menu:
-
-```text
-+------------------------------------------+
-| I TUOI DATI                              |
-+------------------------------------------+
-| 📧 Email                                 |
-|    luca.ferrari@email.com                |
-+------------------------------------------+
-| 📱 Telefono                              |
-|    +39 333 1234567                       |
-+------------------------------------------+
-| 📍 Città                                 |
-|    Milano                                |
-+------------------------------------------+
-|        [Modifica dati]                   |
-+------------------------------------------+
-```
-
-Cliccando "Modifica dati":
-- Sheet bottom con form campi editabili
-- Salvataggio su tabella `profiles`
-
----
-
-## File da Creare/Modificare
-
-| File | Azione |
-|------|--------|
-| `src/pages/atleta/AtletaNotificationsPage.tsx` | **Nuovo** - Pagina notifiche |
-| `src/pages/atleta/AtletaSettingsPage.tsx` | **Nuovo** - Impostazioni + privacy + elimina |
-| `src/components/app/ProfileHeader.tsx` | **Modifica** - Aggiungere upload foto |
-| `src/pages/atleta/AtletaProfilePage.tsx` | **Modifica** - Sezione dati personali |
-| `src/App.tsx` | **Modifica** - Aggiungere route mancanti |
-
----
-
-## Route da Aggiungere
+### AtletaPTProfilePage.tsx
 
 ```typescript
-// App.tsx - Nuove route atleta
-<Route path="/app/notifications" element={
-  <AtletaRoute>
-    <AppLayout>
-      <AtletaNotificationsPage />
-    </AppLayout>
-  </AtletaRoute>
-} />
+// Container principale
+<div className="pb-24 bg-app-background min-h-screen">
 
-<Route path="/app/settings" element={
-  <AtletaRoute>
-    <AppLayout>
-      <AtletaSettingsPage />
-    </AppLayout>
-  </AtletaRoute>
-} />
+// Header sticky
+<div className="sticky top-0 z-40 bg-app-card border-b border-app-border p-4">
+  <Button variant="ghost" size="sm" onClick={() => navigate(-1)} 
+          className="text-app-foreground hover:bg-app-muted">
+
+// Profile section
+<h1 className="text-xl font-bold text-app-foreground">
+<span className="text-app-muted-foreground">({pt.review_count} recensioni)</span>
+<div className="flex flex-wrap gap-2 mt-2 text-sm text-app-muted-foreground">
+
+// Badges
+<Badge className="gap-1 bg-app-muted border-app-border text-app-foreground">
+
+// Specializations
+<Badge variant="outline" className="border-app-border text-app-muted-foreground">
+
+// Separator
+<Separator className="bg-app-border" />
+
+// Cards
+<Card className="m-4 bg-app-card border-app-border">
+  <CardTitle className="text-base text-app-foreground">
+  <p className="text-sm text-app-muted-foreground whitespace-pre-wrap">
+
+// Reviews card
+// Avatar fallback
+<AvatarFallback className="bg-app-muted text-app-foreground">
+
+// Fixed CTA
+<div className="fixed bottom-20 left-0 right-0 p-4 bg-app-card border-t border-app-border safe-bottom">
+  <Button className="w-full bg-app-accent text-app-accent-foreground" disabled>
+```
+
+### PTPackagesSection.tsx
+
+```typescript
+// Active subscription card
+<Card className="bg-app-accent/10 border-app-accent/20">
+  <CardTitle className="text-base flex items-center gap-2 text-app-foreground">
+    <CheckCircle2 className="h-4 w-4 text-app-accent" />
+  <Badge className="bg-app-accent text-app-accent-foreground">Attivo</Badge>
+  <span className="text-app-muted-foreground">Sessioni utilizzate</span>
+  <span className="font-medium text-app-foreground">
+  <Progress className="h-2 bg-app-muted [&>div]:bg-app-accent" />
+  <p className="text-xs text-app-muted-foreground mt-1">
+
+// Available packages card
+<Card className="bg-app-card border-app-border">
+  <CardTitle className="text-base flex items-center gap-2 text-app-foreground">
+  
+// Package item
+<div className="border border-app-border bg-app-muted/50 rounded-xl p-4 space-y-3 relative">
+  <Badge className="absolute -top-2 -right-2 bg-app-accent text-app-accent-foreground">
+  <h4 className="font-semibold text-app-foreground">{pkg.name}</h4>
+  <p className="text-sm text-app-muted-foreground">
+  <span className="text-xl font-bold text-app-foreground">€{pkg.price}</span>
+  <p className="text-xs text-app-muted-foreground">
+  <Badge variant="outline" className="text-xs border-app-border text-app-muted-foreground">
+  <Button className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90">
+
+// Empty state
+<Card className="border-dashed border-app-border bg-app-card/50">
+  <Package className="h-10 w-10 mx-auto text-app-muted-foreground mb-3" />
+  <p className="text-sm text-app-muted-foreground">
 ```
 
 ---
 
-## Migrazione Storage
+## Avatar Styling Coerente
 
-```sql
--- Bucket per avatar utenti
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('avatars', 'avatars', true);
+Aggiungere classe consistente per AvatarFallback:
 
--- Policy: upload propria cartella
-CREATE POLICY "Users can upload own avatar"
-ON storage.objects FOR INSERT
-WITH CHECK (
-  bucket_id = 'avatars' 
-  AND auth.uid()::text = (storage.foldername(name))[1]
-);
-
--- Policy: update propri file
-CREATE POLICY "Users can update own avatar"
-ON storage.objects FOR UPDATE
-USING (
-  bucket_id = 'avatars' 
-  AND auth.uid()::text = (storage.foldername(name))[1]
-);
-
--- Policy: delete propri file
-CREATE POLICY "Users can delete own avatar"
-ON storage.objects FOR DELETE
-USING (
-  bucket_id = 'avatars' 
-  AND auth.uid()::text = (storage.foldername(name))[1]
-);
-
--- Policy: lettura pubblica
-CREATE POLICY "Public avatar access"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'avatars');
+```typescript
+<AvatarFallback className="bg-app-muted text-app-foreground text-2xl">
 ```
 
 ---
 
-## Flusso Elimina Account
+## Risultato Atteso
 
-```text
-1. Atleta clicca "Elimina account"
-   |
-   v
-2. Dialog: "Sei sicuro? Scrivi la tua email per confermare"
-   |
-   v
-3. Input email verificato
-   |
-   v
-4. Chiamata edge function delete-user
-   |
-   v
-5. Cleanup cascata:
-   - atleta_profiles
-   - atleta_badges
-   - workouts
-   - progress_tracking
-   - chats/messages
-   - notifications
-   - pt_atleta_connections
-   - atleta_pt_subscriptions
-   |
-   v
-6. Eliminazione auth.users
-   |
-   v
-7. Redirect a /auth
-```
+La pagina profilo PT vista dall'atleta sara visivamente coerente con:
+- Home atleta
+- Pagina workout
+- Pagina profilo atleta
+- Tutte le altre sezioni PWA
+
+Tema scuro con:
+- Sfondo nero puro
+- Card grigio scuro
+- Accenti lime per elementi attivi/primari
+- Testi bianchi per contenuti principali
+- Testi grigi per contenuti secondari
 
 ---
 
-## Criteri di Accettazione
+## File Coinvolti
 
-1. ✅ Avatar cliccabile per upload nuova foto
-2. ✅ Sezione "I tuoi dati" mostra email, telefono, città
-3. ✅ Form modifica dati personali funzionante
-4. ✅ Pagina /app/notifications funzionante con lista notifiche
-5. ✅ Pagina /app/settings con opzioni privacy
-6. ✅ Pulsante "Elimina account" con doppia conferma
-7. ✅ Tutte le pagine con tema scuro coerente (app-*)
-
----
-
-## Stile Consistente
-
-Tutte le nuove pagine useranno le variabili tema scuro:
-- `bg-app-background` (nero)
-- `bg-app-card` (grigio scuro)
-- `text-app-foreground` (bianco)
-- `text-app-muted-foreground` (grigio chiaro)
-- `border-app-border` (bordo grigio)
-- `text-app-accent` / `bg-app-accent` (lime per accenti)
+| File | Modifiche |
+|------|-----------|
+| `src/pages/atleta/AtletaPTProfilePage.tsx` | Migrazione completa a classi app-* |
+| `src/components/atleta/PTPackagesSection.tsx` | Migrazione completa a classi app-* |
