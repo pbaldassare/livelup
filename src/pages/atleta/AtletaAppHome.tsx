@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DashboardSkeleton, WorkoutCardSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,13 +10,21 @@ import { AppHeader } from '@/components/app/AppHeader';
 import { WeekCalendar } from '@/components/app/WeekCalendar';
 import { WorkoutCard, CompactWorkoutCard } from '@/components/app/WorkoutCard';
 import { CTABanner, AchievementBanner } from '@/components/app/CTABanner';
-import { TeammatesRow } from '@/components/app/TeammatesRow';
 import { ReviewPromptCard } from '@/components/reviews/ReviewPromptCard';
 import { 
   Search, 
-  MessageSquare,
   Lock,
+  CalendarDays,
 } from 'lucide-react';
+
+// Helper per formattazione data in italiano
+const formatDate = (dateStr: string | null) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const days = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+  const months = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]}`;
+};
 
 // =====================================================
 // ATLETA APP HOME - Dashboard Mobile/PWA
@@ -68,6 +76,29 @@ export function AtletaAppHome() {
         .maybeSingle();
       if (error && error.code !== 'PGRST116') throw error;
       return data;
+    },
+    enabled: !!user?.id && isConnected,
+  });
+
+  // Fetch upcoming workouts (next 5)
+  const { data: upcomingWorkouts } = useQuery({
+    queryKey: ['atleta-upcoming-workouts', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('workouts')
+        .select(`
+          id, title, description, status, scheduled_date,
+          workout_exercises(id)
+        `)
+        .eq('atleta_user_id', user.id)
+        .eq('status', 'attivo')
+        .gte('scheduled_date', today)
+        .order('scheduled_date', { ascending: true })
+        .limit(5);
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!user?.id && isConnected,
   });
@@ -226,15 +257,47 @@ export function AtletaAppHome() {
               />
             )}
 
-            {/* Teammates */}
-            <TeammatesRow
-              teammates={[
-                { id: '1', name: 'GM', cheers: 1, isActive: true },
-                { id: '2', name: 'Sara', cheers: 26, isActive: true },
-                { id: '3', name: 'Marco', cheers: 5, isActive: false },
-              ]}
-              onTeammatePress={() => {}}
-            />
+            {/* Prossimi Allenamenti */}
+            {upcomingWorkouts && upcomingWorkouts.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-app-accent" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+                    I tuoi prossimi allenamenti
+                  </h3>
+                </div>
+                {upcomingWorkouts.slice(0, 3).map((workout) => (
+                  <div 
+                    key={workout.id}
+                    onClick={() => navigate(`/app/workout/${workout.id}`)}
+                    className="bg-gray-900/60 rounded-xl p-4 border border-white/10 
+                               cursor-pointer hover:border-app-accent/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-app-accent font-medium">
+                        {formatDate(workout.scheduled_date)}
+                      </span>
+                      <span className="text-xs text-white/40">
+                        {workout.workout_exercises?.length || 0} esercizi
+                      </span>
+                    </div>
+                    <h4 className="text-white font-semibold">{workout.title}</h4>
+                    {workout.description && (
+                      <p className="text-white/50 text-sm mt-1 line-clamp-1">
+                        {workout.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+                <Button 
+                  variant="ghost" 
+                  className="w-full text-app-accent hover:text-app-accent hover:bg-app-accent/10"
+                  onClick={() => navigate('/app/workout')}
+                >
+                  Vedi tutti gli allenamenti
+                </Button>
+              </div>
+            )}
 
             {/* Progress Stats */}
             {latestProgress && (
