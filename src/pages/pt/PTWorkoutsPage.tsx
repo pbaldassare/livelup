@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Dumbbell, 
   Plus, 
@@ -302,70 +303,76 @@ export function PTWorkoutsPage() {
           Nuovo Template
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Crea Nuovo Template</DialogTitle>
           <DialogDescription>
             Crea un nuovo template di allenamento riutilizzabile
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Titolo</Label>
-            <Input
-              id="title"
-              value={newTemplate.title}
-              onChange={(e) => setNewTemplate({ ...newTemplate, title: e.target.value })}
-              placeholder="Es: Full Body Principiante"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Descrizione</Label>
-            <Textarea
-              id="description"
-              value={newTemplate.description}
-              onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
-              placeholder="Descrivi l'allenamento..."
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        <ScrollArea className="max-h-[60vh] pr-4">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Difficoltà</Label>
-              <Select
-                value={newTemplate.difficulty_level}
-                onValueChange={(value) => setNewTemplate({ ...newTemplate, difficulty_level: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="principiante">Principiante</SelectItem>
-                  <SelectItem value="intermedio">Intermedio</SelectItem>
-                  <SelectItem value="avanzato">Avanzato</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="title">Titolo *</Label>
+              <Input
+                id="title"
+                value={newTemplate.title}
+                onChange={(e) => setNewTemplate({ ...newTemplate, title: e.target.value })}
+                placeholder="Es: Full Body Principiante"
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="duration">Durata (min)</Label>
+              <Label htmlFor="description">Descrizione</Label>
+              <Textarea
+                id="description"
+                value={newTemplate.description}
+                onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
+                placeholder="Descrivi l'allenamento..."
+                className="min-h-[80px]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Difficoltà</Label>
+                <Select
+                  value={newTemplate.difficulty_level}
+                  onValueChange={(value) => setNewTemplate({ ...newTemplate, difficulty_level: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="principiante">Principiante</SelectItem>
+                    <SelectItem value="intermedio">Intermedio</SelectItem>
+                    <SelectItem value="avanzato">Avanzato</SelectItem>
+                    <SelectItem value="agonista">Agonista</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="duration">Durata (min)</Label>
+                <Input
+                  id="duration"
+                  type="number"
+                  min={5}
+                  max={180}
+                  value={newTemplate.estimated_duration}
+                  onChange={(e) => setNewTemplate({ ...newTemplate, estimated_duration: parseInt(e.target.value) || 60 })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="category">Categoria</Label>
               <Input
-                id="duration"
-                type="number"
-                value={newTemplate.estimated_duration}
-                onChange={(e) => setNewTemplate({ ...newTemplate, estimated_duration: parseInt(e.target.value) || 60 })}
+                id="category"
+                value={newTemplate.category}
+                onChange={(e) => setNewTemplate({ ...newTemplate, category: e.target.value })}
+                placeholder="Es: Forza, Cardio, HIIT, Mobilità"
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="category">Categoria</Label>
-            <Input
-              id="category"
-              value={newTemplate.category}
-              onChange={(e) => setNewTemplate({ ...newTemplate, category: e.target.value })}
-              placeholder="Es: Forza, Cardio, HIIT"
-            />
-          </div>
-        </div>
-        <div className="flex justify-end gap-2">
+        </ScrollArea>
+        <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
             Annulla
           </Button>
