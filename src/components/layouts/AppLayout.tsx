@@ -73,11 +73,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div 
-      className="min-h-screen bg-background flex flex-col" 
+      className="min-h-screen bg-app-background flex flex-col" 
       data-role={roleClass}
     >
       {/* Main content area - leaves space for bottom nav */}
-      <main className="flex-1 pb-20 safe-top">
+      <main className="flex-1 pb-20 safe-top text-app-foreground">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -93,7 +93,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       </main>
 
       {/* Bottom navigation - mobile style */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur safe-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-app-border bg-app-card/95 backdrop-blur safe-bottom">
         <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
           {navigationItems.map((item) => {
             const isActive = isActiveRoute(item.href, item.exact);
@@ -104,8 +104,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                 className={cn(
                   'flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] transition-colors',
                   isActive
-                    ? 'text-primary'
-                    : 'text-muted-foreground'
+                    ? 'text-app-accent'
+                    : 'text-app-muted-foreground'
                 )}
               >
                 <motion.div
