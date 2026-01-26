@@ -9,8 +9,12 @@ import {
   MessageSquare, 
   CreditCard,
   ChevronRight,
-  Check
+  Check,
+  Download,
+  Smartphone
 } from 'lucide-react';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { PWAUpdatePrompt } from '@/components/pwa/PWAUpdatePrompt';
 
 // =====================================================
 // LANDING PAGE - Sito pubblico
@@ -51,8 +55,23 @@ const features = [
 ];
 
 export function LandingPage() {
+  const { isInstallable, isInstalled, isIOS, install } = useInstallPrompt();
+  const showInstallButton = (isInstallable || isIOS) && !isInstalled;
+
+  const handleInstall = () => {
+    if (isIOS) {
+      // iOS doesn't support the install prompt, redirect to install page
+      window.location.href = '/install';
+    } else {
+      install();
+    }
+  };
+
   return (
     <div className="flex flex-col">
+      {/* PWA Update Prompt */}
+      <PWAUpdatePrompt />
+
       {/* Hero section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
@@ -85,6 +104,17 @@ export function LandingPage() {
                   Trova un Personal Trainer
                 </Link>
               </Button>
+              {showInstallButton && (
+                <Button 
+                  size="lg" 
+                  variant="secondary"
+                  onClick={handleInstall}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Installa App
+                </Button>
+              )}
             </div>
           </div>
         </div>
