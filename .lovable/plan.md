@@ -1,194 +1,146 @@
 
-# Piano: Sezione Eventi Pubblici nella Pagina Scopri
+
+# Piano: Rimuovi Teammates + Aggiungi Sezione Allenamenti in Home
 
 ## Obiettivo
-Quando un atleta è già collegato a un PT, la pagina "Scopri" mostrerà una sezione **Eventi** con eventi pubblici organizzati dai PT e dalla piattaforma. Include data, organizzatore, mappa, nome evento e partecipanti.
+1. Rimuovere temporaneamente la sezione "Teammates Working Out" (dati mock che confondono)
+2. Aggiungere una sezione "I tuoi prossimi allenamenti" con i workout assegnati dal PT
 
 ---
 
-## Struttura Database
+## Modifiche al File
 
-### Nuova Tabella: `event_participants`
+### `src/pages/atleta/AtletaAppHome.tsx`
 
-Traccia chi partecipa agli eventi pubblici:
+**Rimuovere:**
+- Import di `TeammatesRow` (riga 13)
+- Blocco JSX `<TeammatesRow>` (righe 229-237)
 
-```sql
-CREATE TABLE public.event_participants (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id UUID NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  registered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  status TEXT NOT NULL DEFAULT 'registered', -- 'registered', 'cancelled', 'attended'
-  UNIQUE(event_id, user_id)
-);
+**Aggiungere:**
 
--- RLS
-ALTER TABLE public.event_participants ENABLE ROW LEVEL SECURITY;
+1. **Nuova query** per recuperare i prossimi allenamenti (non solo quello di oggi):
 
-CREATE POLICY "Users can manage own registrations"
-  ON public.event_participants FOR ALL
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Anyone can view event participants"
-  ON public.event_participants FOR SELECT
-  USING (true);
-
-CREATE POLICY "Event creators can view participants"
-  ON public.event_participants FOR SELECT
-  USING (EXISTS (
-    SELECT 1 FROM calendar_events 
-    WHERE id = event_id AND creator_user_id = auth.uid()
-  ));
+```typescript
+const { data: upcomingWorkouts, isLoading: upcomingLoading } = useQuery({
+  queryKey: ['atleta-upcoming-workouts', user?.id],
+  queryFn: async () => {
+    if (!user?.id) return [];
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabase
+      .from('workouts')
+      .select(`
+        id, title, description, status, scheduled_date,
+        workout_exercises(id)
+      `)
+      .eq('atleta_user_id', user.id)
+      .eq('status', 'attivo')
+      .gte('scheduled_date', today)
+      .order('scheduled_date', { ascending: true })
+      .limit(5);
+    if (error) throw error;
+    return data || [];
+  },
+  enabled: !!user?.id && isConnected,
+});
 ```
 
----
-
-## Dati Seed: 4 Eventi Pubblici
-
-| Evento | Tipo | Città | Data | Organizzatore | Coordinate GPS |
-|--------|------|-------|------|---------------|----------------|
-| CrossFit Day | Raduno | Brescia | +7 giorni | PT Marco | 45.5416° N, 10.2118° E |
-| Cena Fit | Evento | Milano | +14 giorni | PT Giulia | 45.4642° N, 9.1900° E |
-| Yoga al Parco | Raduno | Roma | +10 giorni | PT Luca | 41.9028° N, 12.4964° E |
-| Gara Corsa 5K | Gara | Torino | +21 giorni | PT Elena | 45.0703° N, 7.6869° E |
-
-Ogni evento avrà anche 3-8 partecipanti simulati.
-
----
-
-## UI: Sezione Eventi per Atleti Collegati
+2. **Nuova sezione UI** al posto di TeammatesRow:
 
 ```text
 +------------------------------------------+
-| ← Scopri                                 |
+| I TUOI PROSSIMI ALLENAMENTI              |
 +------------------------------------------+
-| [🎉] Sei collegato a un PT!              |
-|     Esplora eventi della community       |
+| 📅 Lun 27 Gen                            |
+| Full Body Principiante                   |
+| 5 esercizi                               |
 +------------------------------------------+
-
-| PROSSIMI EVENTI                          |
+| 📅 Mer 29 Gen                            |
+| HIIT Cardio Blast                        |
+| 4 esercizi                               |
 +------------------------------------------+
-| 📍 CrossFit Day Brescia                  |
-| 🗓️ Sabato 2 Feb • 09:00-14:00            |
-| 👤 Organizzato da Marco Rossi            |
-| 👥 12 partecipanti                       |
-| [📍 Mini mappa Google Maps]              |
-| [Partecipa]                              |
-+------------------------------------------+
-| 📍 Cena Fit Milano                       |
-| 🗓️ Venerdì 8 Feb • 20:00-23:00           |
-| 👤 Organizzato da Giulia Bianchi         |
-| 👥 8 partecipanti                        |
-| [📍 Mini mappa Google Maps]              |
-| [Partecipa]                              |
+| [Vedi tutti gli allenamenti]             |
 +------------------------------------------+
 ```
 
 ---
 
-## Componente EventCard
-
-Ogni card evento mostrerà:
-
-1. **Header colorato** con icona tipo evento (🏃‍♂️ gara, 🧘 raduno, 🍽️ evento)
-2. **Titolo evento**
-3. **Data e orario** formattati in italiano
-4. **Location** con nome testuale
-5. **Organizzatore** (nome + avatar del PT)
-6. **Contatore partecipanti** 
-7. **Mini mappa** statica Google Maps (Static Map API)
-8. **Bottone "Partecipa"** / "Già iscritto"
-
-### Mappa Statica
+## Struttura UI Nuova Sezione
 
 ```typescript
-const getStaticMapUrl = (lat: number, lng: number) => 
-  `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=300x150&maptype=roadmap&markers=color:0xD4FF00%7C${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`;
+{/* Prossimi Allenamenti */}
+{upcomingWorkouts && upcomingWorkouts.length > 0 && (
+  <div className="space-y-3">
+    <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+      I tuoi prossimi allenamenti
+    </h3>
+    {upcomingWorkouts.slice(0, 3).map((workout) => (
+      <div 
+        key={workout.id}
+        onClick={() => navigate(`/app/workout/${workout.id}`)}
+        className="bg-gray-900/60 rounded-xl p-4 border border-white/10 
+                   cursor-pointer hover:border-app-accent/30 transition-colors"
+      >
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-app-accent font-medium">
+            {formatDate(workout.scheduled_date)}
+          </span>
+          <span className="text-xs text-white/40">
+            {workout.workout_exercises?.length || 0} esercizi
+          </span>
+        </div>
+        <h4 className="text-white font-semibold">{workout.title}</h4>
+        {workout.description && (
+          <p className="text-white/50 text-sm mt-1 line-clamp-1">
+            {workout.description}
+          </p>
+        )}
+      </div>
+    ))}
+    <Button 
+      variant="ghost" 
+      className="w-full text-app-accent"
+      onClick={() => navigate('/app/workout')}
+    >
+      Vedi tutti gli allenamenti
+    </Button>
+  </div>
+)}
 ```
 
 ---
 
-## Icone per Tipo Evento
-
-| Tipo | Icona | Colore |
-|------|-------|--------|
-| `raduno` | Users | Lime |
-| `evento` | PartyPopper | Viola |
-| `gara` | Trophy | Arancione |
-| `altro` | Calendar | Blu |
-
----
-
-## Modifiche ai File
-
-| File | Modifiche |
-|------|-----------|
-| `supabase/migrations/new` | Crea tabella `event_participants` |
-| `supabase/functions/seed-platform-data/index.ts` | Aggiunge 4 eventi pubblici con coordinate GPS + partecipanti simulati |
-| `src/pages/atleta/AtletaDiscoverPage.tsx` | Modifica il blocco `isConnected` per mostrare sezione Eventi invece del messaggio attuale |
-
----
-
-## Flusso Utente
-
-1. Atleta collegato visita `/app/discover`
-2. Invece del messaggio "Sei già collegato", vede la lista eventi
-3. Clicca su un evento → Vede dettagli con mappa
-4. Clicca "Partecipa" → Si registra all'evento
-5. Può annullare la partecipazione
-
----
-
-## Tipi TypeScript
+## Helper per Formattazione Data
 
 ```typescript
-interface PublicEvent {
-  id: string;
-  title: string;
-  description: string | null;
-  event_type: 'raduno' | 'evento' | 'gara' | 'altro';
-  start_datetime: string;
-  end_datetime: string | null;
-  location: string | null;
-  location_lat: number | null;
-  location_lng: number | null;
-  is_public: boolean;
-  pt_user_id: string;
-  organizer: {
-    first_name: string;
-    last_name: string;
-    avatar_url: string | null;
-  };
-  participant_count: number;
-  is_registered: boolean;
-}
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const days = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+  const months = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 
+                  'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]}`;
+};
 ```
 
 ---
 
-## Query Eventi Pubblici
+## Riepilogo Modifiche
 
-```typescript
-const { data: events } = await supabase
-  .from('calendar_events')
-  .select(`
-    *,
-    profiles:pt_user_id (first_name, last_name, avatar_url),
-    event_participants (id)
-  `)
-  .eq('is_public', true)
-  .eq('is_cancelled', false)
-  .gte('start_datetime', new Date().toISOString())
-  .order('start_datetime', { ascending: true });
-```
+| Azione | Dettaglio |
+|--------|-----------|
+| Rimuovi | Import `TeammatesRow` |
+| Rimuovi | Blocco JSX TeammatesRow (righe 229-237) |
+| Aggiungi | Query `upcomingWorkouts` per i prossimi 5 workout |
+| Aggiungi | Funzione helper `formatDate()` |
+| Aggiungi | Sezione "I tuoi prossimi allenamenti" con card cliccabili |
+| Aggiungi | Bottone "Vedi tutti gli allenamenti" che porta a `/app/workout` |
 
 ---
 
-## Risultato Atteso
+## Dettagli Tecnici
 
-- Atleti collegati vedono eventi pubblici invece del messaggio di blocco
-- Ogni evento mostra mappa statica con marker
-- Organizzatore visibile con avatar
-- Contatore partecipanti in tempo reale
-- Possibilità di registrarsi/annullare
-- 4 eventi demo con dati realistici italiani
+- La query usa `gte('scheduled_date', today)` per prendere solo allenamenti futuri
+- Include il conteggio esercizi tramite la relazione `workout_exercises(id)`
+- Mostra massimo 3 workout nella home per non appesantire
+- Il bottone finale porta alla pagina completa degli allenamenti
+- Design coerente con il tema scuro (bg-gray-900/60, border-white/10, text-app-accent)
+
