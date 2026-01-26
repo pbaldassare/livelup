@@ -1,175 +1,194 @@
 
-# Piano: Standardizzazione Pulsante Indietro nelle Pagine Atleta
+# Piano: Sezione Eventi Pubblici nella Pagina Scopri
 
-## Problema Identificato
-Analizzando il codice, il pulsante "indietro" è implementato in modo **inconsistente** nelle pagine Atleta:
-
-| Pagina | Implementazione | Funziona? |
-|--------|-----------------|-----------|
-| AtletaSettingsPage | `<button className="p-2 -ml-2 hover:bg-app-muted rounded-lg">` | ✅ |
-| AtletaHelpPage | `<button className="p-2 -ml-2 hover:bg-app-muted rounded-full">` | ✅ |
-| AtletaNotificationsPage | `<Button variant="ghost" size="icon">` | ❌ |
-| AtletaSubscriptionPage | `<Button variant="ghost" size="icon" className="text-white/60">` | ❓ |
-| AtletaWorkoutDetailPage | `<Button variant="ghost" size="icon">` | ❓ |
-| AtletaPTProfilePage | `<Button variant="ghost" size="sm">` con testo | ❓ |
-
-### Cause del Malfunzionamento
-1. **Stile ghost**: Il `Button variant="ghost"` usa `hover:bg-accent` che nel tema scuro potrebbe non essere visibile o avere conflitti
-2. **Area cliccabile**: Il bottone nativo con `p-2` ha un'area touch migliore
-3. **Feedback visivo**: `hover:bg-app-muted` dà feedback chiaro nel tema scuro, mentre `hover:bg-accent` potrebbe non essere percepibile
+## Obiettivo
+Quando un atleta è già collegato a un PT, la pagina "Scopri" mostrerà una sezione **Eventi** con eventi pubblici organizzati dai PT e dalla piattaforma. Include data, organizzatore, mappa, nome evento e partecipanti.
 
 ---
 
-## Soluzione
+## Struttura Database
 
-Standardizzare TUTTE le pagine Atleta con lo stesso pattern funzionante:
+### Nuova Tabella: `event_participants`
 
-```typescript
-<button 
-  onClick={() => navigate(-1)}
-  className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
->
-  <ArrowLeft className="h-5 w-5 text-app-foreground" />
-</button>
-```
+Traccia chi partecipa agli eventi pubblici:
 
----
+```sql
+CREATE TABLE public.event_participants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status TEXT NOT NULL DEFAULT 'registered', -- 'registered', 'cancelled', 'attended'
+  UNIQUE(event_id, user_id)
+);
 
-## File da Modificare
+-- RLS
+ALTER TABLE public.event_participants ENABLE ROW LEVEL SECURITY;
 
-### 1. AtletaNotificationsPage.tsx
-**Da:**
-```typescript
-<Button
-  variant="ghost"
-  size="icon"
-  onClick={() => navigate(-1)}
-  className="text-app-foreground"
->
-  <ArrowLeft className="h-5 w-5" />
-</Button>
-```
+CREATE POLICY "Users can manage own registrations"
+  ON public.event_participants FOR ALL
+  USING (auth.uid() = user_id);
 
-**A:**
-```typescript
-<button 
-  onClick={() => navigate(-1)}
-  className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
->
-  <ArrowLeft className="h-5 w-5 text-app-foreground" />
-</button>
-```
+CREATE POLICY "Anyone can view event participants"
+  ON public.event_participants FOR SELECT
+  USING (true);
 
-### 2. AtletaSubscriptionPage.tsx
-**Da:**
-```typescript
-<Button
-  variant="ghost"
-  size="icon"
-  onClick={() => navigate(-1)}
-  className="text-white/60"
->
-  <ChevronLeft className="h-6 w-6" />
-</Button>
-```
-
-**A:**
-```typescript
-<button 
-  onClick={() => navigate(-1)}
-  className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
->
-  <ArrowLeft className="h-5 w-5 text-app-foreground" />
-</button>
-```
-Nota: Cambiare anche `ChevronLeft` → `ArrowLeft` per coerenza visiva.
-
-### 3. AtletaWorkoutDetailPage.tsx
-**Da:**
-```typescript
-<Button
-  variant="ghost"
-  size="icon"
-  onClick={() => navigate('/app/workout')}
-  className="text-app-foreground hover:bg-app-muted"
->
-  <ChevronLeft className="h-6 w-6" />
-</Button>
-```
-
-**A:**
-```typescript
-<button 
-  onClick={() => navigate('/app/workout')}
-  className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
->
-  <ArrowLeft className="h-5 w-5 text-app-foreground" />
-</button>
-```
-
-### 4. AtletaPTProfilePage.tsx
-**Da:**
-```typescript
-<Button 
-  variant="ghost" 
-  size="sm" 
-  onClick={() => navigate(-1)}
-  className="text-app-foreground hover:bg-app-muted"
->
-  <ArrowLeft className="h-4 w-4 mr-2" />
-  Indietro
-</Button>
-```
-
-**A:**
-```typescript
-<button 
-  onClick={() => navigate(-1)}
-  className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
->
-  <ArrowLeft className="h-5 w-5 text-app-foreground" />
-</button>
-```
-Nota: Rimuovere il testo "Indietro" per uniformità con le altre pagine.
-
----
-
-## Pattern Standardizzato
-
-Per tutte le pagine Atleta PWA:
-
-```typescript
-// Header con pulsante indietro
-<div className="sticky top-0 z-10 bg-app-background/95 backdrop-blur-sm border-b border-app-border">
-  <div className="flex items-center gap-3 p-4">
-    <button 
-      onClick={() => navigate(-1)}  // oppure path specifico se necessario
-      className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
-    >
-      <ArrowLeft className="h-5 w-5 text-app-foreground" />
-    </button>
-    <h1 className="text-xl font-bold text-app-foreground">Titolo Pagina</h1>
-  </div>
-</div>
+CREATE POLICY "Event creators can view participants"
+  ON public.event_participants FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM calendar_events 
+    WHERE id = event_id AND creator_user_id = auth.uid()
+  ));
 ```
 
 ---
 
-## Riepilogo Modifiche
+## Dati Seed: 4 Eventi Pubblici
 
-| File | Modifica |
-|------|----------|
-| `src/pages/atleta/AtletaNotificationsPage.tsx` | Button → button nativo |
-| `src/pages/atleta/AtletaSubscriptionPage.tsx` | Button → button nativo + ArrowLeft |
-| `src/pages/atleta/AtletaWorkoutDetailPage.tsx` | Button → button nativo + ArrowLeft |
-| `src/pages/atleta/AtletaPTProfilePage.tsx` | Button con testo → button nativo solo icona |
+| Evento | Tipo | Città | Data | Organizzatore | Coordinate GPS |
+|--------|------|-------|------|---------------|----------------|
+| CrossFit Day | Raduno | Brescia | +7 giorni | PT Marco | 45.5416° N, 10.2118° E |
+| Cena Fit | Evento | Milano | +14 giorni | PT Giulia | 45.4642° N, 9.1900° E |
+| Yoga al Parco | Raduno | Roma | +10 giorni | PT Luca | 41.9028° N, 12.4964° E |
+| Gara Corsa 5K | Gara | Torino | +21 giorni | PT Elena | 45.0703° N, 7.6869° E |
+
+Ogni evento avrà anche 3-8 partecipanti simulati.
+
+---
+
+## UI: Sezione Eventi per Atleti Collegati
+
+```text
++------------------------------------------+
+| ← Scopri                                 |
++------------------------------------------+
+| [🎉] Sei collegato a un PT!              |
+|     Esplora eventi della community       |
++------------------------------------------+
+
+| PROSSIMI EVENTI                          |
++------------------------------------------+
+| 📍 CrossFit Day Brescia                  |
+| 🗓️ Sabato 2 Feb • 09:00-14:00            |
+| 👤 Organizzato da Marco Rossi            |
+| 👥 12 partecipanti                       |
+| [📍 Mini mappa Google Maps]              |
+| [Partecipa]                              |
++------------------------------------------+
+| 📍 Cena Fit Milano                       |
+| 🗓️ Venerdì 8 Feb • 20:00-23:00           |
+| 👤 Organizzato da Giulia Bianchi         |
+| 👥 8 partecipanti                        |
+| [📍 Mini mappa Google Maps]              |
+| [Partecipa]                              |
++------------------------------------------+
+```
+
+---
+
+## Componente EventCard
+
+Ogni card evento mostrerà:
+
+1. **Header colorato** con icona tipo evento (🏃‍♂️ gara, 🧘 raduno, 🍽️ evento)
+2. **Titolo evento**
+3. **Data e orario** formattati in italiano
+4. **Location** con nome testuale
+5. **Organizzatore** (nome + avatar del PT)
+6. **Contatore partecipanti** 
+7. **Mini mappa** statica Google Maps (Static Map API)
+8. **Bottone "Partecipa"** / "Già iscritto"
+
+### Mappa Statica
+
+```typescript
+const getStaticMapUrl = (lat: number, lng: number) => 
+  `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=300x150&maptype=roadmap&markers=color:0xD4FF00%7C${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`;
+```
+
+---
+
+## Icone per Tipo Evento
+
+| Tipo | Icona | Colore |
+|------|-------|--------|
+| `raduno` | Users | Lime |
+| `evento` | PartyPopper | Viola |
+| `gara` | Trophy | Arancione |
+| `altro` | Calendar | Blu |
+
+---
+
+## Modifiche ai File
+
+| File | Modifiche |
+|------|-----------|
+| `supabase/migrations/new` | Crea tabella `event_participants` |
+| `supabase/functions/seed-platform-data/index.ts` | Aggiunge 4 eventi pubblici con coordinate GPS + partecipanti simulati |
+| `src/pages/atleta/AtletaDiscoverPage.tsx` | Modifica il blocco `isConnected` per mostrare sezione Eventi invece del messaggio attuale |
+
+---
+
+## Flusso Utente
+
+1. Atleta collegato visita `/app/discover`
+2. Invece del messaggio "Sei già collegato", vede la lista eventi
+3. Clicca su un evento → Vede dettagli con mappa
+4. Clicca "Partecipa" → Si registra all'evento
+5. Può annullare la partecipazione
+
+---
+
+## Tipi TypeScript
+
+```typescript
+interface PublicEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  event_type: 'raduno' | 'evento' | 'gara' | 'altro';
+  start_datetime: string;
+  end_datetime: string | null;
+  location: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
+  is_public: boolean;
+  pt_user_id: string;
+  organizer: {
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+  };
+  participant_count: number;
+  is_registered: boolean;
+}
+```
+
+---
+
+## Query Eventi Pubblici
+
+```typescript
+const { data: events } = await supabase
+  .from('calendar_events')
+  .select(`
+    *,
+    profiles:pt_user_id (first_name, last_name, avatar_url),
+    event_participants (id)
+  `)
+  .eq('is_public', true)
+  .eq('is_cancelled', false)
+  .gte('start_datetime', new Date().toISOString())
+  .order('start_datetime', { ascending: true });
+```
 
 ---
 
 ## Risultato Atteso
 
-- Pulsante indietro funzionante su tutte le pagine
-- Stile visivo coerente (icona ArrowLeft 20x20)
-- Hover state visibile nel tema scuro (bg-app-muted)
-- Area touch ottimale (padding p-2)
-- Animazione smooth (transition-colors)
+- Atleti collegati vedono eventi pubblici invece del messaggio di blocco
+- Ogni evento mostra mappa statica con marker
+- Organizzatore visibile con avatar
+- Contatore partecipanti in tempo reale
+- Possibilità di registrarsi/annullare
+- 4 eventi demo con dati realistici italiani
