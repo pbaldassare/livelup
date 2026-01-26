@@ -1,7 +1,12 @@
+import { useState, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Zap } from 'lucide-react';
+import { Zap, Camera, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 // =====================================================
 // PROFILE HEADER - Header profilo con cover image
@@ -17,6 +22,7 @@ interface ProfileHeaderProps {
   subtitle?: string;
   onSendMessage?: () => void;
   className?: string;
+  editable?: boolean;
 }
 
 export function ProfileHeader({
@@ -28,7 +34,78 @@ export function ProfileHeader({
   subtitle,
   onSendMessage,
   className,
+  editable = true,
 }: ProfileHeaderProps) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleAvatarClick = () => {
+    if (editable && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      toast.error('Per favore seleziona un\'immagine');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('L\'immagine deve essere inferiore a 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // Generate unique filename
+      const ext = file.name.split('.').pop() || 'jpg';
+      const fileName = `${user.id}/avatar.${ext}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Add cache buster
+      const urlWithCacheBuster = `${publicUrl}?t=${Date.now()}`;
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: urlWithCacheBuster })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      toast.success('Foto profilo aggiornata!');
+    } catch (error: any) {
+      console.error('Avatar upload error:', error);
+      toast.error(error.message || 'Errore durante l\'upload');
+    } finally {
+      setIsUploading(false);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   return (
     <div className={cn('relative', className)}>
       {/* Cover Image */}
@@ -47,12 +124,43 @@ export function ProfileHeader({
       {/* Avatar with streak badge */}
       <div className="relative -mt-16 ml-4">
         <div className="relative">
-          <Avatar className="h-28 w-28 border-4 border-app-background">
-            <AvatarImage src={avatarUrl || undefined} />
-            <AvatarFallback className="text-3xl font-bold bg-app-muted text-app-accent">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          
+          {/* Avatar with camera overlay */}
+          <button
+            onClick={handleAvatarClick}
+            disabled={!editable || isUploading}
+            className="relative group"
+          >
+            <Avatar className="h-28 w-28 border-4 border-app-background">
+              <AvatarImage src={avatarUrl || undefined} />
+              <AvatarFallback className="text-3xl font-bold bg-app-muted text-app-accent">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            
+            {/* Camera overlay */}
+            {editable && (
+              <div className={cn(
+                "absolute inset-0 flex items-center justify-center rounded-full transition-all",
+                "bg-black/50 opacity-0 group-hover:opacity-100",
+                isUploading && "opacity-100"
+              )}>
+                {isUploading ? (
+                  <Loader2 className="h-8 w-8 text-white animate-spin" />
+                ) : (
+                  <Camera className="h-8 w-8 text-white" />
+                )}
+              </div>
+            )}
+          </button>
           
           {/* Streak badge */}
           {streakCount > 0 && (

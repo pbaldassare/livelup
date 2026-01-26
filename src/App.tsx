@@ -76,6 +76,8 @@ import AtletaProgressPage from "./pages/atleta/AtletaProgressPage";
 import AtletaProfilePage from "./pages/atleta/AtletaProfilePage";
 import AtletaChatPage from "./pages/atleta/AtletaChatPage";
 import AtletaSubscriptionPage from "./pages/atleta/AtletaSubscriptionPage";
+import AtletaNotificationsPage from "./pages/atleta/AtletaNotificationsPage";
+import AtletaSettingsPage from "./pages/atleta/AtletaSettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -394,6 +396,20 @@ const App = () => {
               <Route path="/app/subscription" element={
                 <AtletaRoute>
                   <AtletaSubscriptionPage />
+                </AtletaRoute>
+              } />
+              <Route path="/app/notifications" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaNotificationsPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/settings" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaSettingsPage />
+                  </AppLayout>
                 </AtletaRoute>
               } />
 
