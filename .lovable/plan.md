@@ -1,222 +1,193 @@
 
-# Piano: Fix Build Error + Popolamento Dati Completo
+# Piano: Completamento Dati Piattaforma + Fix Video Player
 
-## Panoramica
+## Problema
+Dalle screenshot emergono due problemi principali:
+1. **Video esercizi neri** - Il player usa `<video>` ma i link sono YouTube (non supportato)
+2. **Milestones a zero** - Nessun workout completato nel database, tutti in stato "attivo"
 
-Il piano si divide in due parti:
-1. **Fix del build error PWA** - Il bundle è troppo grande (2.18 MB) per il precache limit di default
-2. **Popolamento dati massivo** - Creare un seed completo per rendere la piattaforma viva
+Inoltre ci sono 5 esercizi base senza video/immagini (Trazioni, Push-up, Plank, Corsa, Burpees).
 
 ---
 
-## Parte 1: Fix Build Error PWA
+## Parte 1: Fix Video Player per YouTube
 
-### Problema
-Il file JS principale supera il limite di 2 MiB per il precache di Workbox:
-```
-assets/index-C-YbA1kf.js is 2.18 MB, and won't be precached.
+### Problema Tecnico
+Il componente `ExerciseVideoPlayer` usa:
+```jsx
+<video src={videoUrl} /> // Non funziona con YouTube!
 ```
 
 ### Soluzione
-Configurare `maximumFileSizeToCacheInBytes` nel vite.config.ts:
+Modificare il componente per:
+1. Rilevare se l'URL e YouTube
+2. Usare iframe con URL embed per YouTube
+3. Mostrare immagine come fallback se disponibile
+4. Usare thumbnail YouTube automatica
 
-```typescript
-workbox: {
-  maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB
-  globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-  // ... rest of config
-}
+```text
+URL YouTube: https://www.youtube.com/watch?v=ABC123
+     |
+     v
+Estrai video ID: ABC123
+     |
+     v
+Thumbnail: https://img.youtube.com/vi/ABC123/maxresdefault.jpg
+Embed: https://www.youtube.com/embed/ABC123?autoplay=1&mute=1&loop=1
 ```
 
 ### File da Modificare
-- `vite.config.ts` - Aggiungere limite file size
+- `src/components/app/ExerciseVideoPlayer.tsx`
 
 ---
 
-## Parte 2: Popolamento Dati Database
+## Parte 2: Aggiornamento Seed Database
 
-Creare una nuova Edge Function `seed-platform-data` che popola la piattaforma con dati realistici.
+### Aggiornare Edge Function per:
 
-### 2.1 Dati da Creare
+#### A) Completare esercizi base (aggiungere video/immagini)
+- Trazioni: video e immagine
+- Push-up: video e immagine  
+- Plank: video e immagine
+- Corsa: video e immagine
+- Burpees: video e immagine (duplicato)
 
-#### PT Packages (9 pacchetti - 3 per ogni PT)
-Ogni PT avrà 3 pacchetti:
-- Pacchetto Base (5 sessioni, EUR 80)
-- Pacchetto Standard (10 sessioni, EUR 150)
-- Pacchetto Premium (abbonamento mensile, EUR 200)
+#### B) Creare workout completati
+- Atleta1: 4 workout (2 completati, 2 attivi)
+- Atleta2: 2 workout completati
+- Atleta3: 2 workout attivi
 
-#### Abbonamenti Atleta-PT (3 abbonamenti)
-- Atleta1 ha abbonamento attivo con PT1 (10 sessioni, 3 usate)
-- Atleta2 ha abbonamento scaduto con PT2
-- Atleta3 ha abbonamento trial con PT1
+#### C) Aggiungere dati mancanti
+- Eventi calendario (8 eventi)
+- Notifiche (10 notifiche)
+- Badge assegnati agli atleti
+- Progress tracking con dati reali
 
-#### Workout Assegnati (10 workout)
-- 4 workout per Atleta1 (2 completati, 2 attivi)
-- 2 workout per Atleta2 (pending connection)
-- 2 workout per Atleta3
-
-#### Workout Exercises (per ogni workout)
-- Copiare esercizi dai template ai workout
-
-#### Chat e Messaggi
-- Chat tra PT1 e Atleta1 (15 messaggi)
-- Chat tra PT2 e Atleta2 (5 messaggi)
-- Conversazioni realistiche su allenamenti
-
-#### Recensioni PT (6 recensioni)
-- 3 recensioni per PT1 (4-5 stelle)
-- 2 recensioni per PT2 (4-5 stelle)
-- 1 recensione per PT3 (5 stelle)
-
-#### Eventi Calendario (8 eventi)
-- Allenamenti schedulati per la settimana
-- Un evento "raduno" pubblico
-- Sessioni di valutazione
-
-#### Progress Tracking Atleta (20 entries)
-- 10 entries per Atleta1 (ultimi 30 giorni)
-- 5 entries per Atleta2
-- 5 entries per Atleta3
-- Peso, misure, mood, energia, sonno
-
-#### Badges Aggiuntivi (6 nuovi badges)
-- workout_streak_30 (30 giorni consecutivi)
-- goal_achieved (obiettivo raggiunto)
-- first_review (prima recensione)
-- weight_loss_5 (5kg persi)
-- perfect_form (tecnica perfetta)
-- early_bird (allenamento mattutino)
-
-#### Notifiche (10 notifiche)
-- Notifiche workout
-- Notifiche messaggi
-- Notifiche badge ottenuti
-
-### 2.2 Fix Template Ownership
-Aggiornare i template esistenti per assegnarli ai PT reali:
-- Template 1-4 -> PT1 (Marco Rossi)
-- Template 5-7 -> PT2 (Laura Bianchi)
-- Template 8-10 -> PT3 (Giuseppe Verdi)
+### File da Modificare
+- `supabase/functions/seed-platform-data/index.ts`
 
 ---
 
-## Struttura Edge Function
+## Dettaglio Tecnico
+
+### ExerciseVideoPlayer Aggiornato
 
 ```typescript
-// supabase/functions/seed-platform-data/index.ts
+// Helper per estrarre video ID da YouTube
+function getYouTubeVideoId(url: string): string | null {
+  const match = url.match(
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?\/]+)/
+  );
+  return match ? match[1] : null;
+}
 
-Deno.serve(async (req) => {
-  // 1. Get existing user IDs from profiles
-  // 2. Fix template ownership
-  // 3. Create PT packages
-  // 4. Create subscriptions
-  // 5. Create more connections (atleta3 -> pt1)
-  // 6. Create workouts with exercises
-  // 7. Create chats and messages
-  // 8. Create reviews
-  // 9. Create calendar events
-  // 10. Create progress tracking data
-  // 11. Create additional badges
-  // 12. Create notifications
-  
-  return Response.json({ success: true, data: {...} })
-})
+// Nel componente
+const youtubeId = videoUrl ? getYouTubeVideoId(videoUrl) : null;
+const thumbnailUrl = youtubeId 
+  ? `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
+  : imageUrl;
+
+// Render
+{youtubeId ? (
+  <img 
+    src={thumbnailUrl}
+    alt={exerciseName}
+    className="absolute inset-0 w-full h-full object-cover"
+  />
+) : videoUrl ? (
+  <video src={videoUrl} ... />
+) : ...}
+```
+
+### Dati Seed Aggiuntivi
+
+```typescript
+// 1. Update esercizi base
+await supabaseAdmin.from('exercises')
+  .update({ 
+    video_url: 'https://www.youtube.com/watch?v=eGo4IYlbE5g',
+    image_url: 'https://images.unsplash.com/photo-1598971639058-fab3c3109a00?w=400'
+  })
+  .eq('name', 'Trazioni');
+
+// 2. Workout completati
+const workoutsCompleted = [
+  { 
+    title: 'Upper Body Power',
+    status: 'completato',
+    completed_at: subDays(new Date(), 3).toISOString(),
+    atleta_user_id: atleta1Id,
+    pt_user_id: pt1Id,
+  },
+  // ... altri
+];
+
+// 3. Calendar events
+const events = [
+  {
+    title: 'Allenamento con Marco',
+    event_type: 'allenamento',
+    start_datetime: addDays(new Date(), 1),
+    pt_user_id: pt1Id,
+    atleta_user_id: atleta1Id,
+    creator_user_id: pt1Id,
+  },
+  // ... altri
+];
+
+// 4. Notifiche
+const notifications = [
+  {
+    user_id: atleta1Id,
+    type: 'workout',
+    title: 'Nuovo allenamento disponibile!',
+    body: 'Il tuo PT ha preparato una nuova scheda',
+    action_url: '/app/workout',
+  },
+  // ... altre
+];
 ```
 
 ---
 
-## File da Creare/Modificare
+## Flusso Esecuzione
 
-### Fix Build
-1. `vite.config.ts` - Aumentare limite PWA
-
-### Edge Function
-1. `supabase/functions/seed-platform-data/index.ts` - Nuovo seed completo
-
----
-
-## Dati Esempio
-
-### PT Package
-```json
-{
-  "pt_user_id": "...",
-  "name": "Percorso Trasformazione",
-  "package_type": "sessioni",
-  "sessions_count": 10,
-  "price": 150,
-  "description": "10 sessioni personalizzate per raggiungere i tuoi obiettivi",
-  "includes_chat": true,
-  "includes_video_calls": false,
-  "is_active": true,
-  "is_featured": true
-}
+```text
+1. Fix ExerciseVideoPlayer
+   |
+   v
+2. Aggiorna seed-platform-data
+   |
+   v  
+3. Deploy edge function
+   |
+   v
+4. Esegui seed
+   |
+   v
+5. Verifica:
+   - Video mostrano thumbnail YouTube
+   - Milestones mostrano numeri reali
+   - Calendario ha eventi
+   - Notifiche presenti
 ```
-
-### Chat Message
-```json
-{
-  "chat_id": "...",
-  "sender_user_id": "...",
-  "content": "Ciao! Pronto per l'allenamento di oggi?",
-  "is_read": true
-}
-```
-
-### Progress Entry
-```json
-{
-  "atleta_user_id": "...",
-  "tracked_date": "2026-01-20",
-  "weight_kg": 75.5,
-  "energy_level": 4,
-  "mood_level": 5,
-  "sleep_hours": 7.5,
-  "sleep_quality": 4,
-  "notes": "Mi sento in forma oggi!"
-}
-```
-
-### Review
-```json
-{
-  "pt_user_id": "...",
-  "atleta_user_id": "...",
-  "rating": 5,
-  "comment": "Marco è un trainer eccezionale! Mi ha aiutato a raggiungere i miei obiettivi in modo professionale e motivante.",
-  "is_verified": true,
-  "is_visible": true
-}
-```
-
----
-
-## Esecuzione
-
-Dopo il deploy della Edge Function, verrà chiamata una volta per popolare tutti i dati. La funzione è idempotente - controlla se i dati esistono prima di inserirli.
-
----
-
-## Risultato Finale
-
-Dopo l'esecuzione:
-- 3 PT con 3 pacchetti ciascuno
-- 3 atleti con abbonamenti, workout e progressi
-- Chat attive con messaggi reali
-- Recensioni visibili sui profili PT
-- Calendario con eventi schedulati
-- Dashboard analytics con dati reali
-- 10 badges totali per gamification
 
 ---
 
 ## Criteri di Accettazione
 
-1. Il build completa senza errori PWA
-2. Ogni PT ha almeno 3 pacchetti visibili
-3. Atleta1 vede il suo abbonamento attivo con sessioni rimanenti
-4. Le chat mostrano conversazioni reali
-5. I profili PT mostrano recensioni con rating
-6. Il calendario mostra eventi futuri
-7. La sezione progressi mostra grafici con dati
-8. Le analytics PT/Admin mostrano revenue e trend
+1. Gli esercizi con video YouTube mostrano la thumbnail invece di schermo nero
+2. Tutti i 49 esercizi hanno video_url e image_url popolati
+3. Almeno 4 workout sono in stato "completato"
+4. Le milestone nella pagina profilo atleta mostrano valori > 0
+5. Il calendario ha eventi schedulati per la settimana
+6. L'atleta ha notifiche da visualizzare
+
+---
+
+## File da Creare/Modificare
+
+| File | Azione |
+|------|--------|
+| `src/components/app/ExerciseVideoPlayer.tsx` | Modifica - supporto YouTube |
+| `supabase/functions/seed-platform-data/index.ts` | Modifica - dati aggiuntivi |
