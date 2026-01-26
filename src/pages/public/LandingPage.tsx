@@ -239,7 +239,7 @@ export function LandingPage() {
       </section>
 
       {/* CTA section */}
-      <section className="py-20">
+      <section className="py-20 pb-32 md:pb-20">
         <div className="container-wide">
           <Card className="bg-gradient-to-br from-primary/10 via-background to-background border-primary/20">
             <CardContent className="p-12 text-center">
@@ -266,6 +266,86 @@ export function LandingPage() {
           </Card>
         </div>
       </section>
+
+      {/* PWA Install Banner - Fixed at bottom */}
+      {showInstallButton && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 md:hidden animate-fade-in">
+          <div 
+            className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-primary/80 p-4 shadow-2xl"
+            style={{
+              animation: 'pulse-glow 2s ease-in-out infinite'
+            }}
+          >
+            {/* Animated background shimmer */}
+            <div 
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+              style={{
+                animation: 'shimmer 2s ease-in-out infinite'
+              }}
+            />
+            
+            <div className="relative flex items-center gap-4">
+              {/* App icon with bounce animation */}
+              <div 
+                className="flex-shrink-0 w-14 h-14 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center"
+                style={{
+                  animation: 'bounce-subtle 1.5s ease-in-out infinite'
+                }}
+              >
+                <Smartphone className="w-7 h-7 text-white" />
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-white text-lg">Installa LIVELLAPP</h3>
+                <p className="text-sm text-white/80 mt-0.5">
+                  Accesso rapido dalla home del tuo telefono
+                </p>
+              </div>
+
+              {/* Install button */}
+              <Button 
+                size="sm"
+                onClick={handleInstall}
+                className="flex-shrink-0 bg-white text-primary hover:bg-white/90 font-semibold gap-1.5 shadow-lg"
+              >
+                <Download className="w-4 h-4" />
+                Installa
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom animations for PWA banner */}
+      <style>{`
+        @keyframes pulse-glow {
+          0%, 100% {
+            box-shadow: 0 0 20px rgba(var(--primary), 0.3), 0 10px 40px rgba(0, 0, 0, 0.2);
+          }
+          50% {
+            box-shadow: 0 0 30px rgba(var(--primary), 0.5), 0 10px 50px rgba(0, 0, 0, 0.3);
+          }
+        }
+        
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+        
+        @keyframes bounce-subtle {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-4px);
+          }
+        }
+      `}</style>
     </div>
   );
 }
