@@ -1,44 +1,53 @@
 
-# Piano: Fix Posizionamento Dialog "Crea Nuovo Template"
+Obiettivo
+- Centrare correttamente (verticalmente) il popup “Crea Nuovo Template” su desktop, senza tornare al problema del taglio su viewport piccoli.
 
-## Problema Identificato
+Cosa sta succedendo ora (perché “è troppo basso”)
+- In `PTWorkoutsPage.tsx` abbiamo forzato il posizionamento “mobile-safe” con:
+  - `top-[5%] translate-y-0` (default)
+  - `sm:top-[50%] sm:translate-y-[-50%]` (da 640px in su)
+- Nella preview di Lovable, spesso la larghezza utile del riquadro è inferiore a 640px anche “da desktop” (perché la UI è in split-screen). Quindi la variante `sm:` non entra e rimane attivo `top-[5%] translate-y-0`.
+- Inoltre c’è un doppio scroll (DialogContent overflow + ScrollArea interno) che può dare percezione di “posizione sbagliata” e layout non pulito.
 
-Il dialog "Crea Nuovo Template" appare tagliato in basso perche il posizionamento predefinito di Radix Dialog (`top-[50%] translate-y-[-50%]`) su schermi piccoli causa overflow oltre il viewport.
+Soluzione proposta (robusta)
+1) Rendere il dialog sempre centrato (anche sotto i 640px) ma “safe” rispetto all’altezza:
+   - Tornare a `top-[50%] translate-y-[-50%]` come base (così è centrato sempre).
+   - Mantenere un’altezza massima calcolata e scroll interno per evitare il taglio:
+     - `max-h-[calc(100vh-2rem)] overflow-y-auto`
+   - Impostare anche una larghezza “safe” su viewport stretti:
+     - `w-[calc(100%-2rem)] sm:w-full`
+   In pratica: centro sempre + “margine” di 1rem sopra/sotto + scroll interno.
 
-## Soluzione
+2) Eliminare il doppio scroll:
+   - Rimuovere (o ridurre) lo `ScrollArea` interno nel dialog per evitare:
+     - scroll del dialog + scroll dell’area interna
+   - Passare a layout “header + body scrollabile + footer fisso”:
+     - `DialogContent` in `flex flex-col`
+     - Body con `flex-1 min-h-0 overflow-y-auto`
+     - Footer resta visibile, senza spingere il popup in posizioni strane
 
-Modificare le classi CSS del `DialogContent` per:
-1. Usare un posizionamento piu sicuro con margini rispetto ai bordi
-2. Ridurre l'altezza massima per garantire visibilita completa
-3. Aggiungere classi responsive per adattarsi a schermi di diverse dimensioni
+Modifiche puntuali
+A) `src/pages/pt/PTWorkoutsPage.tsx`
+- Sostituire la className attuale:
+  - DA:
+    - `max-w-xl max-h-[80vh] overflow-y-auto top-[5%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%]`
+  - A (centrato sempre + safe height + safe width):
+    - `max-w-xl w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] top-[50%] translate-y-[-50%] overflow-hidden flex flex-col`
+- Gestire lo scroll del contenuto in modo pulito:
+  - Rimuovere `ScrollArea` (consigliato) e usare un wrapper:
+    - `<div className="flex-1 min-h-0 overflow-y-auto pr-4"> ...form... </div>`
+  - Oppure (se vogliamo mantenere ScrollArea):
+    - togliere `overflow-y-auto` dal DialogContent
+    - far gestire a ScrollArea tutta l’altezza con `flex-1 min-h-0`
 
-## Modifiche Tecniche
+B) (Opzionale ma consigliato) Uniformare pattern anche per altri dialog “lunghi”
+- Se esistono altri popup simili, applicare lo stesso pattern (header + body scrollabile + footer fisso), per coerenza UX.
 
-**File:** `src/pages/pt/PTWorkoutsPage.tsx`
+Criteri di accettazione (come verifichiamo che è risolto)
+- Su desktop (anche con preview stretta) il popup risulta centrato verticalmente.
+- Il popup non viene tagliato in basso su schermi piccoli: se il contenuto è lungo, scorre internamente.
+- C’è un solo scroll (non doppio), e il footer con i pulsanti resta sempre raggiungibile.
 
-```tsx
-// DA (linea 306):
-<DialogContent className="max-w-xl max-h-[90vh]">
-
-// A:
-<DialogContent className="max-w-xl max-h-[85vh] top-[5%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%]">
-```
-
-Oppure utilizzando l'approccio piu semplice con overflow-auto:
-
-```tsx
-<DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto">
-```
-
-## Dettaglio della Modifica
-
-| Proprieta | Valore Attuale | Nuovo Valore | Motivo |
-|-----------|----------------|--------------|--------|
-| max-h | 90vh | 80vh | Lascia margine per header/footer browser |
-| overflow-y | - | auto | Permette scroll interno se contenuto eccede |
-| top (mobile) | 50% | 5% | Posiziona dialog in alto su mobile |
-
-## File Modificato
-
-- `src/pages/pt/PTWorkoutsPage.tsx` (linea 306)
-
+Note tecniche
+- Questo approccio evita di dipendere dai breakpoint `sm:` che nella preview possono non scattare “anche da desktop”.
+- `max-h-[calc(100vh-2rem)]` garantisce margine costante rispetto ai bordi del viewport e previene il taglio.
