@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { 
   Dumbbell, 
   Plus, 
@@ -303,14 +303,14 @@ export function PTWorkoutsPage() {
           Nuovo Template
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto top-[5%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%]">
+      <DialogContent className="max-w-xl w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] top-[50%] translate-y-[-50%] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Crea Nuovo Template</DialogTitle>
           <DialogDescription>
             Crea un nuovo template di allenamento riutilizzabile
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[60vh] pr-4">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-4">
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="title">Titolo *</Label>
@@ -371,7 +371,7 @@ export function PTWorkoutsPage() {
               />
             </div>
           </div>
-        </ScrollArea>
+        </div>
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
             Annulla
