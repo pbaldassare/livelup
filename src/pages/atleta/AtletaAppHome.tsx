@@ -11,6 +11,8 @@ import { WeekCalendar } from '@/components/app/WeekCalendar';
 import { WorkoutCard, CompactWorkoutCard } from '@/components/app/WorkoutCard';
 import { CTABanner, AchievementBanner } from '@/components/app/CTABanner';
 import { ReviewPromptCard } from '@/components/reviews/ReviewPromptCard';
+import { WeeklyStatsSection } from '@/components/app/WeeklyStatsSection';
+import { TeammatesSection } from '@/components/app/TeammatesSection';
 import { 
   Search, 
   Lock,
@@ -101,6 +103,19 @@ export function AtletaAppHome() {
       return data || [];
     },
     enabled: !!user?.id && isConnected,
+  });
+
+  // Fetch weekly stats using database function
+  const { data: weeklyStats } = useQuery({
+    queryKey: ['atleta-weekly-stats', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .rpc('get_weekly_workout_stats', { _atleta_user_id: user.id });
+      if (error) throw error;
+      return data?.[0] || { completed_this_week: 0, current_streak: 0, total_completed: 0 };
+    },
+    enabled: !!user?.id,
   });
 
   // Fetch recent progress
@@ -298,6 +313,18 @@ export function AtletaAppHome() {
                 </Button>
               </div>
             )}
+
+            {/* Weekly Stats */}
+            {weeklyStats && (
+              <WeeklyStatsSection
+                completedThisWeek={weeklyStats.completed_this_week}
+                currentStreak={weeklyStats.current_streak}
+                totalCompleted={weeklyStats.total_completed}
+              />
+            )}
+
+            {/* Teammates Section */}
+            <TeammatesSection />
 
             {/* Progress Stats */}
             {latestProgress && (

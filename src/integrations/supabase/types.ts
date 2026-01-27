@@ -333,6 +333,27 @@ export type Database = {
         }
         Relationships: []
       }
+      cheers: {
+        Row: {
+          created_at: string
+          id: string
+          receiver_user_id: string
+          sender_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          receiver_user_id: string
+          sender_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          receiver_user_id?: string
+          sender_user_id?: string
+        }
+        Relationships: []
+      }
       coupon_uses: {
         Row: {
           coupon_id: string
@@ -1781,6 +1802,7 @@ export type Database = {
         Args: { _pt_user_id: string }
         Returns: number
       }
+      count_today_cheers: { Args: { _user_id: string }; Returns: number }
       count_unread_messages: { Args: { _user_id: string }; Returns: number }
       count_unread_notifications: {
         Args: { _user_id: string }
@@ -1826,6 +1848,14 @@ export type Database = {
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_weekly_workout_stats: {
+        Args: { _atleta_user_id: string }
+        Returns: {
+          completed_this_week: number
+          current_streak: number
+          total_completed: number
+        }[]
       }
       has_active_subscription: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
