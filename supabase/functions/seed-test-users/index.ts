@@ -48,9 +48,9 @@ const testUsers: TestUser[] = [
     lastName: 'Bianchi',
     role: 'pt',
     profileData: {
-      bio: 'Esperta in functional training e recupero post-infortunio. Certificata CrossFit L2.',
-      specializations: ['Functional Training', 'Riabilitazione', 'CrossFit'],
-      certifications: ['CrossFit L2', 'FMS Certified'],
+      bio: 'Esperta in functional training e recupero post-infortunio. Certificata Calisthenics L2.',
+      specializations: ['Functional Training', 'Riabilitazione', 'Calisthenics'],
+      certifications: ['Calisthenics L2', 'FMS Certified'],
       experience_years: 5,
       hourly_rate: 45,
       price_min: 35,

@@ -159,7 +159,7 @@ export function CreatePublicEventDialog({
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Es: CrossFit Day Brescia"
+              placeholder="Es: Calisthenics Day Brescia"
               required
             />
           </div>
