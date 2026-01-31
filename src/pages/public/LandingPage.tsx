@@ -85,7 +85,7 @@ export function LandingPage() {
               Piattaforma Enterprise
             </div>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
-              La piattaforma fitness che sostituisce{' '}
+              La piattaforma per PT e atleti che sostituisce{' '}
               <span className="text-gradient-primary">tutto il resto</span>
             </h1>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl">
@@ -244,7 +244,7 @@ export function LandingPage() {
           <Card className="bg-gradient-to-br from-primary/10 via-background to-background border-primary/20">
             <CardContent className="p-12 text-center">
               <h2 className="text-3xl font-bold mb-4">
-                Pronto a rivoluzionare il tuo fitness business?
+                Pronto a rivoluzionare il tuo business?
               </h2>
               <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
                 Unisciti a centinaia di Personal Trainer che hanno già scelto LIVELLAPP 

@@ -43,7 +43,7 @@ const GOALS = [
 ];
 
 const LEVELS = [
-  { id: 'principiante', label: 'Principiante', description: 'Nuovo al fitness o tornato da una pausa lunga', emoji: '🌱' },
+  { id: 'principiante', label: 'Principiante', description: "Nuovo all'allenamento o tornato da una pausa lunga", emoji: '🌱' },
   { id: 'intermedio', label: 'Intermedio', description: 'Mi alleno regolarmente da qualche mese', emoji: '💪' },
   { id: 'avanzato', label: 'Avanzato', description: 'Esperienza pluriennale e costante', emoji: '🔥' },
   { id: 'agonista', label: 'Agonista', description: 'Atleta competitivo o ex-professionista', emoji: '🏆' },
@@ -219,7 +219,7 @@ export function AtletaOnboardingPage() {
                 </motion.div>
                 <h1 className="text-2xl font-bold text-app-foreground">I tuoi obiettivi</h1>
                 <p className="text-app-muted-foreground">
-                  Seleziona uno o più obiettivi fitness
+                  Seleziona uno o più obiettivi
                 </p>
               </div>
 
