@@ -4,7 +4,11 @@ import { ListSkeleton } from '@/components/skeletons';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PublicEventCard } from './PublicEventCard';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, PartyPopper } from 'lucide-react';
+
+interface EventsSectionProps {
+  isConnected?: boolean;
+}
 
 interface PublicEvent {
   id: string;
@@ -25,7 +29,7 @@ interface PublicEvent {
   is_registered: boolean;
 }
 
-export function EventsSection() {
+export function EventsSection({ isConnected = false }: EventsSectionProps) {
   const { user } = useAuth();
 
   const { data: events, isLoading, refetch } = useQuery({
@@ -107,6 +111,27 @@ export function EventsSection() {
 
   return (
     <div className="space-y-4">
+      {/* Banner per atleti connessi */}
+      {isConnected && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-app-accent/20 to-app-accent/5 rounded-xl p-4 border border-app-accent/30"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-app-accent rounded-lg">
+              <PartyPopper className="h-5 w-5 text-app-accent-foreground" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-app-foreground">Sei collegato a un PT!</h2>
+              <p className="text-sm text-app-muted-foreground mt-1">
+                Esplora gli eventi della community e partecipa!
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       <p className="text-sm text-app-muted-foreground">
         {events?.length || 0} eventi in programma
       </p>
