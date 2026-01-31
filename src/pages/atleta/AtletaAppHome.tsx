@@ -173,7 +173,7 @@ export function AtletaAppHome() {
           <>
             <CTABanner
               title="Trova il tuo Personal Trainer"
-              subtitle="Inizia il tuo percorso fitness con un coach professionista"
+              subtitle="Inizia il tuo percorso con un coach professionista"
               actionLabel="Cerca PT"
               icon={Search}
               onAction={() => navigate('/app/discover')}

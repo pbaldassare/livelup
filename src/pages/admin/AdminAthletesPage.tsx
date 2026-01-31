@@ -348,7 +348,7 @@ export function AdminAthletesPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="atleta-level">Livello Fitness</Label>
+                  <Label htmlFor="atleta-level">Livello</Label>
                   <Select
                     value={newAtleta.fitness_level}
                     onValueChange={(value) => setNewAtleta({ ...newAtleta, fitness_level: value })}

@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     if (!existingPackages || existingPackages.length === 0) {
       const packages = [
         // PT1 packages
-        { pt_user_id: pt1Id, name: 'Starter Pack', package_type: 'sessioni', sessions_count: 5, price: 80, description: '5 sessioni per iniziare il tuo percorso fitness', includes_chat: true, includes_video_calls: false, is_active: true, is_featured: false, sort_order: 1 },
+        { pt_user_id: pt1Id, name: 'Starter Pack', package_type: 'sessioni', sessions_count: 5, price: 80, description: '5 sessioni per iniziare il tuo percorso di allenamento', includes_chat: true, includes_video_calls: false, is_active: true, is_featured: false, sort_order: 1 },
         { pt_user_id: pt1Id, name: 'Percorso Trasformazione', package_type: 'sessioni', sessions_count: 10, price: 150, description: '10 sessioni personalizzate per raggiungere i tuoi obiettivi', includes_chat: true, includes_video_calls: true, is_active: true, is_featured: true, sort_order: 2 },
         { pt_user_id: pt1Id, name: 'Abbonamento Premium', package_type: 'mensile', duration_days: 30, price: 200, description: 'Accesso illimitato per un mese con supporto completo', includes_chat: true, includes_video_calls: true, max_workouts_per_week: 5, is_active: true, is_featured: false, sort_order: 3 },
         // PT2 packages
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
         { pt_user_id: pt2Id, name: 'Programma Intensivo', package_type: 'sessioni', sessions_count: 10, price: 140, description: 'Programma completo per risultati visibili', includes_chat: true, includes_video_calls: true, is_active: true, is_featured: true, sort_order: 2 },
         { pt_user_id: pt2Id, name: 'Full Access Mensile', package_type: 'mensile', duration_days: 30, price: 180, description: 'Tutto incluso per un mese intero', includes_chat: true, includes_video_calls: true, max_workouts_per_week: 4, is_active: true, is_featured: false, sort_order: 3 },
         // PT3 packages
-        { pt_user_id: pt3Id, name: 'Intro Fitness', package_type: 'sessioni', sessions_count: 5, price: 85, description: 'Inizia con 5 sessioni guidate', includes_chat: true, includes_video_calls: false, is_active: true, is_featured: false, sort_order: 1 },
+        { pt_user_id: pt3Id, name: 'Intro Allenamento', package_type: 'sessioni', sessions_count: 5, price: 85, description: 'Inizia con 5 sessioni guidate', includes_chat: true, includes_video_calls: false, is_active: true, is_featured: false, sort_order: 1 },
         { pt_user_id: pt3Id, name: 'Percorso Completo', package_type: 'sessioni', sessions_count: 10, price: 160, description: '10 sessioni per una trasformazione completa', includes_chat: true, includes_video_calls: true, is_active: true, is_featured: true, sort_order: 2 },
         { pt_user_id: pt3Id, name: 'Elite Monthly', package_type: 'mensile', duration_days: 30, price: 220, description: 'Il massimo del coaching personalizzato', includes_chat: true, includes_video_calls: true, max_workouts_per_week: 6, is_active: true, is_featured: false, sort_order: 3 },
       ];
@@ -259,7 +259,7 @@ Deno.serve(async (req) => {
         { atleta_user_id: atleta2Id, pt_user_id: pt2Id, title: 'Programma Forza - Fase 1', description: 'Costruzione base di forza', status: 'completato', scheduled_date: new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000).toISOString(), completed_at: new Date(now.getTime() - 44 * 24 * 60 * 60 * 1000).toISOString() },
         { atleta_user_id: atleta2Id, pt_user_id: pt2Id, title: 'Programma Forza - Fase 2', description: 'Progressione carichi', status: 'completato', scheduled_date: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString(), completed_at: new Date(now.getTime() - 34 * 24 * 60 * 60 * 1000).toISOString() },
         // Atleta3 workouts (2 total - new)
-        { atleta_user_id: atleta3Id, pt_user_id: pt1Id, title: 'Valutazione Iniziale', description: 'Test di fitness e mobilità', status: 'attivo', scheduled_date: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(), due_date: new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString() },
+        { atleta_user_id: atleta3Id, pt_user_id: pt1Id, title: 'Valutazione Iniziale', description: 'Test iniziale e mobilità', status: 'attivo', scheduled_date: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(), due_date: new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString() },
         { atleta_user_id: atleta3Id, pt_user_id: pt1Id, title: 'Intro Mobilità', description: 'Esercizi base di mobilità articolare', status: 'attivo', scheduled_date: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString(), due_date: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() },
       ];
 
@@ -478,7 +478,7 @@ Deno.serve(async (req) => {
           location: 'Ristorante Healthy Bites, Corso Como 15, Milano', 
           location_lat: 45.4642,
           location_lng: 9.1900,
-          description: 'Serata speciale per la community fitness! Menù studiato apposta per chi si allena: proteine, verdure e gusto. Occasione perfetta per conoscersi! 🍽️', 
+          description: 'Serata speciale per la community sportiva! Menù studiato apposta per chi si allena: proteine, verdure e gusto. Occasione perfetta per conoscersi! 🍽️',
           is_public: true 
         },
         // 3. Yoga al Parco Roma - Raduno (+10 giorni)
@@ -614,7 +614,7 @@ Deno.serve(async (req) => {
           mood_level: 3 + Math.floor(i / 2), // Improving mood
           sleep_hours: 6 + Math.random() * 1.5,
           sleep_quality: 3 + Math.floor(Math.random() * 2),
-          notes: i === 0 ? 'Inizio del mio percorso fitness!' : null
+          notes: i === 0 ? 'Inizio del mio percorso di allenamento!' : null
         });
       }
 
