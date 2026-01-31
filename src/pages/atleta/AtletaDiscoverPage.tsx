@@ -286,7 +286,12 @@ function ConnectedAthleteEventsView() {
 // PT SEARCH VIEW (REFACTORED AS COMPONENT)
 // =====================================================
 
-function PTSearchSection() {
+interface PTSearchSectionProps {
+  isConnected?: boolean;
+  ptName?: string | null;
+}
+
+function PTSearchSection({ isConnected = false, ptName }: PTSearchSectionProps) {
   // Location state
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -490,6 +495,29 @@ function PTSearchSection() {
 
   return (
     <div className="space-y-4">
+      {/* Banner per atleti connessi */}
+      {isConnected && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-app-accent/20 to-app-accent/5 rounded-xl p-4 border border-app-accent/30"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-app-accent rounded-lg">
+              <Users className="h-5 w-5 text-app-accent-foreground" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-app-foreground">
+                Sei già connesso{ptName ? ` a ${ptName}` : ' a un PT'}
+              </h2>
+              <p className="text-sm text-app-muted-foreground mt-1">
+                Esplora altri professionisti della community.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Search and filters bar */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -844,13 +872,8 @@ function PTSearchSection() {
 // =====================================================
 
 export function AtletaDiscoverPage() {
-  const { isConnected } = useAtletaStatus();
+  const { isConnected, ptName } = useAtletaStatus();
   const [activeCategory, setActiveCategory] = useState<'pt' | 'events' | 'professionals'>('pt');
-
-  // Show simplified view for connected athletes
-  if (isConnected) {
-    return <ConnectedAthleteEventsView />;
-  }
 
   return (
     <div className="min-h-screen bg-app-background pb-24">
@@ -889,8 +912,8 @@ export function AtletaDiscoverPage() {
 
       {/* Content based on active category */}
       <div className="p-4">
-        {activeCategory === 'pt' && <PTSearchSection />}
-        {activeCategory === 'events' && <EventsSection />}
+        {activeCategory === 'pt' && <PTSearchSection isConnected={isConnected} ptName={ptName} />}
+        {activeCategory === 'events' && <EventsSection isConnected={isConnected} />}
         {activeCategory === 'professionals' && <ProfessionalsSection />}
       </div>
     </div>
