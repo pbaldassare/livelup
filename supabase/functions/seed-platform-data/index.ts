@@ -838,6 +838,191 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 12. Create Professional Profiles (Nutrizionisti e Fisioterapisti)
+    console.log('Creating professional profiles...');
+    const { data: existingProfessionals } = await supabase
+      .from('professional_profiles')
+      .select('id')
+      .limit(1);
+
+    if (!existingProfessionals || existingProfessionals.length === 0) {
+      const professionals = [
+        // Nutrizionisti (4)
+        {
+          user_id: crypto.randomUUID(),
+          profession_type: 'nutrizionista',
+          first_name: 'Giulia',
+          last_name: 'Verdi',
+          bio: 'Biologa nutrizionista specializzata in nutrizione sportiva. Aiuto atleti e appassionati a ottimizzare le performance attraverso alimentazione personalizzata.',
+          specializations: ['Nutrizione Sportiva', 'Diete Personalizzate', 'Integrazione Alimentare'],
+          hourly_rate: 80,
+          rating_avg: 4.8,
+          review_count: 12,
+          offers_online: true,
+          offers_in_person: true,
+          location_city: 'Milano',
+          location_lat: 45.4642,
+          location_lng: 9.1900,
+          experience_years: 8,
+          certifications: ['Laurea in Biologia', 'Master Nutrizione Sportiva'],
+          is_discoverable: true,
+          status: 'attivo'
+        },
+        {
+          user_id: crypto.randomUUID(),
+          profession_type: 'nutrizionista',
+          first_name: 'Alessandro',
+          last_name: 'Rossi',
+          bio: 'Dietista con esperienza in alimentazione vegana e plant-based. Credo che un\'alimentazione consapevole sia la chiave per una vita sana.',
+          specializations: ['Integrazione Alimentare', 'Nutrizione Vegana', 'Educazione Alimentare'],
+          hourly_rate: 70,
+          rating_avg: 4.6,
+          review_count: 8,
+          offers_online: true,
+          offers_in_person: false,
+          location_city: 'Roma',
+          location_lat: 41.9028,
+          location_lng: 12.4964,
+          experience_years: 5,
+          certifications: ['Laurea in Dietistica', 'Corso Plant-Based Nutrition'],
+          is_discoverable: true,
+          status: 'attivo'
+        },
+        {
+          user_id: crypto.randomUUID(),
+          profession_type: 'nutrizionista',
+          first_name: 'Francesca',
+          last_name: 'Neri',
+          bio: 'Psicologa e nutrizionista specializzata in disturbi del comportamento alimentare. Approccio integrato mente-corpo.',
+          specializations: ['Disturbi Alimentari', 'Diete Personalizzate', 'Mindful Eating'],
+          hourly_rate: 90,
+          rating_avg: 4.9,
+          review_count: 15,
+          offers_online: true,
+          offers_in_person: true,
+          location_city: 'Brescia',
+          location_lat: 45.5416,
+          location_lng: 10.2118,
+          experience_years: 10,
+          certifications: ['Laurea in Psicologia', 'Specializzazione DCA', 'Master Nutrizione Clinica'],
+          is_discoverable: true,
+          status: 'attivo'
+        },
+        {
+          user_id: crypto.randomUUID(),
+          profession_type: 'nutrizionista',
+          first_name: 'Luca',
+          last_name: 'Marino',
+          bio: 'Nutrizionista sportivo con esperienza nel calcio professionistico. Lavoro con atleti di alto livello e amatori.',
+          specializations: ['Nutrizione Sportiva', 'Integrazione', 'Performance Atletica'],
+          hourly_rate: 75,
+          rating_avg: 4.7,
+          review_count: 22,
+          offers_online: true,
+          offers_in_person: true,
+          location_city: 'Torino',
+          location_lat: 45.0703,
+          location_lng: 7.6869,
+          experience_years: 7,
+          certifications: ['Laurea Scienze Motorie', 'Master Nutrizione Sportiva'],
+          is_discoverable: true,
+          status: 'attivo'
+        },
+        // Fisioterapisti (4)
+        {
+          user_id: crypto.randomUUID(),
+          profession_type: 'fisioterapista',
+          first_name: 'Marco',
+          last_name: 'Bianchi',
+          bio: 'Fisioterapista specializzato in riabilitazione sportiva. Ex atleta di atletica leggera, ora aiuto sportivi a tornare in forma dopo infortuni.',
+          specializations: ['Riabilitazione Sportiva', 'Terapia Manuale', 'Kinesio Taping'],
+          hourly_rate: 60,
+          rating_avg: 4.8,
+          review_count: 28,
+          offers_online: false,
+          offers_in_person: true,
+          location_city: 'Milano',
+          location_lat: 45.4773,
+          location_lng: 9.2138,
+          experience_years: 12,
+          certifications: ['Laurea Fisioterapia', 'Master Riabilitazione Sportiva', 'Certificazione Kinesio'],
+          is_discoverable: true,
+          status: 'attivo'
+        },
+        {
+          user_id: crypto.randomUUID(),
+          profession_type: 'fisioterapista',
+          first_name: 'Sara',
+          last_name: 'Conti',
+          bio: 'Specializzata in posturologia e massoterapia. Tratto problematiche legate alla postura e allo stress muscolare.',
+          specializations: ['Posturale', 'Massoterapia', 'Rieducazione Motoria'],
+          hourly_rate: 55,
+          rating_avg: 4.5,
+          review_count: 16,
+          offers_online: true,
+          offers_in_person: true,
+          location_city: 'Roma',
+          location_lat: 41.8967,
+          location_lng: 12.4822,
+          experience_years: 6,
+          certifications: ['Laurea Fisioterapia', 'Corso Posturologia', 'Diploma Massoterapia'],
+          is_discoverable: true,
+          status: 'attivo'
+        },
+        {
+          user_id: crypto.randomUUID(),
+          profession_type: 'fisioterapista',
+          first_name: 'Andrea',
+          last_name: 'Ferraro',
+          bio: 'Esperto in recupero infortuni e riabilitazione post-operatoria. Collaboro con ortopedici e chirurghi.',
+          specializations: ['Recupero Infortuni', 'Riabilitazione Post-Operatoria', 'Terapia Manuale'],
+          hourly_rate: 65,
+          rating_avg: 4.9,
+          review_count: 34,
+          offers_online: false,
+          offers_in_person: true,
+          location_city: 'Brescia',
+          location_lat: 45.5355,
+          location_lng: 10.2141,
+          experience_years: 15,
+          certifications: ['Laurea Fisioterapia', 'Master Ortopedia', 'Specializzazione Chirurgica'],
+          is_discoverable: true,
+          status: 'attivo'
+        },
+        {
+          user_id: crypto.randomUUID(),
+          profession_type: 'fisioterapista',
+          first_name: 'Elena',
+          last_name: 'Galli',
+          bio: 'Fisioterapista con approccio olistico. Combino terapia manuale tradizionale con tecniche innovative.',
+          specializations: ['Terapia Manuale', 'Posturale', 'Osteopatia'],
+          hourly_rate: 58,
+          rating_avg: 4.7,
+          review_count: 19,
+          offers_online: true,
+          offers_in_person: true,
+          location_city: 'Bologna',
+          location_lat: 44.4949,
+          location_lng: 11.3426,
+          experience_years: 9,
+          certifications: ['Laurea Fisioterapia', 'Diploma Osteopatia', 'Corso Tecniche Manuali'],
+          is_discoverable: true,
+          status: 'attivo'
+        }
+      ];
+
+      const { data: createdProfessionals, error: professionalsError } = await supabase
+        .from('professional_profiles')
+        .insert(professionals)
+        .select();
+
+      if (professionalsError) {
+        console.error('Error creating professional profiles:', professionalsError);
+      } else {
+        results.professionals_created = createdProfessionals?.length || 0;
+      }
+    }
+
     console.log('Seed completed!', results);
 
     return new Response(JSON.stringify({ 

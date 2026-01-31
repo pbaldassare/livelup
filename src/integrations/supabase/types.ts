@@ -800,6 +800,84 @@ export type Database = {
         }
         Relationships: []
       }
+      professional_profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          certifications: string[] | null
+          created_at: string | null
+          currency: string | null
+          experience_years: number | null
+          first_name: string
+          hourly_rate: number | null
+          id: string
+          is_discoverable: boolean | null
+          last_name: string
+          location_city: string | null
+          location_lat: number | null
+          location_lng: number | null
+          offers_in_person: boolean | null
+          offers_online: boolean | null
+          profession_type: string
+          rating_avg: number | null
+          review_count: number | null
+          specializations: string[] | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          certifications?: string[] | null
+          created_at?: string | null
+          currency?: string | null
+          experience_years?: number | null
+          first_name: string
+          hourly_rate?: number | null
+          id?: string
+          is_discoverable?: boolean | null
+          last_name: string
+          location_city?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          offers_in_person?: boolean | null
+          offers_online?: boolean | null
+          profession_type: string
+          rating_avg?: number | null
+          review_count?: number | null
+          specializations?: string[] | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          certifications?: string[] | null
+          created_at?: string | null
+          currency?: string | null
+          experience_years?: number | null
+          first_name?: string
+          hourly_rate?: number | null
+          id?: string
+          is_discoverable?: boolean | null
+          last_name?: string
+          location_city?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          offers_in_person?: boolean | null
+          offers_online?: boolean | null
+          profession_type?: string
+          rating_avg?: number | null
+          review_count?: number | null
+          specializations?: string[] | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
