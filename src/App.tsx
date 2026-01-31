@@ -80,6 +80,7 @@ import AtletaNotificationsPage from "./pages/atleta/AtletaNotificationsPage";
 import AtletaSettingsPage from "./pages/atleta/AtletaSettingsPage";
 import AtletaHelpPage from "./pages/atleta/AtletaHelpPage";
 import AtletaEventDetailPage from "./pages/atleta/AtletaEventDetailPage";
+import AtletaProfessionalProfilePage from "./pages/atleta/AtletaProfessionalProfilePage";
 
 const queryClient = new QueryClient();
 
@@ -425,6 +426,13 @@ const App = () => {
                 <AtletaRoute>
                   <AppLayout>
                     <AtletaEventDetailPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/professional/:professionalId" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaProfessionalProfilePage />
                   </AppLayout>
                 </AtletaRoute>
               } />
