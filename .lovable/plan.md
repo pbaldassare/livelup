@@ -1,146 +1,166 @@
 
 
-# Piano: Rimuovi Teammates + Aggiungi Sezione Allenamenti in Home
+# Piano: Sostituzione Terminologia "Crossfit → Calisthenics" e "Workout → Attività"
 
-## Obiettivo
-1. Rimuovere temporaneamente la sezione "Teammates Working Out" (dati mock che confondono)
-2. Aggiungere una sezione "I tuoi prossimi allenamenti" con i workout assegnati dal PT
+## Analisi della Situazione
+
+### Occorrenze Trovate
+| Termine | Occorrenze | File Coinvolti |
+|---------|------------|----------------|
+| `crossfit` | 58 | 6 file |
+| `workout` | 2,474 | 55 file |
+| `Workout` | 734 | 25 file |
+
+### Criticità Importante
+
+La parola **"workout"** è usata in DUE contesti diversi:
+
+1. **Contesto TECNICO (NON sostituibile):**
+   - Nomi tabelle database: `workouts`, `workout_exercises`, `workout_logs`, `workout_templates`
+   - Funzioni PostgreSQL: `get_weekly_workout_stats`, `count_completed_workouts`
+   - Enum: `workout_status`
+   - Foreign keys e relazioni
+   - Query Supabase nel codice
+
+2. **Contesto UI (Sostituibile):**
+   - Label visibili all'utente
+   - Titoli di pagina
+   - Commenti nel codice
+   - Placeholder e messaggi
+
+**Rinominare le tabelle del database richiederebbe:**
+- Nuove migrazioni per creare tabelle con nuovo nome
+- Migrazioni dati
+- Aggiornamento di tutte le policy RLS
+- Aggiornamento di tutte le funzioni PostgreSQL
+- Rigenerazione dei tipi TypeScript
 
 ---
 
-## Modifiche al File
+## Proposta: Approccio Graduale e Sicuro
 
-### `src/pages/atleta/AtletaAppHome.tsx`
+### Fase 1: Sostituzioni Sicure (Testo UI)
+Sostituire solo i testi visibili all'utente senza toccare i nomi tecnici.
 
-**Rimuovere:**
-- Import di `TeammatesRow` (riga 13)
-- Blocco JSX `<TeammatesRow>` (righe 229-237)
+#### 1.1 Crossfit → Calisthenics (6 file)
 
-**Aggiungere:**
+| File | Azione |
+|------|--------|
+| `src/pages/public/PTDiscoveryPage.tsx` | Cambia `'Crossfit'` in `'Calisthenics'` nell'array SPECIALIZATIONS |
+| `src/pages/atleta/AtletaDiscoverPage.tsx` | Cambia `'Crossfit'` in `'Calisthenics'` nell'array SPECIALIZATIONS |
+| `src/pages/admin/AdminPTsPage.tsx` | Cambia `'Crossfit'` in `'Calisthenics'` in SPECIALIZATION_SUGGESTIONS |
+| `src/components/pt/CreatePublicEventDialog.tsx` | Cambia placeholder `"CrossFit Day Brescia"` |
+| `supabase/functions/seed-test-users/index.ts` | Aggiorna dati demo (bio, specializations, certifications) |
+| `supabase/functions/seed-platform-data/index.ts` | Aggiorna eventi demo e descrizioni |
 
-1. **Nuova query** per recuperare i prossimi allenamenti (non solo quello di oggi):
+#### 1.2 Workout → Attività (Solo Testi UI)
 
-```typescript
-const { data: upcomingWorkouts, isLoading: upcomingLoading } = useQuery({
-  queryKey: ['atleta-upcoming-workouts', user?.id],
-  queryFn: async () => {
-    if (!user?.id) return [];
-    const today = new Date().toISOString().split('T')[0];
-    const { data, error } = await supabase
-      .from('workouts')
-      .select(`
-        id, title, description, status, scheduled_date,
-        workout_exercises(id)
-      `)
-      .eq('atleta_user_id', user.id)
-      .eq('status', 'attivo')
-      .gte('scheduled_date', today)
-      .order('scheduled_date', { ascending: true })
-      .limit(5);
-    if (error) throw error;
-    return data || [];
-  },
-  enabled: !!user?.id && isConnected,
-});
-```
+| File | Tipo Modifica |
+|------|---------------|
+| `src/pages/atleta/AtletaAppHome.tsx` | Commenti, label "Nessun allenamento" già OK |
+| `src/components/app/WorkoutCard.tsx` | Solo commenti (il componente resta `WorkoutCard`) |
+| `src/components/app/ActivityHistory.tsx` | Commenti e messaggi vuoti |
+| Vari file | Titoli sezioni, messaggi utente |
 
-2. **Nuova sezione UI** al posto di TeammatesRow:
+**NOTA:** I nomi dei componenti React (WorkoutCard, ecc.) resteranno invariati per evitare refactoring massivo.
+
+---
+
+### Fase 2: Mappatura Completa Sostituzioni Testi
 
 ```text
-+------------------------------------------+
-| I TUOI PROSSIMI ALLENAMENTI              |
-+------------------------------------------+
-| 📅 Lun 27 Gen                            |
-| Full Body Principiante                   |
-| 5 esercizi                               |
-+------------------------------------------+
-| 📅 Mer 29 Gen                            |
-| HIIT Cardio Blast                        |
-| 4 esercizi                               |
-+------------------------------------------+
-| [Vedi tutti gli allenamenti]             |
-+------------------------------------------+
+PRIMA                              →  DOPO
+─────────────────────────────────────────────────────
+"CrossFit"                         → "Calisthenics"
+"Crossfit"                         → "Calisthenics"
+"CROSSFIT"                         → "CALISTHENICS"
+
+"Il tuo workout"                   → "La tua attività"
+"Workout di oggi"                  → "Attività di oggi"
+"Nessun workout"                   → "Nessuna attività"
+"workout completati"               → "attività completate"
+"Prossimi workout"                 → "Prossime attività"
+"Vedi tutti gli allenamenti"       → (resta così, già OK)
+
+// Già in italiano quindi OK:
+"Allenamento", "allenamenti"       → (nessuna modifica)
 ```
 
 ---
 
-## Struttura UI Nuova Sezione
+### Fase 3: File da Modificare (Dettaglio)
 
-```typescript
-{/* Prossimi Allenamenti */}
-{upcomingWorkouts && upcomingWorkouts.length > 0 && (
-  <div className="space-y-3">
-    <h3 className="text-sm font-bold text-white uppercase tracking-wide">
-      I tuoi prossimi allenamenti
-    </h3>
-    {upcomingWorkouts.slice(0, 3).map((workout) => (
-      <div 
-        key={workout.id}
-        onClick={() => navigate(`/app/workout/${workout.id}`)}
-        className="bg-gray-900/60 rounded-xl p-4 border border-white/10 
-                   cursor-pointer hover:border-app-accent/30 transition-colors"
-      >
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-app-accent font-medium">
-            {formatDate(workout.scheduled_date)}
-          </span>
-          <span className="text-xs text-white/40">
-            {workout.workout_exercises?.length || 0} esercizi
-          </span>
-        </div>
-        <h4 className="text-white font-semibold">{workout.title}</h4>
-        {workout.description && (
-          <p className="text-white/50 text-sm mt-1 line-clamp-1">
-            {workout.description}
-          </p>
-        )}
-      </div>
-    ))}
-    <Button 
-      variant="ghost" 
-      className="w-full text-app-accent"
-      onClick={() => navigate('/app/workout')}
-    >
-      Vedi tutti gli allenamenti
-    </Button>
-  </div>
-)}
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ CROSSFIT → CALISTHENICS                                          │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. src/pages/public/PTDiscoveryPage.tsx         riga 61         │
+│ 2. src/pages/atleta/AtletaDiscoverPage.tsx      riga 49         │
+│ 3. src/pages/admin/AdminPTsPage.tsx             riga 114        │
+│ 4. src/components/pt/CreatePublicEventDialog.tsx riga 162       │
+│ 5. supabase/functions/seed-test-users/index.ts  righe 51-53     │
+│ 6. supabase/functions/seed-platform-data/index.ts (multipli)    │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ WORKOUT → ATTIVITÀ (Solo label UI, non nomi tecnici)            │
+├─────────────────────────────────────────────────────────────────┤
+│ Commenti e label visibili in:                                   │
+│ - src/pages/atleta/AtletaWorkoutPage.tsx                        │
+│ - src/pages/atleta/AtletaWorkoutDetailPage.tsx                  │
+│ - src/pages/pt/PTWorkoutsPage.tsx                               │
+│ - src/pages/pt/PTAppWorkoutsPage.tsx                            │
+│ - src/components/app/WorkoutCard.tsx (solo commenti)            │
+│ - src/components/app/WorkoutTimer.tsx (solo commenti)           │
+│ - src/components/skeletons/index.ts                             │
+│ - src/hooks/useAtletaStatus.tsx                                 │
+│ - src/lib/api/workouts.ts (solo commenti)                       │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Helper per Formattazione Data
+## Cosa NON Verrà Modificato (Sicurezza)
 
-```typescript
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  const days = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
-  const months = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 
-                  'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]}`;
-};
-```
+I seguenti elementi resteranno invariati per evitare problemi:
 
----
+1. **Database:**
+   - Tabelle: `workouts`, `workout_exercises`, `workout_logs`, `workout_templates`
+   - Funzioni: `get_weekly_workout_stats`, `count_completed_workouts`
+   - Enum: `workout_status`
 
-## Riepilogo Modifiche
+2. **Tipi TypeScript:**
+   - `src/integrations/supabase/types.ts` (generato automaticamente)
 
-| Azione | Dettaglio |
-|--------|-----------|
-| Rimuovi | Import `TeammatesRow` |
-| Rimuovi | Blocco JSX TeammatesRow (righe 229-237) |
-| Aggiungi | Query `upcomingWorkouts` per i prossimi 5 workout |
-| Aggiungi | Funzione helper `formatDate()` |
-| Aggiungi | Sezione "I tuoi prossimi allenamenti" con card cliccabili |
-| Aggiungi | Bottone "Vedi tutti gli allenamenti" che porta a `/app/workout` |
+3. **Nomi Componenti React:**
+   - `WorkoutCard`, `WorkoutTimer`, `WorkoutCardSkeleton`
+   - Rinominarli richiederebbe aggiornare tutti gli import
+
+4. **Nomi Route:**
+   - `/app/workout/:id` resterà invariato
+   - `/pt/workouts` resterà invariato
 
 ---
 
-## Dettagli Tecnici
+## Riepilogo Operazioni
 
-- La query usa `gte('scheduled_date', today)` per prendere solo allenamenti futuri
-- Include il conteggio esercizi tramite la relazione `workout_exercises(id)`
-- Mostra massimo 3 workout nella home per non appesantire
-- Il bottone finale porta alla pagina completa degli allenamenti
-- Design coerente con il tema scuro (bg-gray-900/60, border-white/10, text-app-accent)
+| Categoria | Azione | File Stimati |
+|-----------|--------|--------------|
+| Crossfit → Calisthenics | Sostituzione diretta | 6 file |
+| Workout → Attività (UI) | Solo testi visibili | ~15 file |
+| Commenti codice | Aggiornamento descrizioni | ~10 file |
+| **Totale modifiche** | | **~25-30 file** |
+
+---
+
+## Nota Importante
+
+Se in futuro vuoi rinominare anche le tabelle del database da `workouts` a `activities`, sarà necessario:
+1. Creare nuove migrazioni
+2. Trasferire i dati
+3. Aggiornare tutte le policy RLS
+4. Rigenerare i tipi TypeScript
+5. Aggiornare tutto il codice frontend
+
+Questo è un refactoring più invasivo che consiglio di fare in un secondo momento, quando l'app sarà più stabile.
 
