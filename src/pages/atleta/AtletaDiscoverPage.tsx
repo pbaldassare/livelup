@@ -47,13 +47,15 @@ const GOOGLE_MAPS_API_KEY = 'AIzaSyA76iVcQpSnl76_G6bJVnEeOUmWVd7278I';
 const SPECIALIZATIONS = [
   'Bodybuilding',
   'Calisthenics',
-  'Yoga',
-  'Pilates',
   'Functional Training',
-  'Cardio',
   'HIIT',
+  'Kettlebell Training',
+  'Pilates',
+  'Posturale',
   'Powerlifting',
   'Rehab',
+  'Stretching',
+  'Yoga',
 ];
 
 interface UserLocation {
