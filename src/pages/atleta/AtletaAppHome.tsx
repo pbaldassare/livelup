@@ -12,6 +12,7 @@ import { WorkoutCard, CompactWorkoutCard } from '@/components/app/WorkoutCard';
 import { CTABanner, AchievementBanner } from '@/components/app/CTABanner';
 import { ReviewPromptCard } from '@/components/reviews/ReviewPromptCard';
 import { WeeklyStatsSection } from '@/components/app/WeeklyStatsSection';
+import { AIAssistantCard } from '@/components/app/AIAssistantCard';
 import { TeammatesSection } from '@/components/app/TeammatesSection';
 import { 
   Search, 
@@ -322,6 +323,9 @@ export function AtletaAppHome() {
                 totalCompleted={weeklyStats.total_completed}
               />
             )}
+
+            {/* AI Assistant */}
+            <AIAssistantCard />
 
             {/* Teammates Section */}
             <TeammatesSection />
