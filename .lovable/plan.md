@@ -1,136 +1,209 @@
 
-# Piano: Mostrare Tabs Scopri anche per Atleti Connessi
+# Piano: Assistente IA con Ape Stilizzata nella Home
 
-## Problema Identificato
+## Obiettivo
 
-L'utente non vede le nuove tabs (Personal Trainer, Eventi, Professionisti) perche e loggato come **atleta connesso** a un PT.
-
-La logica attuale nella pagina `AtletaDiscoverPage.tsx` (righe 851-853) fa questo:
-
-```typescript
-if (isConnected) {
-  return <ConnectedAthleteEventsView />;
-}
-```
-
-Questo esclude completamente le nuove tabs per gli atleti gia collegati.
+Aggiungere un componente "Assistente IA" sotto le card delle statistiche nella home atleta, con:
+1. Un logo di ape stilizzata (icona SVG custom) in stile lime/dark theme
+2. Interfaccia chat-like per ricevere info su attività, professionisti, eventi
+3. Design coerente con lo stile dell'app (tema scuro + accento lime #D4FF00)
 
 ---
 
-## Soluzione Proposta
-
-Modificare la pagina `AtletaDiscoverPage.tsx` per mostrare le tabs categoria (PT, Eventi, Professionisti) anche agli atleti connessi, con queste logiche:
-
-| Categoria | Atleta Libero | Atleta Connesso |
-|-----------|---------------|-----------------|
-| **Personal Trainer** | Ricerca completa PT | Banner "Gia connesso" + possibilita di esplorare altri PT (senza richiedere connessione) |
-| **Eventi** | Eventi pubblici | Eventi pubblici (invariato) |
-| **Professionisti** | Nutrizionisti/Fisioterapisti | Nutrizionisti/Fisioterapisti (invariato) |
-
----
-
-## Modifiche Tecniche
-
-### File: `src/pages/atleta/AtletaDiscoverPage.tsx`
-
-1. **Rimuovere il blocco early return** che esclude gli atleti connessi (righe 851-853)
-
-2. **Nella sezione PT (PTSearchSection)**: Aggiungere un banner informativo se l'atleta e gia connesso, mostrando comunque la lista dei PT per esplorazione
-
-3. **Nella sezione Eventi**: Mostrare il banner "Sei collegato a un PT!" solo per atleti connessi, seguito dagli eventi pubblici
-
----
-
-## Struttura Aggiornata
+## Architettura della Soluzione
 
 ```text
-SCOPRI PAGE (Per TUTTI gli atleti)
+ATLETA HOME PAGE
 +-----------------------------------------------------------+
-|  Header: "Scopri"                                         |
+|  [Header + Week Calendar]                                 |
 +-----------------------------------------------------------+
-|  [Personal Trainer]  [Eventi]  [Professionisti]           |
+|  [CTA Banner / Achievement Banner]                        |
++-----------------------------------------------------------+
+|  [Today's Workout Card]                                   |
++-----------------------------------------------------------+
+|  [Weekly Stats Section]                                   |
+|  +-------+  +-------+  +-------+                          |
+|  | Stats |  | Stats |  | Stats |                          |
+|  +-------+  +-------+  +-------+                          |
 +-----------------------------------------------------------+
 |                                                           |
-|  Se Atleta Connesso + Tab PT:                             |
+|  ★ NUOVO: AI ASSISTANT CARD ★                             |
 |  +-------------------------------------------------------+|
-|  |  Banner: "Sei gia connesso a [Nome PT]"               ||
-|  +-------------------------------------------------------+|
-|  |  Lista PT (solo esplorazione, no richiesta connessione)||
-|  +-------------------------------------------------------+|
-|                                                           |
-|  Se Atleta Connesso + Tab Eventi:                         |
-|  +-------------------------------------------------------+|
-|  |  Banner: "Sei collegato! Partecipa agli eventi"       ||
-|  +-------------------------------------------------------+|
-|  |  Lista eventi pubblici                                ||
+|  | [🐝 Ape Icon]  Ciao! Sono BeeBot, il tuo assistente   ||
+|  |                Chiedimi info su allenamenti, eventi,  ||
+|  |                professionisti o il tuo PT!            ||
+|  |                                                       ||
+|  |  [Input: "Chiedi qualcosa..."]              [Invia →] ||
 |  +-------------------------------------------------------+|
 |                                                           |
-|  Tab Professionisti: Invariato (per tutti)                |
-|                                                           |
++-----------------------------------------------------------+
+|  [Teammates Section]                                      |
++-----------------------------------------------------------+
+|  [Progress Stats]                                         |
 +-----------------------------------------------------------+
 ```
 
 ---
 
-## Dettaglio Implementazione
+## File da Creare/Modificare
 
-### 1. Rimuovere Early Return
+| File | Azione |
+|------|--------|
+| `src/components/app/AIAssistantCard.tsx` | **NUOVO** - Componente principale |
+| `src/components/app/BeeIcon.tsx` | **NUOVO** - Icona SVG ape stilizzata |
+| `src/pages/atleta/AtletaAppHome.tsx` | Modificare per includere AIAssistantCard |
 
-```typescript
-// RIMUOVERE questo blocco:
-if (isConnected) {
-  return <ConnectedAthleteEventsView />;
-}
-```
+---
 
-### 2. Passare isConnected ai componenti
+## Nuovo Componente: BeeIcon.tsx
 
-```typescript
-{activeCategory === 'pt' && <PTSearchSection isConnected={isConnected} ptName={ptName} />}
-{activeCategory === 'events' && <EventsSection isConnected={isConnected} />}
-{activeCategory === 'professionals' && <ProfessionalsSection />}
-```
-
-### 3. Aggiungere Banner in PTSearchSection
+Creare un'icona SVG di ape stilizzata con:
+- Corpo color lime (#D4FF00)
+- Strisce nere
+- Ali con effetto glow
+- Design minimalista e moderno
 
 ```tsx
-{isConnected && (
-  <div className="bg-app-accent/20 rounded-xl p-4 border border-app-accent/30 mb-4">
-    <p className="text-app-foreground">
-      Sei gia connesso a <strong>{ptName}</strong>. 
-      Esplora altri professionisti della community.
-    </p>
-  </div>
-)}
+// Design dell'ape:
+// - Corpo ovale lime con strisce nere
+// - Due ali trasparenti con bordo lime
+// - Antenne stilizzate
+// - Animazione hover per le ali
 ```
 
-### 4. Aggiungere Banner in EventsSection
+---
+
+## Nuovo Componente: AIAssistantCard.tsx
+
+### Struttura UI
 
 ```tsx
-{isConnected && (
-  <div className="bg-app-accent/20 rounded-xl p-4 border border-app-accent/30 mb-4">
-    <PartyPopper className="h-5 w-5 text-app-accent" />
-    <h2>Sei collegato a un PT!</h2>
-    <p>Esplora gli eventi della community e partecipa!</p>
+<motion.div className="bg-gradient-to-br from-app-accent/10 to-transparent 
+                        rounded-2xl p-4 border border-app-accent/30">
+  {/* Header con icona ape */}
+  <div className="flex items-center gap-3 mb-3">
+    <BeeIcon className="h-10 w-10" />
+    <div>
+      <h3 className="font-bold text-white">BeeBot</h3>
+      <p className="text-xs text-app-muted-foreground">Il tuo assistente AI</p>
+    </div>
   </div>
+
+  {/* Messaggio di benvenuto */}
+  <p className="text-sm text-white/80 mb-4">
+    Ciao! Posso aiutarti con info su allenamenti, eventi, 
+    professionisti e molto altro. Cosa vuoi sapere?
+  </p>
+
+  {/* Quick actions */}
+  <div className="flex flex-wrap gap-2 mb-4">
+    <QuickActionButton label="Prossimi eventi" />
+    <QuickActionButton label="Trova nutrizionista" />
+    <QuickActionButton label="I miei progressi" />
+  </div>
+
+  {/* Input per messaggio */}
+  <div className="flex items-center gap-2">
+    <Input placeholder="Chiedi qualcosa..." />
+    <Button><Send /></Button>
+  </div>
+</motion.div>
+```
+
+### Funzionalità
+
+1. **Quick Actions**: Pulsanti rapidi per domande frequenti
+2. **Input Chat**: Campo di testo per domande libere
+3. **Animazioni**: Ingresso animato con framer-motion
+4. **Stato Espanso**: Click sull'ape apre una chat più completa (futuro)
+
+---
+
+## Design dell'Ape Stilizzata
+
+```text
+    \\  //      <- Antenne (lime)
+      ██        <- Testa (lime)
+   ╔══████══╗   <- Ali (lime trasparente con glow)
+   ║ ▓▓▓▓▓▓ ║   <- Corpo con strisce (lime + nero)
+   ╚══════╝     
+```
+
+### Specifiche SVG
+
+- **Colore primario**: hsl(66, 100%, 50%) - App Accent Lime
+- **Colore strisce**: #000 (nero)
+- **Ali**: Stroke lime con fill trasparente
+- **Effetto glow**: drop-shadow con app-accent
+
+---
+
+## Integrazione nella Home
+
+### Posizione
+
+Inserire `<AIAssistantCard />` dopo `WeeklyStatsSection` e prima di `TeammatesSection`:
+
+```tsx
+{/* Weekly Stats */}
+{weeklyStats && (
+  <WeeklyStatsSection ... />
 )}
+
+{/* ★ NUOVO: AI Assistant ★ */}
+<AIAssistantCard />
+
+{/* Teammates Section */}
+<TeammatesSection />
 ```
 
 ---
 
-## File da Modificare
+## Quick Actions Suggeriti
 
-| File | Modifica |
-|------|----------|
-| `src/pages/atleta/AtletaDiscoverPage.tsx` | Rimuovere early return, passare props isConnected |
-| `src/components/app/EventsSection.tsx` | Aggiungere prop isConnected e banner |
+| Azione | Comportamento |
+|--------|---------------|
+| "Prossimi eventi" | Naviga a /app/discover con tab eventi |
+| "Trova nutrizionista" | Naviga a /app/discover con tab professionisti |
+| "I miei progressi" | Naviga a /app/progress |
+| "Parla col PT" | Naviga a /app/chat |
 
 ---
 
-## Riepilogo
+## Stile e Animazioni
 
-- **1 file principale** da modificare: `AtletaDiscoverPage.tsx`
-- **1 componente** da aggiornare: `EventsSection.tsx`
-- Nessuna modifica al database
-- Modifica puramente di UI/UX
+### Card Container
+- Background: `from-app-accent/10 to-transparent` (gradient sottile lime)
+- Border: `border-app-accent/30` (bordo lime tenue)
+- Hover: Leggero scale e glow
 
+### Ape Icon
+- Animazione `hover`: Ali che vibrano leggermente
+- Animazione `pulse`: Leggero pulsare quando "pensa"
+
+### Input
+- Stile: `bg-app-muted rounded-full`
+- Placeholder: "Chiedi qualcosa..."
+- Button: `bg-app-accent text-black rounded-full`
+
+---
+
+## Riepilogo Implementazione
+
+| Fase | Dettaglio |
+|------|-----------|
+| 1 | Creare `BeeIcon.tsx` - SVG ape stilizzata |
+| 2 | Creare `AIAssistantCard.tsx` - Card completa |
+| 3 | Modificare `AtletaAppHome.tsx` - Inserire card |
+
+**Totale file**: 2 nuovi + 1 modifica
+
+---
+
+## Note Tecniche
+
+1. L'assistente AI è solo UI per ora (no backend AI collegato)
+2. I quick actions navigano a pagine esistenti
+3. L'input chat può essere esteso in futuro con integrazione AI vera
+4. Il componente è visibile solo per atleti connessi (sotto le stats)
+5. Lo stile segue il design system esistente (tema scuro + lime)
