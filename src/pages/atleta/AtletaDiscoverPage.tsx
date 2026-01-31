@@ -19,6 +19,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { PTMapView } from '@/components/app/PTMapView';
 import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { PublicEventCard } from '@/components/app/PublicEventCard';
+import { ProfessionalsSection } from '@/components/app/ProfessionalsSection';
+import { EventsSection } from '@/components/app/EventsSection';
 import { 
   Search, 
   MapPin, 
@@ -33,12 +35,15 @@ import {
   Map,
   List,
   PartyPopper,
-  CalendarDays
+  CalendarDays,
+  Dumbbell,
+  Calendar,
+  Briefcase
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // =====================================================
-// ATLETA DISCOVER PAGE - Ricerca PT con GPS & Filtri
+// ATLETA DISCOVER PAGE - Ricerca PT, Eventi, Professionisti
 // Design: dark theme + lime accent
 // =====================================================
 
@@ -277,9 +282,11 @@ function ConnectedAthleteEventsView() {
   );
 }
 
-export function AtletaDiscoverPage() {
-  const { isConnected } = useAtletaStatus();
-  
+// =====================================================
+// PT SEARCH VIEW (REFACTORED AS COMPONENT)
+// =====================================================
+
+function PTSearchSection() {
   // Location state
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -481,17 +488,11 @@ export function AtletaDiscoverPage() {
 
   const hasActiveFilters = priceRange[0] > 0 || priceRange[1] < 150 || onlineOnly || inPersonOnly || selectedSpecs.length > 0 || distanceRange < 50 || cityFilter;
 
-  // Show Events section for connected athletes
-  if (isConnected) {
-    return <ConnectedAthleteEventsView />;
-  }
-
   return (
-    <div className="min-h-screen bg-app-background pb-4">
-      {/* Header with search */}
-      <div className="sticky top-0 z-40 bg-app-background/95 backdrop-blur border-b border-app-border p-4 space-y-3">
+    <div className="space-y-4">
+      {/* Search and filters bar */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-app-foreground">Trova il tuo PT</h1>
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'map')}>
             <TabsList className="bg-app-muted">
               <TabsTrigger value="list" className="data-[state=active]:bg-app-card">
@@ -711,7 +712,7 @@ export function AtletaDiscoverPage() {
 
       {/* Map View */}
       {viewMode === 'map' && (
-        <div className="h-[60vh]">
+        <div className="h-[50vh] rounded-xl overflow-hidden">
           <PTMapView 
             pts={filteredPts}
             userLocation={userLocation}
@@ -723,7 +724,7 @@ export function AtletaDiscoverPage() {
 
       {/* Results */}
       <AnimatePresence mode="popLayout">
-        <div className="p-4 space-y-3">
+        <div className="space-y-3">
           {/* Results count */}
           <p className="text-sm text-app-muted-foreground">
             {filteredPts.length} PT trovati
@@ -834,6 +835,64 @@ export function AtletaDiscoverPage() {
           )}
         </div>
       </AnimatePresence>
+    </div>
+  );
+}
+
+// =====================================================
+// MAIN DISCOVER PAGE COMPONENT
+// =====================================================
+
+export function AtletaDiscoverPage() {
+  const { isConnected } = useAtletaStatus();
+  const [activeCategory, setActiveCategory] = useState<'pt' | 'events' | 'professionals'>('pt');
+
+  // Show simplified view for connected athletes
+  if (isConnected) {
+    return <ConnectedAthleteEventsView />;
+  }
+
+  return (
+    <div className="min-h-screen bg-app-background pb-24">
+      {/* Header */}
+      <div className="sticky top-0 z-40 bg-app-background/95 backdrop-blur border-b border-app-border p-4 space-y-3">
+        <h1 className="text-xl font-bold text-app-foreground">Scopri</h1>
+        
+        {/* Category Tabs */}
+        <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as 'pt' | 'events' | 'professionals')}>
+          <TabsList className="w-full bg-app-muted">
+            <TabsTrigger 
+              value="pt" 
+              className="flex-1 data-[state=active]:bg-app-accent data-[state=active]:text-app-accent-foreground gap-1.5"
+            >
+              <Dumbbell className="h-4 w-4" />
+              <span className="hidden sm:inline">Personal</span> Trainer
+            </TabsTrigger>
+            <TabsTrigger 
+              value="events" 
+              className="flex-1 data-[state=active]:bg-app-accent data-[state=active]:text-app-accent-foreground gap-1.5"
+            >
+              <Calendar className="h-4 w-4" />
+              Eventi
+            </TabsTrigger>
+            <TabsTrigger 
+              value="professionals" 
+              className="flex-1 data-[state=active]:bg-app-accent data-[state=active]:text-app-accent-foreground gap-1.5"
+            >
+              <Briefcase className="h-4 w-4" />
+              <span className="hidden sm:inline">Professionisti</span>
+              <span className="sm:hidden">Prof.</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Content based on active category */}
+      <div className="p-4">
+        {activeCategory === 'pt' && <PTSearchSection />}
+        {activeCategory === 'events' && <EventsSection />}
+        {activeCategory === 'professionals' && <ProfessionalsSection />}
+      </div>
     </div>
   );
 }
