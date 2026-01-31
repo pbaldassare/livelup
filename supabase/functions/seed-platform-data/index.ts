@@ -732,17 +732,17 @@ Deno.serve(async (req) => {
     if (!existingPublicEvents || existingPublicEvents.length === 0) {
       const now = new Date();
       const publicEvents = [
-        // CrossFit Day Brescia - organized by PT1
+        // Calisthenics Day Brescia - organized by PT1
         {
           creator_user_id: pt1Id,
           pt_user_id: pt1Id,
-          title: 'CrossFit Day Brescia',
-          description: 'Giornata di allenamento CrossFit aperta a tutti! Porterai il tuo corpo al limite con WOD intensi e divertenti. Adatto a tutti i livelli.',
+          title: 'Calisthenics Day Brescia',
+          description: 'Giornata di allenamento Calisthenics aperta a tutti! Scopri la forza a corpo libero con esercizi intensi e divertenti. Adatto a tutti i livelli.',
           event_type: 'raduno',
           is_public: true,
           start_datetime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           end_datetime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 5 * 60 * 60 * 1000).toISOString(),
-          location: 'CrossFit Box Brescia, Via Triumplina 84, Brescia',
+          location: 'Parco Tarello, Via Triumplina 84, Brescia',
           location_lat: 45.5416,
           location_lng: 10.2118,
         },
