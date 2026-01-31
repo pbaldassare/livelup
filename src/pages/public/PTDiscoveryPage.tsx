@@ -58,7 +58,6 @@ interface PTProfile {
 const SPECIALIZATIONS = [
   'Bodybuilding',
   'Calisthenics',
-  'Crossfit',
   'Functional Training',
   'HIIT',
   'Pilates',

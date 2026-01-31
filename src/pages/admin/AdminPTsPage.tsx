@@ -111,7 +111,7 @@ const LEVEL_OPTIONS: { value: PTLevel; label: string }[] = [
 
 const SPECIALIZATION_SUGGESTIONS = [
   'Bodybuilding',
-  'Crossfit',
+  'Calisthenics',
   'Powerlifting',
   'Yoga',
   'Pilates',

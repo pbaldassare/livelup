@@ -46,13 +46,12 @@ const GOOGLE_MAPS_API_KEY = 'AIzaSyA76iVcQpSnl76_G6bJVnEeOUmWVd7278I';
 
 const SPECIALIZATIONS = [
   'Bodybuilding',
-  'Crossfit',
+  'Calisthenics',
   'Yoga',
   'Pilates',
   'Functional Training',
   'Cardio',
   'HIIT',
-  'Calisthenics',
   'Powerlifting',
   'Rehab',
 ];

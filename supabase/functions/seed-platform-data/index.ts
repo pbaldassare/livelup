@@ -452,18 +452,18 @@ Deno.serve(async (req) => {
         { creator_user_id: pt2Id, pt_user_id: pt2Id, atleta_user_id: atleta2Id, title: 'Allenamento Cardio', event_type: 'allenamento', start_datetime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000 + 18 * 60 * 60 * 1000).toISOString(), end_datetime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000 + 19 * 60 * 60 * 1000).toISOString(), is_public: false },
         
         // ===== 4 PUBLIC EVENTS WITH GPS COORDINATES =====
-        // 1. CrossFit Day Brescia - Raduno (+7 giorni)
+        // 1. Calisthenics Day Brescia - Raduno (+7 giorni)
         { 
           creator_user_id: pt1Id, 
           pt_user_id: pt1Id, 
-          title: 'CrossFit Day Brescia', 
+          title: 'Calisthenics Day Brescia', 
           event_type: 'raduno', 
           start_datetime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 9 * 60 * 60 * 1000).toISOString(), 
           end_datetime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000).toISOString(), 
-          location: 'CrossFit Box Brescia, Via San Zeno 99, Brescia', 
+          location: 'Parco Calisthenics Brescia, Via San Zeno 99, Brescia', 
           location_lat: 45.5416,
           location_lng: 10.2118,
-          description: 'Grande raduno CrossFit aperto a tutti i livelli! WOD di gruppo, sfide a squadre e tanto divertimento. Portate energia e voglia di sudare! 💪', 
+          description: 'Grande raduno Calisthenics aperto a tutti i livelli! Skill challenge, workout di gruppo e tanto divertimento. Portate energia e voglia di sudare! 💪', 
           is_public: true, 
           is_all_day: false 
         },
