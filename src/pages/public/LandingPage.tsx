@@ -85,7 +85,7 @@ export function LandingPage() {
               Piattaforma Enterprise
             </div>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
-              La piattaforma per PT e atleti che sostituisce{' '}
+              Il tuo ecosistema che sostituisce{' '}
               <span className="text-gradient-primary">tutto il resto</span>
             </h1>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl">
