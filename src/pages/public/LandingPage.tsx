@@ -101,7 +101,7 @@ export function LandingPage() {
               </Button>
               <Button size="lg" variant="outline" asChild>
                 <Link to="/pts">
-                  Trova un Personal Trainer
+                  Trova un Professionista
                 </Link>
               </Button>
               {showInstallButton && (
