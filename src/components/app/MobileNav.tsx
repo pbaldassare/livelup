@@ -21,7 +21,7 @@ interface MobileNavProps {
 const atletaNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/app' },
   { icon: Search, label: 'Scopri', path: '/app/discover' },
-  { icon: Dumbbell, label: 'Workout', path: '/app/workout' },
+  { icon: Dumbbell, label: 'Attività', path: '/app/workout' },
   { icon: TrendingUp, label: 'Progressi', path: '/app/progress' },
   { icon: User, label: 'Profilo', path: '/app/profile' },
 ];
