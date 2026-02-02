@@ -56,7 +56,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       ]
     : [
         { label: 'Home', href: '/app', icon: Home, exact: true },
-        { label: 'Workout', href: '/app/workout', icon: Dumbbell },
+        { label: 'Attività', href: '/app/workout', icon: Dumbbell },
         { label: 'Scopri', href: '/app/discover', icon: Search },
         { label: 'Progressi', href: '/app/progress', icon: TrendingUp },
         { label: 'Profilo', href: '/app/profile', icon: User },
