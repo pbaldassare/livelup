@@ -27,6 +27,7 @@ import {
   GripVertical, 
   Dumbbell,
 } from 'lucide-react';
+import { ImageUpload } from '@/components/common/ImageUpload';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
