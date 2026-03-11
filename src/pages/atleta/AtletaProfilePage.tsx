@@ -120,20 +120,59 @@ export function AtletaProfilePage() {
   // Loading state
   const isLoading = isLoadingProfile || isLoadingStats;
 
-  // Fetch badges
-  const { data: badges } = useQuery({
+  // Fetch all active badges
+  const { data: allBadges } = useQuery({
+    queryKey: ['all-badges'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('badges')
+        .select('*')
+        .eq('is_active', true);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch earned badges
+  const { data: earnedBadges } = useQuery({
     queryKey: ['atleta-badges', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('atleta_badges')
-        .select('*, badges(*)')
+        .select('*')
         .eq('atleta_user_id', user.id);
       if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
   });
+
+  // Merge badges with earned status
+  const earnedBadgeIds = new Set(earnedBadges?.map(eb => eb.badge_id) || []);
+  const earnedBadgeMap = new Map(earnedBadges?.map(eb => [eb.badge_id, eb.earned_at]) || []);
+  
+  const badgesByCategory = (allBadges || []).reduce((acc, badge) => {
+    const cat = badge.category || 'Altro';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push({
+      ...badge,
+      earned: earnedBadgeIds.has(badge.id),
+      earnedAt: earnedBadgeMap.get(badge.id),
+    });
+    return acc;
+  }, {} as Record<string, Array<typeof allBadges[number] & { earned: boolean; earnedAt?: string }>>);
+
+  // Find next milestone badge (first unearned workout badge)
+  const nextMilestone = (allBadges || [])
+    .filter(b => !earnedBadgeIds.has(b.id) && (b.criteria as any)?.type === 'workouts_completed')
+    .sort((a, b) => ((a.criteria as any)?.count || 0) - ((b.criteria as any)?.count || 0))[0];
+
+  const categoryLabels: Record<string, string> = {
+    'Allenamento': '💪 Allenamento',
+    'Streak': '🔥 Streak',
+    'Social': '🤝 Social',
+  };
 
   // Terminate connection mutation
   const terminateMutation = useMutation({
