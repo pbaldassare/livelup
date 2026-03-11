@@ -1,14 +1,15 @@
 import { cn } from '@/lib/utils';
-
-// =====================================================
-// BADGE CARD - Badge display with progress
-// Design reference: Ladder_iOS_118.png
-// =====================================================
+import { Lock } from 'lucide-react';
+import { format } from 'date-fns';
+import { it } from 'date-fns/locale';
 
 interface BadgeCardProps {
   name: string;
-  value: string | number;
-  iconUrl?: string;
+  description?: string;
+  emoji?: string;
+  earned?: boolean;
+  earnedAt?: string;
+  points?: number;
   variant?: 'large' | 'small';
   progress?: {
     current: number;
@@ -19,81 +20,98 @@ interface BadgeCardProps {
 
 export function BadgeCard({
   name,
-  value,
-  iconUrl,
+  description,
+  emoji,
+  earned = true,
+  earnedAt,
+  points,
   variant = 'small',
   progress,
   className,
 }: BadgeCardProps) {
   const progressPercent = progress 
-    ? (progress.current / progress.max) * 100 
+    ? Math.min((progress.current / progress.max) * 100, 100) 
     : 0;
 
   if (variant === 'large') {
     return (
       <div className={cn('flex flex-col items-center py-6', className)}>
-        {/* Large badge circle */}
-        <div className="relative w-48 h-48">
-          {/* Outer ring */}
-          <div className="absolute inset-0 rounded-full border-8 border-gray-600 bg-gradient-to-b from-gray-400 to-gray-600 shadow-xl" />
-          
-          {/* Inner content */}
-          <div className="absolute inset-4 rounded-full bg-app-background flex flex-col items-center justify-center border-2 border-gray-500">
-            <span className="text-xs text-app-muted-foreground uppercase tracking-wider">LADDER</span>
-            <span className="text-5xl font-bold text-app-foreground">{value}</span>
-          </div>
-          
-          {/* Progress ring */}
+        <div className="relative w-40 h-40">
+          {/* Background ring */}
           <svg className="absolute inset-0 w-full h-full -rotate-90">
             <circle
               cx="50%"
               cy="50%"
-              r="45%"
+              r="46%"
               fill="none"
-              strokeWidth="8"
-              stroke="hsl(var(--app-accent))"
-              strokeDasharray={`${progressPercent * 2.83} 283`}
-              className="transition-all duration-700"
+              strokeWidth="6"
+              className="stroke-app-muted"
+            />
+            <circle
+              cx="50%"
+              cy="50%"
+              r="46%"
+              fill="none"
+              strokeWidth="6"
+              className="stroke-app-accent"
+              strokeLinecap="round"
+              strokeDasharray={`${progressPercent * 2.89} 289`}
+              style={{ transition: 'stroke-dasharray 0.7s ease' }}
             />
           </svg>
+          
+          {/* Inner content */}
+          <div className="absolute inset-4 rounded-full bg-app-card flex flex-col items-center justify-center">
+            {emoji && <span className="text-4xl mb-1">{emoji}</span>}
+            {progress && (
+              <span className="text-2xl font-bold text-app-foreground">
+                {progress.current}/{progress.max}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Progress bar */}
-        {progress && (
-          <div className="w-full max-w-xs mt-6 px-4">
-            <div className="flex justify-between text-sm text-app-foreground mb-2">
-              <span>{progress.current}</span>
-              <span>{progress.max}</span>
-            </div>
-            <div className="h-2 bg-app-muted rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-app-foreground rounded-full transition-all duration-500"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
+        <h3 className="text-base font-semibold text-app-foreground mt-4">{name}</h3>
+        {description && (
+          <p className="text-sm text-app-muted-foreground mt-1 text-center max-w-xs">{description}</p>
         )}
       </div>
     );
   }
 
   return (
-    <div className={cn('flex flex-col items-center', className)}>
-      {/* Small badge icon */}
-      <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-app-muted to-app-background flex items-center justify-center mb-2 overflow-hidden">
-        {iconUrl ? (
-          <img src={iconUrl} alt={name} className="w-16 h-16 object-contain" />
+    <div className={cn(
+      'flex flex-col items-center text-center',
+      !earned && 'opacity-50',
+      className
+    )}>
+      <div className={cn(
+        'w-16 h-16 rounded-2xl flex items-center justify-center mb-2 relative',
+        earned ? 'bg-app-accent/15' : 'bg-app-muted'
+      )}>
+        {emoji ? (
+          <span className={cn('text-2xl', !earned && 'grayscale')}>{emoji}</span>
         ) : (
-          <div className="w-16 h-16 bg-app-muted rounded-xl flex items-center justify-center">
-            <span className="text-2xl font-bold text-app-accent">{value}</span>
+          <span className="text-2xl">🏆</span>
+        )}
+        {!earned && (
+          <div className="absolute inset-0 rounded-2xl flex items-center justify-center bg-app-background/60">
+            <Lock className="h-4 w-4 text-app-muted-foreground" />
           </div>
         )}
       </div>
       
-      <span className="text-xs text-app-foreground text-center">{name}</span>
-      <span className="text-xs text-app-muted-foreground bg-app-muted px-2 py-0.5 rounded-full mt-1">
-        {value}
-      </span>
+      <span className="text-xs font-medium text-app-foreground leading-tight">{name}</span>
+      {earned && earnedAt && (
+        <span className="text-[10px] text-app-muted-foreground mt-0.5">
+          {format(new Date(earnedAt), 'd MMM yyyy', { locale: it })}
+        </span>
+      )}
+      {earned && points != null && points > 0 && (
+        <span className="text-[10px] text-app-accent font-medium mt-0.5">
+          +{points} pt
+        </span>
+      )}
     </div>
   );
 }
