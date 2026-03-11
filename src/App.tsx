@@ -440,6 +440,18 @@ const App = () => {
                   </AppLayout>
                 </AtletaRoute>
               } />
+              <Route path="/app/booking" element={
+                <AtletaRoute>
+                  <AtletaBookingPage />
+                </AtletaRoute>
+              } />
+
+              {/* PT Onboarding */}
+              <Route path="/pt/onboarding" element={
+                <PTAppRoute>
+                  <PTOnboardingPage />
+                </PTAppRoute>
+              } />
 
               {/* ============================================= */}
               {/* CATCH-ALL                                    */}
