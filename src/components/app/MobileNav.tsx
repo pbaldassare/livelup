@@ -29,8 +29,8 @@ const atletaNavItems: NavItem[] = [
 const ptNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/pt/app' },
   { icon: Users, label: 'Atleti', path: '/pt/app/athletes' },
+  { icon: Calendar, label: 'Calendario', path: '/pt/app/calendar' },
   { icon: Dumbbell, label: 'Schede', path: '/pt/app/workouts' },
-  { icon: MessageSquare, label: 'Chat', path: '/pt/app/chat' },
   { icon: User, label: 'Profilo', path: '/pt/app/profile' },
 ];
 
