@@ -90,7 +90,8 @@ export function PTCalendarPage() {
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
-        .eq('creator_user_id', user.id)
+        .eq('pt_user_id', user.id)
+        .eq('is_cancelled', false)
         .order('start_datetime', { ascending: true });
 
       if (error) throw error;
