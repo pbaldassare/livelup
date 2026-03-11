@@ -188,9 +188,9 @@ export function PTAppWorkoutsPage() {
       {/* Assign Workout Dialog */}
       <AssignWorkoutDialog
         open={showAssignDialog}
-        onOpenChange={setShowAssignDialog}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['pt-workouts-app'] });
+        onOpenChange={(open) => {
+          setShowAssignDialog(open);
+          if (!open) queryClient.invalidateQueries({ queryKey: ['pt-workouts-app'] });
         }}
       />
     </div>
