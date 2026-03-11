@@ -1,36 +1,37 @@
 
+# Modifica: "Workout" → "Attività" nella Navbar
 
-# Piano: Punto 6 — Badge Predefiniti, Trigger e Visualizzazione Profilo
+## Cambiamento Richiesto
+Sostituire la label "Workout" con "Attività" nella barra di navigazione in basso dell'app atleta.
 
-## Stato Attuale
+## File da Modificare
 
-**Già implementato:**
-- 13 badge predefiniti nel DB (workout count, streak, social)
-- Trigger `check_and_award_badges` su tabella `workouts` (assegna badge automaticamente al completamento)
-- Trigger `check_cheer_badges` su tabella `cheers`
-- Query `atleta-badges` in `AtletaProfilePage` che recupera i badge guadagnati
+| File | Riga | Modifica |
+|------|------|----------|
+| `src/components/layouts/AppLayout.tsx` | 59 | `label: 'Workout'` → `label: 'Attività'` |
+| `src/components/app/MobileNav.tsx` | 24 | `label: 'Workout'` → `label: 'Attività'` |
 
-**Problema:** Il tab "Badges" nel profilo atleta (righe 312-331) mostra dati mock/statici (stats generiche) invece dei badge reali dal DB. I badge guadagnati vengono fetchati ma mai renderizzati.
+## Dettaglio Tecnico
 
-## Modifiche
+### AppLayout.tsx (riga 59)
+```tsx
+// Da:
+{ label: 'Workout', href: '/app/workout', icon: Dumbbell },
 
-### 1. `src/pages/atleta/AtletaProfilePage.tsx`
-Riscrivere il `TabsContent` "badges" per:
-- Fetchare **tutti i badge attivi** (non solo quelli guadagnati) per mostrare locked/unlocked
-- Mostrare griglia con badge guadagnati (colorati) e non guadagnati (grigi/locked)
-- Badge grande principale = prossimo traguardo con progress bar
-- Sezioni raggruppate per categoria: "Allenamento", "Streak", "Social"
+// A:
+{ label: 'Attività', href: '/app/workout', icon: Dumbbell },
+```
 
-### 2. `src/components/app/BadgeCard.tsx`
-Aggiornare il componente per supportare:
-- Prop `earned: boolean` — se false, mostra versione grigia/locked
-- Prop `earnedAt?: string` — data conseguimento
-- Prop `emoji?: string` — usa emoji come icona (il DB usa `icon_url` con emoji)
-- Prop `description?: string` — tooltip/sottotitolo
+### MobileNav.tsx (riga 24)
+```tsx
+// Da:
+{ icon: Dumbbell, label: 'Workout', path: '/app/workout' },
 
-### 3. Nuova query: tutti i badge disponibili
-Aggiungere query per fetchare `badges` (tutti attivi) e fare join client-side con `atleta_badges` per determinare stato earned/locked.
+// A:
+{ icon: Dumbbell, label: 'Attività', path: '/app/workout' },
+```
 
-## Nessuna modifica DB necessaria
-Badge e trigger sono già configurati correttamente. I 4 badge vecchi (seed iniziale) con criteri diversi (`workout_count`, `workout_streak`, `connection_count`) non matchano i criteri del trigger (`workouts_completed`, `streak_weeks`, `first_cheer`), ma non causano problemi — semplicemente non verranno mai assegnati. Si possono pulire in futuro.
-
+## Note
+- Il percorso URL resta `/app/workout` (identificatori tecnici non cambiano)
+- Solo la label visibile all'utente viene modificata
+- Coerente con la terminologia del progetto che preferisce "Attività" a "Workout"
