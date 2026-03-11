@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Check, ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react';
@@ -24,6 +24,8 @@ interface SetTrackerProps {
   onSetComplete: (setNumber: number, reps: number, weight?: number, rpe?: number) => void;
   onSetChange: (setNumber: number) => void;
   restSeconds?: number;
+  initialReps?: number;
+  initialWeight?: number;
 }
 
 const RPE_LABELS: Record<number, string> = {
@@ -40,19 +42,41 @@ export function SetTracker({
   onSetComplete,
   onSetChange,
   restSeconds = 60,
+  initialReps,
+  initialWeight,
 }: SetTrackerProps) {
-  const [reps, setReps] = useState<number>(0);
-  const [weight, setWeight] = useState<number>(0);
-  const [rpe, setRpe] = useState<number>(7);
-  const [showDetails, setShowDetails] = useState(false);
-
   const current = sets.find(s => s.setNumber === currentSet);
 
-  // Pre-populate from previous set data
+  // Pre-fill: initialReps > prescribedReps parsed > 0
+  const getDefaultReps = () => {
+    if (initialReps !== undefined && initialReps > 0) return initialReps;
+    if (current?.prescribedReps) {
+      const parsed = parseInt(current.prescribedReps);
+      if (!isNaN(parsed)) return parsed;
+    }
+    return 0;
+  };
+
+  const getDefaultWeight = () => {
+    if (initialWeight !== undefined && initialWeight > 0) return initialWeight;
+    return current?.prescribedWeight || 0;
+  };
+
+  const [reps, setReps] = useState<number>(getDefaultReps());
+  const [weight, setWeight] = useState<number>(getDefaultWeight());
+  const [rpe, setRpe] = useState<number>(7);
+  const [showDetails, setShowDetails] = useState(true);
+
+  // Re-sync when currentSet or initial values change
+  useEffect(() => {
+    setReps(getDefaultReps());
+    setWeight(getDefaultWeight());
+  }, [currentSet, initialReps, initialWeight]);
+
   const handleComplete = () => {
     onSetComplete(currentSet, reps, weight || undefined, rpe);
-    // Pre-fill next set with same weight
-    setReps(0);
+    // Keep weight for next set, reset reps to prescribed
+    setReps(getDefaultReps());
   };
 
   const incrementReps = () => setReps(prev => prev + 1);
@@ -105,66 +129,9 @@ export function SetTracker({
       {/* Detailed input (collapsible) */}
       {showDetails && (
         <div className="space-y-4 pt-2">
-          {/* Reps input */}
-          <div className="flex items-center justify-between">
-            <span className="text-app-foreground font-medium">Reps completate</span>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={decrementReps}
-                className="h-10 w-10 rounded-full border-app-border"
-              >
-                <Minus className="h-4 w-4" />
-              </Button>
-              <Input
-                type="number"
-                value={reps}
-                onChange={(e) => setReps(parseInt(e.target.value) || 0)}
-                className="w-16 text-center bg-app-muted border-app-border text-app-foreground text-lg font-bold"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={incrementReps}
-                className="h-10 w-10 rounded-full border-app-border"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <SetInput label="Reps completate" value={reps} onChange={setReps} onIncrement={incrementReps} onDecrement={decrementReps} step={1} />
+          <SetInput label="Peso (kg)" value={weight} onChange={(v) => setWeight(v)} onIncrement={incrementWeight} onDecrement={decrementWeight} step={0.5} />
 
-          {/* Weight input */}
-          <div className="flex items-center justify-between">
-            <span className="text-app-foreground font-medium">Peso (kg)</span>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={decrementWeight}
-                className="h-10 w-10 rounded-full border-app-border"
-              >
-                <Minus className="h-4 w-4" />
-              </Button>
-              <Input
-                type="number"
-                value={weight}
-                onChange={(e) => setWeight(parseFloat(e.target.value) || 0)}
-                className="w-16 text-center bg-app-muted border-app-border text-app-foreground text-lg font-bold"
-                step={0.5}
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={incrementWeight}
-                className="h-10 w-10 rounded-full border-app-border"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* RPE input */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-app-foreground font-medium">RPE (sforzo percepito)</span>
@@ -222,6 +189,37 @@ export function SetTracker({
             {set.isCompleted ? <Check className="h-4 w-4" /> : set.setNumber}
           </button>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// Extracted sub-component for reps/weight input rows
+function SetInput({ label, value, onChange, onIncrement, onDecrement, step }: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  onIncrement: () => void;
+  onDecrement: () => void;
+  step: number;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-app-foreground font-medium">{label}</span>
+      <div className="flex items-center gap-3">
+        <Button variant="outline" size="icon" onClick={onDecrement} className="h-10 w-10 rounded-full border-app-border">
+          <Minus className="h-4 w-4" />
+        </Button>
+        <Input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(step === 1 ? parseInt(e.target.value) || 0 : parseFloat(e.target.value) || 0)}
+          className="w-16 text-center bg-app-muted border-app-border text-app-foreground text-lg font-bold"
+          step={step}
+        />
+        <Button variant="outline" size="icon" onClick={onIncrement} className="h-10 w-10 rounded-full border-app-border">
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

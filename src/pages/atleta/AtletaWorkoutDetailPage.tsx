@@ -133,21 +133,46 @@ export function AtletaWorkoutDetailPage() {
     enabled: !!workoutId && !!workout,
   });
 
-  // Pre-populate completed sets from existing logs
+  // Pre-populate completed sets and stats from existing logs
   useEffect(() => {
-    if (existingLogs && existingLogs.length > 0) {
+    const wExercises = workout?.workout_exercises || [];
+    if (existingLogs && existingLogs.length > 0 && wExercises.length > 0) {
       const restored: Record<string, number[]> = {};
+      let resumedVolume = 0;
+      let resumedReps = 0;
+      let resumedSets = 0;
+
       existingLogs.forEach((log) => {
         if (log.is_completed) {
           if (!restored[log.workout_exercise_id]) {
             restored[log.workout_exercise_id] = [];
           }
           restored[log.workout_exercise_id].push(log.set_number);
+          resumedSets++;
+          resumedReps += log.reps_completed || 0;
+          resumedVolume += (log.reps_completed || 0) * (Number(log.weight_used) || 0);
         }
       });
       setCompletedSets(restored);
+      setTotalVolume(resumedVolume);
+      setTotalReps(resumedReps);
+      setTotalSetsCompleted(resumedSets);
+
+      // Auto-skip to first incomplete exercise
+      const firstIncompleteIdx = wExercises.findIndex((ex: any) => {
+        const completedCount = restored[ex.id]?.length || 0;
+        return completedCount < ex.prescribed_sets;
+      });
+      if (firstIncompleteIdx >= 0) {
+        setCurrentExerciseIndex(firstIncompleteIdx);
+        const ex = wExercises[firstIncompleteIdx] as any;
+        const completedForEx = restored[ex.id] || [];
+        const firstIncompleteSet = Array.from({ length: ex.prescribed_sets }, (_, i) => i + 1)
+          .find((s: number) => !completedForEx.includes(s)) || 1;
+        setCurrentSet(firstIncompleteSet);
+      }
     }
-  }, [existingLogs]);
+  }, [existingLogs, workout?.workout_exercises]);
 
   // Fetch PT profile for coach avatar
   const { data: ptProfile } = useQuery({
@@ -624,13 +649,24 @@ export function AtletaWorkoutDetailPage() {
       </div>
 
       <motion.div variants={slideUpVariants} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
-        <SetTracker
-          sets={setsData}
-          currentSet={currentSet}
-          onSetComplete={handleSetComplete}
-          onSetChange={setCurrentSet}
-          restSeconds={currentExercise?.rest_seconds || 60}
-        />
+        {(() => {
+          // Find last completed log for current exercise to pre-fill weight/reps
+          const logsForExercise = existingLogs?.filter(
+            l => l.workout_exercise_id === currentExercise?.id && l.is_completed
+          ) || [];
+          const lastLog = logsForExercise.sort((a, b) => b.set_number - a.set_number)[0];
+          return (
+            <SetTracker
+              sets={setsData}
+              currentSet={currentSet}
+              onSetComplete={handleSetComplete}
+              onSetChange={setCurrentSet}
+              restSeconds={currentExercise?.rest_seconds || 60}
+              initialReps={lastLog?.reps_completed ?? undefined}
+              initialWeight={lastLog?.weight_used != null ? Number(lastLog.weight_used) : undefined}
+            />
+          );
+        })()}
       </motion.div>
 
       <Sheet open={showTimer} onOpenChange={setShowTimer}>
