@@ -135,7 +135,8 @@ export function AtletaWorkoutDetailPage() {
 
   // Pre-populate completed sets and stats from existing logs
   useEffect(() => {
-    if (existingLogs && existingLogs.length > 0 && exercises.length > 0) {
+    const wExercises = workout?.workout_exercises || [];
+    if (existingLogs && existingLogs.length > 0 && wExercises.length > 0) {
       const restored: Record<string, number[]> = {};
       let resumedVolume = 0;
       let resumedReps = 0;
@@ -158,21 +159,20 @@ export function AtletaWorkoutDetailPage() {
       setTotalSetsCompleted(resumedSets);
 
       // Auto-skip to first incomplete exercise
-      const firstIncompleteIdx = exercises.findIndex((ex: WorkoutExercise) => {
+      const firstIncompleteIdx = wExercises.findIndex((ex: any) => {
         const completedCount = restored[ex.id]?.length || 0;
         return completedCount < ex.prescribed_sets;
       });
       if (firstIncompleteIdx >= 0) {
         setCurrentExerciseIndex(firstIncompleteIdx);
-        const ex = exercises[firstIncompleteIdx] as WorkoutExercise;
+        const ex = wExercises[firstIncompleteIdx] as any;
         const completedForEx = restored[ex.id] || [];
-        // Set to first non-completed set number
         const firstIncompleteSet = Array.from({ length: ex.prescribed_sets }, (_, i) => i + 1)
-          .find(s => !completedForEx.includes(s)) || 1;
+          .find((s: number) => !completedForEx.includes(s)) || 1;
         setCurrentSet(firstIncompleteSet);
       }
     }
-  }, [existingLogs, exercises.length]);
+  }, [existingLogs, workout?.workout_exercises]);
 
   // Fetch PT profile for coach avatar
   const { data: ptProfile } = useQuery({
