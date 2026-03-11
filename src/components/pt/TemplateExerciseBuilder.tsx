@@ -67,6 +67,7 @@ interface TemplateExerciseBuilderProps {
 }
 
 export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExerciseBuilderProps) {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
