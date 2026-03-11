@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +28,7 @@ import {
   GripVertical, 
   Dumbbell,
 } from 'lucide-react';
+import { ImageUpload } from '@/components/common/ImageUpload';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -65,6 +67,7 @@ interface TemplateExerciseBuilderProps {
 }
 
 export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExerciseBuilderProps) {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -459,6 +462,37 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
                                     className="min-h-[60px] text-sm resize-none"
                                   />
                                 </div>
+
+                                {/* Exercise image upload */}
+                                {user?.id && (
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Foto esercizio</Label>
+                                    <div className="flex items-center gap-3">
+                                      {te.exercise?.image_url && (
+                                        <img src={te.exercise.image_url} alt="" className="h-12 w-12 rounded object-cover" />
+                                      )}
+                                      <ImageUpload
+                                        bucket="exercise-images"
+                                        filePath={`${user.id}/${te.exercise_id}.{ext}`}
+                                        currentUrl={te.exercise?.image_url}
+                                        onUploadComplete={async (url) => {
+                                          const { error } = await supabase
+                                            .from('exercises')
+                                            .update({ image_url: url })
+                                            .eq('id', te.exercise_id);
+                                          if (error) {
+                                            toast.error("Errore upload immagine");
+                                          } else {
+                                            queryClient.invalidateQueries({ queryKey: ['template-exercises', templateId] });
+                                            toast.success('Immagine esercizio aggiornata');
+                                          }
+                                        }}
+                                        variant="inline"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
                               </div>
                             </div>
                           </CardContent>
