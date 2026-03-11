@@ -217,7 +217,7 @@ export function PTAppCalendarPage() {
           ))
         ) : selectedDateEvents.length > 0 ? (
           selectedDateEvents.map((event) => (
-            <EventCard key={event.id} event={event} />
+            <EventCard key={event.id} event={event} onCancel={(id) => cancelMutation.mutate(id)} />
           ))
         ) : (
           <Card className="border-dashed">
