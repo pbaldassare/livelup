@@ -217,12 +217,13 @@ export function PTAppCalendarPage() {
   );
 }
 
-function EventCard({ event }: { event: any }) {
+function EventCard({ event, onCancel }: { event: any; onCancel: (id: string) => void }) {
   const config = EVENT_TYPE_CONFIG[event.event_type as keyof typeof EVENT_TYPE_CONFIG] || EVENT_TYPE_CONFIG.altro;
   const Icon = config.icon;
   const atletaName = event.atletaProfile 
     ? `${event.atletaProfile.first_name || ''} ${event.atletaProfile.last_name || ''}`.trim()
     : null;
+  const isBookedByAthlete = event.creator_user_id !== event.pt_user_id && event.atleta_user_id;
 
   return (
     <Card>
@@ -236,7 +237,12 @@ function EventCard({ event }: { event: any }) {
           </div>
           
           <div className="flex-1">
-            <h3 className="font-semibold">{event.title}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold">{event.title}</h3>
+              {isBookedByAthlete && (
+                <Badge variant="secondary" className="text-[10px]">Prenotato</Badge>
+              )}
+            </div>
             
             <div className="flex flex-wrap gap-2 mt-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -260,6 +266,15 @@ function EventCard({ event }: { event: any }) {
               </Badge>
             )}
           </div>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={() => onCancel(event.id)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       </CardContent>
     </Card>
