@@ -491,7 +491,8 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
                                       />
                                     </div>
                                   </div>
-                                )
+                                )}
+
                               </div>
                             </div>
                           </CardContent>
