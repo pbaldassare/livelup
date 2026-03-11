@@ -36,6 +36,8 @@ interface CalendarEvent {
   location: string | null;
   is_public: boolean;
   atleta_user_id: string | null;
+  creator_user_id: string;
+  is_cancelled: boolean;
 }
 
 export function PTCalendarPage() {
