@@ -81,6 +81,10 @@ import AtletaSettingsPage from "./pages/atleta/AtletaSettingsPage";
 import AtletaHelpPage from "./pages/atleta/AtletaHelpPage";
 import AtletaEventDetailPage from "./pages/atleta/AtletaEventDetailPage";
 import AtletaProfessionalProfilePage from "./pages/atleta/AtletaProfessionalProfilePage";
+import AtletaBookingPage from "./pages/atleta/AtletaBookingPage";
+
+// PT pages
+import PTOnboardingPage from "./pages/pt/PTOnboardingPage";
 
 const queryClient = new QueryClient();
 
@@ -435,6 +439,18 @@ const App = () => {
                     <AtletaProfessionalProfilePage />
                   </AppLayout>
                 </AtletaRoute>
+              } />
+              <Route path="/app/booking" element={
+                <AtletaRoute>
+                  <AtletaBookingPage />
+                </AtletaRoute>
+              } />
+
+              {/* PT Onboarding */}
+              <Route path="/pt/onboarding" element={
+                <PTAppRoute>
+                  <PTOnboardingPage />
+                </PTAppRoute>
               } />
 
               {/* ============================================= */}
