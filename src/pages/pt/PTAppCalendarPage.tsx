@@ -40,8 +40,25 @@ const EVENT_TYPE_CONFIG = {
 
 export function PTAppCalendarPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [showCreateEvent, setShowCreateEvent] = useState(false);
+
+  // Cancel event mutation
+  const cancelMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({ is_cancelled: true, cancelled_at: new Date().toISOString() })
+        .eq('id', eventId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-events'] });
+      toast.success('Evento cancellato');
+    },
+    onError: () => toast.error('Errore nella cancellazione'),
+  });
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
