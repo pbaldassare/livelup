@@ -5,8 +5,7 @@ import { Check, ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // =====================================================
-// SET TRACKER - Track reps and weight for each set
-// Design reference: Ladder workout execution screens
+// SET TRACKER - Track reps, weight, RPE for each set
 // =====================================================
 
 interface SetData {
@@ -15,16 +14,25 @@ interface SetData {
   prescribedWeight?: number;
   completedReps?: number;
   completedWeight?: number;
+  completedRpe?: number;
   isCompleted: boolean;
 }
 
 interface SetTrackerProps {
   sets: SetData[];
   currentSet: number;
-  onSetComplete: (setNumber: number, reps: number, weight?: number) => void;
+  onSetComplete: (setNumber: number, reps: number, weight?: number, rpe?: number) => void;
   onSetChange: (setNumber: number) => void;
   restSeconds?: number;
 }
+
+const RPE_LABELS: Record<number, string> = {
+  6: 'Facile',
+  7: 'Moderato',
+  8: 'Impegnativo',
+  9: 'Molto duro',
+  10: 'Massimale',
+};
 
 export function SetTracker({
   sets,
@@ -35,15 +43,16 @@ export function SetTracker({
 }: SetTrackerProps) {
   const [reps, setReps] = useState<number>(0);
   const [weight, setWeight] = useState<number>(0);
+  const [rpe, setRpe] = useState<number>(7);
   const [showDetails, setShowDetails] = useState(false);
 
   const current = sets.find(s => s.setNumber === currentSet);
-  
+
+  // Pre-populate from previous set data
   const handleComplete = () => {
-    onSetComplete(currentSet, reps, weight || undefined);
-    // Reset for next set
+    onSetComplete(currentSet, reps, weight || undefined, rpe);
+    // Pre-fill next set with same weight
     setReps(0);
-    setWeight(0);
   };
 
   const incrementReps = () => setReps(prev => prev + 1);
@@ -153,6 +162,33 @@ export function SetTracker({
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+
+          {/* RPE input */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-app-foreground font-medium">RPE (sforzo percepito)</span>
+              <span className="text-sm text-app-accent font-semibold">{rpe}/10</span>
+            </div>
+            <div className="flex gap-1.5">
+              {[6, 7, 8, 9, 10].map((val) => (
+                <button
+                  key={val}
+                  onClick={() => setRpe(val)}
+                  className={cn(
+                    'flex-1 py-2 rounded-lg text-sm font-medium transition-colors',
+                    rpe === val
+                      ? 'bg-app-accent text-app-accent-foreground'
+                      : 'bg-app-muted text-app-muted-foreground hover:bg-app-muted/80'
+                  )}
+                >
+                  {val}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-app-muted-foreground text-center">
+              {RPE_LABELS[rpe] || ''}
+            </p>
           </div>
         </div>
       )}
