@@ -22,7 +22,7 @@ const atletaNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/app' },
   { icon: Search, label: 'Scopri', path: '/app/discover' },
   { icon: Dumbbell, label: 'Attività', path: '/app/workout' },
-  { icon: TrendingUp, label: 'Progressi', path: '/app/progress' },
+  { icon: CalendarDays, label: 'Prenota', path: '/app/booking' },
   { icon: User, label: 'Profilo', path: '/app/profile' },
 ];
 
