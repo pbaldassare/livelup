@@ -1,21 +1,36 @@
 
 
-# Analisi: Miglioramenti UX Workout Live — Già Implementati
+# Piano: Punto 6 — Badge Predefiniti, Trigger e Visualizzazione Profilo
 
-Dopo aver esaminato il codice attuale, tutti e tre i miglioramenti sono **già presenti**:
+## Stato Attuale
 
-## 1. Pre-fill peso/reps dai log precedenti ✅
-**`AtletaWorkoutDetailPage.tsx` righe 653-667**: trova l'ultimo log completato per l'esercizio corrente e passa `initialReps` e `initialWeight` al `SetTracker`.
+**Già implementato:**
+- 13 badge predefiniti nel DB (workout count, streak, social)
+- Trigger `check_and_award_badges` su tabella `workouts` (assegna badge automaticamente al completamento)
+- Trigger `check_cheer_badges` su tabella `cheers`
+- Query `atleta-badges` in `AtletaProfilePage` che recupera i badge guadagnati
 
-**`SetTracker.tsx` righe 50-63**: `getDefaultReps()` e `getDefaultWeight()` usano `initialReps`/`initialWeight` come priorità, con fallback ai valori prescritti.
+**Problema:** Il tab "Badges" nel profilo atleta (righe 312-331) mostra dati mock/statici (stats generiche) invece dei badge reali dal DB. I badge guadagnati vengono fetchati ma mai renderizzati.
 
-## 2. Calcolo stats dal resume ✅
-**`AtletaWorkoutDetailPage.tsx` righe 141-159**: al caricamento dei log esistenti, calcola `resumedVolume`, `resumedReps`, `resumedSets` e li setta come valori iniziali di `totalVolume`, `totalReps`, `totalSetsCompleted`. Questi vengono poi mostrati nella summary.
+## Modifiche
 
-## 3. Auto-skip agli esercizi non completati ✅
-**`AtletaWorkoutDetailPage.tsx` righe 162-173**: trova il primo esercizio incompleto (`firstIncompleteIdx`) e posiziona `currentExerciseIndex` e `currentSet` al primo set non ancora completato.
+### 1. `src/pages/atleta/AtletaProfilePage.tsx`
+Riscrivere il `TabsContent` "badges" per:
+- Fetchare **tutti i badge attivi** (non solo quelli guadagnati) per mostrare locked/unlocked
+- Mostrare griglia con badge guadagnati (colorati) e non guadagnati (grigi/locked)
+- Badge grande principale = prossimo traguardo con progress bar
+- Sezioni raggruppate per categoria: "Allenamento", "Streak", "Social"
 
----
+### 2. `src/components/app/BadgeCard.tsx`
+Aggiornare il componente per supportare:
+- Prop `earned: boolean` — se false, mostra versione grigia/locked
+- Prop `earnedAt?: string` — data conseguimento
+- Prop `emoji?: string` — usa emoji come icona (il DB usa `icon_url` con emoji)
+- Prop `description?: string` — tooltip/sottotitolo
 
-**Non ci sono modifiche da implementare.** Il flusso workout live è completo con tutte le ottimizzazioni UX richieste.
+### 3. Nuova query: tutti i badge disponibili
+Aggiungere query per fetchare `badges` (tutti attivi) e fare join client-side con `atleta_badges` per determinare stato earned/locked.
+
+## Nessuna modifica DB necessaria
+Badge e trigger sono già configurati correttamente. I 4 badge vecchi (seed iniziale) con criteri diversi (`workout_count`, `workout_streak`, `connection_count`) non matchano i criteri del trigger (`workouts_completed`, `streak_weeks`, `first_cheer`), ma non causano problemi — semplicemente non verranno mai assegnati. Si possono pulire in futuro.
 
