@@ -1,37 +1,21 @@
 
-# Modifica: "Workout" → "Attività" nella Navbar
 
-## Cambiamento Richiesto
-Sostituire la label "Workout" con "Attività" nella barra di navigazione in basso dell'app atleta.
+# Analisi: Miglioramenti UX Workout Live — Già Implementati
 
-## File da Modificare
+Dopo aver esaminato il codice attuale, tutti e tre i miglioramenti sono **già presenti**:
 
-| File | Riga | Modifica |
-|------|------|----------|
-| `src/components/layouts/AppLayout.tsx` | 59 | `label: 'Workout'` → `label: 'Attività'` |
-| `src/components/app/MobileNav.tsx` | 24 | `label: 'Workout'` → `label: 'Attività'` |
+## 1. Pre-fill peso/reps dai log precedenti ✅
+**`AtletaWorkoutDetailPage.tsx` righe 653-667**: trova l'ultimo log completato per l'esercizio corrente e passa `initialReps` e `initialWeight` al `SetTracker`.
 
-## Dettaglio Tecnico
+**`SetTracker.tsx` righe 50-63**: `getDefaultReps()` e `getDefaultWeight()` usano `initialReps`/`initialWeight` come priorità, con fallback ai valori prescritti.
 
-### AppLayout.tsx (riga 59)
-```tsx
-// Da:
-{ label: 'Workout', href: '/app/workout', icon: Dumbbell },
+## 2. Calcolo stats dal resume ✅
+**`AtletaWorkoutDetailPage.tsx` righe 141-159**: al caricamento dei log esistenti, calcola `resumedVolume`, `resumedReps`, `resumedSets` e li setta come valori iniziali di `totalVolume`, `totalReps`, `totalSetsCompleted`. Questi vengono poi mostrati nella summary.
 
-// A:
-{ label: 'Attività', href: '/app/workout', icon: Dumbbell },
-```
+## 3. Auto-skip agli esercizi non completati ✅
+**`AtletaWorkoutDetailPage.tsx` righe 162-173**: trova il primo esercizio incompleto (`firstIncompleteIdx`) e posiziona `currentExerciseIndex` e `currentSet` al primo set non ancora completato.
 
-### MobileNav.tsx (riga 24)
-```tsx
-// Da:
-{ icon: Dumbbell, label: 'Workout', path: '/app/workout' },
+---
 
-// A:
-{ icon: Dumbbell, label: 'Attività', path: '/app/workout' },
-```
+**Non ci sono modifiche da implementare.** Il flusso workout live è completo con tutte le ottimizzazioni UX richieste.
 
-## Note
-- Il percorso URL resta `/app/workout` (identificatori tecnici non cambiano)
-- Solo la label visibile all'utente viene modificata
-- Coerente con la terminologia del progetto che preferisce "Attività" a "Workout"
