@@ -649,13 +649,24 @@ export function AtletaWorkoutDetailPage() {
       </div>
 
       <motion.div variants={slideUpVariants} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
-        <SetTracker
-          sets={setsData}
-          currentSet={currentSet}
-          onSetComplete={handleSetComplete}
-          onSetChange={setCurrentSet}
-          restSeconds={currentExercise?.rest_seconds || 60}
-        />
+        {(() => {
+          // Find last completed log for current exercise to pre-fill weight/reps
+          const logsForExercise = existingLogs?.filter(
+            l => l.workout_exercise_id === currentExercise?.id && l.is_completed
+          ) || [];
+          const lastLog = logsForExercise.sort((a, b) => b.set_number - a.set_number)[0];
+          return (
+            <SetTracker
+              sets={setsData}
+              currentSet={currentSet}
+              onSetComplete={handleSetComplete}
+              onSetChange={setCurrentSet}
+              restSeconds={currentExercise?.rest_seconds || 60}
+              initialReps={lastLog?.reps_completed ?? undefined}
+              initialWeight={lastLog?.weight_used != null ? Number(lastLog.weight_used) : undefined}
+            />
+          );
+        })()}
       </motion.div>
 
       <Sheet open={showTimer} onOpenChange={setShowTimer}>
