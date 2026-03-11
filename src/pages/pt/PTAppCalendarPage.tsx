@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { CreatePublicEventDialog } from '@/components/pt/CreatePublicEventDialog';
+import { toast } from 'sonner';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -16,7 +17,8 @@ import {
   Users,
   Dumbbell,
   Video,
-  Plus
+  Plus,
+  X
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
