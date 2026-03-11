@@ -39,6 +39,7 @@ const STATUS_CONFIG = {
 export function PTAppWorkoutsPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
 
   // Fetch workouts
   const { data: workouts, isLoading } = useQuery({
