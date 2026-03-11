@@ -462,6 +462,36 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
                                     className="min-h-[60px] text-sm resize-none"
                                   />
                                 </div>
+
+                                {/* Exercise image upload */}
+                                {user?.id && (
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Foto esercizio</Label>
+                                    <div className="flex items-center gap-3">
+                                      {te.exercise?.image_url && (
+                                        <img src={te.exercise.image_url} alt="" className="h-12 w-12 rounded object-cover" />
+                                      )}
+                                      <ImageUpload
+                                        bucket="exercise-images"
+                                        filePath={`${user.id}/${te.exercise_id}.{ext}`}
+                                        currentUrl={te.exercise?.image_url}
+                                        onUploadComplete={async (url) => {
+                                          const { error } = await supabase
+                                            .from('exercises')
+                                            .update({ image_url: url })
+                                            .eq('id', te.exercise_id);
+                                          if (error) {
+                                            toast.error("Errore upload immagine");
+                                          } else {
+                                            queryClient.invalidateQueries({ queryKey: ['template-exercises', templateId] });
+                                            toast.success('Immagine esercizio aggiornata');
+                                          }
+                                        }}
+                                        variant="inline"
+                                      />
+                                    </div>
+                                  </div>
+                                )
                               </div>
                             </div>
                           </CardContent>
