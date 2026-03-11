@@ -133,21 +133,46 @@ export function AtletaWorkoutDetailPage() {
     enabled: !!workoutId && !!workout,
   });
 
-  // Pre-populate completed sets from existing logs
+  // Pre-populate completed sets and stats from existing logs
   useEffect(() => {
-    if (existingLogs && existingLogs.length > 0) {
+    if (existingLogs && existingLogs.length > 0 && exercises.length > 0) {
       const restored: Record<string, number[]> = {};
+      let resumedVolume = 0;
+      let resumedReps = 0;
+      let resumedSets = 0;
+
       existingLogs.forEach((log) => {
         if (log.is_completed) {
           if (!restored[log.workout_exercise_id]) {
             restored[log.workout_exercise_id] = [];
           }
           restored[log.workout_exercise_id].push(log.set_number);
+          resumedSets++;
+          resumedReps += log.reps_completed || 0;
+          resumedVolume += (log.reps_completed || 0) * (Number(log.weight_used) || 0);
         }
       });
       setCompletedSets(restored);
+      setTotalVolume(resumedVolume);
+      setTotalReps(resumedReps);
+      setTotalSetsCompleted(resumedSets);
+
+      // Auto-skip to first incomplete exercise
+      const firstIncompleteIdx = exercises.findIndex((ex: WorkoutExercise) => {
+        const completedCount = restored[ex.id]?.length || 0;
+        return completedCount < ex.prescribed_sets;
+      });
+      if (firstIncompleteIdx >= 0) {
+        setCurrentExerciseIndex(firstIncompleteIdx);
+        const ex = exercises[firstIncompleteIdx] as WorkoutExercise;
+        const completedForEx = restored[ex.id] || [];
+        // Set to first non-completed set number
+        const firstIncompleteSet = Array.from({ length: ex.prescribed_sets }, (_, i) => i + 1)
+          .find(s => !completedForEx.includes(s)) || 1;
+        setCurrentSet(firstIncompleteSet);
+      }
     }
-  }, [existingLogs]);
+  }, [existingLogs, exercises.length]);
 
   // Fetch PT profile for coach avatar
   const { data: ptProfile } = useQuery({
