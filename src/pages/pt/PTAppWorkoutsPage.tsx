@@ -110,7 +110,10 @@ export function PTAppWorkoutsPage() {
       <div className="sticky top-0 z-40 bg-background border-b border-border p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">Schede allenamento</h1>
-        </div>
+          <Button size="sm" onClick={() => setShowAssignDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Assegna
+          </Button>
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
