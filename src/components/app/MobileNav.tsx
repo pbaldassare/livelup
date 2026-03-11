@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { LucideIcon, Dumbbell, MessageSquare, Users, User, Zap, Home, Search, Calendar, TrendingUp } from 'lucide-react';
+import { LucideIcon, Dumbbell, MessageSquare, Users, User, Zap, Home, Search, Calendar, TrendingUp, CalendarDays } from 'lucide-react';
 
 // =====================================================
 // MOBILE BOTTOM NAVIGATION - Navigazione app mobile
