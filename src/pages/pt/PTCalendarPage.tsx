@@ -357,7 +357,12 @@ export function PTCalendarPage() {
                     key={event.id}
                     className={`p-3 rounded-lg border ${getEventTypeColor(event.event_type)}`}
                   >
-                    <p className="font-medium">{event.title}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{event.title}</p>
+                      {event.creator_user_id !== user?.id && (
+                        <Badge variant="secondary" className="text-[10px]">Prenotato</Badge>
+                      )}
+                    </div>
                     <div className="mt-2 space-y-1 text-sm opacity-80">
                       <div className="flex items-center gap-2">
                         <Clock className="h-3 w-3" />
