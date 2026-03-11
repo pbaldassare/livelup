@@ -349,24 +349,58 @@ export function AtletaProfilePage() {
         </TabsList>
 
         <TabsContent value="badges" className="mt-0 p-4">
-          <h2 className="text-xl font-bold text-app-foreground mb-6">Your Badges</h2>
+          <h2 className="text-xl font-bold text-app-foreground mb-4">
+            I tuoi Badge
+            <span className="text-sm font-normal text-app-muted-foreground ml-2">
+              {earnedBadges?.length || 0}/{allBadges?.length || 0}
+            </span>
+          </h2>
           
-          {/* Main badge with progress */}
-          <BadgeCard
-            name="Total Workouts"
-            value={stats?.workouts || 0}
-            variant="large"
-            progress={{ current: stats?.workouts || 0, max: 50 }}
-            className="mb-8"
-          />
+          {/* Next milestone */}
+          {nextMilestone && (
+            <BadgeCard
+              name={nextMilestone.name}
+              description={nextMilestone.description}
+              emoji={nextMilestone.icon_url || undefined}
+              earned={false}
+              variant="large"
+              progress={{ 
+                current: stats?.workouts || 0, 
+                max: (nextMilestone.criteria as any)?.count || 50 
+              }}
+              className="mb-6"
+            />
+          )}
 
-          {/* Milestones grid */}
-          <h3 className="text-lg font-bold text-app-foreground mb-4">Workout Milestones</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <BadgeCard name="Workout Minutes" value={`${stats?.minutes || 0}`} />
-            <BadgeCard name="Weekly Streaks" value={Math.floor((stats?.workouts || 0) / 7)} />
-            <BadgeCard name="Calories Burned" value={`${stats?.calories || 0}`} />
-          </div>
+          {/* Badges by category */}
+          {Object.entries(badgesByCategory).map(([category, categoryBadges]) => (
+            <div key={category} className="mb-6">
+              <h3 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">
+                {categoryLabels[category] || category}
+              </h3>
+              <div className="grid grid-cols-4 gap-3">
+                {categoryBadges
+                  .sort((a, b) => (b.earned ? 1 : 0) - (a.earned ? 1 : 0))
+                  .map((badge) => (
+                    <BadgeCard
+                      key={badge.id}
+                      name={badge.name}
+                      description={badge.description}
+                      emoji={badge.icon_url || undefined}
+                      earned={badge.earned}
+                      earnedAt={badge.earnedAt}
+                      points={badge.points}
+                    />
+                  ))}
+              </div>
+            </div>
+          ))}
+
+          {(!allBadges || allBadges.length === 0) && (
+            <div className="text-center py-12 text-app-muted-foreground">
+              Nessun badge disponibile
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="activity" className="mt-0 p-4">
