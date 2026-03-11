@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
 import { 
   Dumbbell, 
   Search, 
@@ -17,7 +18,8 @@ import {
   CheckCircle2,
   Clock,
   Users,
-  FileText
+  FileText,
+  Plus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
