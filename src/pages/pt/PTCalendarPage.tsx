@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
+import { Badge } from '@/components/ui/badge';
 import { 
   Calendar as CalendarIcon, 
   Plus,
@@ -36,6 +37,8 @@ interface CalendarEvent {
   location: string | null;
   is_public: boolean;
   atleta_user_id: string | null;
+  creator_user_id: string;
+  is_cancelled: boolean;
 }
 
 export function PTCalendarPage() {
@@ -90,7 +93,8 @@ export function PTCalendarPage() {
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
-        .eq('creator_user_id', user.id)
+        .eq('pt_user_id', user.id)
+        .eq('is_cancelled', false)
         .order('start_datetime', { ascending: true });
 
       if (error) throw error;
@@ -354,7 +358,12 @@ export function PTCalendarPage() {
                     key={event.id}
                     className={`p-3 rounded-lg border ${getEventTypeColor(event.event_type)}`}
                   >
-                    <p className="font-medium">{event.title}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{event.title}</p>
+                      {event.creator_user_id !== user?.id && (
+                        <Badge variant="secondary" className="text-[10px]">Prenotato</Badge>
+                      )}
+                    </div>
                     <div className="mt-2 space-y-1 text-sm opacity-80">
                       <div className="flex items-center gap-2">
                         <Clock className="h-3 w-3" />

@@ -235,6 +235,15 @@ export function AtletaAppHome() {
               onAction={() => navigate('/app/chat')}
             />
 
+            {/* Booking CTA */}
+            <CTABanner
+              title="Prenota una sessione"
+              subtitle="Scegli data e orario con il tuo PT"
+              actionLabel="Prenota"
+              icon={CalendarDays}
+              onAction={() => navigate('/app/booking')}
+            />
+
             {/* PT Info */}
             {connection && (
               <div className="flex items-center justify-between">

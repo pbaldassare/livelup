@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -13,10 +14,12 @@ import {
   Clock, 
   MapPin, 
   CheckCircle2,
-  Loader2 
+  Loader2,
+  X,
+  CalendarDays
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, addDays, startOfDay, isSameDay, setHours, setMinutes } from 'date-fns';
+import { format, addDays, startOfDay, isSameDay, setHours, setMinutes, differenceInHours } from 'date-fns';
 import { it } from 'date-fns/locale';
 
 // =====================================================
@@ -105,6 +108,25 @@ export function AtletaBookingPage() {
     enabled: !!connection?.pt_user_id && !!selectedDate,
   });
 
+  // Fetch my upcoming sessions
+  const { data: mySessions } = useQuery({
+    queryKey: ['my-sessions', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .eq('atleta_user_id', user.id)
+        .eq('is_cancelled', false)
+        .gte('start_datetime', new Date().toISOString())
+        .order('start_datetime', { ascending: true })
+        .limit(10);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
   // Create booking mutation
   const bookMutation = useMutation({
     mutationFn: async () => {
@@ -138,7 +160,7 @@ export function AtletaBookingPage() {
         user_id: connection.pt_user_id,
         type: 'booking',
         title: 'Nuova prenotazione',
-        body: `${ptProfile?.first_name || 'Un atleta'} ha prenotato una sessione per ${format(startDatetime, 'dd MMM HH:mm', { locale: it })}`,
+        body: `Un atleta ha prenotato una sessione per ${format(startDatetime, 'dd MMM HH:mm', { locale: it })}`,
         data: { date: startDatetime.toISOString() },
         action_url: '/pt/app/calendar',
       });
@@ -146,7 +168,47 @@ export function AtletaBookingPage() {
     onSuccess: () => {
       toast.success('Sessione prenotata! 🎉');
       queryClient.invalidateQueries({ queryKey: ['booking-events'] });
+      queryClient.invalidateQueries({ queryKey: ['my-sessions'] });
       setSelectedSlot(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Cancel booking mutation
+  const cancelMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      if (!user?.id) throw new Error('Non autenticato');
+      
+      const event = mySessions?.find(e => e.id === eventId);
+      if (event && differenceInHours(new Date(event.start_datetime), new Date()) < 24) {
+        throw new Error('Puoi cancellare solo con almeno 24 ore di anticipo');
+      }
+
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({ is_cancelled: true, cancelled_at: new Date().toISOString() })
+        .eq('id', eventId)
+        .eq('creator_user_id', user.id);
+      if (error) throw error;
+
+      // Notify PT
+      if (event?.pt_user_id) {
+        await supabase.from('notifications').insert({
+          user_id: event.pt_user_id,
+          type: 'booking',
+          title: 'Prenotazione cancellata',
+          body: `Una sessione del ${format(new Date(event.start_datetime), 'dd MMM HH:mm', { locale: it })} è stata cancellata`,
+          data: { event_id: eventId },
+          action_url: '/pt/app/calendar',
+        });
+      }
+    },
+    onSuccess: () => {
+      toast.success('Prenotazione cancellata');
+      queryClient.invalidateQueries({ queryKey: ['my-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['booking-events'] });
     },
     onError: (error: any) => {
       toast.error(error.message);
@@ -157,10 +219,9 @@ export function AtletaBookingPage() {
   const availableSlots = useMemo(() => {
     if (!availability) return [];
     
-    const dayOfWeek = selectedDate.getDay(); // 0=Sun, 1=Mon...
+    const dayOfWeek = selectedDate.getDay();
     const dayAvailability = availability.filter(a => a.day_of_week === dayOfWeek);
     
-    // Generate 1-hour slots from each availability window
     const slots: TimeSlot[] = [];
     dayAvailability.forEach(avail => {
       const [startH] = avail.start_time.split(':').map(Number);
@@ -170,7 +231,6 @@ export function AtletaBookingPage() {
         const slotStart = `${h.toString().padStart(2, '0')}:00`;
         const slotEnd = `${(h + 1).toString().padStart(2, '0')}:00`;
         
-        // Check if slot is already booked
         const isBooked = existingEvents?.some(event => {
           const eventStart = new Date(event.start_datetime);
           return eventStart.getHours() === h && isSameDay(eventStart, selectedDate);
@@ -221,6 +281,49 @@ export function AtletaBookingPage() {
       </div>
 
       <div className="p-4 space-y-6">
+        {/* My upcoming sessions */}
+        {mySessions && mySessions.length > 0 && (
+          <div>
+            <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              Le mie sessioni
+            </h2>
+            <div className="space-y-2">
+              {mySessions.map((session) => {
+                const canCancel = differenceInHours(new Date(session.start_datetime), new Date()) >= 24;
+                return (
+                  <Card key={session.id} className="border-app-border bg-app-card">
+                    <CardContent className="p-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-app-foreground text-sm">{session.title}</p>
+                        <p className="text-xs text-app-muted-foreground">
+                          {format(new Date(session.start_datetime), 'EEE d MMM · HH:mm', { locale: it })}
+                          {session.end_datetime && ` - ${format(new Date(session.end_datetime), 'HH:mm')}`}
+                        </p>
+                      </div>
+                      {canCancel ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-app-muted-foreground hover:text-destructive"
+                          onClick={() => cancelMutation.mutate(session.id)}
+                          disabled={cancelMutation.isPending}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] border-app-border text-app-muted-foreground">
+                          &lt;24h
+                        </Badge>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Date selector */}
         <div>
           <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">

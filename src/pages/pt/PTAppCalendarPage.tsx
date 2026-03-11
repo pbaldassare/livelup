@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { CreatePublicEventDialog } from '@/components/pt/CreatePublicEventDialog';
+import { toast } from 'sonner';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -16,7 +17,8 @@ import {
   Users,
   Dumbbell,
   Video,
-  Plus
+  Plus,
+  X
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -38,8 +40,25 @@ const EVENT_TYPE_CONFIG = {
 
 export function PTAppCalendarPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [showCreateEvent, setShowCreateEvent] = useState(false);
+
+  // Cancel event mutation
+  const cancelMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({ is_cancelled: true, cancelled_at: new Date().toISOString() })
+        .eq('id', eventId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-events'] });
+      toast.success('Evento cancellato');
+    },
+    onError: () => toast.error('Errore nella cancellazione'),
+  });
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -198,7 +217,7 @@ export function PTAppCalendarPage() {
           ))
         ) : selectedDateEvents.length > 0 ? (
           selectedDateEvents.map((event) => (
-            <EventCard key={event.id} event={event} />
+            <EventCard key={event.id} event={event} onCancel={(id) => cancelMutation.mutate(id)} />
           ))
         ) : (
           <Card className="border-dashed">
@@ -215,12 +234,13 @@ export function PTAppCalendarPage() {
   );
 }
 
-function EventCard({ event }: { event: any }) {
+function EventCard({ event, onCancel }: { event: any; onCancel: (id: string) => void }) {
   const config = EVENT_TYPE_CONFIG[event.event_type as keyof typeof EVENT_TYPE_CONFIG] || EVENT_TYPE_CONFIG.altro;
   const Icon = config.icon;
   const atletaName = event.atletaProfile 
     ? `${event.atletaProfile.first_name || ''} ${event.atletaProfile.last_name || ''}`.trim()
     : null;
+  const isBookedByAthlete = event.creator_user_id !== event.pt_user_id && event.atleta_user_id;
 
   return (
     <Card>
@@ -234,7 +254,12 @@ function EventCard({ event }: { event: any }) {
           </div>
           
           <div className="flex-1">
-            <h3 className="font-semibold">{event.title}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold">{event.title}</h3>
+              {isBookedByAthlete && (
+                <Badge variant="secondary" className="text-[10px]">Prenotato</Badge>
+              )}
+            </div>
             
             <div className="flex flex-wrap gap-2 mt-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -258,6 +283,15 @@ function EventCard({ event }: { event: any }) {
               </Badge>
             )}
           </div>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={() => onCancel(event.id)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       </CardContent>
     </Card>

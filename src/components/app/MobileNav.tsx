@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { LucideIcon, Dumbbell, MessageSquare, Users, User, Zap, Home, Search, Calendar, TrendingUp } from 'lucide-react';
+import { LucideIcon, Dumbbell, MessageSquare, Users, User, Zap, Home, Search, Calendar, TrendingUp, CalendarDays } from 'lucide-react';
 
 // =====================================================
 // MOBILE BOTTOM NAVIGATION - Navigazione app mobile
@@ -22,15 +22,15 @@ const atletaNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/app' },
   { icon: Search, label: 'Scopri', path: '/app/discover' },
   { icon: Dumbbell, label: 'Attività', path: '/app/workout' },
-  { icon: TrendingUp, label: 'Progressi', path: '/app/progress' },
+  { icon: CalendarDays, label: 'Prenota', path: '/app/booking' },
   { icon: User, label: 'Profilo', path: '/app/profile' },
 ];
 
 const ptNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/pt/app' },
   { icon: Users, label: 'Atleti', path: '/pt/app/athletes' },
+  { icon: Calendar, label: 'Calendario', path: '/pt/app/calendar' },
   { icon: Dumbbell, label: 'Schede', path: '/pt/app/workouts' },
-  { icon: MessageSquare, label: 'Chat', path: '/pt/app/chat' },
   { icon: User, label: 'Profilo', path: '/pt/app/profile' },
 ];
 
