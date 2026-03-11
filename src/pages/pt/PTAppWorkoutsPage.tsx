@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -9,51 +9,39 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
 import { 
-  Dumbbell, 
-  Search, 
-  Calendar,
-  ChevronRight,
-  CheckCircle2,
-  Clock,
-  Users,
-  FileText
+  Dumbbell, Search, Calendar, ChevronRight,
+  CheckCircle2, Clock, FileText, Plus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-// =====================================================
-// PT APP WORKOUTS PAGE - Schede allenamento (Mobile)
-// Visualizzazione e stato schede (creazione avanzata via web)
-// =====================================================
-
 const STATUS_CONFIG = {
   attivo: { label: 'Attivo', color: 'text-primary', icon: Clock },
-  completato: { label: 'Completato', color: 'text-success', icon: CheckCircle2 },
+  completato: { label: 'Completato', color: 'text-green-600', icon: CheckCircle2 },
   saltato: { label: 'Saltato', color: 'text-muted-foreground', icon: Clock },
 };
 
 export function PTAppWorkoutsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
 
-  // Fetch workouts
   const { data: workouts, isLoading } = useQuery({
     queryKey: ['pt-workouts-app', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-
       const { data, error } = await supabase
         .from('workouts')
         .select('id, title, status, scheduled_date, atleta_user_id, completed_at')
         .eq('pt_user_id', user.id)
         .order('scheduled_date', { ascending: false })
         .limit(50);
-
       if (error) throw error;
 
-      // Fetch athlete profiles
       const workoutsWithProfiles = await Promise.all(
         (data || []).map(async (workout) => {
           const { data: profile } = await supabase
@@ -61,43 +49,36 @@ export function PTAppWorkoutsPage() {
             .select('first_name, last_name, avatar_url')
             .eq('user_id', workout.atleta_user_id)
             .single();
-
           return { ...workout, profiles: profile };
         })
       );
-
       return workoutsWithProfiles;
     },
     enabled: !!user?.id,
   });
 
-  // Fetch templates
   const { data: templates } = useQuery({
     queryKey: ['pt-templates', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-
       const { data, error } = await supabase
         .from('workout_templates')
         .select('id, title, category, difficulty_level')
         .eq('pt_user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(10);
-
       if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
   });
 
-  // Filter workouts
   const filteredWorkouts = workouts?.filter(w => {
     if (!searchQuery) return true;
     const name = `${w.profiles?.first_name || ''} ${w.profiles?.last_name || ''}`.toLowerCase();
     return w.title.toLowerCase().includes(searchQuery.toLowerCase()) || name.includes(searchQuery.toLowerCase());
   });
 
-  // Group by status
   const activeWorkouts = filteredWorkouts?.filter(w => w.status === 'attivo') || [];
   const completedWorkouts = filteredWorkouts?.filter(w => w.status === 'completato') || [];
 
@@ -107,6 +88,10 @@ export function PTAppWorkoutsPage() {
       <div className="sticky top-0 z-40 bg-background border-b border-border p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">Schede allenamento</h1>
+          <Button size="sm" onClick={() => setShowAssignDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Assegna
+          </Button>
         </div>
 
         <div className="relative">
@@ -172,9 +157,7 @@ export function PTAppWorkoutsPage() {
             <Card className="border-dashed">
               <CardContent className="p-6 text-center">
                 <Dumbbell className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Nessuna scheda attiva
-                </p>
+                <p className="text-sm text-muted-foreground">Nessuna scheda attiva</p>
               </CardContent>
             </Card>
           )}
@@ -195,18 +178,21 @@ export function PTAppWorkoutsPage() {
           </div>
         )}
 
-        {/* CTA for web */}
-        <Card className="bg-muted/50">
-          <CardContent className="p-4 text-center">
-            <p className="text-sm text-muted-foreground mb-2">
-              Per creare nuove schede usa la dashboard web
-            </p>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/pt/workouts">Vai alla Dashboard</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Secondary link */}
+        <p className="text-xs text-center text-muted-foreground">
+          Per gestire template avanzati usa la{' '}
+          <Link to="/pt/workouts" className="underline text-primary">dashboard web</Link>
+        </p>
       </div>
+
+      {/* Assign Workout Dialog */}
+      <AssignWorkoutDialog
+        open={showAssignDialog}
+        onOpenChange={(open) => {
+          setShowAssignDialog(open);
+          if (!open) queryClient.invalidateQueries({ queryKey: ['pt-workouts-app'] });
+        }}
+      />
     </div>
   );
 }
@@ -222,9 +208,7 @@ function WorkoutCard({ workout }: { workout: any }) {
         <div className="flex items-start gap-3">
           <Avatar className="h-10 w-10">
             <AvatarImage src={workout.profiles?.avatar_url || undefined} />
-            <AvatarFallback>
-              {workout.profiles?.first_name?.[0] || 'A'}
-            </AvatarFallback>
+            <AvatarFallback>{workout.profiles?.first_name?.[0] || 'A'}</AvatarFallback>
           </Avatar>
           
           <div className="flex-1 min-w-0">
