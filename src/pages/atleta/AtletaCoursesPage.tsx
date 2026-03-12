@@ -127,7 +127,7 @@ export function AtletaCoursesPage() {
               <DialogTitle>{selectedSession?.title}</DialogTitle>
             </DialogHeader>
             {selectedSession?.video_url && (
-              <ExerciseVideoPlayer videoUrl={selectedSession.video_url} />
+              <ExerciseVideoPlayer videoUrl={selectedSession.video_url} exerciseName={selectedSession.title} setNumber={1} totalSets={1} />
             )}
             {selectedSession?.content && (
               <div className="prose prose-sm max-w-none whitespace-pre-wrap text-app-foreground mt-4">
