@@ -282,6 +282,13 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/blog" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTBlogPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
 
               {/* ============================================= */}
               {/* PT APP ROUTES - Solo ruolo pt (mobile/PWA)   */}
