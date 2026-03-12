@@ -133,6 +133,7 @@ const App = () => {
               {/* Public PT Discovery page */}
               <Route path="/pts" element={<PTDiscoveryPage />} />
               <Route path="/pts/:userId" element={<PTProfilePage />} />
+              <Route path="/blog/:slug" element={<BlogPostPage />} />
 
               {/* ============================================= */}
               {/* ADMIN ROUTES - Solo ruolo admin              */}
