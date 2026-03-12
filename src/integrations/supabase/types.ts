@@ -969,6 +969,27 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       professional_profiles: {
         Row: {
           avatar_url: string | null
@@ -1086,6 +1107,36 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      progress_photos: {
+        Row: {
+          atleta_user_id: string
+          category: string
+          created_at: string
+          id: string
+          notes: string | null
+          photo_url: string
+          taken_at: string
+        }
+        Insert: {
+          atleta_user_id: string
+          category?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          photo_url: string
+          taken_at?: string
+        }
+        Update: {
+          atleta_user_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          photo_url?: string
+          taken_at?: string
         }
         Relationships: []
       }
