@@ -85,6 +85,7 @@ import AtletaHelpPage from "./pages/atleta/AtletaHelpPage";
 import AtletaEventDetailPage from "./pages/atleta/AtletaEventDetailPage";
 import AtletaProfessionalProfilePage from "./pages/atleta/AtletaProfessionalProfilePage";
 import AtletaBookingPage from "./pages/atleta/AtletaBookingPage";
+import AtletaCoursesPage from "./pages/atleta/AtletaCoursesPage";
 
 // PT pages
 import PTOnboardingPage from "./pages/pt/PTOnboardingPage";
