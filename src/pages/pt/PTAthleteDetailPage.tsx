@@ -39,7 +39,9 @@ export function PTAthleteDetailPage() {
   const { atletaId } = useParams<{ atletaId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedBadgeId, setSelectedBadgeId] = useState<string>('');
 
   // Fetch athlete data
   const { data: athlete, isLoading } = useQuery({
