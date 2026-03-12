@@ -189,7 +189,7 @@ export function AtletaCoursesPage() {
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className="text-xs">{course.is_free ? 'Gratuito' : `€${course.price}`}</Badge>
                         <span className="text-xs text-app-muted-foreground">{course.duration_minutes || '?'} min</span>
-                        {enrollment && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                        {enrollment && <CheckCircle2 className="h-4 w-4 text-primary" />}
                       </div>
                     </div>
                   </CardContent>
