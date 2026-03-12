@@ -243,6 +243,30 @@ export function PTAthletesPage() {
           { label: 'Dashboard', href: '/pt' },
           { label: 'Atleti' },
         ]}
+        actions={
+          <Button variant="outline" size="sm" onClick={() => {
+            const csvRows = [['Nome', 'Email', 'Livello', 'Stato', 'Data']];
+            filteredConnections.forEach(c => {
+              csvRows.push([
+                `${c.profiles?.first_name || ''} ${c.profiles?.last_name || ''}`.trim(),
+                c.profiles?.email || '',
+                c.atleta_profiles?.level || 'N/A',
+                c.status,
+                c.accepted_at ? new Date(c.accepted_at).toLocaleDateString('it-IT') : new Date(c.requested_at).toLocaleDateString('it-IT'),
+              ]);
+            });
+            const csv = csvRows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'atleti.csv'; a.click();
+            URL.revokeObjectURL(url);
+            toast.success('CSV esportato');
+          }}>
+            <Download className="h-4 w-4 mr-2" />
+            Esporta CSV
+          </Button>
+        }
       />
 
       {/* KPI Cards */}

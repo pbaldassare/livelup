@@ -144,11 +144,36 @@ export function PTPaymentsPage() {
 
   return (
     <div className="space-y-6 animate-in">
-      <PageHeader
-        title="Pagamenti"
-        description="Gestisci il tuo abbonamento e visualizza lo storico pagamenti"
-        icon={CreditCard}
-      />
+      <div className="flex items-center justify-between">
+        <PageHeader
+          title="Pagamenti"
+          description="Gestisci il tuo abbonamento e visualizza lo storico pagamenti"
+          icon={CreditCard}
+        />
+        <Button variant="outline" size="sm" onClick={() => {
+          const csvRows = [['Data', 'Descrizione', 'Importo', 'Valuta', 'Stato', 'Pagato il']];
+          payments.forEach(p => {
+            csvRows.push([
+              format(new Date(p.created_at), 'dd/MM/yyyy', { locale: it }),
+              p.description || 'Pagamento abbonamento',
+              String(p.amount),
+              p.currency,
+              p.status,
+              p.paid_at ? format(new Date(p.paid_at), 'dd/MM/yyyy HH:mm', { locale: it }) : '-',
+            ]);
+          });
+          const csv = csvRows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'pagamenti.csv'; a.click();
+          URL.revokeObjectURL(url);
+          toast.success('CSV esportato');
+        }}>
+          <Download className="h-4 w-4 mr-2" />
+          Esporta CSV
+        </Button>
+      </div>
 
       {/* Subscription Status Card */}
       <Card className="border-role-pt/20">
