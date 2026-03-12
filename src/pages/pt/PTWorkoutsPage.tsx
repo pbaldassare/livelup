@@ -8,6 +8,7 @@ import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { StatusBadge } from '@/components/dashboard/StatusBadge';
 import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
 import { TemplateExerciseBuilder } from '@/components/pt/TemplateExerciseBuilder';
+import { CreateExerciseDialog } from '@/components/pt/CreateExerciseDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
 import { InlineEditText, InlineEditSelect } from '@/components/dashboard/InlineEditCells';
 import { 
@@ -27,7 +29,8 @@ import {
   FileText,
   Users,
   Eye,
-  UserPlus
+  UserPlus,
+  BookOpen
 } from 'lucide-react';
 import { toast } from 'sonner';
 
