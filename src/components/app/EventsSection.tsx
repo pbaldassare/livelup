@@ -1,14 +1,13 @@
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ListSkeleton } from '@/components/skeletons';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PublicEventCard } from './PublicEventCard';
-import { CalendarDays, PartyPopper } from 'lucide-react';
-
-interface EventsSectionProps {
-  isConnected?: boolean;
-}
+import { CalendarDays, PartyPopper, MapPin } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 
 interface PublicEvent {
   id: string;
