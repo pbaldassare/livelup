@@ -99,7 +99,24 @@ export function PTWorkoutsPage() {
     enabled: !!user?.id,
   });
 
-  // Fetch assigned workouts
+  // Fetch PT's exercise library
+  const { data: exercises = [], isLoading: exercisesLoading } = useQuery({
+    queryKey: ['pt-exercises', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('*')
+        .or(`is_public.eq.true,created_by.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const myExercises = exercises.filter(e => e.created_by === user?.id);
+
   const { data: workouts = [], isLoading: workoutsLoading } = useQuery({
     queryKey: ['pt-workouts', user?.id],
     queryFn: async () => {
