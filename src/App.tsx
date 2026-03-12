@@ -208,10 +208,10 @@ const App = () => {
                   </AdminLayout>
                 </AdminRoute>
               } />
-              <Route path="/admin/settings" element={
+              <Route path="/admin/courses" element={
                 <AdminRoute>
                   <AdminLayout>
-                    <AdminSettingsPage />
+                    <AdminCoursesPage />
                   </AdminLayout>
                 </AdminRoute>
               } />
