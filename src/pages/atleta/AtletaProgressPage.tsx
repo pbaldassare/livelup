@@ -21,6 +21,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Area, AreaChart 
 } from 'recharts';
+import { ProgressPhotos } from '@/components/app/ProgressPhotos';
 
 // =====================================================
 // ATLETA PROGRESS PAGE - With real recharts graphs
