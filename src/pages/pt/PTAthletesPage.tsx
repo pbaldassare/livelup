@@ -32,7 +32,8 @@ import {
   Clock,
   UserCheck,
   UserX,
-  History
+  History,
+  Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 
