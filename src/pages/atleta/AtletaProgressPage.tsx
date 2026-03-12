@@ -267,6 +267,9 @@ export function AtletaProgressPage() {
           <TabsTrigger value="exercises" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3">
             <Dumbbell className="h-5 w-5" />
           </TabsTrigger>
+          <TabsTrigger value="photos" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3">
+            <Camera className="h-5 w-5" />
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="calendar" className="mt-0">
