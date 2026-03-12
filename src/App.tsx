@@ -30,6 +30,7 @@ import AuthPage from "./pages/auth/AuthPage";
 // Public pages
 import PTDiscoveryPage from "./pages/public/PTDiscoveryPage";
 import PTProfilePage from "./pages/public/PTProfilePage";
+import BlogPostPage from "./pages/public/BlogPostPage";
 import InstallPage from "./pages/public/InstallPage";
 
 // Admin pages
