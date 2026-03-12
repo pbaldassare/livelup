@@ -60,6 +60,11 @@ const navigationItems = [
     icon: Tag 
   },
   { 
+    label: 'Corsi', 
+    href: '/admin/courses', 
+    icon: LayoutDashboard 
+  },
+  { 
     label: 'Supporto', 
     href: '/admin/support', 
     icon: HeadphonesIcon 

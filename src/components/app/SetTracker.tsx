@@ -171,7 +171,7 @@ export function SetTracker({
         </Button>
       </div>
 
-      {/* Set indicators */}
+      {/* Set indicators with status */}
       <div className="flex justify-center gap-2 pt-2">
         {sets.map((set) => (
           <button
@@ -190,6 +190,24 @@ export function SetTracker({
           </button>
         ))}
       </div>
+
+      {/* Exercise completion status */}
+      {(() => {
+        const completedSets = sets.filter(s => s.isCompleted).length;
+        const totalSets = sets.length;
+        const pct = totalSets > 0 ? (completedSets / totalSets) * 100 : 0;
+        let statusLabel = '';
+        let statusColor = '';
+        if (pct === 100) { statusLabel = 'Completato'; statusColor = 'text-app-accent'; }
+        else if (pct >= 50) { statusLabel = 'Quasi completato'; statusColor = 'text-yellow-500'; }
+        else if (completedSets > 0) { statusLabel = 'In corso'; statusColor = 'text-app-muted-foreground'; }
+
+        return statusLabel ? (
+          <p className={cn('text-xs text-center font-medium', statusColor)}>
+            {statusLabel} ({completedSets}/{totalSets} set)
+          </p>
+        ) : null;
+      })()}
     </div>
   );
 }

@@ -12,7 +12,8 @@ import {
   CreditCard,
   Settings, 
   LogOut,
-  Smartphone
+  Smartphone,
+  BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -60,6 +61,11 @@ const navigationItems = [
     label: 'Pagamenti', 
     href: '/pt/payments', 
     icon: CreditCard 
+  },
+  { 
+    label: 'Blog', 
+    href: '/pt/blog', 
+    icon: BookOpen 
   },
   { 
     label: 'Impostazioni', 

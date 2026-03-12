@@ -1,14 +1,13 @@
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ListSkeleton } from '@/components/skeletons';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PublicEventCard } from './PublicEventCard';
-import { CalendarDays, PartyPopper } from 'lucide-react';
-
-interface EventsSectionProps {
-  isConnected?: boolean;
-}
+import { CalendarDays, PartyPopper, MapPin } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 
 interface PublicEvent {
   id: string;
@@ -29,8 +28,33 @@ interface PublicEvent {
   is_registered: boolean;
 }
 
+interface EventsSectionProps {
+  isConnected?: boolean;
+}
+
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
 export function EventsSection({ isConnected = false }: EventsSectionProps) {
   const { user } = useAuth();
+  const [maxDistance, setMaxDistance] = useState(100);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {} // silently fail
+      );
+    }
+  }, []);
 
   const { data: events, isLoading, refetch } = useQuery({
     queryKey: ['public-events-discover', user?.id],
@@ -132,8 +156,31 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
         </motion.div>
       )}
 
+      {/* Distance filter */}
+      {userLocation && (
+        <div className="flex items-center gap-3">
+          <MapPin className="h-4 w-4 text-app-muted-foreground shrink-0" />
+          <div className="flex-1">
+            <Slider
+              value={[maxDistance]}
+              onValueChange={([v]) => setMaxDistance(v)}
+              min={5}
+              max={200}
+              step={5}
+            />
+          </div>
+          <span className="text-xs text-app-muted-foreground whitespace-nowrap w-14 text-right">{maxDistance} km</span>
+        </div>
+      )}
+
       <p className="text-sm text-app-muted-foreground">
-        {events?.length || 0} eventi in programma
+        {(() => {
+          if (!events) return '0 eventi in programma';
+          const filtered = userLocation
+            ? events.filter(e => !e.location_lat || !e.location_lng || haversineDistance(userLocation.lat, userLocation.lng, e.location_lat, e.location_lng) <= maxDistance)
+            : events;
+          return `${filtered.length} eventi in programma`;
+        })()}
       </p>
 
       {isLoading ? (
@@ -141,7 +188,10 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
       ) : events && events.length > 0 ? (
         <div className="space-y-4">
           <AnimatePresence mode="popLayout">
-            {events.map((event, index) => (
+            {(userLocation
+              ? events.filter(e => !e.location_lat || !e.location_lng || haversineDistance(userLocation.lat, userLocation.lng, e.location_lat, e.location_lng) <= maxDistance)
+              : events
+            ).map((event, index) => (
               <motion.div
                 key={event.id}
                 initial={{ opacity: 0, y: 20 }}

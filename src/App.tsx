@@ -30,6 +30,7 @@ import AuthPage from "./pages/auth/AuthPage";
 // Public pages
 import PTDiscoveryPage from "./pages/public/PTDiscoveryPage";
 import PTProfilePage from "./pages/public/PTProfilePage";
+import BlogPostPage from "./pages/public/BlogPostPage";
 import InstallPage from "./pages/public/InstallPage";
 
 // Admin pages
@@ -44,6 +45,7 @@ import AdminSupportPage from "./pages/admin/AdminSupportPage";
 import AdminTicketDetailPage from "./pages/admin/AdminTicketDetailPage";
 import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
+import AdminCoursesPage from "./pages/admin/AdminCoursesPage";
 
 // PT Dashboard pages (Web)
 import PTDashboard from "./pages/pt/PTDashboard";
@@ -55,6 +57,7 @@ import PTCalendarPage from "./pages/pt/PTCalendarPage";
 import PTMessagesPage from "./pages/pt/PTMessagesPage";
 import PTPaymentsPage from "./pages/pt/PTPaymentsPage";
 import PTSettingsPage from "./pages/pt/PTSettingsPage";
+import PTBlogPage from "./pages/pt/PTBlogPage";
 
 // PT App pages (Mobile/PWA)
 import PTAppHome from "./pages/pt/PTAppHome";
@@ -82,6 +85,7 @@ import AtletaHelpPage from "./pages/atleta/AtletaHelpPage";
 import AtletaEventDetailPage from "./pages/atleta/AtletaEventDetailPage";
 import AtletaProfessionalProfilePage from "./pages/atleta/AtletaProfessionalProfilePage";
 import AtletaBookingPage from "./pages/atleta/AtletaBookingPage";
+import AtletaCoursesPage from "./pages/atleta/AtletaCoursesPage";
 
 // PT pages
 import PTOnboardingPage from "./pages/pt/PTOnboardingPage";
@@ -129,6 +133,7 @@ const App = () => {
               {/* Public PT Discovery page */}
               <Route path="/pts" element={<PTDiscoveryPage />} />
               <Route path="/pts/:userId" element={<PTProfilePage />} />
+              <Route path="/blog/:slug" element={<BlogPostPage />} />
 
               {/* ============================================= */}
               {/* ADMIN ROUTES - Solo ruolo admin              */}
@@ -203,10 +208,10 @@ const App = () => {
                   </AdminLayout>
                 </AdminRoute>
               } />
-              <Route path="/admin/settings" element={
+              <Route path="/admin/courses" element={
                 <AdminRoute>
                   <AdminLayout>
-                    <AdminSettingsPage />
+                    <AdminCoursesPage />
                   </AdminLayout>
                 </AdminRoute>
               } />
@@ -274,6 +279,13 @@ const App = () => {
                 <PTDashboardRoute>
                   <PTDashboardLayout>
                     <PTSettingsPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/blog" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTBlogPage />
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
@@ -437,6 +449,13 @@ const App = () => {
                 <AtletaRoute>
                   <AppLayout>
                     <AtletaProfessionalProfilePage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/courses" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaCoursesPage />
                   </AppLayout>
                 </AtletaRoute>
               } />

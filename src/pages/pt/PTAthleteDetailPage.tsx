@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   User,
   ArrowLeft,
@@ -22,10 +23,12 @@ import {
   Target,
   Activity,
   TrendingUp,
-  Clock
+  Clock,
+  Award
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 // =====================================================
 // PT ATHLETE DETAIL PAGE
@@ -36,7 +39,9 @@ export function PTAthleteDetailPage() {
   const { atletaId } = useParams<{ atletaId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedBadgeId, setSelectedBadgeId] = useState<string>('');
 
   // Fetch athlete data
   const { data: athlete, isLoading } = useQuery({
@@ -116,6 +121,44 @@ export function PTAthleteDetailPage() {
     },
     enabled: !!atletaId,
   });
+
+  // Fetch available badges
+  const { data: badges = [] } = useQuery({
+    queryKey: ['all-badges'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('badges').select('*').eq('is_active', true);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch athlete's earned badges
+  const { data: earnedBadges = [] } = useQuery({
+    queryKey: ['athlete-badges', atletaId],
+    queryFn: async () => {
+      if (!atletaId) return [];
+      const { data, error } = await supabase.from('atleta_badges').select('badge_id').eq('atleta_user_id', atletaId);
+      if (error) throw error;
+      return data.map(b => b.badge_id);
+    },
+    enabled: !!atletaId,
+  });
+
+  const assignBadgeMutation = useMutation({
+    mutationFn: async () => {
+      if (!atletaId || !selectedBadgeId) throw new Error('Missing data');
+      const { error } = await supabase.from('atleta_badges').insert({ atleta_user_id: atletaId, badge_id: selectedBadgeId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['athlete-badges', atletaId] });
+      toast.success('Badge assegnato!');
+      setSelectedBadgeId('');
+    },
+    onError: () => toast.error('Errore nell\'assegnazione del badge'),
+  });
+
+  const unassignedBadges = badges.filter(b => !earnedBadges.includes(b.id));
 
   if (isLoading) {
     return <PageLoader text="Caricamento atleta..." />;
@@ -356,6 +399,48 @@ export function PTAthleteDetailPage() {
               </div>
             </SectionCard>
           )}
+
+          {/* Badge Assignment */}
+          <SectionCard
+            title="Assegna Badge"
+            subtitle="Premia i risultati del tuo atleta"
+            icon={Award}
+            iconColor="yellow"
+          >
+            {unassignedBadges.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Tutti i badge sono già stati assegnati! 🎉</p>
+            ) : (
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <Select value={selectedBadgeId} onValueChange={setSelectedBadgeId}>
+                    <SelectTrigger><SelectValue placeholder="Seleziona badge..." /></SelectTrigger>
+                    <SelectContent>
+                      {unassignedBadges.map(b => (
+                        <SelectItem key={b.id} value={b.id}>{b.name} - {b.description}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={() => assignBadgeMutation.mutate()}
+                  disabled={!selectedBadgeId || assignBadgeMutation.isPending}
+                >
+                  <Award className="h-4 w-4 mr-2" />
+                  Assegna
+                </Button>
+              </div>
+            )}
+            {earnedBadges.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground mb-2">Badge guadagnati ({earnedBadges.length})</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {badges.filter(b => earnedBadges.includes(b.id)).map(b => (
+                    <Badge key={b.id} variant="secondary">{b.name}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </SectionCard>
         </div>
       </div>
 
