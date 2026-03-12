@@ -156,8 +156,31 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
         </motion.div>
       )}
 
+      {/* Distance filter */}
+      {userLocation && (
+        <div className="flex items-center gap-3">
+          <MapPin className="h-4 w-4 text-app-muted-foreground shrink-0" />
+          <div className="flex-1">
+            <Slider
+              value={[maxDistance]}
+              onValueChange={([v]) => setMaxDistance(v)}
+              min={5}
+              max={200}
+              step={5}
+            />
+          </div>
+          <span className="text-xs text-app-muted-foreground whitespace-nowrap w-14 text-right">{maxDistance} km</span>
+        </div>
+      )}
+
       <p className="text-sm text-app-muted-foreground">
-        {events?.length || 0} eventi in programma
+        {(() => {
+          if (!events) return '0 eventi in programma';
+          const filtered = userLocation
+            ? events.filter(e => !e.location_lat || !e.location_lng || haversineDistance(userLocation.lat, userLocation.lng, e.location_lat, e.location_lng) <= maxDistance)
+            : events;
+          return `${filtered.length} eventi in programma`;
+        })()}
       </p>
 
       {isLoading ? (
