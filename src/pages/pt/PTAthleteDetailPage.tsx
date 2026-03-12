@@ -122,6 +122,44 @@ export function PTAthleteDetailPage() {
     enabled: !!atletaId,
   });
 
+  // Fetch available badges
+  const { data: badges = [] } = useQuery({
+    queryKey: ['all-badges'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('badges').select('*').eq('is_active', true);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch athlete's earned badges
+  const { data: earnedBadges = [] } = useQuery({
+    queryKey: ['athlete-badges', atletaId],
+    queryFn: async () => {
+      if (!atletaId) return [];
+      const { data, error } = await supabase.from('atleta_badges').select('badge_id').eq('atleta_user_id', atletaId);
+      if (error) throw error;
+      return data.map(b => b.badge_id);
+    },
+    enabled: !!atletaId,
+  });
+
+  const assignBadgeMutation = useMutation({
+    mutationFn: async () => {
+      if (!atletaId || !selectedBadgeId) throw new Error('Missing data');
+      const { error } = await supabase.from('atleta_badges').insert({ atleta_user_id: atletaId, badge_id: selectedBadgeId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['athlete-badges', atletaId] });
+      toast.success('Badge assegnato!');
+      setSelectedBadgeId('');
+    },
+    onError: () => toast.error('Errore nell\'assegnazione del badge'),
+  });
+
+  const unassignedBadges = badges.filter(b => !earnedBadges.includes(b.id));
+
   if (isLoading) {
     return <PageLoader text="Caricamento atleta..." />;
   }
