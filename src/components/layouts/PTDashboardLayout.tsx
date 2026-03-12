@@ -63,6 +63,11 @@ const navigationItems = [
     icon: CreditCard 
   },
   { 
+    label: 'Blog', 
+    href: '/pt/blog', 
+    icon: BookOpen 
+  },
+  { 
     label: 'Impostazioni', 
     href: '/pt/settings', 
     icon: Settings 

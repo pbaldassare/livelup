@@ -452,6 +452,13 @@ const App = () => {
                   </AppLayout>
                 </AtletaRoute>
               } />
+              <Route path="/app/courses" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaCoursesPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
               <Route path="/app/booking" element={
                 <AtletaRoute>
                   <AtletaBookingPage />
