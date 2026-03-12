@@ -608,6 +608,10 @@ export function PTWorkoutsPage() {
                 <Dumbbell className="h-4 w-4" />
                 Assegnati ({workouts.length})
               </TabsTrigger>
+              <TabsTrigger value="exercises" className="gap-2">
+                <BookOpen className="h-4 w-4" />
+                Libreria ({myExercises.length})
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="templates" className="mt-4">
               <DataTable
@@ -627,6 +631,47 @@ export function PTWorkoutsPage() {
                 actions={workoutActions}
               />
             </TabsContent>
+            <TabsContent value="exercises" className="mt-4">
+              <div className="flex justify-end mb-4">
+                <Button onClick={() => setIsCreateExerciseOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nuovo Esercizio
+                </Button>
+              </div>
+              {exercisesLoading ? (
+                <p className="text-muted-foreground text-center py-8">Caricamento...</p>
+              ) : myExercises.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p>Nessun esercizio personalizzato</p>
+                  <Button variant="link" onClick={() => setIsCreateExerciseOpen(true)}>Crea il tuo primo esercizio</Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {myExercises.filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase())).map(ex => (
+                    <div key={ex.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-muted">
+                          <Dumbbell className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{ex.name}</p>
+                          <div className="flex gap-1.5 mt-0.5">
+                            <Badge variant="outline" className="text-xs capitalize">{ex.category}</Badge>
+                            <Badge variant="secondary" className="text-xs capitalize">{ex.difficulty_level}</Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {(ex.muscle_groups || []).slice(0, 3).map((m: string) => (
+                          <Badge key={m} variant="outline" className="text-xs">{m}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
@@ -636,6 +681,12 @@ export function PTWorkoutsPage() {
         open={isAssignDialogOpen}
         onOpenChange={setIsAssignDialogOpen}
         preselectedTemplateId={selectedTemplateId || undefined}
+      />
+
+      {/* Create Exercise Dialog */}
+      <CreateExerciseDialog
+        open={isCreateExerciseOpen}
+        onOpenChange={setIsCreateExerciseOpen}
       />
     </div>
   );
