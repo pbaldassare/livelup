@@ -387,6 +387,10 @@ export function AtletaProgressPage() {
             )}
           </div>
         </TabsContent>
+
+        <TabsContent value="photos" className="mt-0">
+          <ProgressPhotos />
+        </TabsContent>
       </Tabs>
     </div>
   );
