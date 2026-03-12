@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
-  Plus, Zap, BarChart3, Calendar as CalendarIcon, Dumbbell
+  Plus, Zap, BarChart3, Calendar as CalendarIcon, Dumbbell, Camera
 } from 'lucide-react';
 import { format, subDays, isSameDay, startOfWeek, endOfWeek, eachWeekOfInterval, subWeeks } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -21,6 +21,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Area, AreaChart 
 } from 'recharts';
+import { ProgressPhotos } from '@/components/app/ProgressPhotos';
 
 // =====================================================
 // ATLETA PROGRESS PAGE - With real recharts graphs
@@ -266,6 +267,9 @@ export function AtletaProgressPage() {
           <TabsTrigger value="exercises" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3">
             <Dumbbell className="h-5 w-5" />
           </TabsTrigger>
+          <TabsTrigger value="photos" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3">
+            <Camera className="h-5 w-5" />
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="calendar" className="mt-0">
@@ -382,6 +386,10 @@ export function AtletaProgressPage() {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="photos" className="mt-0">
+          <ProgressPhotos />
         </TabsContent>
       </Tabs>
     </div>
