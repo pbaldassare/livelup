@@ -399,6 +399,48 @@ export function PTAthleteDetailPage() {
               </div>
             </SectionCard>
           )}
+
+          {/* Badge Assignment */}
+          <SectionCard
+            title="Assegna Badge"
+            subtitle="Premia i risultati del tuo atleta"
+            icon={Award}
+            iconColor="yellow"
+          >
+            {unassignedBadges.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Tutti i badge sono già stati assegnati! 🎉</p>
+            ) : (
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <Select value={selectedBadgeId} onValueChange={setSelectedBadgeId}>
+                    <SelectTrigger><SelectValue placeholder="Seleziona badge..." /></SelectTrigger>
+                    <SelectContent>
+                      {unassignedBadges.map(b => (
+                        <SelectItem key={b.id} value={b.id}>{b.name} - {b.description}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={() => assignBadgeMutation.mutate()}
+                  disabled={!selectedBadgeId || assignBadgeMutation.isPending}
+                >
+                  <Award className="h-4 w-4 mr-2" />
+                  Assegna
+                </Button>
+              </div>
+            )}
+            {earnedBadges.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground mb-2">Badge guadagnati ({earnedBadges.length})</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {badges.filter(b => earnedBadges.includes(b.id)).map(b => (
+                    <Badge key={b.id} variant="secondary">{b.name}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </SectionCard>
         </div>
       </div>
 

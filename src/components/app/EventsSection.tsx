@@ -188,7 +188,10 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
       ) : events && events.length > 0 ? (
         <div className="space-y-4">
           <AnimatePresence mode="popLayout">
-            {events.map((event, index) => (
+            {(userLocation
+              ? events.filter(e => !e.location_lat || !e.location_lng || haversineDistance(userLocation.lat, userLocation.lng, e.location_lat, e.location_lng) <= maxDistance)
+              : events
+            ).map((event, index) => (
               <motion.div
                 key={event.id}
                 initial={{ opacity: 0, y: 20 }}
