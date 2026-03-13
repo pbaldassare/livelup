@@ -212,8 +212,8 @@ export function PTAthletesPage() {
   };
 
   const pendingCount = connections.filter(c => c.status === 'pending').length;
-  const activeCount = connections.filter(c => c.status === 'attivo').length;
-  const terminatedCount = connections.filter(c => c.status === 'terminato').length;
+  const activeCount = connections.filter(c => c.status === 'active').length;
+  const terminatedCount = connections.filter(c => c.status === 'terminated' || c.status === 'terminato').length;
 
   const handleViewDetail = (conn: AtletaConnection) => {
     setSelectedAthlete(conn);
