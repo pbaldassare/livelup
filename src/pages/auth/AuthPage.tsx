@@ -71,14 +71,16 @@ export function AuthPage() {
 
     setIsLoading(true);
     const { error } = await signIn(email, password);
-    setIsLoading(false);
 
     if (error) {
+      setIsLoading(false);
       toast.error('Errore di accesso', {
         description: error.message,
       });
     } else {
       toast.success('Accesso effettuato');
+      // Keep loading state active - the useEffect will handle redirect
+      // once role is fetched by AuthProvider's onAuthStateChange
     }
   };
 
