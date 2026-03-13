@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useRef, useCallback, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -44,6 +44,41 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
   const { signOut, user } = useAuth();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
+    
+    // Swipe right to open (start from left edge, >60px horizontal, not too vertical)
+    if (!sidebarOpen && touchStartX.current < 30 && deltaX > 60 && deltaY < 80) {
+      setSidebarOpen(true);
+    }
+    // Swipe left to close
+    if (sidebarOpen && deltaX < -60 && deltaY < 80) {
+      setSidebarOpen(false);
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isMobile, handleTouchStart, handleTouchEnd]);
+
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
