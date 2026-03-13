@@ -289,7 +289,7 @@ export function PTMessagesPage() {
         </Card>
 
         {/* Chat Messages */}
-        <Card className="lg:col-span-2 flex flex-col">
+        <Card className="lg:col-span-2 flex min-h-0 flex-col">
           {selectedChat ? (
             <>
               <CardHeader className="border-b">
@@ -304,8 +304,8 @@ export function PTMessagesPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 p-0 flex flex-col">
-                <ScrollArea className="flex-1 p-4">
+              <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+                <ScrollArea className="min-h-0 flex-1 p-4">
                   {messagesLoading ? (
                     <div className="text-center text-muted-foreground">
                       Caricamento messaggi...
