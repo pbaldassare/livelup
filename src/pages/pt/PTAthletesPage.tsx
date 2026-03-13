@@ -182,9 +182,9 @@ export function PTAthletesPage() {
       const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
                             conn.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      if (activeTab === 'active') return conn.status === 'attivo' && matchesSearch;
+      if (activeTab === 'active') return conn.status === 'active' && matchesSearch;
       if (activeTab === 'pending') return conn.status === 'pending' && matchesSearch;
-      if (activeTab === 'terminated') return conn.status === 'terminato' && matchesSearch;
+      if (activeTab === 'terminated') return (conn.status === 'terminated' || conn.status === 'terminato') && matchesSearch;
       return matchesSearch;
     });
   }, [connections, searchTerm, activeTab]);
