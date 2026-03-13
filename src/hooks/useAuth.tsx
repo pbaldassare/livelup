@@ -54,43 +54,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
+    let isMounted = true;
+
+    const fetchUserRoleWithTimeout = async (userId: string): Promise<AppRole | null> => {
+      return Promise.race([
+        fetchUserRole(userId),
+        new Promise<AppRole | null>((resolve) =>
+          setTimeout(() => resolve(null), 8000)
+        ),
+      ]);
+    };
+
+    const safeSetLoading = (value: boolean) => {
+      if (isMounted) setIsLoading(value);
+    };
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (!isMounted) return;
+
         setSession(session);
         setUser(session?.user ?? null);
 
         // Defer role fetch to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
-            fetchUserRole(session.user.id).then(setRole);
+            fetchUserRoleWithTimeout(session.user.id)
+              .then((nextRole) => {
+                if (isMounted) setRole(nextRole);
+              })
+              .finally(() => safeSetLoading(false));
           }, 0);
         } else {
           setRole(null);
+          safeSetLoading(false);
         }
 
         if (event === 'SIGNED_OUT') {
           setRole(null);
+          safeSetLoading(false);
         }
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserRole(session.user.id).then((fetchedRole) => {
-          setRole(fetchedRole);
-          setIsLoading(false);
-        });
-      } else {
-        setIsLoading(false);
-      }
-    });
+    const loadingTimeout = window.setTimeout(() => {
+      console.warn('Auth initialization timeout: forcing loading completion');
+      safeSetLoading(false);
+    }, 10000);
 
-    return () => subscription.unsubscribe();
+    // THEN check for existing session
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        if (!isMounted) return;
+
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          const fetchedRole = await fetchUserRoleWithTimeout(session.user.id);
+          if (isMounted) setRole(fetchedRole);
+        } else {
+          setRole(null);
+        }
+      })
+      .catch((error) => {
+        console.error('Error initializing auth session:', error);
+        if (isMounted) setRole(null);
+      })
+      .finally(() => {
+        window.clearTimeout(loadingTimeout);
+        safeSetLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(loadingTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Sign in with email/password
