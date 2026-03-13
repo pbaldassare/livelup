@@ -227,7 +227,7 @@ export function PTMessagesPage() {
 
       <div className="grid gap-6 lg:grid-cols-3 lg:h-[calc(100dvh-280px)]">
         {/* Chat List */}
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-1 lg:min-h-0">
           <CardHeader className="pb-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -239,7 +239,7 @@ export function PTMessagesPage() {
               />
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 lg:min-h-0">
             <ScrollArea className="max-h-[60dvh] lg:h-[calc(100dvh-400px)]">
               {chatsLoading ? (
                 <div className="p-4 text-center text-muted-foreground">
