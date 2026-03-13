@@ -116,7 +116,7 @@ export function PTAthletesPage() {
     mutationFn: async (conn: AtletaConnection) => {
       const { error } = await supabase
         .from('pt_atleta_connections')
-        .update({ status: 'attivo', accepted_at: new Date().toISOString() })
+        .update({ status: 'active', accepted_at: new Date().toISOString() })
         .eq('id', conn.id);
       if (error) throw error;
 
