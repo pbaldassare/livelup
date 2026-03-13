@@ -36,6 +36,7 @@ import { it } from 'date-fns/locale';
 // =====================================================
 
 export function PTDashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: stats, isLoading } = usePTStats();
 
