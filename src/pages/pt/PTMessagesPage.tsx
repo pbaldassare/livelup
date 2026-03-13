@@ -225,9 +225,9 @@ export function PTMessagesPage() {
         icon={MessageSquare}
       />
 
-      <div className="grid gap-6 lg:grid-cols-3 h-[calc(100vh-280px)]">
+      <div className="grid gap-6 lg:grid-cols-3 lg:h-[calc(100dvh-280px)]">
         {/* Chat List */}
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-1 lg:min-h-0">
           <CardHeader className="pb-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -239,8 +239,8 @@ export function PTMessagesPage() {
               />
             </div>
           </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-400px)]">
+          <CardContent className="p-0 lg:min-h-0">
+            <ScrollArea className="max-h-[60dvh] lg:h-[calc(100dvh-400px)]">
               {chatsLoading ? (
                 <div className="p-4 text-center text-muted-foreground">
                   Caricamento...
@@ -289,7 +289,7 @@ export function PTMessagesPage() {
         </Card>
 
         {/* Chat Messages */}
-        <Card className="lg:col-span-2 flex flex-col">
+        <Card className="lg:col-span-2 flex min-h-0 flex-col">
           {selectedChat ? (
             <>
               <CardHeader className="border-b">
@@ -304,8 +304,8 @@ export function PTMessagesPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 p-0 flex flex-col">
-                <ScrollArea className="flex-1 p-4">
+              <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+                <ScrollArea className="min-h-0 flex-1 p-4">
                   {messagesLoading ? (
                     <div className="text-center text-muted-foreground">
                       Caricamento messaggi...

@@ -157,7 +157,7 @@ export function AtletaChatPage() {
   // Show chat detail if recipientId is provided
   if (recipientId && currentChat) {
     return (
-      <div className="h-screen bg-app-background">
+      <div className="h-full min-h-0 bg-app-background">
         <ChatMessages
           recipientName={currentChat.name}
           recipientAvatar={currentChat.avatarUrl}
@@ -174,7 +174,7 @@ export function AtletaChatPage() {
 
   // Show chat list
   return (
-    <div className="h-screen bg-app-background">
+    <div className="h-full min-h-0 bg-app-background">
       <ChatList
         chats={chats || []}
         isLoading={chatsLoading}

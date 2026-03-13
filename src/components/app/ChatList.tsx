@@ -53,7 +53,7 @@ export function ChatList({
   });
 
   return (
-    <div className="flex flex-col h-full bg-app-background">
+    <div className="flex h-full min-h-0 flex-col bg-app-background">
       {/* Header */}
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
@@ -86,7 +86,7 @@ export function ChatList({
       </div>
 
       {/* Chat items */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="p-4 space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
