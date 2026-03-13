@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,7 @@ import { it } from 'date-fns/locale';
 // =====================================================
 
 export function PTDashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: stats, isLoading } = usePTStats();
 
@@ -174,6 +175,7 @@ export function PTDashboard() {
               subtitle="Prossimi 7 giorni"
               icon={Calendar}
               iconColor="info"
+              onClick={() => navigate('/pt/calendar')}
             />
             <KPICard
               title="Messaggi"
