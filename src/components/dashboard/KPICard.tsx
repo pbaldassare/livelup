@@ -77,6 +77,7 @@ interface KPICardColoredProps {
   icon?: LucideIcon;
   color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple';
   className?: string;
+  onClick?: () => void;
 }
 
 const colorStyles = {
