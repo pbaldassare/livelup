@@ -58,7 +58,7 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
     const deltaY = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
     
     // Swipe right to open (start from left edge, >60px horizontal, not too vertical)
-    if (!sidebarOpen && touchStartX.current < 30 && deltaX > 60 && deltaY < 80) {
+    if (!sidebarOpen && touchStartX.current < 80 && deltaX > 50 && deltaY < 80) {
       setSidebarOpen(true);
     }
     // Swipe left to close
