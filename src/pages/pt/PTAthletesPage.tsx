@@ -153,7 +153,7 @@ export function PTAthletesPage() {
     mutationFn: async (conn: AtletaConnection) => {
       const { error } = await supabase
         .from('pt_atleta_connections')
-        .update({ status: 'rifiutato' })
+        .update({ status: 'rejected' })
         .eq('id', conn.id);
       if (error) throw error;
 
