@@ -444,7 +444,7 @@ export function PTAthletesPage() {
           { label: 'Stato', value: selectedAthlete?.atleta_profiles?.status || 'attivo' },
         ]}
         actions={
-          selectedAthlete?.status === 'attivo' ? (
+          selectedAthlete?.status === 'active' ? (
             <>
               <Button className="flex-1" variant="outline">
                 <MessageSquare className="h-4 w-4 mr-2" />
