@@ -217,6 +217,7 @@ export function PTDashboard() {
             subtitle="Atleti questo mese"
             icon={Users}
             color="green"
+            onClick={() => navigate('/pt/athletes')}
           />
           <KPICardColored
             title="Atleti"
@@ -224,6 +225,7 @@ export function PTDashboard() {
             subtitle="Collegati"
             icon={CheckCircle2}
             color="purple"
+            onClick={() => navigate('/pt/athletes')}
           />
         </div>
       </SectionCard>
