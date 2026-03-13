@@ -1,37 +1,20 @@
 
-# Modifica: "Workout" → "Attività" nella Navbar
 
-## Cambiamento Richiesto
-Sostituire la label "Workout" con "Attività" nella barra di navigazione in basso dell'app atleta.
+# Piano: Collegare "Appuntamenti" al Calendario
 
-## File da Modificare
+## Analisi
 
-| File | Riga | Modifica |
-|------|------|----------|
-| `src/components/layouts/AppLayout.tsx` | 59 | `label: 'Workout'` → `label: 'Attività'` |
-| `src/components/app/MobileNav.tsx` | 24 | `label: 'Workout'` → `label: 'Attività'` |
+- **KPICard "Appuntamenti"** esiste in `PTDashboard.tsx` (riga 171) ma **non ha `onClick`**
+- **Sezione "Prossimi appuntamenti"** (riga 279) ha già un link a `/pt/calendar` ✅
+- **Route calendario**: `/pt/calendar` → `PTCalendarPage.tsx` ✅
+- **Sidebar**: la voce "Calendario" (`/pt/calendar`) esiste già in `PTDashboardLayout.tsx` ✅
+- Il componente `KPICard` supporta già la prop `onClick`
 
-## Dettaglio Tecnico
+## Unica modifica necessaria
 
-### AppLayout.tsx (riga 59)
-```tsx
-// Da:
-{ label: 'Workout', href: '/app/workout', icon: Dumbbell },
+**File:** `src/pages/pt/PTDashboard.tsx`
 
-// A:
-{ label: 'Attività', href: '/app/workout', icon: Dumbbell },
-```
+Aggiungere `onClick={() => navigate('/pt/calendar')}` alla KPICard "Appuntamenti" (riga 171-177), usando `useNavigate` da react-router-dom (probabilmente già importato).
 
-### MobileNav.tsx (riga 24)
-```tsx
-// Da:
-{ icon: Dumbbell, label: 'Workout', path: '/app/workout' },
+Questo è tutto. La sidebar e la sezione "Prossimi appuntamenti" funzionano già correttamente.
 
-// A:
-{ icon: Dumbbell, label: 'Attività', path: '/app/workout' },
-```
-
-## Note
-- Il percorso URL resta `/app/workout` (identificatori tecnici non cambiano)
-- Solo la label visibile all'utente viene modificata
-- Coerente con la terminologia del progetto che preferisce "Attività" a "Workout"
