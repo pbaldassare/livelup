@@ -116,7 +116,7 @@ export function PTAthletesPage() {
     mutationFn: async (conn: AtletaConnection) => {
       const { error } = await supabase
         .from('pt_atleta_connections')
-        .update({ status: 'attivo', accepted_at: new Date().toISOString() })
+        .update({ status: 'active', accepted_at: new Date().toISOString() })
         .eq('id', conn.id);
       if (error) throw error;
 
@@ -153,7 +153,7 @@ export function PTAthletesPage() {
     mutationFn: async (conn: AtletaConnection) => {
       const { error } = await supabase
         .from('pt_atleta_connections')
-        .update({ status: 'rifiutato' })
+        .update({ status: 'rejected' })
         .eq('id', conn.id);
       if (error) throw error;
 
@@ -182,9 +182,9 @@ export function PTAthletesPage() {
       const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
                             conn.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      if (activeTab === 'active') return conn.status === 'attivo' && matchesSearch;
+      if (activeTab === 'active') return conn.status === 'active' && matchesSearch;
       if (activeTab === 'pending') return conn.status === 'pending' && matchesSearch;
-      if (activeTab === 'terminated') return conn.status === 'terminato' && matchesSearch;
+      if (activeTab === 'terminated') return (conn.status === 'terminated' || conn.status === 'terminato') && matchesSearch;
       return matchesSearch;
     });
   }, [connections, searchTerm, activeTab]);
@@ -212,8 +212,8 @@ export function PTAthletesPage() {
   };
 
   const pendingCount = connections.filter(c => c.status === 'pending').length;
-  const activeCount = connections.filter(c => c.status === 'attivo').length;
-  const terminatedCount = connections.filter(c => c.status === 'terminato').length;
+  const activeCount = connections.filter(c => c.status === 'active').length;
+  const terminatedCount = connections.filter(c => c.status === 'terminated' || c.status === 'terminato').length;
 
   const handleViewDetail = (conn: AtletaConnection) => {
     setSelectedAthlete(conn);
@@ -444,7 +444,7 @@ export function PTAthletesPage() {
           { label: 'Stato', value: selectedAthlete?.atleta_profiles?.status || 'attivo' },
         ]}
         actions={
-          selectedAthlete?.status === 'attivo' ? (
+          selectedAthlete?.status === 'active' ? (
             <>
               <Button className="flex-1" variant="outline">
                 <MessageSquare className="h-4 w-4 mr-2" />
