@@ -184,6 +184,7 @@ export function PTDashboard() {
               subtitle="Non letti"
               icon={MessageSquare}
               iconColor="warning"
+              onClick={() => navigate('/pt/messages')}
             />
           </>
         )}
