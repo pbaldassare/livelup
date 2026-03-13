@@ -174,6 +174,7 @@ export function PTDashboard() {
               subtitle="Prossimi 7 giorni"
               icon={Calendar}
               iconColor="info"
+              onClick={() => navigate('/pt/calendar')}
             />
             <KPICard
               title="Messaggi"
