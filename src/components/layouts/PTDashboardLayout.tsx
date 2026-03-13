@@ -189,13 +189,27 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
       </aside>
 
       {/* Mobile overlay */}
-      {isMobile && sidebarOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
-          <aside className="relative z-50 h-screen w-64 bg-[#0d4f4f] text-white shadow-xl">
+      {isMobile && (
+        <>
+          {sidebarOpen && (
+            <motion.div
+              className="fixed inset-0 z-50 bg-black/50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+          <motion.aside
+            className="fixed left-0 top-0 z-50 h-screen w-64 bg-[#0d4f4f] text-white shadow-xl"
+            initial={{ x: '-100%' }}
+            animate={{ x: sidebarOpen ? 0 : '-100%' }}
+            transition={{ type: 'tween', duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+          >
             {sidebarContent}
-          </aside>
-        </div>
+          </motion.aside>
+        </>
       )}
 
       {/* Main content */}
