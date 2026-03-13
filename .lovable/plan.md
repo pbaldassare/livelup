@@ -1,27 +1,37 @@
 
+# Modifica: "Workout" → "Attività" nella Navbar
 
-# Piano: Collegare "Atleti" nella dashboard a `/pt/athletes`
+## Cambiamento Richiesto
+Sostituire la label "Workout" con "Attività" nella barra di navigazione in basso dell'app atleta.
 
-## Analisi
+## File da Modificare
 
-- **Sidebar**: voce "Atleti" → `/pt/athletes` ✅ già presente
-- **Dashboard**: ci sono 4 elementi "Atleti":
-  1. **KPICard "I Miei Atleti"** (riga 158) — **nessun `onClick`** ❌
-  2. **KPICard "Messaggi"** (riga 180) — non pertinente
-  3. **KPICardColored "Crescita Atleti"** (riga 213) — **nessun `onClick`** ❌
-  4. **KPICardColored "Atleti"** (riga 220) — **nessun `onClick`** ❌
-  5. **Button "Gestisci Atleti"** (riga 336) — già collegato con `Link to="/pt/athletes"` ✅
+| File | Riga | Modifica |
+|------|------|----------|
+| `src/components/layouts/AppLayout.tsx` | 59 | `label: 'Workout'` → `label: 'Attività'` |
+| `src/components/app/MobileNav.tsx` | 24 | `label: 'Workout'` → `label: 'Attività'` |
 
-## Modifiche necessarie
+## Dettaglio Tecnico
 
-### 1. `src/pages/pt/PTDashboard.tsx`
-- Aggiungere `onClick={() => navigate('/pt/athletes')}` alla KPICard "I Miei Atleti" (riga 158)
+### AppLayout.tsx (riga 59)
+```tsx
+// Da:
+{ label: 'Workout', href: '/app/workout', icon: Dumbbell },
 
-### 2. `src/components/dashboard/KPICard.tsx`
-- Aggiungere prop `onClick` a `KPICardColoredProps` e gestirla nel componente (renderlo cliccabile con cursor-pointer)
+// A:
+{ label: 'Attività', href: '/app/workout', icon: Dumbbell },
+```
 
-### 3. `src/pages/pt/PTDashboard.tsx`
-- Aggiungere `onClick={() => navigate('/pt/athletes')}` alle due KPICardColored "Crescita Atleti" e "Atleti"
+### MobileNav.tsx (riga 24)
+```tsx
+// Da:
+{ icon: Dumbbell, label: 'Workout', path: '/app/workout' },
 
-La sidebar evidenzierà automaticamente la voce corretta grazie alla logica `isActiveRoute` già presente.
+// A:
+{ icon: Dumbbell, label: 'Attività', path: '/app/workout' },
+```
 
+## Note
+- Il percorso URL resta `/app/workout` (identificatori tecnici non cambiano)
+- Solo la label visibile all'utente viene modificata
+- Coerente con la terminologia del progetto che preferisce "Attività" a "Workout"

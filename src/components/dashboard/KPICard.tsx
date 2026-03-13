@@ -77,6 +77,7 @@ interface KPICardColoredProps {
   icon?: LucideIcon;
   color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple';
   className?: string;
+  onClick?: () => void;
 }
 
 const colorStyles = {
@@ -102,9 +103,10 @@ export function KPICardColored({
   icon: Icon,
   color = 'blue',
   className,
+  onClick,
 }: KPICardColoredProps) {
   return (
-    <Card className={cn('overflow-hidden', colorStyles[color], className)}>
+    <Card className={cn('overflow-hidden', colorStyles[color], onClick && 'cursor-pointer', className)} onClick={onClick}>
       <CardContent className="p-5">
         <div className="flex items-start gap-3">
           {Icon && (
