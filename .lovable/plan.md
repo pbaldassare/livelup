@@ -1,37 +1,22 @@
 
-# Modifica: "Workout" → "Attività" nella Navbar
 
-## Cambiamento Richiesto
-Sostituire la label "Workout" con "Attività" nella barra di navigazione in basso dell'app atleta.
+# Piano: Bloccare lo scroll orizzontale nelle pagine PT
 
-## File da Modificare
+## Problema
+Le pagine Atleti e Allenamenti permettono lo scroll orizzontale dell'intera pagina. Lo scroll orizzontale locale (es. carousel atleti attivi, template) deve rimanere funzionante.
 
-| File | Riga | Modifica |
-|------|------|----------|
-| `src/components/layouts/AppLayout.tsx` | 59 | `label: 'Workout'` → `label: 'Attività'` |
-| `src/components/app/MobileNav.tsx` | 24 | `label: 'Workout'` → `label: 'Attività'` |
+## Soluzione
 
-## Dettaglio Tecnico
+**File: `src/components/layouts/PTDashboardLayout.tsx`**
 
-### AppLayout.tsx (riga 59)
+Aggiungere `overflow-x-hidden` al contenitore principale `<div className="md:pl-64">` (riga 216). Questo blocca lo scroll orizzontale a livello di pagina, ma i componenti interni con `overflow-x-auto` o `overflow-x-scroll` continuano a funzionare normalmente perché il CSS overflow si applica solo al livello diretto.
+
 ```tsx
-// Da:
-{ label: 'Workout', href: '/app/workout', icon: Dumbbell },
-
-// A:
-{ label: 'Attività', href: '/app/workout', icon: Dumbbell },
+// Riga 216: da
+<div className="md:pl-64">
+// a
+<div className="md:pl-64 overflow-x-hidden">
 ```
 
-### MobileNav.tsx (riga 24)
-```tsx
-// Da:
-{ icon: Dumbbell, label: 'Workout', path: '/app/workout' },
+Una sola riga modificata, nessun impatto sui carousel/slider locali.
 
-// A:
-{ icon: Dumbbell, label: 'Attività', path: '/app/workout' },
-```
-
-## Note
-- Il percorso URL resta `/app/workout` (identificatori tecnici non cambiano)
-- Solo la label visibile all'utente viene modificata
-- Coerente con la terminologia del progetto che preferisce "Attività" a "Workout"
