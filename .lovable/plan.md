@@ -1,35 +1,37 @@
 
+# Modifica: "Workout" → "Attività" nella Navbar
 
-# Piano: Collegamento diretto al tab "Richieste" nella pagina Atleti
+## Cambiamento Richiesto
+Sostituire la label "Workout" con "Attività" nella barra di navigazione in basso dell'app atleta.
 
-## Stato attuale
+## File da Modificare
 
-Tutto esiste già:
-- **Sidebar**: voce "Atleti" → `/pt/athletes` → `PTAthletesPage.tsx`
-- **PTAthletesPage**: ha già il tab "Richieste" con lista pendenti, accetta/rifiuta, notifiche, filtro per PT loggato
-- **Tabella**: `pt_atleta_connections` con status `pending`/`active`/`rejected`/`terminated`
-- **RLS**: corretto, filtra per `pt_user_id = auth.uid()`
-- **Hook**: `usePTConnectionRequests` già funzionante
-- **Componente**: `PTConnectionRequests` già completo con avatar, data, livello, obiettivi, accetta/rifiuta
+| File | Riga | Modifica |
+|------|------|----------|
+| `src/components/layouts/AppLayout.tsx` | 59 | `label: 'Workout'` → `label: 'Attività'` |
+| `src/components/app/MobileNav.tsx` | 24 | `label: 'Workout'` → `label: 'Attività'` |
 
-Non serve creare nulla di nuovo. Serve solo permettere la navigazione diretta al tab "Richieste".
+## Dettaglio Tecnico
 
-## Unica modifica necessaria
-
-**File: `src/pages/pt/PTAthletesPage.tsx`**
-
-Leggere un query parameter `?tab=pending` dall'URL e usarlo come valore iniziale del tab attivo. Così da qualsiasi punto dell'app si può navigare a `/pt/athletes?tab=pending` per aprire direttamente il tab Richieste.
-
+### AppLayout.tsx (riga 59)
 ```tsx
-// Aggiungere useSearchParams
-const [searchParams] = useSearchParams();
-const initialTab = searchParams.get('tab') || 'active';
-const [activeTab, setActiveTab] = useState(initialTab);
+// Da:
+{ label: 'Workout', href: '/app/workout', icon: Dumbbell },
+
+// A:
+{ label: 'Attività', href: '/app/workout', icon: Dumbbell },
 ```
 
-**File: `src/pages/pt/PTDashboard.tsx`**
+### MobileNav.tsx (riga 24)
+```tsx
+// Da:
+{ icon: Dumbbell, label: 'Workout', path: '/app/workout' },
 
-Le KPICard "Richieste Pendenti" e la sezione richieste devono navigare a `/pt/athletes?tab=pending` invece di `/pt/athletes`.
+// A:
+{ icon: Dumbbell, label: 'Attività', path: '/app/workout' },
+```
 
-Nessuna nuova pagina, nessuna nuova tabella, nessuna nuova logica.
-
+## Note
+- Il percorso URL resta `/app/workout` (identificatori tecnici non cambiano)
+- Solo la label visibile all'utente viene modificata
+- Coerente con la terminologia del progetto che preferisce "Attività" a "Workout"
