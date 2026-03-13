@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -13,72 +13,38 @@ import {
   Settings, 
   LogOut,
   Smartphone,
-  BookOpen
+  BookOpen,
+  Menu,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/common/Logo';
-
-// =====================================================
-// PT DASHBOARD LAYOUT - Dashboard Web PT
-// Design: Sidebar teal, cards bianche, layout pulito
-// =====================================================
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface PTDashboardLayoutProps {
   children: ReactNode;
 }
 
 const navigationItems = [
-  { 
-    label: 'Dashboard', 
-    href: '/pt', 
-    icon: LayoutDashboard,
-    exact: true 
-  },
-  { 
-    label: 'Atleti', 
-    href: '/pt/athletes', 
-    icon: Users 
-  },
-  { 
-    label: 'Allenamenti', 
-    href: '/pt/workouts', 
-    icon: Dumbbell 
-  },
-  { 
-    label: 'Calendario', 
-    href: '/pt/calendar', 
-    icon: Calendar 
-  },
-  { 
-    label: 'Messaggi', 
-    href: '/pt/messages', 
-    icon: MessageSquare 
-  },
-  { 
-    label: 'Pagamenti', 
-    href: '/pt/payments', 
-    icon: CreditCard 
-  },
-  { 
-    label: 'Blog', 
-    href: '/pt/blog', 
-    icon: BookOpen 
-  },
-  { 
-    label: 'Impostazioni', 
-    href: '/pt/settings', 
-    icon: Settings 
-  },
+  { label: 'Dashboard', href: '/pt', icon: LayoutDashboard, exact: true },
+  { label: 'Atleti', href: '/pt/athletes', icon: Users },
+  { label: 'Allenamenti', href: '/pt/workouts', icon: Dumbbell },
+  { label: 'Calendario', href: '/pt/calendar', icon: Calendar },
+  { label: 'Messaggi', href: '/pt/messages', icon: MessageSquare },
+  { label: 'Pagamenti', href: '/pt/payments', icon: CreditCard },
+  { label: 'Blog', href: '/pt/blog', icon: BookOpen },
+  { label: 'Impostazioni', href: '/pt/settings', icon: Settings },
 ];
 
 export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Fetch profile for display
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
@@ -94,9 +60,7 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
   });
 
   const isActiveRoute = (href: string, exact?: boolean) => {
-    if (exact) {
-      return location.pathname === href;
-    }
+    if (exact) return location.pathname === href;
     return location.pathname.startsWith(href);
   };
 
@@ -108,91 +72,113 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
     ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`
     : 'PT';
 
-  return (
-    <div className="min-h-screen bg-muted/30" data-role="pt">
-      {/* Sidebar - Stile teal scuro */}
-      <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-[#0d4f4f] text-white">
-        <div className="flex h-full flex-col">
-          {/* Logo & Brand */}
-          <div className="flex h-16 items-center px-6 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <Logo variant="icon" className="h-9 w-9 rounded-lg" />
-              <div>
-                <span className="text-base font-semibold">LIVELLAPP</span>
-                <span className="block text-xs text-white/60 uppercase tracking-wider">Personal Trainer</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 py-4 px-3 overflow-y-auto">
-            <div className="space-y-1">
-              {navigationItems.map((item) => {
-                const isActive = isActiveRoute(item.href, item.exact);
-                return (
-                  <Link
-                    key={item.href}
-                    to={item.href}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all',
-                      isActive
-                        ? 'bg-white text-[#0d4f4f] font-medium shadow-sm'
-                        : 'text-white/80 hover:bg-white/10 hover:text-white'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4 flex-shrink-0" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* App link */}
-            <div className="mt-6 pt-4 border-t border-white/10">
-              <Link 
-                to="/pt/app"
-                className="flex items-center gap-3 rounded-lg border border-dashed border-white/30 px-3 py-2.5 text-sm text-white/70 hover:border-white/50 hover:text-white transition-colors"
-              >
-                <Smartphone className="h-4 w-4" />
-                <span>Apri App PT</span>
-              </Link>
-            </div>
-          </nav>
-
-          {/* User section */}
-          <div className="border-t border-white/10 p-4">
-            <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3 mb-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white text-sm font-medium">
-                {initials}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{displayName}</p>
-                <p className="text-xs text-white/60 truncate">{user?.email}</p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-white/70 hover:text-white hover:bg-white/10"
-              onClick={signOut}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Esci
-            </Button>
+  const sidebarContent = (
+    <div className="flex h-full flex-col">
+      <div className="flex h-16 items-center justify-between px-6 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <Logo variant="icon" className="h-9 w-9 rounded-lg" />
+          <div>
+            <span className="text-base font-semibold">LIVELLAPP</span>
+            <span className="block text-xs text-white/60 uppercase tracking-wider">Personal Trainer</span>
           </div>
         </div>
+        {isMobile && (
+          <button onClick={() => setSidebarOpen(false)} className="p-1 text-white/70 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        )}
+      </div>
+
+      <nav className="flex-1 py-4 px-3 overflow-y-auto">
+        <div className="space-y-1">
+          {navigationItems.map((item) => {
+            const isActive = isActiveRoute(item.href, item.exact);
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                onClick={() => isMobile && setSidebarOpen(false)}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all',
+                  isActive
+                    ? 'bg-white text-[#0d4f4f] font-medium shadow-sm'
+                    : 'text-white/80 hover:bg-white/10 hover:text-white'
+                )}
+              >
+                <item.icon className="h-4 w-4 flex-shrink-0" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-white/10">
+          <Link 
+            to="/pt/app"
+            onClick={() => isMobile && setSidebarOpen(false)}
+            className="flex items-center gap-3 rounded-lg border border-dashed border-white/30 px-3 py-2.5 text-sm text-white/70 hover:border-white/50 hover:text-white transition-colors"
+          >
+            <Smartphone className="h-4 w-4" />
+            <span>Apri App PT</span>
+          </Link>
+        </div>
+      </nav>
+
+      <div className="border-t border-white/10 p-4">
+        <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3 mb-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white text-sm font-medium">
+            {initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white truncate">{displayName}</p>
+            <p className="text-xs text-white/60 truncate">{user?.email}</p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-white/70 hover:text-white hover:bg-white/10"
+          onClick={signOut}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Esci
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-muted/30" data-role="pt">
+      {/* Desktop sidebar */}
+      <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-[#0d4f4f] text-white hidden md:block">
+        {sidebarContent}
       </aside>
 
+      {/* Mobile overlay */}
+      {isMobile && sidebarOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
+          <aside className="relative z-50 h-screen w-64 bg-[#0d4f4f] text-white shadow-xl">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+
       {/* Main content */}
-      <div className="pl-64">
-        {/* Header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-end border-b border-border bg-white px-6">
+      <div className="md:pl-64">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-white px-4 md:px-6">
+          <button
+            className="md:hidden p-2 -ml-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="hidden md:block" />
           <div className="flex items-center gap-3">
             <NotificationDropdown />
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="p-6">
+        <main className="p-4 md:p-6">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 8 }}
