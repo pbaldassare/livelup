@@ -204,12 +204,13 @@ export function PTDashboard() {
             icon={TrendingUp}
             color="blue"
           />
-          <KPICardColored
+           <KPICardColored
             title="Richieste Pendenti"
             value={stats?.pending_requests ?? 0}
             subtitle="Da approvare"
             icon={Clock}
             color="yellow"
+            onClick={() => navigate('/pt/athletes?tab=pending')}
           />
           <KPICardColored
             title="Crescita Atleti"
