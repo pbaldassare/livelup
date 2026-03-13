@@ -161,6 +161,7 @@ export function PTDashboard() {
               subtitle="Atleti attivi"
               icon={Users}
               iconColor="primary"
+              onClick={() => navigate('/pt/athletes')}
             />
             <KPICard
               title="Allenamenti Creati"
