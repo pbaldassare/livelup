@@ -225,7 +225,7 @@ export function PTMessagesPage() {
         icon={MessageSquare}
       />
 
-      <div className="grid gap-6 lg:grid-cols-3 h-[calc(100vh-280px)]">
+      <div className="grid gap-6 lg:grid-cols-3 lg:h-[calc(100dvh-280px)]">
         {/* Chat List */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-3">
@@ -240,7 +240,7 @@ export function PTMessagesPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-400px)]">
+            <ScrollArea className="max-h-[60dvh] lg:h-[calc(100dvh-400px)]">
               {chatsLoading ? (
                 <div className="p-4 text-center text-muted-foreground">
                   Caricamento...

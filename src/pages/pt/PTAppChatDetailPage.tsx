@@ -143,7 +143,7 @@ export function PTAppChatDetailPage() {
     : 'Atleta';
 
   return (
-    <div className="h-screen bg-app-background">
+    <div className="h-full min-h-0 bg-app-background">
       <ChatMessages
         recipientName={recipientName}
         recipientAvatar={atletaProfile?.avatar_url}
