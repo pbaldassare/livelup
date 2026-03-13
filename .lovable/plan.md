@@ -1,37 +1,10 @@
 
-# Modifica: "Workout" → "Attività" nella Navbar
+# Piano: Collegare la KPI card "Messaggi" alla route esistente
 
-## Cambiamento Richiesto
-Sostituire la label "Workout" con "Attività" nella barra di navigazione in basso dell'app atleta.
+## Problema
+La KPI card "Messaggi" (riga 182-187) non ha un `onClick` handler, quindi non naviga da nessuna parte quando cliccata.
 
-## File da Modificare
+## Soluzione
+Aggiungere `onClick={() => navigate('/pt/messages')}` alla KPI card "Messaggi" a riga 182. La route `/pt/messages` è già usata dalla sidebar e dalle azioni rapide (riga 352).
 
-| File | Riga | Modifica |
-|------|------|----------|
-| `src/components/layouts/AppLayout.tsx` | 59 | `label: 'Workout'` → `label: 'Attività'` |
-| `src/components/app/MobileNav.tsx` | 24 | `label: 'Workout'` → `label: 'Attività'` |
-
-## Dettaglio Tecnico
-
-### AppLayout.tsx (riga 59)
-```tsx
-// Da:
-{ label: 'Workout', href: '/app/workout', icon: Dumbbell },
-
-// A:
-{ label: 'Attività', href: '/app/workout', icon: Dumbbell },
-```
-
-### MobileNav.tsx (riga 24)
-```tsx
-// Da:
-{ icon: Dumbbell, label: 'Workout', path: '/app/workout' },
-
-// A:
-{ icon: Dumbbell, label: 'Attività', path: '/app/workout' },
-```
-
-## Note
-- Il percorso URL resta `/app/workout` (identificatori tecnici non cambiano)
-- Solo la label visibile all'utente viene modificata
-- Coerente con la terminologia del progetto che preferisce "Attività" a "Workout"
+Una sola riga aggiunta, zero duplicazioni.
