@@ -327,7 +327,7 @@ export function AtletaAppHome() {
             )}
 
             {/* Weekly Stats */}
-            {weeklyStats && (
+            {weeklyStats && (<div data-tour="atleta-weekly-stats">
               <WeeklyStatsSection
                 completedThisWeek={weeklyStats.completed_this_week}
                 currentStreak={weeklyStats.current_streak}
