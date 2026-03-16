@@ -141,7 +141,7 @@ export function PTAppHome() {
 
         {/* Today's Events */}
         {todayEvents.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="pt-today-events">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                 Oggi

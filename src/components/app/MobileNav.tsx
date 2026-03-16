@@ -50,6 +50,7 @@ export function MobileNav({ role }: MobileNavProps) {
             <NavLink
               key={item.path}
               to={item.path}
+              data-tour={item.tourId}
               className={cn(
                 'flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-lg transition-colors min-w-[60px]',
                 isActive 

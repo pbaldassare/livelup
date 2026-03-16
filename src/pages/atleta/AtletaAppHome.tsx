@@ -339,7 +339,7 @@ export function AtletaAppHome() {
             <AIAssistantCard />
 
             {/* Teammates Section */}
-            <TeammatesSection />
+            <div data-tour="atleta-teammates"><TeammatesSection /></div>
 
             {/* Progress Stats */}
             {latestProgress && (
