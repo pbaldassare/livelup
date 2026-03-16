@@ -32,27 +32,32 @@ const navigationItems = [
     label: 'Dashboard', 
     href: '/admin', 
     icon: LayoutDashboard,
-    exact: true 
+    exact: true,
+    tourId: 'admin-dashboard',
   },
   { 
     label: 'Personal Trainers', 
     href: '/admin/pts', 
-    icon: UserCog 
+    icon: UserCog,
+    tourId: 'admin-nav-pts',
   },
   { 
     label: 'Atleti', 
     href: '/admin/athletes', 
-    icon: Users 
+    icon: Users,
+    tourId: 'admin-nav-athletes',
   },
   { 
     label: 'Abbonamenti', 
     href: '/admin/subscriptions', 
-    icon: CreditCard 
+    icon: CreditCard,
+    tourId: 'admin-nav-subscriptions',
   },
   { 
     label: 'Pagamenti', 
     href: '/admin/payments', 
-    icon: Receipt 
+    icon: Receipt,
+    tourId: 'admin-nav-payments',
   },
   { 
     label: 'Coupon', 
@@ -67,7 +72,8 @@ const navigationItems = [
   { 
     label: 'Supporto', 
     href: '/admin/support', 
-    icon: HeadphonesIcon 
+    icon: HeadphonesIcon,
+    tourId: 'admin-nav-support',
   },
   { 
     label: 'Impostazioni', 
