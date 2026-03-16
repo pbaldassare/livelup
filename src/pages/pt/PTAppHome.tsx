@@ -105,7 +105,7 @@ export function PTAppHome() {
 
       <main className="px-4 space-y-4 pt-2">
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3" data-tour="pt-stats-section">
           <StatCard 
             icon={Users} 
             label="Atleti Attivi" 
