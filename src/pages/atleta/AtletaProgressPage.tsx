@@ -199,7 +199,7 @@ export function AtletaProgressPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-app-background pb-20">
+    <div className="min-h-screen bg-app-background pb-20" data-tour="progress-page">
       {/* Header */}
       <div className="p-4 flex items-center justify-between border-b border-app-border">
         <div>

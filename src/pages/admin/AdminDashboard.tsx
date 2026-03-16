@@ -70,7 +70,7 @@ export function AdminDashboard() {
   });
 
   return (
-    <div className="space-y-6 animate-in">
+    <div className="space-y-6 animate-in" data-tour="admin-dashboard">
       {/* Page header */}
       <DashboardPageHeader
         icon={<LayoutDashboard className="h-6 w-6" />}

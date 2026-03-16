@@ -88,7 +88,7 @@ export function PTAppAthletesPage() {
   const activeCount = connections?.length || 0;
 
   return (
-    <div className="pb-4">
+    <div className="pb-4" data-tour="pt-athletes-page">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border p-4 space-y-3">
         <div className="flex items-center justify-between">

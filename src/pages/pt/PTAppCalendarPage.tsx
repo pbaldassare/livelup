@@ -122,7 +122,7 @@ export function PTAppCalendarPage() {
   };
 
   return (
-    <div className="pb-4">
+    <div className="pb-4" data-tour="pt-calendar-page">
       {/* Create Event Dialog */}
       <CreatePublicEventDialog 
         open={showCreateEvent} 
