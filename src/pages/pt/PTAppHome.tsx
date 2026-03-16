@@ -90,7 +90,7 @@ export function PTAppHome() {
     : 'PT';
 
   return (
-    <div className="min-h-screen bg-app-background text-app-foreground pb-20">
+    <div className="min-h-screen bg-app-background text-app-foreground pb-20" data-tour="pt-greeting">
       {/* Header */}
       <AppHeader
         avatarUrl={profile?.avatar_url || undefined}
