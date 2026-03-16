@@ -153,7 +153,7 @@ export function AtletaAppHome() {
     : 'U';
 
   return (
-    <div className="min-h-screen bg-app-background text-app-foreground pb-20">
+    <div className="min-h-screen bg-app-background text-app-foreground pb-20" data-tour="atleta-greeting">
       {/* Header with Avatar and Week Calendar */}
       <AppHeader
         avatarUrl={profile?.avatar_url || undefined}
