@@ -8,6 +8,9 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { SplashScreen } from "@/components/common/SplashScreen";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
 import { PWAUpdatePrompt } from "@/components/pwa/PWAUpdatePrompt";
+import { TourProvider } from "@/components/AppTourContext";
+import AppTour from "@/components/AppTour";
+import AppTourPrompt from "@/components/AppTourPrompt";
 
 // Layouts
 import { AdminLayout } from "@/components/layouts/AdminLayout";
@@ -122,6 +125,9 @@ const App = () => {
         
         <BrowserRouter>
           <AuthProvider>
+            <TourProvider>
+            <AppTour />
+            <AppTourPrompt />
             <Routes>
               {/* ============================================= */}
               {/* PUBLIC ROUTES - Accessibili a tutti          */}
@@ -477,6 +483,7 @@ const App = () => {
               {/* ============================================= */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+          </TourProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

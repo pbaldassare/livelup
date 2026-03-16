@@ -12,6 +12,7 @@ interface NavItem {
   label: string;
   path: string;
   badge?: number;
+  tourId?: string;
 }
 
 interface MobileNavProps {
@@ -19,19 +20,19 @@ interface MobileNavProps {
 }
 
 const atletaNavItems: NavItem[] = [
-  { icon: Home, label: 'Home', path: '/app' },
-  { icon: Search, label: 'Scopri', path: '/app/discover' },
-  { icon: Dumbbell, label: 'Attività', path: '/app/workout' },
-  { icon: CalendarDays, label: 'Prenota', path: '/app/booking' },
-  { icon: User, label: 'Profilo', path: '/app/profile' },
+  { icon: Home, label: 'Home', path: '/app', tourId: 'nav-home' },
+  { icon: Search, label: 'Scopri', path: '/app/discover', tourId: 'nav-discover' },
+  { icon: Dumbbell, label: 'Attività', path: '/app/workout', tourId: 'nav-workout' },
+  { icon: CalendarDays, label: 'Prenota', path: '/app/booking', tourId: 'nav-booking' },
+  { icon: User, label: 'Profilo', path: '/app/profile', tourId: 'nav-profile' },
 ];
 
 const ptNavItems: NavItem[] = [
-  { icon: Home, label: 'Home', path: '/pt/app' },
-  { icon: Users, label: 'Atleti', path: '/pt/app/athletes' },
-  { icon: Calendar, label: 'Calendario', path: '/pt/app/calendar' },
-  { icon: Dumbbell, label: 'Schede', path: '/pt/app/workouts' },
-  { icon: User, label: 'Profilo', path: '/pt/app/profile' },
+  { icon: Home, label: 'Home', path: '/pt/app', tourId: 'nav-pt-home' },
+  { icon: Users, label: 'Atleti', path: '/pt/app/athletes', tourId: 'nav-pt-athletes' },
+  { icon: Calendar, label: 'Calendario', path: '/pt/app/calendar', tourId: 'nav-pt-calendar' },
+  { icon: Dumbbell, label: 'Schede', path: '/pt/app/workouts', tourId: 'nav-pt-workouts' },
+  { icon: User, label: 'Profilo', path: '/pt/app/profile', tourId: 'nav-pt-profile' },
 ];
 
 export function MobileNav({ role }: MobileNavProps) {
@@ -49,6 +50,7 @@ export function MobileNav({ role }: MobileNavProps) {
             <NavLink
               key={item.path}
               to={item.path}
+              data-tour={item.tourId}
               className={cn(
                 'flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-lg transition-colors min-w-[60px]',
                 isActive 

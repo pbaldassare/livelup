@@ -90,7 +90,7 @@ export function PTAppHome() {
     : 'PT';
 
   return (
-    <div className="min-h-screen bg-app-background text-app-foreground pb-20">
+    <div className="min-h-screen bg-app-background text-app-foreground pb-20" data-tour="pt-greeting">
       {/* Header */}
       <AppHeader
         avatarUrl={profile?.avatar_url || undefined}
@@ -105,7 +105,7 @@ export function PTAppHome() {
 
       <main className="px-4 space-y-4 pt-2">
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3" data-tour="pt-stats-section">
           <StatCard 
             icon={Users} 
             label="Atleti Attivi" 
@@ -136,12 +136,12 @@ export function PTAppHome() {
 
         {/* Pending Connection Requests */}
         {pendingCount > 0 && (
-          <PTConnectionRequests maxItems={3} showEmpty={false} />
+          <div data-tour="pt-connection-requests"><PTConnectionRequests maxItems={3} showEmpty={false} /></div>
         )}
 
         {/* Today's Events */}
         {todayEvents.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="pt-today-events">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                 Oggi

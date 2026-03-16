@@ -267,7 +267,7 @@ export function AtletaProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-app-background pb-20">
+    <div className="min-h-screen bg-app-background pb-20" data-tour="profile-page">
       {/* Profile Header */}
       <ProfileHeader
         name={fullName}

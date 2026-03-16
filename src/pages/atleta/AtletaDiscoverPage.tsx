@@ -876,7 +876,7 @@ export function AtletaDiscoverPage() {
   const [activeCategory, setActiveCategory] = useState<'pt' | 'events' | 'professionals'>('pt');
 
   return (
-    <div className="min-h-screen bg-app-background pb-24">
+    <div className="min-h-screen bg-app-background pb-24" data-tour="discover-page">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-app-background/95 backdrop-blur border-b border-app-border p-4 space-y-3">
         <h1 className="text-xl font-bold text-app-foreground">Scopri</h1>

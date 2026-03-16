@@ -123,7 +123,7 @@ export function AtletaWorkoutPage() {
   }
 
   return (
-    <div className="pb-4 bg-app-background min-h-screen">
+    <div className="pb-4 bg-app-background min-h-screen" data-tour="workout-page">
       {/* Header */}
       <div className="p-4 space-y-1">
         <h1 className="text-2xl font-bold text-app-foreground">I miei allenamenti</h1>

@@ -153,7 +153,7 @@ export function AtletaAppHome() {
     : 'U';
 
   return (
-    <div className="min-h-screen bg-app-background text-app-foreground pb-20">
+    <div className="min-h-screen bg-app-background text-app-foreground pb-20" data-tour="atleta-greeting">
       {/* Header with Avatar and Week Calendar */}
       <AppHeader
         avatarUrl={profile?.avatar_url || undefined}
@@ -163,7 +163,7 @@ export function AtletaAppHome() {
         onAvatarPress={() => navigate('/app/profile')}
         onNotificationPress={() => {}}
       >
-        <WeekCalendar days={weekDays} />
+        <div data-tour="atleta-week-calendar"><WeekCalendar days={weekDays} /></div>
       </AppHeader>
 
       <main className="px-4 space-y-4 pt-2">
@@ -260,6 +260,7 @@ export function AtletaAppHome() {
             )}
 
             {/* Today's Workout */}
+            <div data-tour="atleta-today-workout">
             {workoutLoading ? (
               <WorkoutCardSkeleton />
             ) : todayWorkout ? (
@@ -281,6 +282,7 @@ export function AtletaAppHome() {
                 onPress={() => navigate('/app/workout')}
               />
             )}
+            </div>
 
             {/* Prossimi Allenamenti */}
             {upcomingWorkouts && upcomingWorkouts.length > 0 && (
@@ -325,19 +327,19 @@ export function AtletaAppHome() {
             )}
 
             {/* Weekly Stats */}
-            {weeklyStats && (
+            {weeklyStats && (<div data-tour="atleta-weekly-stats">
               <WeeklyStatsSection
                 completedThisWeek={weeklyStats.completed_this_week}
                 currentStreak={weeklyStats.current_streak}
                 totalCompleted={weeklyStats.total_completed}
               />
-            )}
+            </div>)}
 
             {/* AI Assistant */}
             <AIAssistantCard />
 
             {/* Teammates Section */}
-            <TeammatesSection />
+            <div data-tour="atleta-teammates"><TeammatesSection /></div>
 
             {/* Progress Stats */}
             {latestProgress && (

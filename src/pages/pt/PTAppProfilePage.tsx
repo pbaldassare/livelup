@@ -186,7 +186,7 @@ export function PTAppProfilePage() {
   }
 
   return (
-    <div className="pb-4">
+    <div className="pb-4" data-tour="pt-profile-page">
       {/* Header */}
       <div className="p-4 space-y-4">
         <div className="flex items-center gap-4">

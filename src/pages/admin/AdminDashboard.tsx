@@ -70,7 +70,7 @@ export function AdminDashboard() {
   });
 
   return (
-    <div className="space-y-6 animate-in">
+    <div className="space-y-6 animate-in" data-tour="admin-dashboard">
       {/* Page header */}
       <DashboardPageHeader
         icon={<LayoutDashboard className="h-6 w-6" />}
@@ -89,7 +89,7 @@ export function AdminDashboard() {
       />
 
       {/* Primary KPI Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-tour="admin-kpi-cards">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}>
