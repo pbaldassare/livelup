@@ -282,6 +282,7 @@ export function AtletaAppHome() {
                 onPress={() => navigate('/app/workout')}
               />
             )}
+            </div>
 
             {/* Prossimi Allenamenti */}
             {upcomingWorkouts && upcomingWorkouts.length > 0 && (
