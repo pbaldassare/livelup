@@ -136,7 +136,7 @@ export function PTAppHome() {
 
         {/* Pending Connection Requests */}
         {pendingCount > 0 && (
-          <PTConnectionRequests maxItems={3} showEmpty={false} />
+          <div data-tour="pt-connection-requests"><PTConnectionRequests maxItems={3} showEmpty={false} /></div>
         )}
 
         {/* Today's Events */}
