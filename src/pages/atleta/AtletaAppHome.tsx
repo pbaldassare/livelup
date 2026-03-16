@@ -333,7 +333,7 @@ export function AtletaAppHome() {
                 currentStreak={weeklyStats.current_streak}
                 totalCompleted={weeklyStats.total_completed}
               />
-            )}
+            </div>)}
 
             {/* AI Assistant */}
             <AIAssistantCard />
