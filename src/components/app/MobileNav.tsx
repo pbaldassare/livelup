@@ -19,11 +19,11 @@ interface MobileNavProps {
 }
 
 const atletaNavItems: NavItem[] = [
-  { icon: Home, label: 'Home', path: '/app' },
-  { icon: Search, label: 'Scopri', path: '/app/discover' },
-  { icon: Dumbbell, label: 'Attività', path: '/app/workout' },
-  { icon: CalendarDays, label: 'Prenota', path: '/app/booking' },
-  { icon: User, label: 'Profilo', path: '/app/profile' },
+  { icon: Home, label: 'Home', path: '/app', tourId: 'nav-home' },
+  { icon: Search, label: 'Scopri', path: '/app/discover', tourId: 'nav-discover' },
+  { icon: Dumbbell, label: 'Attività', path: '/app/workout', tourId: 'nav-workout' },
+  { icon: CalendarDays, label: 'Prenota', path: '/app/booking', tourId: 'nav-booking' },
+  { icon: User, label: 'Profilo', path: '/app/profile', tourId: 'nav-profile' },
 ];
 
 const ptNavItems: NavItem[] = [
