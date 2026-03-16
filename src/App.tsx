@@ -125,6 +125,9 @@ const App = () => {
         
         <BrowserRouter>
           <AuthProvider>
+            <TourProvider>
+            <AppTour />
+            <AppTourPrompt />
             <Routes>
               {/* ============================================= */}
               {/* PUBLIC ROUTES - Accessibili a tutti          */}
