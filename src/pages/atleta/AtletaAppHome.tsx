@@ -163,7 +163,7 @@ export function AtletaAppHome() {
         onAvatarPress={() => navigate('/app/profile')}
         onNotificationPress={() => {}}
       >
-        <WeekCalendar days={weekDays} />
+        <div data-tour="atleta-week-calendar"><WeekCalendar days={weekDays} /></div>
       </AppHeader>
 
       <main className="px-4 space-y-4 pt-2">
