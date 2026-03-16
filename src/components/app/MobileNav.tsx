@@ -12,6 +12,7 @@ interface NavItem {
   label: string;
   path: string;
   badge?: number;
+  tourId?: string;
 }
 
 interface MobileNavProps {
