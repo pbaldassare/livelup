@@ -118,6 +118,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   <Link
                     key={item.href}
                     to={item.href}
+                    data-tour={item.tourId}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all',
                       isActive
