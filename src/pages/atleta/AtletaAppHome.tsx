@@ -260,6 +260,7 @@ export function AtletaAppHome() {
             )}
 
             {/* Today's Workout */}
+            <div data-tour="atleta-today-workout">
             {workoutLoading ? (
               <WorkoutCardSkeleton />
             ) : todayWorkout ? (
