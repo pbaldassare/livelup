@@ -78,8 +78,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Fetch role immediately (not deferred) to avoid race conditions
-          const nextRole = await fetchUserRoleWithTimeout(session.user.id);
+          // Defer role fetch slightly to let the client set the JWT token
+          // This prevents RLS failures when the token isn't ready yet
+          await new Promise((r) => setTimeout(r, 150));
+          if (!isMounted) return;
+
+          let nextRole = await fetchUserRoleWithTimeout(session.user.id);
+
+          // Retry once if role is null (token may not have been ready)
+          if (!nextRole && isMounted) {
+            await new Promise((r) => setTimeout(r, 500));
+            if (!isMounted) return;
+            nextRole = await fetchUserRoleWithTimeout(session.user.id);
+          }
+
           if (isMounted) {
             setRole(nextRole);
             safeSetLoading(false);
