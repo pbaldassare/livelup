@@ -333,23 +333,7 @@ Deno.serve(async (req) => {
         success: true,
         message: `Created ${createdUsers.length} users`,
         createdUsers,
-        errors,
-        credentials: {
-          personalTrainers: [
-            { email: 'pt1@fitplatform.com', password: 'Trainer123!' },
-            { email: 'pt2@fitplatform.com', password: 'Trainer123!' },
-            { email: 'pt3@fitplatform.com', password: 'Trainer123!' }
-          ],
-          atleti: [
-            { email: 'atleta1@fitplatform.com', password: 'Atleta123!' },
-            { email: 'atleta2@fitplatform.com', password: 'Atleta123!' },
-            { email: 'atleta3@fitplatform.com', password: 'Atleta123!' }
-          ],
-          connections: [
-            'atleta1 <-> pt1 (ACTIVE)',
-            'atleta2 -> pt2 (PENDING)'
-          ]
-        }
+        errors
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
