@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "System can read all push subscriptions" ON public.push_subscriptions;
