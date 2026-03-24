@@ -83,7 +83,7 @@ export function useInstallPrompt() {
   }, [deferredPrompt]);
 
   const dismissBanner = useCallback(() => {
-    localStorage.setItem('pwa-banner-dismissed', Date.now().toString());
+    safeSet('pwa-banner-dismissed', Date.now().toString());
   }, []);
 
   const isBannerDismissed = useCallback(() => {
