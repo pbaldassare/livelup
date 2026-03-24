@@ -87,8 +87,15 @@ export function AuthPage() {
       });
     } else {
       toast.success('Accesso effettuato');
-      // Keep loading state active - the useEffect will handle redirect
-      // once role is fetched by AuthProvider's onAuthStateChange
+      // Safety timeout: if redirect doesn't happen within 12s, unblock UI
+      const safetyTimeout = window.setTimeout(() => {
+        setIsLoading(false);
+        toast.error('Accesso lento', {
+          description: 'Il caricamento sta impiegando troppo. Riprova.',
+        });
+      }, 12000);
+      // Clear timeout if component unmounts (redirect happened)
+      return () => window.clearTimeout(safetyTimeout);
     }
   };
 
