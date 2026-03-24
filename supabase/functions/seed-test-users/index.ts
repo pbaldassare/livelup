@@ -5,9 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function generatePassword(): string {
+  return crypto.randomUUID().slice(0, 8) + 'Aa1!'
+}
+
 interface TestUser {
   email: string
-  password: string
   firstName: string
   lastName: string
   role: 'pt' | 'atleta'
@@ -18,7 +21,6 @@ const testUsers: TestUser[] = [
   // Personal Trainers
   {
     email: 'pt1@fitplatform.com',
-    password: 'Trainer123!',
     firstName: 'Marco',
     lastName: 'Rossi',
     role: 'pt',
