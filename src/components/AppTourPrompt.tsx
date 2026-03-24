@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Map } from "lucide-react";
+import { safeGet, safeSet } from "@/lib/safeStorage";
 
 const AppTourPrompt = () => {
   const { startTour } = useTour();
@@ -13,7 +14,7 @@ const AppTourPrompt = () => {
   const [dontShow, setDontShow] = useState(false);
 
   useEffect(() => {
-    const done = localStorage.getItem("livellapp_tour_done");
+    const done = safeGet("livellapp_tour_done");
     if (!done && role) {
       const t = setTimeout(() => setOpen(true), 1200);
       return () => clearTimeout(t);
@@ -22,13 +23,13 @@ const AppTourPrompt = () => {
 
   const handleStart = () => {
     setOpen(false);
-    if (dontShow) localStorage.setItem("livellapp_tour_done", "1");
+    if (dontShow) safeSet("livellapp_tour_done", "1");
     startTour((role as TourRole) ?? "atleta");
   };
 
   const handleSkip = () => {
     setOpen(false);
-    if (dontShow) localStorage.setItem("livellapp_tour_done", "1");
+    if (dontShow) safeSet("livellapp_tour_done", "1");
   };
 
   return (

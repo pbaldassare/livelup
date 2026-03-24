@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
+import { safeSet } from "@/lib/safeStorage";
 
 export type TourActionType = "navigate" | "scroll" | "wait";
 
@@ -141,14 +142,14 @@ export const TourProvider = ({ children }: { children: ReactNode }) => {
   const stopTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
-    localStorage.setItem("livellapp_tour_done", "1");
+    safeSet("livellapp_tour_done", "1");
   }, []);
 
   const nextStep = useCallback(() => {
     setCurrentStep(prev => {
       if (prev >= stepsRef.current.length - 1) {
         setIsActive(false);
-        localStorage.setItem("livellapp_tour_done", "1");
+        safeSet("livellapp_tour_done", "1");
         return 0;
       }
       return prev + 1;

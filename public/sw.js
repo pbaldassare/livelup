@@ -2,106 +2,86 @@
 // SERVICE WORKER - PWA + Push Notifications
 // =====================================================
 
-const CACHE_NAME = 'livellapp-v1';
+const CACHE_NAME = 'livellapp-v2';
 const OFFLINE_URL = '/offline.html';
 
-// Assets to cache on install
 const PRECACHE_ASSETS = [
   '/',
   '/offline.html',
   '/livellapp-icon.svg',
-  '/pwa-192x192.png',
-  '/pwa-512x512.png',
 ];
 
-// Install event - cache essential assets
+// Install - cache shell & skip waiting immediately
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
-  
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[SW] Caching app shell');
-        return cache.addAll(PRECACHE_ASSETS);
-      })
+      .then((cache) => cache.addAll(PRECACHE_ASSETS))
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate event - clean old caches
+// Activate - purge ALL old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
-  
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((cacheName) => cacheName !== CACHE_NAME)
-          .map((cacheName) => {
-            console.log('[SW] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          })
-      );
-    }).then(() => clients.claim())
+    caches.keys()
+      .then((names) =>
+        Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
+      )
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch event - serve from cache or network
+// Fetch - network-first for navigations; network-first + cache for static assets
 self.addEventListener('fetch', (event) => {
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) {
-    return;
-  }
+  if (!event.request.url.startsWith(self.location.origin)) return;
 
-  // Handle navigation requests (HTML pages)
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .catch(() => {
-          return caches.open(CACHE_NAME)
-            .then((cache) => cache.match(OFFLINE_URL));
-        })
+      fetch(event.request).catch(() =>
+        caches.open(CACHE_NAME).then((c) => c.match(OFFLINE_URL))
+      )
     );
     return;
   }
 
-  // Handle other requests - Network first, then cache
   event.respondWith(
     fetch(event.request)
-      .then((response) => {
-        // Cache successful responses for static assets
-        if (response.ok && event.request.method === 'GET') {
-          const responseClone = response.clone();
-          const url = event.request.url;
-          
-          // Only cache static assets
-          if (url.match(/\.(js|css|png|jpg|jpeg|svg|gif|woff2?)$/)) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
-          }
+      .then((res) => {
+        if (res.ok && event.request.method === 'GET' && event.request.url.match(/\.(js|css|png|jpg|jpeg|svg|gif|woff2?)$/)) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
         }
-        return response;
+        return res;
       })
-      .catch(() => {
-        // Try to serve from cache
-        return caches.match(event.request);
-      })
+      .catch(() => caches.match(event.request))
   );
 });
 
-// Message event - handle skip waiting
+// Messages
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log('[SW] Skip waiting requested');
+  if (!event.data) return;
+
+  if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+
+  // Full app reset: wipe all caches and unregister
+  if (event.data.type === 'RESET_APP') {
+    event.waitUntil(
+      caches.keys()
+        .then((names) => Promise.all(names.map((n) => caches.delete(n))))
+        .then(() => self.registration.unregister())
+        .then(() => {
+          self.clients.matchAll().then((cls) =>
+            cls.forEach((c) => c.navigate(c.url))
+          );
+        })
+    );
   }
 });
 
-// Push event - Handle incoming push notifications
+// Push notifications
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push received:', event);
-
   let data = {
     title: 'LIVELLAPP',
     body: 'Hai una nuova notifica',
@@ -120,67 +100,46 @@ self.addEventListener('push', (event) => {
         icon: payload.icon || data.icon,
         badge: payload.badge || data.badge,
         tag: payload.tag || payload.type || data.tag,
-        data: {
-          url: payload.action_url || payload.url || '/',
-          ...payload.data
-        }
+        data: { url: payload.action_url || payload.url || '/', ...payload.data }
       };
     } catch (e) {
-      console.error('[SW] Error parsing push data:', e);
       data.body = event.data.text();
     }
   }
 
-  const options = {
-    body: data.body,
-    icon: data.icon,
-    badge: data.badge,
-    tag: data.tag,
-    data: data.data,
-    vibrate: [100, 50, 100],
-    requireInteraction: false,
-    actions: [
-      { action: 'open', title: 'Apri' },
-      { action: 'close', title: 'Chiudi' }
-    ]
-  };
-
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon,
+      badge: data.badge,
+      tag: data.tag,
+      data: data.data,
+      vibrate: [100, 50, 100],
+      requireInteraction: false,
+      actions: [
+        { action: 'open', title: 'Apri' },
+        { action: 'close', title: 'Chiudi' }
+      ]
+    })
   );
 });
 
-// Notification click event
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification click:', event);
-  
   event.notification.close();
-
-  if (event.action === 'close') {
-    return;
-  }
+  if (event.action === 'close') return;
 
   const urlToOpen = event.notification.data?.url || '/';
-
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        // Check if there's already a window open
-        for (const client of clientList) {
-          if (client.url.includes(self.location.origin) && 'focus' in client) {
-            client.navigate(urlToOpen);
-            return client.focus();
-          }
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(urlToOpen);
+          return client.focus();
         }
-        // Open a new window
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen);
-        }
-      })
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(urlToOpen);
+    })
   );
 });
 
-// Notification close event
-self.addEventListener('notificationclose', (event) => {
-  console.log('[SW] Notification closed:', event);
-});
+self.addEventListener('notificationclose', () => {});

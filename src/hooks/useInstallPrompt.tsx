@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { safeGet, safeSet } from '@/lib/safeStorage';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -82,11 +83,11 @@ export function useInstallPrompt() {
   }, [deferredPrompt]);
 
   const dismissBanner = useCallback(() => {
-    localStorage.setItem('pwa-banner-dismissed', Date.now().toString());
+    safeSet('pwa-banner-dismissed', Date.now().toString());
   }, []);
 
   const isBannerDismissed = useCallback(() => {
-    const dismissed = localStorage.getItem('pwa-banner-dismissed');
+    const dismissed = safeGet('pwa-banner-dismissed');
     if (!dismissed) return false;
     
     // Show again after 7 days
