@@ -23,13 +23,13 @@ const AppTourPrompt = () => {
 
   const handleStart = () => {
     setOpen(false);
-    if (dontShow) localStorage.setItem("livellapp_tour_done", "1");
+    if (dontShow) safeSet("livellapp_tour_done", "1");
     startTour((role as TourRole) ?? "atleta");
   };
 
   const handleSkip = () => {
     setOpen(false);
-    if (dontShow) localStorage.setItem("livellapp_tour_done", "1");
+    if (dontShow) safeSet("livellapp_tour_done", "1");
   };
 
   return (

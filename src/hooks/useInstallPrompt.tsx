@@ -87,7 +87,7 @@ export function useInstallPrompt() {
   }, []);
 
   const isBannerDismissed = useCallback(() => {
-    const dismissed = localStorage.getItem('pwa-banner-dismissed');
+    const dismissed = safeGet('pwa-banner-dismissed');
     if (!dismissed) return false;
     
     // Show again after 7 days

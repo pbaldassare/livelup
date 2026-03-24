@@ -149,7 +149,7 @@ export const TourProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStep(prev => {
       if (prev >= stepsRef.current.length - 1) {
         setIsActive(false);
-        localStorage.setItem("livellapp_tour_done", "1");
+        safeSet("livellapp_tour_done", "1");
         return 0;
       }
       return prev + 1;
