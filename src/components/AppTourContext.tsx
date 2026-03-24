@@ -141,7 +141,7 @@ export const TourProvider = ({ children }: { children: ReactNode }) => {
   const stopTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
-    localStorage.setItem("livellapp_tour_done", "1");
+    safeSet("livellapp_tour_done", "1");
   }, []);
 
   const nextStep = useCallback(() => {
