@@ -110,7 +110,6 @@ const testUsers: TestUser[] = [
   },
   {
     email: 'atleta2@fitplatform.com',
-    password: 'Atleta123!',
     firstName: 'Sofia',
     lastName: 'Romano',
     role: 'atleta',
