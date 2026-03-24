@@ -1,40 +1,34 @@
 
-Obiettivo: risolvere la schermata bianca su mobile/PWA rendendo il bootstrap dell’app “fail-safe” anche con cache corrotta o storage non disponibile.
 
-1) Diagnosi mirata (prima modifica)
-- Verifico i punti già toccati (tour + PWA) e aggiungo logging minimo solo nei punti critici di avvio.
-- Confermo due cause più probabili emerse dal codice:
-  - cache/service worker in stato incoerente dopo aggiornamenti;
-  - accessi diretti a `localStorage` senza guardie (tour/install), che su alcuni contesti mobile possono rompere il render.
+## Diagnosi
 
-2) Hardening storage (fix crash)
-- Creo utility `safeStorageGet/safeStorageSet/safeStorageRemove` con `try/catch` e fallback.
-- Sostituisco tutti gli accessi diretti in:
-  - `src/hooks/useInstallPrompt.tsx`
-  - `src/components/AppTourPrompt.tsx`
-  - `src/components/AppTourContext.tsx`
-- Obiettivo: nessun crash anche se lo storage è bloccato/corrotto.
+Il login ha successo (confermato dai log auth: status 200, utente `atleta2@fitplatform.com` con ruolo `atleta` presente nel database). Il problema è nel flusso post-login:
 
-3) Recovery PWA/cache (fix schermata bianca persistente)
-- Aggiorno `public/sw.js` con versione cache nuova + pulizia robusta cache legacy.
-- Aggiungo canale messaggi SW (`RESET_APP`) per:
-  - cancellare tutte le cache app;
-  - forzare `skipWaiting` e `clients.claim`.
-- Inserisco una routine client di recovery che, su errore bootstrap o parametro `?reset=1`, fa:
-  - unregister di tutti i service worker;
-  - clear cache storage;
-  - hard reload.
+1. `handleLogin` imposta `isLoading = true` e dopo il login riuscito **non lo resetta mai** — si affida al redirect via `useEffect`
+2. Il redirect scatta solo quando `isAuthenticated && role` sono entrambi truthy
+3. Se `fetchUserRole` fallisce o va in timeout (es. il token auth non è ancora pronto per le query RLS nel callback `onAuthStateChange`), `role` resta `null` → il redirect non scatta mai → spinner infinito
 
-4) Fallback UI di emergenza
-- Aggiungo un fallback minimale in avvio (errore runtime) con pulsante “Ripristina app” che lancia la recovery automatica.
-- Così l’utente non resta mai su schermo bianco senza azione.
+Questo è un problema noto: dentro `onAuthStateChange`, il client Supabase potrebbe non aver ancora impostato il token JWT per le query RLS, causando il fallimento silenzioso della query `user_roles`.
 
-5) Verifica finale (mobile first)
-- Test su URL pubblicato in mobile browser e PWA installata:
-  - primo avvio, riavvio, aggiornamento app, recovery forzata.
-- Verifico tour (`?`): overlay, spotlight, auto-advance, chiusura/riapertura, senza regressioni.
+## Piano di fix
 
-Sezione tecnica (sintesi)
-- File principali coinvolti: `public/sw.js`, `src/hooks/useInstallPrompt.tsx`, `src/components/AppTourPrompt.tsx`, `src/components/AppTourContext.tsx`, `src/main.tsx` (o boundary globale in App).
-- Nessuna modifica backend necessaria: problema lato bootstrap client + PWA lifecycle.
-- Strategia: prevenire crash + dare sempre un percorso di autoripristino locale.
+### 1. Defer del fetch ruolo in `useAuth.tsx`
+Nel callback `onAuthStateChange`, aggiungere un piccolo `setTimeout` (100ms) prima di chiamare `fetchUserRole`, per dare tempo al client di impostare il token. Aggiungere anche un meccanismo di retry (1 tentativo aggiuntivo) se il ruolo torna `null` per un utente autenticato.
+
+### 2. Safety timeout in `AuthPage.tsx`
+Nel `handleLogin`, aggiungere un timeout di sicurezza (es. 10 secondi) che:
+- Resetta `isLoading = false`
+- Mostra un toast di errore con possibilità di riprovare
+- Evita che l'utente resti bloccato sullo spinner infinito
+
+### 3. Gestione esplicita di "login ok ma ruolo null"
+Nell'`useEffect` di redirect in AuthPage, aggiungere un controllo: se `isAuthenticated` è true ma `role` è null e `authLoading` è false, mostrare un messaggio/toast e resettare il loading locale.
+
+### Sezione tecnica
+
+**File modificati:**
+- `src/hooks/useAuth.tsx` — defer + retry del fetch ruolo in `onAuthStateChange`
+- `src/pages/auth/AuthPage.tsx` — safety timeout nel login + gestione caso "autenticato senza ruolo"
+
+**Nessuna modifica backend necessaria** — il ruolo esiste correttamente nel database.
+
