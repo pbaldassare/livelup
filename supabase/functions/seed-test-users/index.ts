@@ -147,15 +147,43 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Verify admin auth
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
+      auth: { autoRefreshToken: false, persistSession: false }
     })
+
+    // Verify the caller is an admin
+    const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } }
+    })
+    const token = authHeader.replace('Bearer ', '')
+    const { data: claims, error: claimsError } = await supabaseAuth.auth.getClaims(token)
+    if (claimsError || !claims?.claims) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    const callerId = claims.claims.sub as string
+    const { data: adminCheck } = await supabaseAdmin
+      .from('user_roles').select('role').eq('user_id', callerId).eq('role', 'admin').maybeSingle()
+    if (!adminCheck) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const createdUsers: { email: string; role: string; userId: string }[] = []
     const errors: { email: string; error: string }[] = []
@@ -164,10 +192,11 @@ Deno.serve(async (req) => {
       console.log(`Creating user: ${user.email}`)
       
       try {
+        const password = generatePassword()
         // 1. Create auth user
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email: user.email,
-          password: user.password,
+          password,
           email_confirm: true
         })
 
