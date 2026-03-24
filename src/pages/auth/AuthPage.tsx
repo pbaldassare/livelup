@@ -42,7 +42,15 @@ export function AuthPage() {
       const homeRoute = getHomeRoute(role);
       navigate(homeRoute, { replace: true });
     }
-  }, [isAuthenticated, role, navigate]);
+
+    // Handle case: authenticated but role is null after auth finished loading
+    if (isAuthenticated && !role && !authLoading) {
+      setIsLoading(false);
+      toast.error('Errore nel caricamento del ruolo', {
+        description: 'Riprova ad accedere.',
+      });
+    }
+  }, [isAuthenticated, role, authLoading, navigate]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
