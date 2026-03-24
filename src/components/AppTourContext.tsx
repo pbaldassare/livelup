@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
+import { safeSet } from "@/lib/safeStorage";
 
 export type TourActionType = "navigate" | "scroll" | "wait";
 
