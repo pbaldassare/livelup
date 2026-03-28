@@ -39,6 +39,7 @@ interface PlacesAutocompleteProps {
   onPlaceSelect?: (place: PlaceDetails) => void;
   placeholder?: string;
   className?: string;
+  types?: string[];
 }
 
 // Declare google types
