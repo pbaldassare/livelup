@@ -32,7 +32,7 @@ export default function AdminMessagesPage() {
     <div className="space-y-6">
       <DashboardPageHeader
         title="Messaggi"
-        description="Invia comunicazioni broadcast e monitora le chat della piattaforma"
+        subtitle="Invia comunicazioni broadcast e monitora le chat della piattaforma"
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
