@@ -11,9 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
+import { ImageUpload } from '@/components/common/ImageUpload';
+import { EditEventDialog } from '@/components/pt/EditEventDialog';
 import { 
   Calendar as CalendarIcon, 
   Plus,
@@ -21,7 +24,10 @@ import {
   MapPin,
   Eye,
   Users,
-  Lock
+  Lock,
+  Pencil,
+  ImagePlus,
+  X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -36,12 +42,15 @@ interface CalendarEvent {
   start_datetime: string;
   end_datetime: string | null;
   location: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
   is_public: boolean;
   creator_user_id: string;
   is_cancelled: boolean;
   visibility: string;
   is_closed_number: boolean;
   max_participants: number | null;
+  cover_image_url: string | null;
 }
 
 export function PTCalendarPage() {
@@ -49,6 +58,7 @@ export function PTCalendarPage() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
@@ -61,6 +71,7 @@ export function PTCalendarPage() {
     visibility: 'public',
     is_closed_number: false,
     max_participants: '' as number | '',
+    cover_image_url: null as string | null,
   });
   const [locationSearch, setLocationSearch] = useState('');
 
@@ -131,6 +142,7 @@ export function PTCalendarPage() {
           visibility: newEvent.visibility,
           is_closed_number: newEvent.is_closed_number,
           max_participants: newEvent.is_closed_number && newEvent.max_participants ? Number(newEvent.max_participants) : null,
+          cover_image_url: newEvent.cover_image_url,
         }]);
       if (error) throw error;
     },
@@ -139,17 +151,21 @@ export function PTCalendarPage() {
       queryClient.invalidateQueries({ queryKey: ['public-events'] });
       toast.success('Evento creato con successo');
       setIsCreateDialogOpen(false);
-      setNewEvent({
-        title: '', description: '', event_type_id: '', start_datetime: '', end_datetime: '',
-        location: '', location_lat: null, location_lng: null, visibility: 'public',
-        is_closed_number: false, max_participants: '',
-      });
-      setLocationSearch('');
+      resetNewEvent();
     },
     onError: () => {
       toast.error('Errore durante la creazione dell\'evento');
     },
   });
+
+  const resetNewEvent = () => {
+    setNewEvent({
+      title: '', description: '', event_type_id: '', start_datetime: '', end_datetime: '',
+      location: '', location_lat: null, location_lng: null, visibility: 'public',
+      is_closed_number: false, max_participants: '', cover_image_url: null,
+    });
+    setLocationSearch('');
+  };
 
   // Filter events for selected date
   const selectedDateEvents = events.filter((event) => {
@@ -181,7 +197,6 @@ export function PTCalendarPage() {
     }
   };
 
-  // Get event type name from ID
   const getEventTypeName = (event: CalendarEvent) => {
     if (event.event_type_id) {
       const found = eventTypes.find(t => t.id === event.event_type_id);
@@ -207,6 +222,43 @@ export function PTCalendarPage() {
         </DialogHeader>
         <div className="flex-1 min-h-0 overflow-y-auto pr-2">
         <div className="space-y-4 py-4">
+          {/* Cover Image */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Immagine copertina
+            </Label>
+            {newEvent.cover_image_url ? (
+              <div className="relative group rounded-lg overflow-hidden border">
+                <img src={newEvent.cover_image_url} alt="Cover" className="w-full h-32 object-cover" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <ImageUpload
+                    bucket="event-covers"
+                    filePath={`${user?.id}/${Date.now()}.{ext}`}
+                    onUploadComplete={(url) => setNewEvent({ ...newEvent, cover_image_url: url })}
+                    variant="inline"
+                  >
+                    <Button type="button" size="sm" variant="secondary">
+                      <ImagePlus className="h-4 w-4 mr-1" />Cambia
+                    </Button>
+                  </ImageUpload>
+                  <Button type="button" size="sm" variant="destructive" onClick={() => setNewEvent({ ...newEvent, cover_image_url: null })}>
+                    <X className="h-4 w-4 mr-1" />Rimuovi
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <ImageUpload
+                bucket="event-covers"
+                filePath={`${user?.id}/${Date.now()}.{ext}`}
+                onUploadComplete={(url) => setNewEvent({ ...newEvent, cover_image_url: url })}
+                variant="gallery"
+                className="h-24"
+              />
+            )}
+          </div>
+
+          <Separator />
+
           <div className="space-y-2">
             <Label htmlFor="title">Titolo</Label>
             <Input
@@ -267,6 +319,9 @@ export function PTCalendarPage() {
               <p className="text-sm text-muted-foreground mt-1">📍 {newEvent.location}</p>
             )}
           </div>
+
+          <Separator />
+
           <div className="space-y-2">
             <Label>
               <Eye className="h-4 w-4 inline mr-1" />
@@ -391,11 +446,23 @@ export function PTCalendarPage() {
             ) : (
               <div className="space-y-3">
                 {selectedDateEvents.map((event) => (
-                  <div key={event.id} className={`p-3 rounded-lg border ${getEventTypeColor(event.event_type)}`}>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{event.title}</p>
-                      {event.creator_user_id !== user?.id && (
-                        <Badge variant="secondary" className="text-[10px]">Prenotato</Badge>
+                  <div
+                    key={event.id}
+                    className={`p-3 rounded-lg border ${getEventTypeColor(event.event_type)} cursor-pointer hover:opacity-80 transition-opacity`}
+                    onClick={() => event.creator_user_id === user?.id && setEditingEvent(event)}
+                  >
+                    {event.cover_image_url && (
+                      <img src={event.cover_image_url} alt="" className="w-full h-20 object-cover rounded mb-2" />
+                    )}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{event.title}</p>
+                        {event.creator_user_id !== user?.id && (
+                          <Badge variant="secondary" className="text-[10px]">Prenotato</Badge>
+                        )}
+                      </div>
+                      {event.creator_user_id === user?.id && (
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
                     </div>
                     <div className="mt-2 space-y-1 text-sm opacity-80">
@@ -430,11 +497,19 @@ export function PTCalendarPage() {
           ) : (
             <div className="space-y-4">
               {upcomingEvents.map((event) => (
-                <div key={event.id} className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${getEventTypeColor(event.event_type)}`}>
-                    <CalendarIcon className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
+                <div
+                  key={event.id}
+                  className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
+                  onClick={() => event.creator_user_id === user?.id && setEditingEvent(event)}
+                >
+                  {event.cover_image_url ? (
+                    <img src={event.cover_image_url} alt="" className="h-12 w-12 rounded-lg object-cover" />
+                  ) : (
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${getEventTypeColor(event.event_type)}`}>
+                      <CalendarIcon className="h-5 w-5" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
                     <p className="font-medium">{event.title}</p>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
@@ -446,20 +521,34 @@ export function PTCalendarPage() {
                         {format(new Date(event.start_datetime), 'HH:mm')}
                       </span>
                       {event.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
+                        <span className="flex items-center gap-1 truncate">
+                          <MapPin className="h-3 w-3 shrink-0" />
                           {event.location}
                         </span>
                       )}
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-xs">{getEventTypeName(event)}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">{getEventTypeName(event)}</Badge>
+                    {event.creator_user_id === user?.id && (
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Event Dialog */}
+      {editingEvent && (
+        <EditEventDialog
+          open={!!editingEvent}
+          onOpenChange={(open) => !open && setEditingEvent(null)}
+          event={editingEvent}
+        />
+      )}
     </div>
   );
 }

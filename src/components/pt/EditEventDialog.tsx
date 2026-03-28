@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -7,6 +7,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,32 +43,47 @@ import {
   Users,
   ImagePlus,
   X,
+  Trash2,
 } from 'lucide-react';
 import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { ImageUpload } from '@/components/common/ImageUpload';
 
-interface CreatePublicEventDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  selectedDate?: Date;
+interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  event_type: string;
+  event_type_id: string | null;
+  start_datetime: string;
+  end_datetime: string | null;
+  location: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
+  is_public: boolean;
+  creator_user_id: string;
+  is_cancelled: boolean;
+  visibility: string;
+  is_closed_number: boolean;
+  max_participants: number | null;
+  cover_image_url?: string | null;
 }
 
-export function CreatePublicEventDialog({
-  open,
-  onOpenChange,
-  selectedDate,
-}: CreatePublicEventDialogProps) {
+interface EditEventDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  event: CalendarEvent;
+}
+
+export function EditEventDialog({ open, onOpenChange, event }: EditEventDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [eventTypeId, setEventTypeId] = useState<string>('');
-  const [startDate, setStartDate] = useState(
-    selectedDate?.toISOString().slice(0, 10) || new Date().toISOString().slice(0, 10)
-  );
-  const [startTime, setStartTime] = useState('10:00');
-  const [endTime, setEndTime] = useState('12:00');
+  const [startDate, setStartDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [locationSearch, setLocationSearch] = useState('');
   const [location, setLocation] = useState('');
   const [locationLat, setLocationLat] = useState<number | null>(null);
@@ -66,6 +92,32 @@ export function CreatePublicEventDialog({
   const [isClosedNumber, setIsClosedNumber] = useState(false);
   const [maxParticipants, setMaxParticipants] = useState<number | ''>('');
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+
+  // Populate form when event changes
+  useEffect(() => {
+    if (event && open) {
+      setTitle(event.title);
+      setDescription(event.description || '');
+      setEventTypeId(event.event_type_id || '');
+      const start = new Date(event.start_datetime);
+      setStartDate(start.toISOString().slice(0, 10));
+      setStartTime(start.toTimeString().slice(0, 5));
+      if (event.end_datetime) {
+        const end = new Date(event.end_datetime);
+        setEndTime(end.toTimeString().slice(0, 5));
+      } else {
+        setEndTime('');
+      }
+      setLocation(event.location || '');
+      setLocationSearch(event.location || '');
+      setLocationLat(event.location_lat);
+      setLocationLng(event.location_lng);
+      setVisibility(event.visibility || 'public');
+      setIsClosedNumber(event.is_closed_number || false);
+      setMaxParticipants(event.max_participants || '');
+      setCoverImageUrl(event.cover_image_url || null);
+    }
+  }, [event, open]);
 
   const { data: eventTypes = [] } = useQuery({
     queryKey: ['event-types'],
@@ -91,72 +143,73 @@ export function CreatePublicEventDialog({
     setLocationLng(place.geometry.location.lng);
   };
 
-  const createEventMutation = useMutation({
+  const updateEventMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
 
       const startDatetime = new Date(`${startDate}T${startTime}:00`).toISOString();
-      const endDatetime = new Date(`${startDate}T${endTime}:00`).toISOString();
+      const endDatetime = endTime ? new Date(`${startDate}T${endTime}:00`).toISOString() : null;
 
-      const { error } = await supabase.from('calendar_events').insert([{
-        creator_user_id: user.id,
-        pt_user_id: user.id,
-        title,
-        description: description || null,
-        event_type: 'evento' as const,
-        event_type_id: eventTypeId || null,
-        start_datetime: startDatetime,
-        end_datetime: endDatetime,
-        location: location || null,
-        location_lat: locationLat,
-        location_lng: locationLng,
-        is_public: true,
-        visibility,
-        is_closed_number: isClosedNumber,
-        max_participants: isClosedNumber && maxParticipants ? Number(maxParticipants) : null,
-        cover_image_url: coverImageUrl,
-      }]);
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({
+          title,
+          description: description || null,
+          event_type_id: eventTypeId || null,
+          start_datetime: startDatetime,
+          end_datetime: endDatetime,
+          location: location || null,
+          location_lat: locationLat,
+          location_lng: locationLng,
+          visibility,
+          is_closed_number: isClosedNumber,
+          max_participants: isClosedNumber && maxParticipants ? Number(maxParticipants) : null,
+          cover_image_url: coverImageUrl,
+        })
+        .eq('id', event.id);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success('Evento creato con successo! 🎉');
+      toast.success('Evento aggiornato! ✅');
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
       queryClient.invalidateQueries({ queryKey: ['public-events'] });
       queryClient.invalidateQueries({ queryKey: ['pt-calendar'] });
       onOpenChange(false);
-      resetForm();
     },
     onError: (error) => {
-      console.error('Error creating event:', error);
-      toast.error('Errore nella creazione dell\'evento');
+      console.error('Error updating event:', error);
+      toast.error("Errore nell'aggiornamento dell'evento");
     },
   });
 
-  const resetForm = () => {
-    setTitle('');
-    setDescription('');
-    setEventTypeId('');
-    setStartDate(new Date().toISOString().slice(0, 10));
-    setStartTime('10:00');
-    setEndTime('12:00');
-    setLocationSearch('');
-    setLocation('');
-    setLocationLat(null);
-    setLocationLng(null);
-    setVisibility('public');
-    setIsClosedNumber(false);
-    setMaxParticipants('');
-    setCoverImageUrl(null);
-  };
+  const deleteEventMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({ is_cancelled: true })
+        .eq('id', event.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Evento eliminato');
+      queryClient.invalidateQueries({ queryKey: ['pt-events'] });
+      queryClient.invalidateQueries({ queryKey: ['public-events'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-calendar'] });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast.error("Errore nell'eliminazione dell'evento");
+    },
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      toast.error('Inserisci un titolo per l\'evento');
+      toast.error("Inserisci un titolo per l'evento");
       return;
     }
-    createEventMutation.mutate();
+    updateEventMutation.mutate();
   };
 
   return (
@@ -165,7 +218,7 @@ export function CreatePublicEventDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Crea Evento
+            Modifica Evento
           </DialogTitle>
         </DialogHeader>
 
@@ -225,9 +278,9 @@ export function CreatePublicEventDialog({
               Informazioni evento
             </Label>
             <div className="space-y-2">
-              <Label htmlFor="title">Titolo *</Label>
+              <Label htmlFor="edit-title">Titolo *</Label>
               <Input
-                id="title"
+                id="edit-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Es: Calisthenics Day Brescia"
@@ -235,9 +288,9 @@ export function CreatePublicEventDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Descrizione</Label>
+              <Label htmlFor="edit-description">Descrizione</Label>
               <Textarea
-                id="description"
+                id="edit-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Descrivi il tuo evento..."
@@ -270,9 +323,9 @@ export function CreatePublicEventDialog({
             </Label>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="date">Data</Label>
+                <Label htmlFor="edit-date">Data</Label>
                 <Input
-                  id="date"
+                  id="edit-date"
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
@@ -280,9 +333,9 @@ export function CreatePublicEventDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="startTime">Inizio</Label>
+                <Label htmlFor="edit-startTime">Inizio</Label>
                 <Input
-                  id="startTime"
+                  id="edit-startTime"
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
@@ -290,13 +343,12 @@ export function CreatePublicEventDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="endTime">Fine</Label>
+                <Label htmlFor="edit-endTime">Fine</Label>
                 <Input
-                  id="endTime"
+                  id="edit-endTime"
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  required
                 />
               </div>
             </div>
@@ -361,22 +413,22 @@ export function CreatePublicEventDialog({
             </div>
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <Label htmlFor="closed">Numero chiuso</Label>
+                <Label htmlFor="edit-closed">Numero chiuso</Label>
                 <p className="text-sm text-muted-foreground">
                   Limita il numero di partecipanti
                 </p>
               </div>
               <Switch
-                id="closed"
+                id="edit-closed"
                 checked={isClosedNumber}
                 onCheckedChange={setIsClosedNumber}
               />
             </div>
             {isClosedNumber && (
               <div className="space-y-2">
-                <Label htmlFor="maxParticipants">Max partecipanti</Label>
+                <Label htmlFor="edit-maxParticipants">Max partecipanti</Label>
                 <Input
-                  id="maxParticipants"
+                  id="edit-maxParticipants"
                   type="number"
                   min={1}
                   value={maxParticipants}
@@ -387,6 +439,35 @@ export function CreatePublicEventDialog({
             )}
           </div>
 
+          <Separator />
+
+          {/* Delete */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button type="button" variant="destructive" className="w-full">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Elimina evento
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Eliminare questo evento?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  L'evento verrà cancellato e non sarà più visibile. Questa azione non può essere annullata.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => deleteEventMutation.mutate()}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Elimina
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           <DialogFooter>
             <Button
               type="button"
@@ -395,14 +476,14 @@ export function CreatePublicEventDialog({
             >
               Annulla
             </Button>
-            <Button type="submit" disabled={createEventMutation.isPending}>
-              {createEventMutation.isPending ? (
+            <Button type="submit" disabled={updateEventMutation.isPending}>
+              {updateEventMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creazione...
+                  Salvataggio...
                 </>
               ) : (
-                'Crea Evento'
+                'Salva Modifiche'
               )}
             </Button>
           </DialogFooter>
