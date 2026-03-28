@@ -157,7 +157,7 @@ export function AdminPTsPage() {
     password: '',
     firstName: '',
     lastName: '',
-    level: 'junior' as PTLevel,
+    pt_type_id: '',
     location_city: '',
     specializations: [] as string[],
     status: 'attivo' as 'registrato' | 'attivo'
