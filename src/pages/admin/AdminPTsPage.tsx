@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +6,6 @@ import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader'
 import { KPICard } from '@/components/dashboard/KPICard';
 import { SectionCard } from '@/components/dashboard/SectionCard';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
-import { DetailSheet, ProfileInfo } from '@/components/dashboard/DetailSheet';
 import { TablePagination } from '@/components/dashboard/TablePagination';
 import { DataTableSkeleton } from '@/components/skeletons';
 import { InlineEditText, InlineEditSelect, InlineEditTags } from '@/components/dashboard/InlineEditCells';
