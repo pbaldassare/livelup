@@ -163,6 +163,15 @@ export function AdminSettingsPage() {
     },
   });
 
+  const { data: eventTypes = [], isLoading: loadingEventTypes } = useQuery({
+    queryKey: ['admin-event-types'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('event_types').select('*').order('sort_order');
+      if (error) throw error;
+      return (data || []) as CatalogItem[];
+    },
+  });
+
   // Fetch suggestions
   const { data: suggestions = [], isLoading: loadingSuggestions } = useQuery({
     queryKey: ['admin-pt-suggestions'],
