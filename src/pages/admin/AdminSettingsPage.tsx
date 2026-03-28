@@ -246,6 +246,7 @@ export function AdminSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-pt-types'] });
       queryClient.invalidateQueries({ queryKey: ['admin-pt-specializations'] });
       queryClient.invalidateQueries({ queryKey: ['admin-pt-certifications'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-event-types'] });
       toast.success('Stato aggiornato');
     },
     onError: (e) => toast.error('Errore: ' + e.message),
