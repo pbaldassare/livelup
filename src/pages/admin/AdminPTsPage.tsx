@@ -480,17 +480,86 @@ export function AdminPTsPage() {
     createPTMutation.mutate();
   };
 
-  const getProfileInfo = (pt: PTListItem): ProfileInfo => ({
-    id: pt.id,
-    userId: pt.user_id,
-    firstName: pt.profiles?.first_name,
-    lastName: pt.profiles?.last_name,
-    email: pt.profiles?.email,
-    phone: pt.profiles?.phone,
-    avatarUrl: pt.profiles?.avatar_url,
-    status: pt.status,
-    createdAt: pt.created_at,
-    role: 'pt',
+  // PT detail editing state
+  const [editingPTData, setEditingPTData] = useState<Record<string, unknown>>({});
+
+  useEffect(() => {
+    if (selectedPT) {
+      setEditingPTData({
+        bio: selectedPT.bio || '',
+        method_description: selectedPT.method_description || '',
+        experience_years: selectedPT.experience_years || 0,
+        hourly_rate: selectedPT.hourly_rate || 0,
+        currency: selectedPT.currency || 'EUR',
+        max_athletes: selectedPT.max_athletes || 50,
+        offers_online: selectedPT.offers_online ?? true,
+        offers_in_person: selectedPT.offers_in_person ?? true,
+        is_discoverable: selectedPT.is_discoverable ?? true,
+        location_city: selectedPT.location_city || '',
+        location_address: selectedPT.location_address || '',
+        location_country: selectedPT.location_country || '',
+      });
+    }
+  }, [selectedPT]);
+
+  // Fetch PT certificates
+  const { data: ptCertificates = [] } = useQuery({
+    queryKey: ['admin-pt-certificates', selectedPT?.user_id],
+    queryFn: async () => {
+      if (!selectedPT) return [];
+      const { data, error } = await supabase
+        .from('pt_certificates')
+        .select('*')
+        .eq('pt_user_id', selectedPT.user_id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedPT,
+  });
+
+  // Fetch PT specializations from catalog
+  const { data: ptSpecCatalog = [] } = useQuery({
+    queryKey: ['admin-pt-specializations-catalog'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pt_specializations')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('sort_order');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Save PT detail edits
+  const savePTDetailMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedPT) return;
+      const { error } = await supabase
+        .from('pt_profiles')
+        .update({
+          bio: editingPTData.bio as string || null,
+          method_description: editingPTData.method_description as string || null,
+          experience_years: editingPTData.experience_years as number,
+          hourly_rate: editingPTData.hourly_rate as number || null,
+          currency: editingPTData.currency as string,
+          max_athletes: editingPTData.max_athletes as number,
+          offers_online: editingPTData.offers_online as boolean,
+          offers_in_person: editingPTData.offers_in_person as boolean,
+          is_discoverable: editingPTData.is_discoverable as boolean,
+          location_city: editingPTData.location_city as string || null,
+          location_address: editingPTData.location_address as string || null,
+          location_country: editingPTData.location_country as string || null,
+        })
+        .eq('user_id', selectedPT.user_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pts'] });
+      toast.success('Profilo PT aggiornato');
+    },
+    onError: (error) => toast.error('Errore: ' + error.message),
   });
 
   return (
