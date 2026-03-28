@@ -127,13 +127,13 @@ function BroadcastTab({ userId }: { userId?: string }) {
         targetUsers = [targetUserId];
       } else {
         // Query user_roles based on target
-        let roleFilter: string | null = null;
+        let roleFilter: 'admin' | 'atleta' | 'pt' | null = null;
         if (targetType === 'all_athletes') roleFilter = 'atleta';
         if (targetType === 'all_pts') roleFilter = 'pt';
 
         const query = supabase.from('user_roles').select('user_id');
         if (roleFilter) {
-          query.eq('role', roleFilter);
+          query.eq('role', roleFilter as any);
         }
         const { data: roleData, error: roleError } = await query;
         if (roleError) throw roleError;
