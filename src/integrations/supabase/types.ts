@@ -2443,6 +2443,7 @@ export type Database = {
         Args: { _atleta_user_id: string }
         Returns: string
       }
+      get_my_role: { Args: never; Returns: string }
       get_pt_stats: {
         Args: { _pt_user_id: string }
         Returns: {

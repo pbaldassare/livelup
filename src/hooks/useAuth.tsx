@@ -50,14 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Fallback: use SECURITY DEFINER function that bypasses RLS
-      const { data: rpcRole, error: rpcError } = await supabase.rpc('get_my_role');
+      const { data: rpcRole, error: rpcError } = await supabase.rpc('get_my_role' as any);
 
       if (rpcError) {
         console.error('RPC get_my_role also failed:', rpcError.message);
         return null;
       }
 
-      return (rpcRole as AppRole) || null;
+      return (rpcRole as unknown as AppRole) || null;
     } catch (error) {
       console.error('Error in fetchUserRole:', error);
       return null;
