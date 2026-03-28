@@ -936,48 +936,242 @@ export function AdminPTsPage() {
         </div>
       </SectionCard>
 
-      {/* Detail Sheet */}
-      <DetailSheet
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        profile={selectedPT ? getProfileInfo(selectedPT) : null}
-        tags={selectedPT?.specializations || []}
-        stats={[
-          { label: 'Rating', value: selectedPT?.rating_avg?.toFixed(1) || '0.0' },
-          { label: 'Recensioni', value: selectedPT?.review_count || 0 },
-        ]}
-        extraInfo={[
-          { label: 'Tipologia', value: (selectedPT?.pt_type_id && ptTypesMap.get(selectedPT.pt_type_id)) || 'N/A' },
-          { label: 'Città', value: selectedPT?.location_city || 'Non specificata' },
-        ]}
-        actions={
-          <>
-            <div className="flex gap-2 w-full">
-              {selectedPT?.status === 'in_attesa_approvazione' && (
-                <>
+      {/* PT Detail Sheet - Full editable panel */}
+      {selectedPT && (
+        <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
+          <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+            <SheetHeader className="text-left pb-4">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 ring-2 ring-role-pt/20">
+                  <AvatarImage src={selectedPT.profiles?.avatar_url || undefined} />
+                  <AvatarFallback className="bg-role-pt/10 text-role-pt text-lg font-semibold">
+                    {selectedPT.profiles?.first_name?.[0] || 'P'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <SheetTitle className="text-xl">
+                    {selectedPT.profiles?.first_name} {selectedPT.profiles?.last_name}
+                  </SheetTitle>
+                  <div className="flex items-center gap-2 mt-1">
+                    <DashboardStatusBadge status={selectedPT.status === 'in_attesa_approvazione' ? 'pending' : selectedPT.status} size="sm" />
+                    {selectedPT.pt_type_id && ptTypesMap.get(selectedPT.pt_type_id) && (
+                      <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{ptTypesMap.get(selectedPT.pt_type_id)}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </SheetHeader>
+
+            <div className="space-y-6 py-4">
+              {/* Contatti */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Mail className="h-4 w-4" /> Contatti</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span className="font-medium">{selectedPT.profiles?.email || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Telefono</span><span className="font-medium">{selectedPT.profiles?.phone || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Registrato</span><span className="font-medium">{new Date(selectedPT.created_at).toLocaleDateString('it-IT')}</span></div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold flex items-center justify-center gap-1"><Star className="h-4 w-4 text-warning fill-warning" />{selectedPT.rating_avg?.toFixed(1) || '0.0'}</p>
+                  <p className="text-xs text-muted-foreground">Rating</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold">{selectedPT.review_count || 0}</p>
+                  <p className="text-xs text-muted-foreground">Recensioni</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold">{selectedPT.experience_years || 0}</p>
+                  <p className="text-xs text-muted-foreground">Anni Exp.</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Bio & Metodo */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Briefcase className="h-4 w-4" /> Profilo Professionale</h4>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Bio</Label>
+                    <Textarea
+                      value={(editingPTData.bio as string) || ''}
+                      onChange={(e) => setEditingPTData(prev => ({ ...prev, bio: e.target.value }))}
+                      placeholder="Bio del PT..."
+                      rows={3}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Metodo di lavoro</Label>
+                    <Textarea
+                      value={(editingPTData.method_description as string) || ''}
+                      onChange={(e) => setEditingPTData(prev => ({ ...prev, method_description: e.target.value }))}
+                      placeholder="Descrizione del metodo..."
+                      rows={2}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Anni Exp.</Label>
+                      <Input
+                        type="number"
+                        value={(editingPTData.experience_years as number) || 0}
+                        onChange={(e) => setEditingPTData(prev => ({ ...prev, experience_years: parseInt(e.target.value) || 0 }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Tariffa (€/h)</Label>
+                      <Input
+                        type="number"
+                        value={(editingPTData.hourly_rate as number) || ''}
+                        onChange={(e) => setEditingPTData(prev => ({ ...prev, hourly_rate: parseFloat(e.target.value) || 0 }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Max Atleti</Label>
+                      <Input
+                        type="number"
+                        value={(editingPTData.max_athletes as number) || 50}
+                        onChange={(e) => setEditingPTData(prev => ({ ...prev, max_athletes: parseInt(e.target.value) || 50 }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={(editingPTData.offers_online as boolean) ?? true}
+                        onCheckedChange={(checked) => setEditingPTData(prev => ({ ...prev, offers_online: checked }))}
+                      />
+                      Online
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={(editingPTData.offers_in_person as boolean) ?? true}
+                        onCheckedChange={(checked) => setEditingPTData(prev => ({ ...prev, offers_in_person: checked }))}
+                      />
+                      In persona
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={(editingPTData.is_discoverable as boolean) ?? true}
+                        onCheckedChange={(checked) => setEditingPTData(prev => ({ ...prev, is_discoverable: checked }))}
+                      />
+                      Visibile
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Località */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2"><MapPin className="h-4 w-4" /> Località</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Città</span><span className="font-medium">{selectedPT.location_city || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Indirizzo</span><span className="font-medium text-right max-w-[60%] truncate">{selectedPT.location_address || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Paese</span><span className="font-medium">{selectedPT.location_country || '—'}</span></div>
+                  {selectedPT.location_lat && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Coordinate</span><span className="font-medium text-xs">{selectedPT.location_lat?.toFixed(4)}, {selectedPT.location_lng?.toFixed(4)}</span></div>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Specializzazioni */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground">Specializzazioni</h4>
+                <div className="flex flex-wrap gap-2">
+                  {(selectedPT.specializations || []).length > 0 ? (
+                    selectedPT.specializations!.map((spec, i) => (
+                      <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">{spec}</span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Nessuna specializzazione</span>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Gallery */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Image className="h-4 w-4" /> Galleria ({(selectedPT.gallery_photos || []).length} foto)</h4>
+                {(selectedPT.gallery_photos || []).length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedPT.gallery_photos!.slice(0, 9).map((url, i) => (
+                      <div key={i} className="aspect-square rounded-lg overflow-hidden bg-muted">
+                        <img src={url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nessuna foto caricata</p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Certificati caricati */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2"><FileText className="h-4 w-4" /> Certificati ({ptCertificates.length})</h4>
+                {ptCertificates.length > 0 ? (
+                  <div className="space-y-2">
+                    {ptCertificates.map((cert: any) => (
+                      <div key={cert.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">{cert.name}</span>
+                        </div>
+                        <a href={cert.file_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">Apri</a>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nessun certificato caricato</p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Save button */}
+              <Button className="w-full" onClick={() => savePTDetailMutation.mutate()} disabled={savePTDetailMutation.isPending}>
+                {savePTDetailMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Salva Modifiche Profilo
+              </Button>
+
+              {/* Status Actions */}
+              <div className="flex gap-2 w-full">
+                {selectedPT.status === 'in_attesa_approvazione' && (
+                  <>
+                    <Button className="flex-1" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
+                      <Ban className="h-4 w-4 mr-2" />Rifiuta
+                    </Button>
+                    <Button className="flex-1" onClick={() => handleApprove(selectedPT.user_id)}>
+                      <Check className="h-4 w-4 mr-2" />Approva
+                    </Button>
+                  </>
+                )}
+                {selectedPT.status === 'attivo' && (
                   <Button className="flex-1" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
-                    <Ban className="h-4 w-4 mr-2" />Rifiuta
+                    <Ban className="h-4 w-4 mr-2" />Sospendi PT
                   </Button>
-                  <Button className="flex-1" onClick={() => handleApprove(selectedPT.user_id)}>
-                    <Check className="h-4 w-4 mr-2" />Approva
+                )}
+                {selectedPT.status === 'sospeso' && (
+                  <Button className="flex-1" onClick={() => handleReactivate(selectedPT.user_id)}>
+                    <RefreshCw className="h-4 w-4 mr-2" />Riattiva PT
                   </Button>
-                </>
-              )}
-              {selectedPT?.status === 'attivo' && (
-                <Button className="flex-1" variant="outline" onClick={() => handleSuspend(selectedPT.user_id)}>
-                  <Ban className="h-4 w-4 mr-2" />Sospendi PT
-                </Button>
-              )}
-              {selectedPT?.status === 'sospeso' && (
-                <Button className="flex-1" onClick={() => handleReactivate(selectedPT.user_id)}>
-                  <RefreshCw className="h-4 w-4 mr-2" />Riattiva PT
-                </Button>
-              )}
-            </div>
-            {selectedPT && (
+                )}
+              </div>
               <Button 
                 variant="destructive" 
-                className="w-full mt-2"
+                className="w-full"
                 onClick={() => {
                   setPtToDelete(selectedPT);
                   setDeleteDialogOpen(true);
@@ -985,10 +1179,10 @@ export function AdminPTsPage() {
               >
                 <Trash2 className="h-4 w-4 mr-2" />Elimina PT
               </Button>
-            )}
-          </>
-        }
-      />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Bulk Action Confirmation */}
       <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
