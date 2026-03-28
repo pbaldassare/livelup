@@ -213,7 +213,7 @@ export function AdminSettingsPage() {
   const saveCatalogMutation = useMutation({
     mutationFn: async () => {
       const table = catalogDialogTable;
-      const items = table === 'pt_types' ? ptTypes : table === 'pt_specializations' ? specializations : certifications;
+      const items = table === 'pt_types' ? ptTypes : table === 'pt_specializations' ? specializations : table === 'pt_certifications' ? certifications : eventTypes;
       if (editingItem) {
         const { error } = await supabase.from(table).update({ name: itemName, description: itemDescription || null }).eq('id', editingItem.id);
         if (error) throw error;
