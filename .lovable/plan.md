@@ -1,34 +1,57 @@
 
 
-## Diagnosi
+## Piano: Tipologia PT — tabella database + gestione admin + integrazione nel form di creazione
 
-Il login ha successo (confermato dai log auth: status 200, utente `atleta2@fitplatform.com` con ruolo `atleta` presente nel database). Il problema è nel flusso post-login:
+### Cosa cambia
 
-1. `handleLogin` imposta `isLoading = true` e dopo il login riuscito **non lo resetta mai** — si affida al redirect via `useEffect`
-2. Il redirect scatta solo quando `isAuthenticated && role` sono entrambi truthy
-3. Se `fetchUserRole` fallisce o va in timeout (es. il token auth non è ancora pronto per le query RLS nel callback `onAuthStateChange`), `role` resta `null` → il redirect non scatta mai → spinner infinito
+1. **Nuova tabella `pt_types`** nel database con valori iniziali (Fitness, Calisthenics, Yoga, Pilates, Powerlifting, Functional Training, CrossFit, Bodybuilding, Riabilitazione, Sport Performance).
+   - Colonne: `id`, `name`, `description`, `is_active`, `sort_order`, `created_at`
+   - RLS: admin CRUD completo, lettura per utenti autenticati
+   - Colonna `pt_type_id` aggiunta alla tabella `pt_profiles` (FK opzionale verso `pt_types`)
 
-Questo è un problema noto: dentro `onAuthStateChange`, il client Supabase potrebbe non aver ancora impostato il token JWT per le query RLS, causando il fallimento silenzioso della query `user_roles`.
+2. **Form creazione PT** (`AdminPTsPage.tsx`)
+   - Rimuovo il campo "Livello" dal dialog di creazione
+   - Aggiungo un select "Tipologia" che carica le opzioni dalla tabella `pt_types`
+   - Il valore scelto viene salvato in `pt_profiles.pt_type_id`
+   - Aggiorno anche la tabella lista PT per mostrare la tipologia al posto del livello
 
-## Piano di fix
+3. **Nuova sezione in Impostazioni Admin** (`AdminSettingsPage.tsx`)
+   - Aggiungo un tab "Categorie" con gestione CRUD delle tipologie PT
+   - Possibilità di aggiungere, modificare nome/descrizione, attivare/disattivare, riordinare
 
-### 1. Defer del fetch ruolo in `useAuth.tsx`
-Nel callback `onAuthStateChange`, aggiungere un piccolo `setTimeout` (100ms) prima di chiamare `fetchUserRole`, per dare tempo al client di impostare il token. Aggiungere anche un meccanismo di retry (1 tentativo aggiuntivo) se il ruolo torna `null` per un utente autenticato.
+4. **Edge function `create-user`**
+   - Sostituisco `level` con `pt_type_id` nei dati del profilo PT
 
-### 2. Safety timeout in `AuthPage.tsx`
-Nel `handleLogin`, aggiungere un timeout di sicurezza (es. 10 secondi) che:
-- Resetta `isLoading = false`
-- Mostra un toast di errore con possibilità di riprovare
-- Evita che l'utente resti bloccato sullo spinner infinito
+### Dettagli tecnici
 
-### 3. Gestione esplicita di "login ok ma ruolo null"
-Nell'`useEffect` di redirect in AuthPage, aggiungere un controllo: se `isAuthenticated` è true ma `role` è null e `authLoading` è false, mostrare un messaggio/toast e resettare il loading locale.
+**Migration SQL:**
+```sql
+CREATE TABLE public.pt_types (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  description text,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 
-### Sezione tecnica
+ALTER TABLE public.pt_types ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admins can manage pt_types" ON public.pt_types FOR ALL TO public USING (is_admin(auth.uid()));
+CREATE POLICY "Authenticated can view active pt_types" ON public.pt_types FOR SELECT TO authenticated USING (is_active = true);
+
+-- Populate
+INSERT INTO public.pt_types (name, sort_order) VALUES
+  ('Fitness', 1), ('Calisthenics', 2), ('Yoga', 3), ('Pilates', 4),
+  ('Powerlifting', 5), ('Functional Training', 6), ('CrossFit', 7),
+  ('Bodybuilding', 8), ('Riabilitazione', 9), ('Sport Performance', 10);
+
+-- Add FK column to pt_profiles
+ALTER TABLE public.pt_profiles ADD COLUMN pt_type_id uuid REFERENCES public.pt_types(id);
+```
 
 **File modificati:**
-- `src/hooks/useAuth.tsx` — defer + retry del fetch ruolo in `onAuthStateChange`
-- `src/pages/auth/AuthPage.tsx` — safety timeout nel login + gestione caso "autenticato senza ruolo"
-
-**Nessuna modifica backend necessaria** — il ruolo esiste correttamente nel database.
+- `AdminPTsPage.tsx` — rimuovo "Livello", aggiungo "Tipologia" nel form e nella tabella
+- `AdminSettingsPage.tsx` — nuovo tab "Categorie" con CRUD tipologie
+- `create-user/index.ts` — accetta `pt_type_id` al posto di `level`
 
