@@ -163,6 +163,26 @@ export function AdminPTsPage() {
     status: 'attivo' as 'registrato' | 'attivo'
   });
 
+  // Fetch PT types
+  const { data: ptTypes = [] } = useQuery({
+    queryKey: ['pt-types'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pt_types')
+        .select('id, name, is_active')
+        .eq('is_active', true)
+        .order('sort_order');
+      if (error) throw error;
+      return (data || []) as PTType[];
+    },
+  });
+
+  const ptTypesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    ptTypes.forEach(t => map.set(t.id, t.name));
+    return map;
+  }, [ptTypes]);
+
   // Fetch PTs
   const { data: pts = [], isLoading } = useQuery({
     queryKey: ['admin-pts', statusFilter],
