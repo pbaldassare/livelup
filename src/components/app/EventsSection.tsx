@@ -13,7 +13,8 @@ interface PublicEvent {
   id: string;
   title: string;
   description: string | null;
-  event_type: 'raduno' | 'evento' | 'gara' | 'allenamento' | 'altro';
+  event_type: string;
+  event_type_name?: string;
   start_datetime: string;
   end_datetime: string | null;
   location: string | null;
@@ -26,6 +27,9 @@ interface PublicEvent {
   } | null;
   participant_count: number;
   is_registered: boolean;
+  visibility: string;
+  is_closed_number: boolean;
+  max_participants: number | null;
 }
 
 interface EventsSectionProps {
