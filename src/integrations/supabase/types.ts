@@ -1421,6 +1421,7 @@ export type Database = {
           online_only: boolean | null
           price_max: number | null
           price_min: number | null
+          pt_type_id: string | null
           rating_avg: number | null
           review_count: number | null
           specializations: string[] | null
@@ -1450,6 +1451,7 @@ export type Database = {
           online_only?: boolean | null
           price_max?: number | null
           price_min?: number | null
+          pt_type_id?: string | null
           rating_avg?: number | null
           review_count?: number | null
           specializations?: string[] | null
@@ -1479,6 +1481,7 @@ export type Database = {
           online_only?: boolean | null
           price_max?: number | null
           price_min?: number | null
+          pt_type_id?: string | null
           rating_avg?: number | null
           review_count?: number | null
           specializations?: string[] | null
@@ -1486,7 +1489,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pt_profiles_pt_type_id_fkey"
+            columns: ["pt_type_id"]
+            isOneToOne: false
+            referencedRelation: "pt_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pt_reviews: {
         Row: {
@@ -1527,6 +1538,33 @@ export type Database = {
           pt_user_id?: string
           rating?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      pt_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
         }
         Relationships: []
       }

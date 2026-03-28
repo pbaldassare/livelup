@@ -85,6 +85,7 @@ interface PTListItem {
   user_id: string;
   status: string;
   level: string | null;
+  pt_type_id: string | null;
   specializations: string[] | null;
   location_city: string | null;
   rating_avg: number;
@@ -99,15 +100,13 @@ interface PTListItem {
   } | null;
 }
 
-type PTStatus = 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium';
-type PTLevel = 'junior' | 'intermedio' | 'senior' | 'master';
+interface PTType {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
 
-const LEVEL_OPTIONS: { value: PTLevel; label: string }[] = [
-  { value: 'junior', label: 'Junior' },
-  { value: 'intermedio', label: 'Intermedio' },
-  { value: 'senior', label: 'Senior' },
-  { value: 'master', label: 'Master' },
-];
+type PTStatus = 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium';
 
 const SPECIALIZATION_SUGGESTIONS = [
   'Bodybuilding',
@@ -158,11 +157,31 @@ export function AdminPTsPage() {
     password: '',
     firstName: '',
     lastName: '',
-    level: 'junior' as PTLevel,
+    pt_type_id: '',
     location_city: '',
     specializations: [] as string[],
     status: 'attivo' as 'registrato' | 'attivo'
   });
+
+  // Fetch PT types
+  const { data: ptTypes = [] } = useQuery({
+    queryKey: ['pt-types'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pt_types')
+        .select('id, name, is_active')
+        .eq('is_active', true)
+        .order('sort_order');
+      if (error) throw error;
+      return (data || []) as PTType[];
+    },
+  });
+
+  const ptTypesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    ptTypes.forEach(t => map.set(t.id, t.name));
+    return map;
+  }, [ptTypes]);
 
   // Fetch PTs
   const { data: pts = [], isLoading } = useQuery({
@@ -170,7 +189,7 @@ export function AdminPTsPage() {
     queryFn: async () => {
       const { data: ptData, error } = await supabase
         .from('pt_profiles')
-        .select('id, user_id, status, level, specializations, location_city, rating_avg, review_count, created_at')
+        .select('id, user_id, status, level, pt_type_id, specializations, location_city, rating_avg, review_count, created_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -324,7 +343,7 @@ export function AdminPTsPage() {
           lastName: newPT.lastName,
           role: 'pt',
           profileData: {
-            level: newPT.level,
+            pt_type_id: newPT.pt_type_id || null,
             location_city: newPT.location_city || null,
             specializations: newPT.specializations,
             status: newPT.status
@@ -346,7 +365,7 @@ export function AdminPTsPage() {
         password: '',
         firstName: '',
         lastName: '',
-        level: 'junior',
+        pt_type_id: '',
         location_city: '',
         specializations: [],
         status: 'attivo'
@@ -501,18 +520,18 @@ export function AdminPTsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="pt-level">Livello</Label>
+                    <Label htmlFor="pt-type">Tipologia</Label>
                     <Select
-                      value={newPT.level}
-                      onValueChange={(value) => setNewPT({ ...newPT, level: value as PTLevel })}
+                      value={newPT.pt_type_id}
+                      onValueChange={(value) => setNewPT({ ...newPT, pt_type_id: value })}
                     >
-                      <SelectTrigger id="pt-level">
-                        <SelectValue />
+                      <SelectTrigger id="pt-type">
+                        <SelectValue placeholder="Seleziona tipologia" />
                       </SelectTrigger>
                       <SelectContent>
-                        {LEVEL_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
+                        {ptTypes.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -642,7 +661,7 @@ export function AdminPTsPage() {
                   </TableHead>
                   <TableHead>Personal Trainer</TableHead>
                   <TableHead>Stato</TableHead>
-                  <TableHead>Livello</TableHead>
+                  <TableHead>Tipologia</TableHead>
                   <TableHead>Città</TableHead>
                   <TableHead>Specializzazioni</TableHead>
                   <TableHead>Rating</TableHead>
@@ -697,10 +716,10 @@ export function AdminPTsPage() {
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <InlineEditSelect
-                          value={pt.level}
-                          options={LEVEL_OPTIONS}
-                          onSave={(value) => handleUpdateField(pt.user_id, 'level', value)}
-                          placeholder="Seleziona livello"
+                          value={pt.pt_type_id}
+                          options={ptTypes.map(t => ({ value: t.id, label: t.name }))}
+                          onSave={(value) => handleUpdateField(pt.user_id, 'pt_type_id', value)}
+                          placeholder="Seleziona tipologia"
                         />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -803,7 +822,7 @@ export function AdminPTsPage() {
           { label: 'Recensioni', value: selectedPT?.review_count || 0 },
         ]}
         extraInfo={[
-          { label: 'Livello', value: selectedPT?.level || 'N/A' },
+          { label: 'Tipologia', value: (selectedPT?.pt_type_id && ptTypesMap.get(selectedPT.pt_type_id)) || 'N/A' },
           { label: 'Città', value: selectedPT?.location_city || 'Non specificata' },
         ]}
         actions={

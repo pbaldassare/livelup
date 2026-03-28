@@ -12,13 +12,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
-  Settings, Shield, Bell, Users, Globe, Lock, AlertTriangle, Save, RefreshCw
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
+} from '@/components/ui/dialog';
+import { 
+  Settings, Shield, Bell, Users, Globe, Lock, AlertTriangle, Save, RefreshCw, 
+  Tag, Plus, Pencil, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // =====================================================
 // ADMIN SETTINGS PAGE - Persistent System Configuration
 // =====================================================
+
+interface PTType {
+  id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  sort_order: number;
+}
 
 const DEFAULT_PLATFORM = {
   allowNewRegistrations: true,
@@ -41,6 +57,12 @@ export function AdminSettingsPage() {
   const [platformSettings, setPlatformSettings] = useState(DEFAULT_PLATFORM);
   const [notificationSettings, setNotificationSettings] = useState(DEFAULT_NOTIFICATIONS);
 
+  // PT Type dialog
+  const [typeDialogOpen, setTypeDialogOpen] = useState(false);
+  const [editingType, setEditingType] = useState<PTType | null>(null);
+  const [typeName, setTypeName] = useState('');
+  const [typeDescription, setTypeDescription] = useState('');
+
   // Fetch settings from DB
   const { data: dbSettings, isLoading: loadingSettings } = useQuery({
     queryKey: ['platform-settings'],
@@ -52,6 +74,19 @@ export function AdminSettingsPage() {
       const map: Record<string, any> = {};
       (data || []).forEach((row: any) => { map[row.key] = row.value; });
       return map;
+    },
+  });
+
+  // Fetch PT types
+  const { data: ptTypes = [], isLoading: loadingTypes } = useQuery({
+    queryKey: ['admin-pt-types'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pt_types')
+        .select('*')
+        .order('sort_order');
+      if (error) throw error;
+      return (data || []) as PTType[];
     },
   });
 
@@ -85,6 +120,70 @@ export function AdminSettingsPage() {
     onError: () => toast.error('Errore durante il salvataggio'),
   });
 
+  // Save/create PT type
+  const saveTypeMutation = useMutation({
+    mutationFn: async () => {
+      if (editingType) {
+        const { error } = await supabase
+          .from('pt_types')
+          .update({ name: typeName, description: typeDescription || null })
+          .eq('id', editingType.id);
+        if (error) throw error;
+      } else {
+        const maxSort = ptTypes.length > 0 ? Math.max(...ptTypes.map(t => t.sort_order)) + 1 : 1;
+        const { error } = await supabase
+          .from('pt_types')
+          .insert({ name: typeName, description: typeDescription || null, sort_order: maxSort });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pt-types'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-types'] });
+      toast.success(editingType ? 'Tipologia aggiornata' : 'Tipologia creata');
+      closeTypeDialog();
+    },
+    onError: (e) => toast.error('Errore: ' + e.message),
+  });
+
+  // Toggle active
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase
+        .from('pt_types')
+        .update({ is_active })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pt-types'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-types'] });
+      toast.success('Stato aggiornato');
+    },
+    onError: (e) => toast.error('Errore: ' + e.message),
+  });
+
+  const openCreateType = () => {
+    setEditingType(null);
+    setTypeName('');
+    setTypeDescription('');
+    setTypeDialogOpen(true);
+  };
+
+  const openEditType = (t: PTType) => {
+    setEditingType(t);
+    setTypeName(t.name);
+    setTypeDescription(t.description || '');
+    setTypeDialogOpen(true);
+  };
+
+  const closeTypeDialog = () => {
+    setTypeDialogOpen(false);
+    setEditingType(null);
+    setTypeName('');
+    setTypeDescription('');
+  };
+
   return (
     <div className="space-y-6 animate-in">
       <DashboardPageHeader
@@ -110,6 +209,7 @@ export function AdminSettingsPage() {
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList>
           <TabsTrigger value="general" className="gap-2"><Globe className="h-4 w-4" />Generale</TabsTrigger>
+          <TabsTrigger value="categories" className="gap-2"><Tag className="h-4 w-4" />Categorie</TabsTrigger>
           <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" />Utenti</TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2"><Bell className="h-4 w-4" />Notifiche</TabsTrigger>
           <TabsTrigger value="security" className="gap-2"><Shield className="h-4 w-4" />Sicurezza</TabsTrigger>
@@ -145,6 +245,75 @@ export function AdminSettingsPage() {
                   <Input id="maxAthletes" type="number" value={platformSettings.maxAthletesPerPT} onChange={(e) => setPlatformSettings({ ...platformSettings, maxAthletesPerPT: parseInt(e.target.value) || 50 })} />
                   <p className="text-xs text-muted-foreground">Limite massimo di atleti per ogni Personal Trainer</p>
                 </div>
+              </div>
+            </div>
+          </SectionCard>
+        </TabsContent>
+
+        {/* Categories Tab */}
+        <TabsContent value="categories" className="space-y-6">
+          <SectionCard 
+            title="Tipologie Personal Trainer" 
+            subtitle="Gestisci le categorie di PT disponibili sulla piattaforma" 
+            icon={Tag} 
+            iconColor="primary"
+          >
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button onClick={openCreateType} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nuova Tipologia
+                </Button>
+              </div>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Descrizione</TableHead>
+                      <TableHead>Stato</TableHead>
+                      <TableHead className="text-right">Azioni</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loadingTypes ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8">
+                          <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ) : ptTypes.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          Nessuna tipologia configurata
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      ptTypes.map((t) => (
+                        <TableRow key={t.id}>
+                          <TableCell className="font-medium">{t.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{t.description || '—'}</TableCell>
+                          <TableCell>
+                            <Badge variant={t.is_active ? 'default' : 'secondary'}>
+                              {t.is_active ? 'Attiva' : 'Disattivata'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button variant="ghost" size="icon" onClick={() => openEditType(t)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Switch
+                                checked={t.is_active}
+                                onCheckedChange={(checked) => toggleActiveMutation.mutate({ id: t.id, is_active: checked })}
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </div>
           </SectionCard>
@@ -245,6 +414,48 @@ export function AdminSettingsPage() {
           </SectionCard>
         </TabsContent>
       </Tabs>
+
+      {/* PT Type Dialog */}
+      <Dialog open={typeDialogOpen} onOpenChange={setTypeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingType ? 'Modifica Tipologia' : 'Nuova Tipologia PT'}</DialogTitle>
+            <DialogDescription>
+              {editingType ? 'Modifica nome e descrizione della tipologia' : 'Aggiungi una nuova categoria di Personal Trainer'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="type-name">Nome *</Label>
+              <Input
+                id="type-name"
+                placeholder="Es. Yoga, CrossFit..."
+                value={typeName}
+                onChange={(e) => setTypeName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="type-desc">Descrizione</Label>
+              <Input
+                id="type-desc"
+                placeholder="Descrizione opzionale"
+                value={typeDescription}
+                onChange={(e) => setTypeDescription(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeTypeDialog}>Annulla</Button>
+            <Button 
+              onClick={() => saveTypeMutation.mutate()} 
+              disabled={!typeName.trim() || saveTypeMutation.isPending}
+            >
+              {saveTypeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {editingType ? 'Salva' : 'Crea'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
