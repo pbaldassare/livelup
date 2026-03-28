@@ -49,6 +49,7 @@ import AdminTicketDetailPage from "./pages/admin/AdminTicketDetailPage";
 import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminCoursesPage from "./pages/admin/AdminCoursesPage";
+import AdminMessagesPage from "./pages/admin/AdminMessagesPage";
 
 // PT Dashboard pages (Web)
 import PTDashboard from "./pages/pt/PTDashboard";

@@ -61,6 +61,12 @@ const navigationItems = [
     tourId: 'admin-nav-payments',
   },
   { 
+    label: 'Messaggi', 
+    href: '/admin/messages', 
+    icon: MessageSquare,
+    tourId: 'admin-nav-messages',
+  },
+  { 
     label: 'Coupon', 
     href: '/admin/coupons', 
     icon: Tag 
