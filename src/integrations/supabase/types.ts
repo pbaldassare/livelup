@@ -1284,6 +1284,87 @@ export type Database = {
         }
         Relationships: []
       }
+      pt_category_suggestions: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          pt_user_id: string
+          status: Database["public"]["Enums"]["suggestion_status"]
+          type: Database["public"]["Enums"]["suggestion_type"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          pt_user_id: string
+          status?: Database["public"]["Enums"]["suggestion_status"]
+          type: Database["public"]["Enums"]["suggestion_type"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          pt_user_id?: string
+          status?: Database["public"]["Enums"]["suggestion_status"]
+          type?: Database["public"]["Enums"]["suggestion_type"]
+        }
+        Relationships: []
+      }
+      pt_certificates: {
+        Row: {
+          created_at: string
+          file_type: string | null
+          file_url: string
+          id: string
+          name: string
+          pt_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_type?: string | null
+          file_url: string
+          id?: string
+          name: string
+          pt_user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          name?: string
+          pt_user_id?: string
+        }
+        Relationships: []
+      }
+      pt_certifications: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       pt_content_library: {
         Row: {
           content_type: Database["public"]["Enums"]["content_type"]
@@ -1397,6 +1478,52 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      pt_profile_certifications: {
+        Row: {
+          certification_id: string
+          pt_user_id: string
+        }
+        Insert: {
+          certification_id: string
+          pt_user_id: string
+        }
+        Update: {
+          certification_id?: string
+          pt_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_profile_certifications_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: false
+            referencedRelation: "pt_certifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pt_profile_specializations: {
+        Row: {
+          pt_user_id: string
+          specialization_id: string
+        }
+        Insert: {
+          pt_user_id: string
+          specialization_id: string
+        }
+        Update: {
+          pt_user_id?: string
+          specialization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_profile_specializations_specialization_id_fkey"
+            columns: ["specialization_id"]
+            isOneToOne: false
+            referencedRelation: "pt_specializations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pt_profiles: {
         Row: {
@@ -1541,6 +1668,33 @@ export type Database = {
           pt_user_id?: string
           rating?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      pt_specializations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -2253,6 +2407,8 @@ export type Database = {
         | "atleta_premium"
         | "pt_base"
         | "pt_premium"
+      suggestion_status: "pending" | "approved" | "rejected"
+      suggestion_type: "specialization" | "certification"
       ticket_priority: "low" | "medium" | "high" | "urgent"
       ticket_status: "open" | "in_progress" | "resolved" | "closed"
       workout_status: "attivo" | "completato" | "scaduto"
@@ -2417,6 +2573,8 @@ export const Constants = {
         "pt_base",
         "pt_premium",
       ],
+      suggestion_status: ["pending", "approved", "rejected"],
+      suggestion_type: ["specialization", "certification"],
       ticket_priority: ["low", "medium", "high", "urgent"],
       ticket_status: ["open", "in_progress", "resolved", "closed"],
       workout_status: ["attivo", "completato", "scaduto"],

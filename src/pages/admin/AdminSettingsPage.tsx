@@ -20,20 +20,25 @@ import {
 } from '@/components/ui/dialog';
 import { 
   Settings, Shield, Bell, Users, Globe, Lock, AlertTriangle, Save, RefreshCw, 
-  Tag, Plus, Pencil, Loader2
+  Tag, Plus, Pencil, Loader2, Award, CheckCircle2, XCircle, Lightbulb
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// =====================================================
-// ADMIN SETTINGS PAGE - Persistent System Configuration
-// =====================================================
-
-interface PTType {
+interface CatalogItem {
   id: string;
   name: string;
   description: string | null;
   is_active: boolean;
   sort_order: number;
+}
+
+interface Suggestion {
+  id: string;
+  pt_user_id: string;
+  type: string;
+  name: string;
+  status: string;
+  created_at: string;
 }
 
 const DEFAULT_PLATFORM = {
@@ -51,25 +56,78 @@ const DEFAULT_NOTIFICATIONS = {
   sendPushNotifications: true,
 };
 
+// Generic CRUD table component for catalog items
+function CatalogManager({ 
+  title, subtitle, items, isLoading, 
+  onAdd, onEdit, onToggleActive 
+}: { 
+  title: string; subtitle: string; items: CatalogItem[]; isLoading: boolean;
+  onAdd: () => void; onEdit: (item: CatalogItem) => void; 
+  onToggleActive: (id: string, active: boolean) => void;
+}) {
+  return (
+    <SectionCard title={title} subtitle={subtitle} icon={Tag} iconColor="primary">
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <Button onClick={onAdd} size="sm"><Plus className="h-4 w-4 mr-2" />Aggiungi</Button>
+        </div>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Descrizione</TableHead>
+                <TableHead>Stato</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={4} className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></TableCell></TableRow>
+              ) : items.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nessun elemento</TableCell></TableRow>
+              ) : items.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{item.description || '—'}</TableCell>
+                  <TableCell><Badge variant={item.is_active ? 'default' : 'secondary'}>{item.is_active ? 'Attiva' : 'Disattivata'}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => onEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                      <Switch checked={item.is_active} onCheckedChange={(checked) => onToggleActive(item.id, checked)} />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 export function AdminSettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [platformSettings, setPlatformSettings] = useState(DEFAULT_PLATFORM);
   const [notificationSettings, setNotificationSettings] = useState(DEFAULT_NOTIFICATIONS);
 
-  // PT Type dialog
-  const [typeDialogOpen, setTypeDialogOpen] = useState(false);
-  const [editingType, setEditingType] = useState<PTType | null>(null);
-  const [typeName, setTypeName] = useState('');
-  const [typeDescription, setTypeDescription] = useState('');
+  // Generic catalog dialog state
+  const [catalogDialogOpen, setCatalogDialogOpen] = useState(false);
+  const [catalogDialogTable, setCatalogDialogTable] = useState<'pt_types' | 'pt_specializations' | 'pt_certifications'>('pt_types');
+  const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
+  const [itemName, setItemName] = useState('');
+  const [itemDescription, setItemDescription] = useState('');
 
-  // Fetch settings from DB
-  const { data: dbSettings, isLoading: loadingSettings } = useQuery({
+  // Categories sub-tab
+  const [categoryTab, setCategoryTab] = useState('types');
+
+  // Fetch settings
+  const { data: dbSettings } = useQuery({
     queryKey: ['platform-settings'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('platform_settings')
-        .select('key, value');
+      const { data, error } = await supabase.from('platform_settings').select('key, value');
       if (error) throw error;
       const map: Record<string, any> = {};
       (data || []).forEach((row: any) => { map[row.key] = row.value; });
@@ -77,20 +135,48 @@ export function AdminSettingsPage() {
     },
   });
 
-  // Fetch PT types
+  // Fetch catalogs
   const { data: ptTypes = [], isLoading: loadingTypes } = useQuery({
     queryKey: ['admin-pt-types'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('pt_types')
-        .select('*')
-        .order('sort_order');
+      const { data, error } = await supabase.from('pt_types').select('*').order('sort_order');
       if (error) throw error;
-      return (data || []) as PTType[];
+      return (data || []) as CatalogItem[];
     },
   });
 
-  // Populate state from DB on load
+  const { data: specializations = [], isLoading: loadingSpecs } = useQuery({
+    queryKey: ['admin-pt-specializations'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('pt_specializations').select('*').order('sort_order');
+      if (error) throw error;
+      return (data || []) as CatalogItem[];
+    },
+  });
+
+  const { data: certifications = [], isLoading: loadingCerts } = useQuery({
+    queryKey: ['admin-pt-certifications'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('pt_certifications').select('*').order('sort_order');
+      if (error) throw error;
+      return (data || []) as CatalogItem[];
+    },
+  });
+
+  // Fetch suggestions
+  const { data: suggestions = [], isLoading: loadingSuggestions } = useQuery({
+    queryKey: ['admin-pt-suggestions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pt_category_suggestions')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as Suggestion[];
+    },
+  });
+
   useEffect(() => {
     if (dbSettings) {
       if (dbSettings.platform) setPlatformSettings({ ...DEFAULT_PLATFORM, ...dbSettings.platform });
@@ -98,91 +184,111 @@ export function AdminSettingsPage() {
     }
   }, [dbSettings]);
 
-  // Save mutation
+  // Save platform settings
   const saveMutation = useMutation({
     mutationFn: async () => {
       const upserts = [
         { key: 'platform', value: platformSettings, updated_at: new Date().toISOString(), updated_by: user?.id },
         { key: 'notifications', value: notificationSettings, updated_at: new Date().toISOString(), updated_by: user?.id },
       ];
-
       for (const row of upserts) {
-        const { error } = await supabase
-          .from('platform_settings')
-          .upsert(row, { onConflict: 'key' });
+        const { error } = await supabase.from('platform_settings').upsert(row, { onConflict: 'key' });
         if (error) throw error;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-settings'] });
-      toast.success('Impostazioni salvate con successo');
-    },
-    onError: () => toast.error('Errore durante il salvataggio'),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['platform-settings'] }); toast.success('Impostazioni salvate'); },
+    onError: () => toast.error('Errore salvataggio'),
   });
 
-  // Save/create PT type
-  const saveTypeMutation = useMutation({
+  // Save/create catalog item (generic)
+  const saveCatalogMutation = useMutation({
     mutationFn: async () => {
-      if (editingType) {
-        const { error } = await supabase
-          .from('pt_types')
-          .update({ name: typeName, description: typeDescription || null })
-          .eq('id', editingType.id);
+      const table = catalogDialogTable;
+      const items = table === 'pt_types' ? ptTypes : table === 'pt_specializations' ? specializations : certifications;
+      if (editingItem) {
+        const { error } = await supabase.from(table).update({ name: itemName, description: itemDescription || null }).eq('id', editingItem.id);
         if (error) throw error;
       } else {
-        const maxSort = ptTypes.length > 0 ? Math.max(...ptTypes.map(t => t.sort_order)) + 1 : 1;
-        const { error } = await supabase
-          .from('pt_types')
-          .insert({ name: typeName, description: typeDescription || null, sort_order: maxSort });
+        const maxSort = items.length > 0 ? Math.max(...items.map(t => t.sort_order)) + 1 : 1;
+        const { error } = await supabase.from(table).insert({ name: itemName, description: itemDescription || null, sort_order: maxSort });
         if (error) throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-pt-types'] });
+      queryClient.invalidateQueries({ queryKey: [`admin-${catalogDialogTable.replace('pt_', 'pt-')}`] });
+      // Also invalidate the non-admin queries
       queryClient.invalidateQueries({ queryKey: ['pt-types'] });
-      toast.success(editingType ? 'Tipologia aggiornata' : 'Tipologia creata');
-      closeTypeDialog();
+      queryClient.invalidateQueries({ queryKey: ['pt-specializations'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-certifications'] });
+      toast.success(editingItem ? 'Aggiornato' : 'Creato');
+      closeCatalogDialog();
     },
     onError: (e) => toast.error('Errore: ' + e.message),
   });
 
-  // Toggle active
+  // Toggle active (generic)
   const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase
-        .from('pt_types')
-        .update({ is_active })
-        .eq('id', id);
+    mutationFn: async ({ table, id, is_active }: { table: 'pt_types' | 'pt_specializations' | 'pt_certifications'; id: string; is_active: boolean }) => {
+      const { error } = await supabase.from(table).update({ is_active }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-pt-types'] });
-      queryClient.invalidateQueries({ queryKey: ['pt-types'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pt-specializations'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pt-certifications'] });
       toast.success('Stato aggiornato');
     },
     onError: (e) => toast.error('Errore: ' + e.message),
   });
 
-  const openCreateType = () => {
-    setEditingType(null);
-    setTypeName('');
-    setTypeDescription('');
-    setTypeDialogOpen(true);
+  // Approve/reject suggestion
+  const handleSuggestion = useMutation({
+    mutationFn: async ({ suggestion, action }: { suggestion: Suggestion; action: 'approved' | 'rejected' }) => {
+      // Update suggestion status
+      const { error: updateError } = await supabase
+        .from('pt_category_suggestions')
+        .update({ status: action })
+        .eq('id', suggestion.id);
+      if (updateError) throw updateError;
+
+      // If approved, create the item in the corresponding table
+      if (action === 'approved') {
+        const table = suggestion.type === 'specialization' ? 'pt_specializations' : 'pt_certifications';
+        const items = suggestion.type === 'specialization' ? specializations : certifications;
+        const maxSort = items.length > 0 ? Math.max(...items.map(i => i.sort_order)) + 1 : 1;
+        const { error } = await supabase.from(table).insert({ name: suggestion.name, sort_order: maxSort });
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_, { action }) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pt-suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pt-specializations'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pt-certifications'] });
+      toast.success(action === 'approved' ? 'Suggerimento approvato e aggiunto' : 'Suggerimento rifiutato');
+    },
+    onError: (e) => toast.error('Errore: ' + e.message),
+  });
+
+  const openCatalogDialog = (table: 'pt_types' | 'pt_specializations' | 'pt_certifications', item?: CatalogItem) => {
+    setCatalogDialogTable(table);
+    setEditingItem(item || null);
+    setItemName(item?.name || '');
+    setItemDescription(item?.description || '');
+    setCatalogDialogOpen(true);
   };
 
-  const openEditType = (t: PTType) => {
-    setEditingType(t);
-    setTypeName(t.name);
-    setTypeDescription(t.description || '');
-    setTypeDialogOpen(true);
+  const closeCatalogDialog = () => {
+    setCatalogDialogOpen(false);
+    setEditingItem(null);
+    setItemName('');
+    setItemDescription('');
   };
 
-  const closeTypeDialog = () => {
-    setTypeDialogOpen(false);
-    setEditingType(null);
-    setTypeName('');
-    setTypeDescription('');
-  };
+  const catalogDialogTitle = {
+    pt_types: 'Tipologia PT',
+    pt_specializations: 'Specializzazione',
+    pt_certifications: 'Certificazione',
+  }[catalogDialogTable];
 
   return (
     <div className="space-y-6 animate-in">
@@ -190,17 +296,10 @@ export function AdminSettingsPage() {
         title="Impostazioni Sistema"
         subtitle="Configura le impostazioni globali della piattaforma"
         icon={<Settings className="h-6 w-6" />}
-        breadcrumbs={[
-          { label: 'Admin', href: '/admin' },
-          { label: 'Impostazioni' },
-        ]}
+        breadcrumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Impostazioni' }]}
         actions={
           <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? (
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
+            {saveMutation.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Salva Modifiche
           </Button>
         }
@@ -230,7 +329,7 @@ export function AdminSettingsPage() {
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertTitle>Attenzione</AlertTitle>
-                  <AlertDescription>La modalità manutenzione è attiva. Gli utenti non potranno accedere alla piattaforma.</AlertDescription>
+                  <AlertDescription>La modalità manutenzione è attiva.</AlertDescription>
                 </Alert>
               )}
               <Separator />
@@ -238,12 +337,10 @@ export function AdminSettingsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="trialDays">Giorni di Prova Default</Label>
                   <Input id="trialDays" type="number" value={platformSettings.defaultTrialDays} onChange={(e) => setPlatformSettings({ ...platformSettings, defaultTrialDays: parseInt(e.target.value) || 14 })} />
-                  <p className="text-xs text-muted-foreground">Numero di giorni gratuiti per i nuovi abbonamenti</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="maxAthletes">Max Atleti per PT (Default)</Label>
                   <Input id="maxAthletes" type="number" value={platformSettings.maxAthletesPerPT} onChange={(e) => setPlatformSettings({ ...platformSettings, maxAthletesPerPT: parseInt(e.target.value) || 50 })} />
-                  <p className="text-xs text-muted-foreground">Limite massimo di atleti per ogni Personal Trainer</p>
                 </div>
               </div>
             </div>
@@ -252,71 +349,114 @@ export function AdminSettingsPage() {
 
         {/* Categories Tab */}
         <TabsContent value="categories" className="space-y-6">
-          <SectionCard 
-            title="Tipologie Personal Trainer" 
-            subtitle="Gestisci le categorie di PT disponibili sulla piattaforma" 
-            icon={Tag} 
-            iconColor="primary"
-          >
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button onClick={openCreateType} size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nuova Tipologia
-                </Button>
-              </div>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Descrizione</TableHead>
-                      <TableHead>Stato</TableHead>
-                      <TableHead className="text-right">Azioni</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loadingTypes ? (
+          <Tabs value={categoryTab} onValueChange={setCategoryTab}>
+            <TabsList>
+              <TabsTrigger value="types">Tipologie PT</TabsTrigger>
+              <TabsTrigger value="specializations">Specializzazioni</TabsTrigger>
+              <TabsTrigger value="certifications">Certificazioni</TabsTrigger>
+              <TabsTrigger value="suggestions" className="gap-2">
+                <Lightbulb className="h-4 w-4" />
+                Suggerimenti
+                {suggestions.length > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                    {suggestions.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="types" className="mt-4">
+              <CatalogManager
+                title="Tipologie Personal Trainer"
+                subtitle="Categorie di PT disponibili sulla piattaforma"
+                items={ptTypes}
+                isLoading={loadingTypes}
+                onAdd={() => openCatalogDialog('pt_types')}
+                onEdit={(item) => openCatalogDialog('pt_types', item)}
+                onToggleActive={(id, active) => toggleActiveMutation.mutate({ table: 'pt_types', id, is_active: active })}
+              />
+            </TabsContent>
+
+            <TabsContent value="specializations" className="mt-4">
+              <CatalogManager
+                title="Specializzazioni"
+                subtitle="Le specializzazioni selezionabili dai PT"
+                items={specializations}
+                isLoading={loadingSpecs}
+                onAdd={() => openCatalogDialog('pt_specializations')}
+                onEdit={(item) => openCatalogDialog('pt_specializations', item)}
+                onToggleActive={(id, active) => toggleActiveMutation.mutate({ table: 'pt_specializations', id, is_active: active })}
+              />
+            </TabsContent>
+
+            <TabsContent value="certifications" className="mt-4">
+              <CatalogManager
+                title="Certificazioni"
+                subtitle="Le certificazioni selezionabili dai PT"
+                items={certifications}
+                isLoading={loadingCerts}
+                onAdd={() => openCatalogDialog('pt_certifications')}
+                onEdit={(item) => openCatalogDialog('pt_certifications', item)}
+                onToggleActive={(id, active) => toggleActiveMutation.mutate({ table: 'pt_certifications', id, is_active: active })}
+              />
+            </TabsContent>
+
+            <TabsContent value="suggestions" className="mt-4">
+              <SectionCard title="Suggerimenti dai PT" subtitle="Nuove specializzazioni e certificazioni proposte" icon={Lightbulb} iconColor="yellow">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8">
-                          <Loader2 className="h-5 w-5 animate-spin mx-auto" />
-                        </TableCell>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead className="text-right">Azioni</TableHead>
                       </TableRow>
-                    ) : ptTypes.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                          Nessuna tipologia configurata
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      ptTypes.map((t) => (
-                        <TableRow key={t.id}>
-                          <TableCell className="font-medium">{t.name}</TableCell>
-                          <TableCell className="text-muted-foreground">{t.description || '—'}</TableCell>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingSuggestions ? (
+                        <TableRow><TableCell colSpan={4} className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></TableCell></TableRow>
+                      ) : suggestions.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nessun suggerimento in attesa</TableCell></TableRow>
+                      ) : suggestions.map((s) => (
+                        <TableRow key={s.id}>
+                          <TableCell className="font-medium">{s.name}</TableCell>
                           <TableCell>
-                            <Badge variant={t.is_active ? 'default' : 'secondary'}>
-                              {t.is_active ? 'Attiva' : 'Disattivata'}
+                            <Badge variant="outline">
+                              {s.type === 'specialization' ? 'Specializzazione' : 'Certificazione'}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-muted-foreground">{new Date(s.created_at).toLocaleDateString('it-IT')}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => openEditType(t)}>
-                                <Pencil className="h-4 w-4" />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={() => handleSuggestion.mutate({ suggestion: s, action: 'approved' })}
+                                disabled={handleSuggestion.isPending}
+                              >
+                                <CheckCircle2 className="h-4 w-4" />
                               </Button>
-                              <Switch
-                                checked={t.is_active}
-                                onCheckedChange={(checked) => toggleActiveMutation.mutate({ id: t.id, is_active: checked })}
-                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => handleSuggestion.mutate({ suggestion: s, action: 'rejected' })}
+                                disabled={handleSuggestion.isPending}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </SectionCard>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </SectionCard>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         {/* Users Tab */}
@@ -326,7 +466,7 @@ export function AdminSettingsPage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base font-medium">Permetti Nuove Registrazioni</Label>
-                  <p className="text-sm text-muted-foreground">Consenti a nuovi utenti di registrarsi alla piattaforma</p>
+                  <p className="text-sm text-muted-foreground">Consenti a nuovi utenti di registrarsi</p>
                 </div>
                 <Switch checked={platformSettings.allowNewRegistrations} onCheckedChange={(checked) => setPlatformSettings({ ...platformSettings, allowNewRegistrations: checked })} />
               </div>
@@ -334,7 +474,7 @@ export function AdminSettingsPage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base font-medium">Richiedi Verifica Email</Label>
-                  <p className="text-sm text-muted-foreground">Gli utenti devono verificare l'email prima di accedere</p>
+                  <p className="text-sm text-muted-foreground">Gli utenti devono verificare l'email</p>
                 </div>
                 <Switch checked={platformSettings.requireEmailVerification} onCheckedChange={(checked) => setPlatformSettings({ ...platformSettings, requireEmailVerification: checked })} />
               </div>
@@ -342,7 +482,7 @@ export function AdminSettingsPage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base font-medium">Approvazione Automatica PT</Label>
-                  <p className="text-sm text-muted-foreground">I Personal Trainer vengono approvati automaticamente alla registrazione</p>
+                  <p className="text-sm text-muted-foreground">I PT vengono approvati automaticamente</p>
                 </div>
                 <Switch checked={platformSettings.autoApprovePTs} onCheckedChange={(checked) => setPlatformSettings({ ...platformSettings, autoApprovePTs: checked })} />
               </div>
@@ -350,7 +490,7 @@ export function AdminSettingsPage() {
                 <Alert>
                   <AlertTriangle className="h-4 w-4" />
                   <AlertTitle>Approvazione Manuale Attiva</AlertTitle>
-                  <AlertDescription>I nuovi PT dovranno essere approvati manualmente da un amministratore.</AlertDescription>
+                  <AlertDescription>I nuovi PT dovranno essere approvati manualmente.</AlertDescription>
                 </Alert>
               )}
             </div>
@@ -359,12 +499,12 @@ export function AdminSettingsPage() {
 
         {/* Notifications Tab */}
         <TabsContent value="notifications" className="space-y-6">
-          <SectionCard title="Impostazioni Notifiche" subtitle="Configura le notifiche automatiche del sistema" icon={Bell} iconColor="yellow">
+          <SectionCard title="Impostazioni Notifiche" subtitle="Configura le notifiche automatiche" icon={Bell} iconColor="yellow">
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base font-medium">Notifica Nuovo PT</Label>
-                  <p className="text-sm text-muted-foreground">Invia email agli admin quando un nuovo PT si registra</p>
+                  <p className="text-sm text-muted-foreground">Invia email quando un nuovo PT si registra</p>
                 </div>
                 <Switch checked={notificationSettings.sendEmailOnNewPT} onCheckedChange={(checked) => setNotificationSettings({ ...notificationSettings, sendEmailOnNewPT: checked })} />
               </div>
@@ -372,7 +512,7 @@ export function AdminSettingsPage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base font-medium">Notifica Nuovo Ticket</Label>
-                  <p className="text-sm text-muted-foreground">Invia email agli admin quando viene aperto un nuovo ticket di supporto</p>
+                  <p className="text-sm text-muted-foreground">Invia email per nuovi ticket di supporto</p>
                 </div>
                 <Switch checked={notificationSettings.sendEmailOnNewTicket} onCheckedChange={(checked) => setNotificationSettings({ ...notificationSettings, sendEmailOnNewTicket: checked })} />
               </div>
@@ -380,7 +520,7 @@ export function AdminSettingsPage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base font-medium">Notifiche Push</Label>
-                  <p className="text-sm text-muted-foreground">Abilita le notifiche push per gli utenti</p>
+                  <p className="text-sm text-muted-foreground">Abilita le notifiche push</p>
                 </div>
                 <Switch checked={notificationSettings.sendPushNotifications} onCheckedChange={(checked) => setNotificationSettings({ ...notificationSettings, sendPushNotifications: checked })} />
               </div>
@@ -390,12 +530,12 @@ export function AdminSettingsPage() {
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
-          <SectionCard title="Sicurezza" subtitle="Configurazioni di sicurezza della piattaforma" icon={Shield} iconColor="green">
+          <SectionCard title="Sicurezza" subtitle="Configurazioni di sicurezza" icon={Shield} iconColor="green">
             <div className="space-y-6">
               <Alert>
                 <Lock className="h-4 w-4" />
                 <AlertTitle>Sicurezza Avanzata</AlertTitle>
-                <AlertDescription>Le policy di sicurezza RLS sono attive su tutte le tabelle del database. I controlli di ruolo sono implementati a livello di API e frontend.</AlertDescription>
+                <AlertDescription>Le policy RLS sono attive su tutte le tabelle.</AlertDescription>
               </Alert>
               <div className="rounded-lg border p-4 space-y-4">
                 <h4 className="font-medium">Ruoli Attivi</h4>
@@ -405,53 +545,35 @@ export function AdminSettingsPage() {
                   <div className="flex items-center justify-between text-sm"><span>Atleta</span><span className="text-muted-foreground">Solo App</span></div>
                 </div>
               </div>
-              <div className="rounded-lg border p-4 space-y-4">
-                <h4 className="font-medium">Audit Log</h4>
-                <p className="text-sm text-muted-foreground">Tutte le azioni degli utenti sono registrate nella tabella audit_logs.</p>
-                <Button variant="outline" size="sm">Visualizza Audit Log</Button>
-              </div>
             </div>
           </SectionCard>
         </TabsContent>
       </Tabs>
 
-      {/* PT Type Dialog */}
-      <Dialog open={typeDialogOpen} onOpenChange={setTypeDialogOpen}>
+      {/* Generic Catalog Dialog */}
+      <Dialog open={catalogDialogOpen} onOpenChange={setCatalogDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingType ? 'Modifica Tipologia' : 'Nuova Tipologia PT'}</DialogTitle>
+            <DialogTitle>{editingItem ? `Modifica ${catalogDialogTitle}` : `Nuova ${catalogDialogTitle}`}</DialogTitle>
             <DialogDescription>
-              {editingType ? 'Modifica nome e descrizione della tipologia' : 'Aggiungi una nuova categoria di Personal Trainer'}
+              {editingItem ? 'Modifica nome e descrizione' : `Aggiungi una nuova ${catalogDialogTitle?.toLowerCase()}`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="type-name">Nome *</Label>
-              <Input
-                id="type-name"
-                placeholder="Es. Yoga, CrossFit..."
-                value={typeName}
-                onChange={(e) => setTypeName(e.target.value)}
-              />
+              <Label htmlFor="item-name">Nome *</Label>
+              <Input id="item-name" placeholder="Nome..." value={itemName} onChange={(e) => setItemName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="type-desc">Descrizione</Label>
-              <Input
-                id="type-desc"
-                placeholder="Descrizione opzionale"
-                value={typeDescription}
-                onChange={(e) => setTypeDescription(e.target.value)}
-              />
+              <Label htmlFor="item-desc">Descrizione</Label>
+              <Input id="item-desc" placeholder="Descrizione opzionale" value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeTypeDialog}>Annulla</Button>
-            <Button 
-              onClick={() => saveTypeMutation.mutate()} 
-              disabled={!typeName.trim() || saveTypeMutation.isPending}
-            >
-              {saveTypeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {editingType ? 'Salva' : 'Crea'}
+            <Button variant="outline" onClick={closeCatalogDialog}>Annulla</Button>
+            <Button onClick={() => saveCatalogMutation.mutate()} disabled={!itemName.trim() || saveCatalogMutation.isPending}>
+              {saveCatalogMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {editingItem ? 'Salva' : 'Crea'}
             </Button>
           </DialogFooter>
         </DialogContent>
