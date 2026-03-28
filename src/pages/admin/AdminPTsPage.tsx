@@ -365,7 +365,7 @@ export function AdminPTsPage() {
         password: '',
         firstName: '',
         lastName: '',
-        level: 'junior',
+        pt_type_id: '',
         location_city: '',
         specializations: [],
         status: 'attivo'
