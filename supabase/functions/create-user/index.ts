@@ -16,6 +16,9 @@ interface CreateUserRequest {
     // PT specific
     pt_type_id?: string
     location_city?: string
+    location_address?: string
+    location_lat?: number
+    location_lng?: number
     specializations?: string[]
     status?: string
     bio?: string
@@ -175,6 +178,9 @@ serve(async (req) => {
           status: profileData.status || 'registrato',
           pt_type_id: profileData.pt_type_id || null,
           location_city: profileData.location_city || null,
+          location_address: profileData.location_address || null,
+          location_lat: profileData.location_lat || null,
+          location_lng: profileData.location_lng || null,
           specializations: profileData.specializations || [],
           bio: profileData.bio || null
         })

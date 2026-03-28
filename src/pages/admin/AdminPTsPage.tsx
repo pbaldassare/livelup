@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
@@ -159,6 +160,9 @@ export function AdminPTsPage() {
     lastName: '',
     pt_type_id: '',
     location_city: '',
+    location_address: '',
+    location_lat: null as number | null,
+    location_lng: null as number | null,
     specializations: [] as string[],
     status: 'attivo' as 'registrato' | 'attivo'
   });
@@ -345,6 +349,9 @@ export function AdminPTsPage() {
           profileData: {
             pt_type_id: newPT.pt_type_id || null,
             location_city: newPT.location_city || null,
+            location_address: newPT.location_address || null,
+            location_lat: newPT.location_lat,
+            location_lng: newPT.location_lng,
             specializations: newPT.specializations,
             status: newPT.status
           }
@@ -367,6 +374,9 @@ export function AdminPTsPage() {
         lastName: '',
         pt_type_id: '',
         location_city: '',
+        location_address: '',
+        location_lat: null,
+        location_lng: null,
         specializations: [],
         status: 'attivo'
       });
@@ -538,12 +548,24 @@ export function AdminPTsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="pt-city">Città</Label>
-                    <Input
-                      id="pt-city"
-                      placeholder="Milano"
-                      value={newPT.location_city}
-                      onChange={(e) => setNewPT({ ...newPT, location_city: e.target.value })}
+                    <Label>Indirizzo / Città</Label>
+                    <PlacesAutocomplete
+                      value={newPT.location_address || newPT.location_city}
+                      onChange={(val) => setNewPT({ ...newPT, location_address: val, location_city: val })}
+                      onPlaceSelect={(place) => {
+                        // Extract city from formatted address
+                        const parts = place.formatted_address.split(',').map(s => s.trim());
+                        const city = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
+                        setNewPT(prev => ({
+                          ...prev,
+                          location_city: city,
+                          location_address: place.formatted_address,
+                          location_lat: place.geometry.location.lat,
+                          location_lng: place.geometry.location.lng,
+                        }));
+                      }}
+                      placeholder="Cerca indirizzo o città..."
+                      types={['geocode']}
                     />
                   </div>
                 </div>

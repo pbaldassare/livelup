@@ -39,6 +39,7 @@ interface PlacesAutocompleteProps {
   onPlaceSelect?: (place: PlaceDetails) => void;
   placeholder?: string;
   className?: string;
+  types?: string[];
 }
 
 // Declare google types
@@ -102,6 +103,7 @@ export function PlacesAutocomplete({
   onPlaceSelect,
   placeholder = 'Cerca città...',
   className,
+  types = ['(cities)'],
 }: PlacesAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
@@ -134,8 +136,8 @@ export function PlacesAutocomplete({
     try {
       const request: google.maps.places.AutocompletionRequest = {
         input,
-        types: ['(cities)'],
-        componentRestrictions: { country: 'it' }, // Restrict to Italy
+        types,
+        componentRestrictions: { country: 'it' },
       };
 
       autocompleteService.current.getPlacePredictions(request, (results, status) => {
