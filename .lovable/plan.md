@@ -1,58 +1,36 @@
 
 
-## Piano: Tipi evento gestiti dall'admin + visibilità + numero chiuso
+## Piano: Migliorare form eventi — immagine copertina + modifica evento
 
 ### Panoramica
-Trasformare i tipi evento da enum hardcoded a **tabella gestita dall'admin**, rimuovere il campo "Atleta", aggiungere **visibilità** (tutti / utenti app / solo atleti collegati) e **numero chiuso** con counter max partecipanti.
-
----
+Aggiungere una colonna `cover_image_url` alla tabella `calendar_events`, un bucket storage dedicato, upload immagine nel form di creazione, e la possibilità di modificare eventi esistenti.
 
 ### 1. Migration SQL
+- `ALTER TABLE public.calendar_events ADD COLUMN cover_image_url text;`
+- Creare bucket storage `event-covers` (pubblico)
+- RLS storage: PT carica nelle proprie cartelle, tutti leggono
 
-**Nuova tabella `event_types`** (stessa struttura di `pt_types`):
-- `id uuid PK`, `name text`, `description text`, `icon text`, `color text`, `is_active bool`, `sort_order int`, `created_at`
-- Seed: Raduno, Evento, Gara, Allenamento, Altro
-- RLS: admin CRUD, authenticated read (attive)
+### 2. Form creazione evento migliorato (`CreatePublicEventDialog.tsx`)
+- Aggiungere upload immagine copertina in cima al form usando `ImageUpload` variant `cover`
+- Bucket: `event-covers`, path: `{user_id}/{timestamp}.{ext}`
+- Salvare `cover_image_url` nell'insert
+- Migliorare layout: raggruppare i campi in sezioni logiche con separatori visivi
 
-**Nuove colonne su `calendar_events`**:
-- `event_type_id uuid REFERENCES event_types(id)` — sostituisce l'enum `event_type`
-- `visibility text DEFAULT 'public'` — valori: `public` (tutti), `app_users` (utenti registrati), `connected_only` (solo atleti collegati al PT)
-- `is_closed_number boolean DEFAULT false`
-- `max_participants integer` — se numero chiuso, massimo partecipanti
+### 3. Dialog modifica evento (nuovo componente `EditEventDialog.tsx`)
+- Stesso layout del form creazione, precompilato con i dati dell'evento
+- Mutation `update` su `calendar_events`
+- Possibilità di cambiare immagine copertina
+- Pulsante "Elimina evento" con conferma
 
-Rimuovere la colonna `atleta_user_id` non è necessario (usata altrove per sessioni private), basta non mostrarla nel form eventi pubblici.
-
-### 2. Admin Settings — tab "Categorie" → sezione "Tipi Evento"
-
-Aggiungere una quarta sezione al tab Categorie, usando lo stesso componente `CatalogManager` già esistente:
-- CRUD completo su `event_types`
-- Stessa UX di Tipologie PT / Specializzazioni / Certificazioni
-
-### 3. Form creazione evento (`CreatePublicEventDialog.tsx`)
-
-- **Tipo evento**: dropdown che carica da `event_types` (non più hardcoded)
-- **Rimuovere** il campo "Atleta (opzionale)"
-- **Aggiungere campo "Visibilità"**: select con 3 opzioni:
-  - Aperto a tutti
-  - Solo utenti app
-  - Solo atleti collegati
-- **Aggiungere "Numero chiuso"**: switch + campo numerico per max partecipanti
-- Salvare `event_type_id`, `visibility`, `is_closed_number`, `max_participants`
-
-### 4. Form creazione evento dashboard web (`PTCalendarPage.tsx`)
-
-Stesse modifiche del dialog mobile: tipo evento da DB, visibilità, numero chiuso. Rimuovere dropdown atleta dal form eventi pubblici.
-
-### 5. Logica partecipazione (`PublicEventCard.tsx`, `EventsSection.tsx`)
-
-- Controllare `visibility` per mostrare/nascondere eventi
-- Se `is_closed_number = true` e partecipanti >= `max_participants`, disabilitare il pulsante "Partecipa" con messaggio "Posti esauriti"
+### 4. Integrazione nella pagina calendario (`PTCalendarPage.tsx`)
+- Aggiungere pulsante modifica (icona pencil) su ogni evento nella sidebar e nella lista "Prossimi 7 Giorni"
+- Aprire `EditEventDialog` al click
+- Mostrare anteprima immagine copertina nella card evento se presente
+- Stesso dialog anche nel form inline della dashboard web
 
 ### File modificati
-- **Migration SQL** — tabella `event_types` + colonne su `calendar_events`
-- **`AdminSettingsPage.tsx`** — sezione "Tipi Evento" nel tab Categorie
-- **`CreatePublicEventDialog.tsx`** — tipo da DB, visibilità, numero chiuso, no atleta
-- **`PTCalendarPage.tsx`** — stesse modifiche al form
-- **`PublicEventCard.tsx`** — logica posti esauriti
-- **`EventsSection.tsx`** / **`AtletaDiscoverPage.tsx`** — filtro visibilità
+- **Migration SQL** — colonna + bucket storage
+- **`CreatePublicEventDialog.tsx`** — upload immagine, layout migliorato
+- **Nuovo `EditEventDialog.tsx`** — form modifica con precompilazione + delete
+- **`PTCalendarPage.tsx`** — pulsanti modifica, anteprima immagini, integrazione EditEventDialog
 
