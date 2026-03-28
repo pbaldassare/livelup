@@ -822,7 +822,7 @@ export function AdminPTsPage() {
           { label: 'Recensioni', value: selectedPT?.review_count || 0 },
         ]}
         extraInfo={[
-          { label: 'Livello', value: selectedPT?.level || 'N/A' },
+          { label: 'Tipologia', value: (selectedPT?.pt_type_id && ptTypesMap.get(selectedPT.pt_type_id)) || 'N/A' },
           { label: 'Città', value: selectedPT?.location_city || 'Non specificata' },
         ]}
         actions={
