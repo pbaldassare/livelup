@@ -520,18 +520,18 @@ export function AdminPTsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="pt-level">Livello</Label>
+                    <Label htmlFor="pt-type">Tipologia</Label>
                     <Select
-                      value={newPT.level}
-                      onValueChange={(value) => setNewPT({ ...newPT, level: value as PTLevel })}
+                      value={newPT.pt_type_id}
+                      onValueChange={(value) => setNewPT({ ...newPT, pt_type_id: value })}
                     >
-                      <SelectTrigger id="pt-level">
-                        <SelectValue />
+                      <SelectTrigger id="pt-type">
+                        <SelectValue placeholder="Seleziona tipologia" />
                       </SelectTrigger>
                       <SelectContent>
-                        {LEVEL_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
+                        {ptTypes.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
