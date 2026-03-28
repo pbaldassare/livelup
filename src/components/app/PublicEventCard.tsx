@@ -230,12 +230,14 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
             e.stopPropagation();
             handleRegistration();
           }}
-          disabled={isLoading}
+          disabled={isLoading || (isFull && !isRegistered)}
           className={cn(
             "w-full",
             isRegistered 
               ? "bg-app-muted text-app-foreground hover:bg-app-muted/80" 
-              : "bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+              : isFull
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : "bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
           )}
         >
           {isLoading ? (
@@ -245,6 +247,8 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
               <Check className="h-4 w-4 mr-2" />
               Iscritto
             </>
+          ) : isFull ? (
+            'Posti esauriti'
           ) : (
             'Partecipa'
           )}
