@@ -43,12 +43,6 @@ const navigationItems = [
     tourId: 'admin-nav-pts',
   },
   { 
-    label: 'Atleti', 
-    href: '/admin/athletes', 
-    icon: Users,
-    tourId: 'admin-nav-athletes',
-  },
-  { 
     label: 'Abbonamenti', 
     href: '/admin/subscriptions', 
     icon: CreditCard,

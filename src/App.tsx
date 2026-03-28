@@ -39,8 +39,6 @@ import InstallPage from "./pages/public/InstallPage";
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminPTsPage from "./pages/admin/AdminPTsPage";
-import AdminAthletesPage from "./pages/admin/AdminAthletesPage";
-import AdminAthleteDetailPage from "./pages/admin/AdminAthleteDetailPage";
 import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
 import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
 import AdminCouponsPage from "./pages/admin/AdminCouponsPage";
@@ -156,20 +154,6 @@ const App = () => {
                 <AdminRoute>
                   <AdminLayout>
                     <AdminPTsPage />
-                  </AdminLayout>
-                </AdminRoute>
-              } />
-              <Route path="/admin/athletes" element={
-                <AdminRoute>
-                  <AdminLayout>
-                    <AdminAthletesPage />
-                  </AdminLayout>
-                </AdminRoute>
-              } />
-              <Route path="/admin/athletes/:userId" element={
-                <AdminRoute>
-                  <AdminLayout>
-                    <AdminAthleteDetailPage />
                   </AdminLayout>
                 </AdminRoute>
               } />
