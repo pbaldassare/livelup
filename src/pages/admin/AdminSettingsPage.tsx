@@ -115,7 +115,7 @@ export function AdminSettingsPage() {
 
   // Generic catalog dialog state
   const [catalogDialogOpen, setCatalogDialogOpen] = useState(false);
-  const [catalogDialogTable, setCatalogDialogTable] = useState<'pt_types' | 'pt_specializations' | 'pt_certifications'>('pt_types');
+  const [catalogDialogTable, setCatalogDialogTable] = useState<'pt_types' | 'pt_specializations' | 'pt_certifications' | 'event_types'>('pt_types');
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [itemName, setItemName] = useState('');
   const [itemDescription, setItemDescription] = useState('');
