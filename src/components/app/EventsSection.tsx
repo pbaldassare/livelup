@@ -71,12 +71,16 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
           title,
           description,
           event_type,
+          event_type_id,
           start_datetime,
           end_datetime,
           location,
           location_lat,
           location_lng,
-          creator_user_id
+          creator_user_id,
+          visibility,
+          is_closed_number,
+          max_participants
         `)
         .eq('is_public', true)
         .eq('is_cancelled', false)
