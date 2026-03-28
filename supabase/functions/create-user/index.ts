@@ -16,6 +16,9 @@ interface CreateUserRequest {
     // PT specific
     pt_type_id?: string
     location_city?: string
+    location_address?: string
+    location_lat?: number
+    location_lng?: number
     specializations?: string[]
     status?: string
     bio?: string
