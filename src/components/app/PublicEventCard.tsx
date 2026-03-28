@@ -66,6 +66,8 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
   const [isRegistered, setIsRegistered] = useState(event.is_registered);
   const [participantCount, setParticipantCount] = useState(event.participant_count);
 
+  const isFull = event.is_closed_number && event.max_participants != null && participantCount >= event.max_participants;
+
   const typeConfig = EVENT_TYPE_CONFIG[event.event_type] || EVENT_TYPE_CONFIG.altro;
   const TypeIcon = typeConfig.icon;
 
