@@ -1,29 +1,42 @@
 
+Obiettivo: eliminare la schermata “Ruolo non assegnato” per l’admin (ora è un falso negativo).
 
-## Analisi: "Ruolo non assegnato" sulla pagina admin
+Diagnosi già verificata:
+- Nel database l’utente admin ha ruolo corretto (`admin`).
+- Le chiamate di rete a `user_roles` rispondono con `admin`.
+- Quindi il problema è nel frontend auth state (parsing/ordine aggiornamenti), non nei dati.
 
-### Problema
-La pagina `/admin/courses` mostra "Ruolo non assegnato" nonostante l'utente sia autenticato come admin. Questo messaggio viene dal `ProtectedRoute` quando `role` è `null` — cioè la query su `user_roles` non riesce a restituire il ruolo.
+Piano di correzione
 
-### Causa probabile
-Ho verificato il database: l'utente `admin@fitplatform.com` ha correttamente il ruolo `admin` in `user_roles`. Le RLS policies su `user_roles` sembrano corrette (c'è "Users can view their own roles" con `auth.uid() = user_id`).
+1) Rendere deterministico il fetch ruolo in `useAuth.tsx`
+- Estrarre una funzione unica `resolveRole(session)` usata ovunque.
+- Prima chiamata: RPC `get_my_role()` (SECURITY DEFINER) come fonte principale.
+- Fallback: query `user_roles` solo se RPC fallisce.
+- Parsing robusto: gestire sia risposta oggetto sia array (evita `null` quando la risposta cambia formato).
 
-Il problema è probabilmente una **race condition** nell'inizializzazione auth: il token JWT non è ancora pronto quando `useAuth` prova a leggere `user_roles`, e i 2 tentativi (con delay 150ms + 500ms) non bastano. Oppure la sessione del preview è scaduta/corrotta.
+2) Rimuovere race condition tra `onAuthStateChange` e `getSession`
+- Oggi ci sono 2 flussi che possono sovrascrivere `role` a `null`.
+- Unificare la logica: stesso handler, stesso retry/backoff.
+- Regola anti-regressione: non sovrascrivere un ruolo valido con `null` da fetch tardivo.
 
-### Soluzione
-1. **Rendere la query ruolo più resiliente** in `useAuth.tsx`:
-   - Aumentare i retry da 2 a 3
-   - Aggiungere un meccanismo di retry con backoff crescente
-   - Loggare chiaramente l'errore per debugging
+3) Gestione loading più corretta per utenti autenticati
+- Se utente autenticato ma ruolo in risoluzione, mostrare “Caricamento permessi” (non “Ruolo non assegnato”).
+- Mostrare “Ruolo non assegnato” solo dopo esito finale negativo certo.
 
-2. **Aggiungere un bottone "Riprova" nel messaggio "Ruolo non assegnato"** in `ProtectedRoute.tsx`:
-   - Chiamare `refreshRole()` al click
-   - Aggiungere anche un bottone "Esci" per fare logout e ri-autenticarsi
+4) Migliorare `ProtectedRoute.tsx` per UX admin
+- Mantenere “Riprova/Esci”.
+- Aggiungere stato intermedio chiaro (pending permessi) per evitare pagina “senza senso” durante bootstrap.
+- Nessun bypass sicurezza client-side: accesso sempre basato su ruolo backend.
 
-3. **Aggiungere policy di fallback SECURITY DEFINER** per la lettura del proprio ruolo — creare una funzione `get_my_role()` che bypassa RLS completamente, e usarla in `useAuth` come fallback se la query normale fallisce.
+5) Verifica finale end-to-end
+- Login admin → `/admin` carica dashboard senza schermata errore.
+- Hard refresh su `/admin`, `/admin/courses`, `/admin/settings`.
+- Test “Riprova” quando rete lenta.
+- Verifica che PT/Atleta non possano entrare in route admin.
 
-### File modificati
-- **`src/hooks/useAuth.tsx`** — retry migliorato + fallback con RPC `get_my_role()`
-- **`src/components/auth/ProtectedRoute.tsx`** — aggiungere bottoni "Riprova" e "Esci"
-- **Migration SQL** — creare funzione `get_my_role()` SECURITY DEFINER
+File da aggiornare
+- `src/hooks/useAuth.tsx` (fix principale)
+- `src/components/auth/ProtectedRoute.tsx` (stato intermedio + UX)
 
+Database
+- Nessuna nuova migration necessaria (la funzione `get_my_role()` esiste già e va bene).
