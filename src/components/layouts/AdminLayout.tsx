@@ -11,6 +11,7 @@ import {
   Receipt,
   Tag,
   HeadphonesIcon,
+  MessageSquare,
   Settings, 
   LogOut
 } from 'lucide-react';
