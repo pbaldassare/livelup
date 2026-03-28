@@ -1,36 +1,54 @@
 
 
-## Piano: Migliorare form eventi — immagine copertina + modifica evento
+## Piano: Chat Admin con Broadcast e Log Messaggi
 
 ### Panoramica
-Aggiungere una colonna `cover_image_url` alla tabella `calendar_events`, un bucket storage dedicato, upload immagine nel form di creazione, e la possibilità di modificare eventi esistenti.
+Creare una nuova pagina **Messaggi** nell'admin per inviare comunicazioni broadcast (a tutti gli atleti, a tutti i PT, o a utenti singoli) e visualizzare il log completo di tutte le chat della piattaforma.
+
+---
 
 ### 1. Migration SQL
-- `ALTER TABLE public.calendar_events ADD COLUMN cover_image_url text;`
-- Creare bucket storage `event-covers` (pubblico)
-- RLS storage: PT carica nelle proprie cartelle, tutti leggono
 
-### 2. Form creazione evento migliorato (`CreatePublicEventDialog.tsx`)
-- Aggiungere upload immagine copertina in cima al form usando `ImageUpload` variant `cover`
-- Bucket: `event-covers`, path: `{user_id}/{timestamp}.{ext}`
-- Salvare `cover_image_url` nell'insert
-- Migliorare layout: raggruppare i campi in sezioni logiche con separatori visivi
+**Nuova tabella `admin_broadcasts`**:
+- `id uuid PK`, `sender_user_id uuid` (admin), `subject text`, `content text`
+- `target_type text` — valori: `all_athletes`, `all_pts`, `all_users`, `single_user`
+- `target_user_id uuid` (nullable, solo per `single_user`)
+- `recipients_count integer`, `created_at timestamptz`
+- RLS: solo admin CRUD
 
-### 3. Dialog modifica evento (nuovo componente `EditEventDialog.tsx`)
-- Stesso layout del form creazione, precompilato con i dati dell'evento
-- Mutation `update` su `calendar_events`
-- Possibilità di cambiare immagine copertina
-- Pulsante "Elimina evento" con conferma
+**Nuova tabella `admin_broadcast_recipients`**:
+- `id uuid PK`, `broadcast_id uuid FK`, `user_id uuid`, `is_read boolean DEFAULT false`, `read_at timestamptz`
+- RLS: admin vede tutto, utente vede i propri
 
-### 4. Integrazione nella pagina calendario (`PTCalendarPage.tsx`)
-- Aggiungere pulsante modifica (icona pencil) su ogni evento nella sidebar e nella lista "Prossimi 7 Giorni"
-- Aprire `EditEventDialog` al click
-- Mostrare anteprima immagine copertina nella card evento se presente
-- Stesso dialog anche nel form inline della dashboard web
+### 2. Pagina Admin Messaggi (`AdminMessagesPage.tsx`)
 
-### File modificati
-- **Migration SQL** — colonna + bucket storage
-- **`CreatePublicEventDialog.tsx`** — upload immagine, layout migliorato
-- **Nuovo `EditEventDialog.tsx`** — form modifica con precompilazione + delete
-- **`PTCalendarPage.tsx`** — pulsanti modifica, anteprima immagini, integrazione EditEventDialog
+Due tab principali:
+
+**Tab "Broadcast"**:
+- Form per comporre un messaggio broadcast con:
+  - **Destinatari**: select con opzioni (Tutti gli atleti / Tutti i PT / Tutti gli utenti / Utente specifico)
+  - Se "Utente specifico": campo ricerca utente con autocomplete
+  - **Oggetto** e **Contenuto** (textarea)
+  - Pulsante "Invia"
+- Sotto il form: lista degli ultimi broadcast inviati con data, target, n. destinatari, tasso di lettura
+
+**Tab "Log Chat"**:
+- Tabella con tutte le chat della piattaforma: PT ↔ Atleta
+- Colonne: PT, Atleta, Ultimo messaggio, Data, N. messaggi totali
+- Click su una riga → apre un pannello laterale (Sheet) con lo storico completo dei messaggi (read-only)
+- Filtri: ricerca per nome PT/atleta, intervallo date
+
+### 3. Notifiche broadcast
+- Quando l'admin invia un broadcast, crea una `notification` per ogni destinatario con type `broadcast`
+- I destinatari vedono la notifica nella loro bell icon
+
+### 4. Integrazione nel layout admin
+- Aggiungere voce **"Messaggi"** nella sidebar di `AdminLayout.tsx` con icona `MessageSquare`
+- Aggiungere rotta `/admin/messages` in `App.tsx`
+
+### File modificati/creati
+- **Migration SQL** — tabelle `admin_broadcasts` + `admin_broadcast_recipients`
+- **Nuovo `AdminMessagesPage.tsx`** — pagina con tab Broadcast + Log Chat
+- **`AdminLayout.tsx`** — voce sidebar "Messaggi"
+- **`App.tsx`** — rotta `/admin/messages`
 
