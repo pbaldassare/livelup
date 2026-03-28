@@ -173,7 +173,7 @@ serve(async (req) => {
         .insert({
           user_id: newUserId,
           status: profileData.status || 'registrato',
-          level: profileData.level || 'junior',
+          pt_type_id: profileData.pt_type_id || null,
           location_city: profileData.location_city || null,
           specializations: profileData.specializations || [],
           bio: profileData.bio || null
