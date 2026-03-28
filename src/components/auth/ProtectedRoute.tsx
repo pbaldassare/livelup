@@ -5,6 +5,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRole } from '@/types/roles';
 import { ROLE_ACCESS_MATRIX, getHomeRoute } from '@/types/roles';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 // =====================================================
 // PROTECTED ROUTE
