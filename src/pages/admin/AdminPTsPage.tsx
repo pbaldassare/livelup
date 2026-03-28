@@ -661,7 +661,7 @@ export function AdminPTsPage() {
                   </TableHead>
                   <TableHead>Personal Trainer</TableHead>
                   <TableHead>Stato</TableHead>
-                  <TableHead>Livello</TableHead>
+                  <TableHead>Tipologia</TableHead>
                   <TableHead>Città</TableHead>
                   <TableHead>Specializzazioni</TableHead>
                   <TableHead>Rating</TableHead>
