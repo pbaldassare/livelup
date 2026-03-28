@@ -68,7 +68,7 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
 
   const isFull = event.is_closed_number && event.max_participants != null && participantCount >= event.max_participants;
 
-  const typeConfig = EVENT_TYPE_CONFIG[event.event_type] || EVENT_TYPE_CONFIG.altro;
+  const typeConfig = EVENT_TYPE_CONFIG[event.event_type as keyof typeof EVENT_TYPE_CONFIG] || EVENT_TYPE_CONFIG.altro;
   const TypeIcon = typeConfig.icon;
 
   const startDate = new Date(event.start_datetime);
