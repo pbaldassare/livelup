@@ -1,66 +1,58 @@
 
 
-## Piano: Specializzazioni, Certificazioni, Attestati e Foto Profilo PT
+## Piano: Tipi evento gestiti dall'admin + visibilità + numero chiuso
 
 ### Panoramica
-Ristrutturare la sezione "Specializzazioni e Certificazioni" del PT Settings: da campi testo libero a tabelle gestite dall'admin, con dropdown searchable multi-select per il PT. Aggiungere foto profilo, upload attestati, suggerimenti all'admin e Google Maps per l'indirizzo.
+Trasformare i tipi evento da enum hardcoded a **tabella gestita dall'admin**, rimuovere il campo "Atleta", aggiungere **visibilità** (tutti / utenti app / solo atleti collegati) e **numero chiuso** con counter max partecipanti.
 
 ---
 
-### 1. Nuove tabelle database (migration SQL)
+### 1. Migration SQL
 
-**`pt_specializations`** — catalogo specializzazioni gestite dall'admin
-- `id`, `name`, `description`, `is_active`, `sort_order`, `created_at`
+**Nuova tabella `event_types`** (stessa struttura di `pt_types`):
+- `id uuid PK`, `name text`, `description text`, `icon text`, `color text`, `is_active bool`, `sort_order int`, `created_at`
+- Seed: Raduno, Evento, Gara, Allenamento, Altro
 - RLS: admin CRUD, authenticated read (attive)
-- Seed: Bodybuilding, Calisthenics, Yoga, Pilates, Functional Training, HIIT, Powerlifting, Riabilitazione, Sport Performance, Dimagrimento
 
-**`pt_certifications`** — catalogo certificazioni gestite dall'admin
-- `id`, `name`, `description`, `is_active`, `sort_order`, `created_at`
-- RLS: admin CRUD, authenticated read (attive)
-- Seed: CONI, FIF, ACSM, NASM, ISSA, ACE, NSCA, CSEN
+**Nuove colonne su `calendar_events`**:
+- `event_type_id uuid REFERENCES event_types(id)` — sostituisce l'enum `event_type`
+- `visibility text DEFAULT 'public'` — valori: `public` (tutti), `app_users` (utenti registrati), `connected_only` (solo atleti collegati al PT)
+- `is_closed_number boolean DEFAULT false`
+- `max_participants integer` — se numero chiuso, massimo partecipanti
 
-**`pt_profile_specializations`** — join table (PT sceglie le sue)
-- `pt_user_id` (FK profiles), `specialization_id` (FK pt_specializations), PK composita
-- RLS: PT gestisce le proprie, admin legge tutto
+Rimuovere la colonna `atleta_user_id` non è necessario (usata altrove per sessioni private), basta non mostrarla nel form eventi pubblici.
 
-**`pt_profile_certifications`** — join table (PT sceglie le sue)
-- `pt_user_id`, `certification_id`, PK composita
-- RLS: come sopra
+### 2. Admin Settings — tab "Categorie" → sezione "Tipi Evento"
 
-**`pt_certificates`** — attestati caricati dal PT (documenti)
-- `id`, `pt_user_id`, `name`, `file_url`, `file_type`, `created_at`
-- RLS: PT gestisce i propri, admin legge tutto
+Aggiungere una quarta sezione al tab Categorie, usando lo stesso componente `CatalogManager` già esistente:
+- CRUD completo su `event_types`
+- Stessa UX di Tipologie PT / Specializzazioni / Certificazioni
 
-**`pt_category_suggestions`** — suggerimenti dal PT all'admin
-- `id`, `pt_user_id`, `type` (enum: 'specialization' | 'certification'), `name`, `status` (pending/approved/rejected), `created_at`
-- RLS: PT inserisce, admin gestisce
+### 3. Form creazione evento (`CreatePublicEventDialog.tsx`)
 
-**Storage bucket**: `pt-certificates` (pubblico, per i documenti attestati)
+- **Tipo evento**: dropdown che carica da `event_types` (non più hardcoded)
+- **Rimuovere** il campo "Atleta (opzionale)"
+- **Aggiungere campo "Visibilità"**: select con 3 opzioni:
+  - Aperto a tutti
+  - Solo utenti app
+  - Solo atleti collegati
+- **Aggiungere "Numero chiuso"**: switch + campo numerico per max partecipanti
+- Salvare `event_type_id`, `visibility`, `is_closed_number`, `max_participants`
 
-### 2. Admin Settings (`AdminSettingsPage.tsx`)
-- Tab "Categorie" ampliato con 3 sotto-sezioni:
-  - **Tipologie PT** (esistente, invariato)
-  - **Specializzazioni** — CRUD identico alle tipologie
-  - **Certificazioni** — CRUD identico alle tipologie
-- Nuova sotto-sezione **Suggerimenti** — lista suggerimenti dai PT con azioni approva/rifiuta (approva = crea nella tabella corrispondente)
+### 4. Form creazione evento dashboard web (`PTCalendarPage.tsx`)
 
-### 3. PT Settings (`PTSettingsPage.tsx`)
-- **Foto profilo**: aggiungere `ImageUpload` variant avatar nella card "Informazioni Base", salva su bucket `avatars` e aggiorna `profiles.avatar_url`
-- **Specializzazioni**: sostituire input testo con dropdown multi-select searchable che carica da `pt_specializations` + pulsante "Suggerisci nuova"
-- **Certificazioni**: stesso dropdown multi-select da `pt_certifications` + pulsante "Suggerisci nuova"
-- **Attestati**: nuova sezione per upload documenti (nome + file), lista con anteprima/download, eliminazione
-- **Località**: aggiornare PlacesAutocomplete con `types={['geocode']}` per indirizzo completo, salvare `location_address`
+Stesse modifiche del dialog mobile: tipo evento da DB, visibilità, numero chiuso. Rimuovere dropdown atleta dal form eventi pubblici.
 
-### 4. File modificati
-- **Migration SQL** — tutte le nuove tabelle, seed, storage bucket, RLS
-- **`AdminSettingsPage.tsx`** — sezioni Specializzazioni, Certificazioni, Suggerimenti nel tab Categorie
-- **`PTSettingsPage.tsx`** — foto profilo, dropdown multi-select, upload attestati, suggerimenti, Maps geocode
+### 5. Logica partecipazione (`PublicEventCard.tsx`, `EventsSection.tsx`)
 
-### Dettagli tecnici
+- Controllare `visibility` per mostrare/nascondere eventi
+- Se `is_closed_number = true` e partecipanti >= `max_participants`, disabilitare il pulsante "Partecipa" con messaggio "Posti esauriti"
 
-**Dropdown multi-select searchable**: Implementato con Popover + Command (componenti shadcn già presenti). L'utente digita per filtrare, seleziona/deseleziona con checkbox. I valori selezionati appaiono come badge.
-
-**Upload attestati**: Usa il bucket `pt-certificates`, path `{user_id}/{timestamp}.{ext}`. Accetta PDF, JPG, PNG. Nome personalizzabile. Lista con icona tipo file + download link.
-
-**Suggerimenti**: Il PT compila un input con il nome della specializzazione/certificazione mancante. L'admin vede la lista nel tab Categorie con pulsanti Approva/Rifiuta.
+### File modificati
+- **Migration SQL** — tabella `event_types` + colonne su `calendar_events`
+- **`AdminSettingsPage.tsx`** — sezione "Tipi Evento" nel tab Categorie
+- **`CreatePublicEventDialog.tsx`** — tipo da DB, visibilità, numero chiuso, no atleta
+- **`PTCalendarPage.tsx`** — stesse modifiche al form
+- **`PublicEventCard.tsx`** — logica posti esauriti
+- **`EventsSection.tsx`** / **`AtletaDiscoverPage.tsx`** — filtro visibilità
 
