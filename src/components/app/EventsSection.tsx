@@ -91,23 +91,53 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
       if (error) throw error;
 
       // For each event, fetch organizer profile and participant count
+      // Fetch event type names
+      const eventTypeIds = [...new Set((eventsData || []).map(e => e.event_type_id).filter(Boolean))];
+      let eventTypeMap: Record<string, string> = {};
+      if (eventTypeIds.length > 0) {
+        const { data: etData } = await supabase
+          .from('event_types')
+          .select('id, name')
+          .in('id', eventTypeIds);
+        if (etData) {
+          etData.forEach(et => { eventTypeMap[et.id] = et.name; });
+        }
+      }
+
+      // Check user connection for visibility filtering
+      let connectedPtIds: string[] = [];
+      if (user) {
+        const { data: connections } = await supabase
+          .from('pt_atleta_connections')
+          .select('pt_user_id')
+          .eq('atleta_user_id', user.id)
+          .eq('status', 'active');
+        connectedPtIds = (connections || []).map(c => c.pt_user_id);
+      }
+
       const eventsWithDetails: PublicEvent[] = await Promise.all(
-        (eventsData || []).map(async (event) => {
-          // Get organizer profile
+        (eventsData || [])
+          .filter(event => {
+            // Visibility filter
+            const vis = (event as any).visibility || 'public';
+            if (vis === 'public') return true;
+            if (vis === 'app_users') return !!user;
+            if (vis === 'connected_only') return connectedPtIds.includes(event.creator_user_id);
+            return true;
+          })
+          .map(async (event) => {
           const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name, avatar_url')
             .eq('user_id', event.creator_user_id)
             .maybeSingle();
 
-          // Get participant count
           const { count } = await supabase
             .from('event_participants')
             .select('id', { count: 'exact', head: true })
             .eq('event_id', event.id)
             .eq('status', 'registered');
 
-          // Check if current user is registered
           let isRegistered = false;
           if (user) {
             const { data: registration } = await supabase
@@ -124,7 +154,8 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
             id: event.id,
             title: event.title,
             description: event.description,
-            event_type: event.event_type as PublicEvent['event_type'],
+            event_type: event.event_type as string,
+            event_type_name: event.event_type_id ? eventTypeMap[event.event_type_id] : undefined,
             start_datetime: event.start_datetime,
             end_datetime: event.end_datetime,
             location: event.location,
@@ -133,6 +164,9 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
             organizer: profile,
             participant_count: count || 0,
             is_registered: isRegistered,
+            visibility: (event as any).visibility || 'public',
+            is_closed_number: (event as any).is_closed_number || false,
+            max_participants: (event as any).max_participants || null,
           };
         })
       );
