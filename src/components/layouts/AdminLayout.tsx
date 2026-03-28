@@ -11,6 +11,7 @@ import {
   Receipt,
   Tag,
   HeadphonesIcon,
+  MessageSquare,
   Settings, 
   LogOut
 } from 'lucide-react';
@@ -58,6 +59,12 @@ const navigationItems = [
     href: '/admin/payments', 
     icon: Receipt,
     tourId: 'admin-nav-payments',
+  },
+  { 
+    label: 'Messaggi', 
+    href: '/admin/messages', 
+    icon: MessageSquare,
+    tourId: 'admin-nav-messages',
   },
   { 
     label: 'Coupon', 

@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_broadcast_recipients: {
+        Row: {
+          broadcast_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          broadcast_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          broadcast_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_broadcast_recipients_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "admin_broadcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_broadcasts: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          recipients_count: number
+          sender_user_id: string
+          subject: string
+          target_type: string
+          target_user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          recipients_count?: number
+          sender_user_id: string
+          subject: string
+          target_type?: string
+          target_user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          recipients_count?: number
+          sender_user_id?: string
+          subject?: string
+          target_type?: string
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       atleta_badges: {
         Row: {
           atleta_user_id: string
