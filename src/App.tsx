@@ -159,20 +159,6 @@ const App = () => {
                   </AdminLayout>
                 </AdminRoute>
               } />
-              <Route path="/admin/athletes" element={
-                <AdminRoute>
-                  <AdminLayout>
-                    <AdminAthletesPage />
-                  </AdminLayout>
-                </AdminRoute>
-              } />
-              <Route path="/admin/athletes/:userId" element={
-                <AdminRoute>
-                  <AdminLayout>
-                    <AdminAthleteDetailPage />
-                  </AdminLayout>
-                </AdminRoute>
-              } />
               <Route path="/admin/subscriptions" element={
                 <AdminRoute>
                   <AdminLayout>
