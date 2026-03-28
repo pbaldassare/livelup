@@ -250,7 +250,7 @@ export function AdminCouponsPage() {
 
       {/* Create Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nuovo Coupon</DialogTitle>
             <DialogDescription>
