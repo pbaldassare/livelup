@@ -343,7 +343,7 @@ export function AdminPTsPage() {
           lastName: newPT.lastName,
           role: 'pt',
           profileData: {
-            level: newPT.level,
+            pt_type_id: newPT.pt_type_id || null,
             location_city: newPT.location_city || null,
             specializations: newPT.specializations,
             status: newPT.status
