@@ -15,13 +15,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  /** Ruoli consentiti per questa route */
   allowedRoles?: AppRole[];
-  /** Risorsa richiesta per accesso */
   requiredResource?: keyof typeof ROLE_ACCESS_MATRIX.admin;
-  /** Redirect personalizzato se non autorizzato */
   redirectTo?: string;
-  /** Mostra loader durante il caricamento */
   fallback?: ReactNode;
 }
 
@@ -32,11 +28,11 @@ export function ProtectedRoute({
   redirectTo = '/auth',
   fallback,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, role, refreshRole } = useAuth();
+  const { isAuthenticated, isLoading, isRoleLoading, role, refreshRole } = useAuth();
   const { hasAccess, hasRole } = usePermissions();
   const location = useLocation();
 
-  // Loading state
+  // Initial auth loading
   if (isLoading) {
     return (
       fallback ?? (
@@ -50,12 +46,24 @@ export function ProtectedRoute({
     );
   }
 
-  // Not authenticated - redirect to auth
+  // Not authenticated
   if (!isAuthenticated) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // No role assigned yet
+  // Authenticated but role still resolving — show intermediate state, NOT "Ruolo non assegnato"
+  if (!role && isRoleLoading) {
+    return (
+      <LoadingSpinner 
+        variant="logo" 
+        size="lg" 
+        text="Caricamento permessi..." 
+        fullScreen 
+      />
+    );
+  }
+
+  // No role after resolution completed
   if (!role) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -86,24 +94,17 @@ export function ProtectedRoute({
 
   // Check allowed roles
   if (allowedRoles && allowedRoles.length > 0) {
-    const hasAllowedRole = allowedRoles.some(allowedRole => hasRole(allowedRole));
+    const hasAllowedRole = allowedRoles.some(r => hasRole(r));
     if (!hasAllowedRole) {
-      // Redirect to user's appropriate home based on their role
-      const homeRoute = getHomeRoute(role);
-      return <Navigate to={homeRoute} replace />;
+      return <Navigate to={getHomeRoute(role)} replace />;
     }
   }
 
   // Check required resource access
-  if (requiredResource) {
-    if (!hasAccess(requiredResource)) {
-      // Redirect to user's appropriate home based on their role
-      const homeRoute = getHomeRoute(role);
-      return <Navigate to={homeRoute} replace />;
-    }
+  if (requiredResource && !hasAccess(requiredResource)) {
+    return <Navigate to={getHomeRoute(role)} replace />;
   }
 
-  // All checks passed
   return <>{children}</>;
 }
 
@@ -111,53 +112,33 @@ export function ProtectedRoute({
 // SPECIALIZED PROTECTED ROUTES
 // =====================================================
 
-/** Route solo per Admin */
 export function AdminRoute({ children, ...props }: Omit<ProtectedRouteProps, 'allowedRoles' | 'requiredResource'>) {
   return (
-    <ProtectedRoute 
-      allowedRoles={['admin']} 
-      requiredResource="dashboard_admin"
-      {...props}
-    >
+    <ProtectedRoute allowedRoles={['admin']} requiredResource="dashboard_admin" {...props}>
       {children}
     </ProtectedRoute>
   );
 }
 
-/** Route solo per PT (dashboard web) */
 export function PTDashboardRoute({ children, ...props }: Omit<ProtectedRouteProps, 'allowedRoles' | 'requiredResource'>) {
   return (
-    <ProtectedRoute 
-      allowedRoles={['pt']} 
-      requiredResource="dashboard_pt"
-      {...props}
-    >
+    <ProtectedRoute allowedRoles={['pt']} requiredResource="dashboard_pt" {...props}>
       {children}
     </ProtectedRoute>
   );
 }
 
-/** Route solo per PT (app/PWA) */
 export function PTAppRoute({ children, ...props }: Omit<ProtectedRouteProps, 'allowedRoles' | 'requiredResource'>) {
   return (
-    <ProtectedRoute 
-      allowedRoles={['pt']} 
-      requiredResource="app_pt"
-      {...props}
-    >
+    <ProtectedRoute allowedRoles={['pt']} requiredResource="app_pt" {...props}>
       {children}
     </ProtectedRoute>
   );
 }
 
-/** Route solo per Atleta (app/PWA) */
 export function AtletaRoute({ children, ...props }: Omit<ProtectedRouteProps, 'allowedRoles' | 'requiredResource'>) {
   return (
-    <ProtectedRoute 
-      allowedRoles={['atleta']} 
-      requiredResource="app_atleta"
-      {...props}
-    >
+    <ProtectedRoute allowedRoles={['atleta']} requiredResource="app_atleta" {...props}>
       {children}
     </ProtectedRoute>
   );
