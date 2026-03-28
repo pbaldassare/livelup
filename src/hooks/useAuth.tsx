@@ -31,21 +31,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch user role from database
+  // Fetch user role from database with RPC fallback
   const fetchUserRole = async (userId: string): Promise<AppRole | null> => {
     try {
+      // Try direct query first
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
+
+      if (!error && data?.role) {
+        return data.role as AppRole;
+      }
 
       if (error) {
-        console.error('Error fetching user role:', error);
+        console.warn('Direct role query failed, trying RPC fallback:', error.message);
+      }
+
+      // Fallback: use SECURITY DEFINER function that bypasses RLS
+      const { data: rpcRole, error: rpcError } = await supabase.rpc('get_my_role');
+
+      if (rpcError) {
+        console.error('RPC get_my_role also failed:', rpcError.message);
         return null;
       }
 
-      return data?.role as AppRole | null;
+      return (rpcRole as AppRole) || null;
     } catch (error) {
       console.error('Error in fetchUserRole:', error);
       return null;
