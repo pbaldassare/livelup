@@ -1,31 +1,46 @@
 
 
-## Analisi e Piano
+## Piano: Fix Coupon Dialog, Rimuovere Atleti residui, Espandere Dettaglio PT Admin
 
-### Problema 1: "3 PT scritti ma ne vedo solo 1"
-Dalla dashboard: **Personal Trainers: 3** (totale) e **PT Attivi: 1** (approvati). Questo significa che 2 PT hanno uno stato diverso da "attivo" (es. `registrato` o `in_attesa_approvazione`). La pagina PT con filtro "Tutti" dovrebbe mostrarli tutti e 3. Possibili cause:
-- **RLS**: le policy admin sembrano corrette (`is_admin` + `has_role` con SECURITY DEFINER). Potrebbe però esserci un conflitto tra la policy SELECT e la policy ALL che causa problemi. Soluzione: verificare e consolidare le policy.
-- **Filtro URL**: se l'URL ha un parametro `?status=attivo`, mostra solo 1.
+### Problemi identificati
 
-**Azione**: Aggiungere una migration che dropppa le policy SELECT duplicate su `pt_profiles` e `profiles` (la policy ALL le copre già), evitando conflitti. Inoltre nel codice assicurarsi che il filtro di default sia sempre "Tutti".
+1. **"Atleti" ancora nella sidebar** — Il codice di `AdminLayout.tsx` NON ha più la voce "Atleti". Probabilmente è un problema di cache del preview. Tuttavia verifico e confermo che è già pulito.
 
-### Problema 2: "La gestione atleti non serve come admin"
-Hai ragione: gli atleti sono gestiti dai rispettivi PT, non dall'admin. L'admin deve poter vedere una panoramica (numeri) ma non serve una pagina dedicata per CRUD atleti. La pagina `/admin/athletes` attuale con creazione/eliminazione atleti è ridondante.
+2. **Coupon dialog non centrato** — Il `DialogContent` in `AdminCouponsPage.tsx` usa il default senza classi di centraggio forzato. Bisogna aggiungere le classi `!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2` come usato negli altri dialog del progetto.
 
-**Azione**: Rimuovere la voce "Atleti" dalla sidebar admin e la rotta `/admin/athletes`. Mantenere i KPI atleti nella dashboard come numeri di overview.
+3. **PT Detail Sheet troppo scarno** — Attualmente il pannello laterale mostra solo nome, email, stato, rating e specializzazioni. L'admin deve poter vedere e modificare TUTTI i dati del PT: bio, esperienza, tariffa, gallery, certificazioni caricate, disponibilità, contatti, ecc.
 
-### Riepilogo modifiche
+4. **Impostazioni: cataloghi non visibili** — Il codice delle Impostazioni ha GIÀ i tab Categorie con Tipologie PT, Specializzazioni, Certificazioni e Tipi Evento. Probabilmente l'utente non li vede perché è nel tab sbagliato, oppure c'è un problema di query/RLS. Verifico le RLS sulle tabelle catalog.
 
-1. **Migration SQL** — Rimuovere policy SELECT duplicate su `pt_profiles` e `profiles` per evitare conflitti RLS
-2. **`AdminLayout.tsx`** — Rimuovere la voce "Atleti" dalla sidebar
-3. **`App.tsx`** — Rimuovere la rotta `/admin/athletes` e relative importazioni
-4. **`AdminDashboard.tsx`** — Mantenere i KPI atleti come overview (nessuna modifica)
-5. Opzionalmente eliminare `AdminAthletesPage.tsx` e `AdminAthleteDetailPage.tsx`
+---
 
-### File coinvolti
-- Migration SQL (fix RLS)
-- `src/components/layouts/AdminLayout.tsx`
-- `src/App.tsx`
-- Eliminazione `src/pages/admin/AdminAthletesPage.tsx`
-- Eliminazione `src/pages/admin/AdminAthleteDetailPage.tsx`
+### Modifiche
+
+#### 1. Fix Coupon Dialog centraggio (`AdminCouponsPage.tsx`)
+- Aggiungere classi di centraggio forzato al `DialogContent`: `!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2`
+- Aggiungere `max-h-[85vh] overflow-y-auto` per sicurezza su schermi piccoli
+
+#### 2. Espandere PT Detail Sheet in AdminPTsPage
+Sostituire il generico `DetailSheet` con un **pannello dettaglio PT completo** (Sheet custom) che mostra:
+- **Sezione Profilo**: avatar, nome, email, telefono, stato — modificabili
+- **Sezione Professionale**: tipologia, specializzazioni, certificazioni, bio, esperienza, tariffa — modificabili inline
+- **Sezione Galleria**: mostrare le foto dalla gallery PT (bucket `pt-gallery`)
+- **Sezione Certificazioni**: mostrare i file caricati dal PT (bucket `pt-certificates`)
+- **Sezione Contatto/Località**: indirizzo, coordinate, città — modificabile
+- **Azioni**: Approva / Sospendi / Riattiva / Elimina
+
+Query aggiuntive nel detail: `pt_profiles` completo + `pt_gallery_photos` + `pt_certificates` (se tabella esiste) + conteggio atleti/allenamenti.
+
+#### 3. Fix RLS cataloghi (migration SQL)
+Aggiungere policy `SELECT` per admin su `pt_types`, `pt_specializations`, `pt_certifications`, `event_types` nel caso manchino. Verifico e aggiungo solo se necessario.
+
+#### 4. Refresh sidebar (no-op nel codice)
+"Atleti" è già stato rimosso dal codice. Se il problema persiste, un semplice refresh del preview lo risolverà.
+
+---
+
+### File modificati
+- **`AdminCouponsPage.tsx`** — fix centraggio dialog
+- **`AdminPTsPage.tsx`** — espandere DetailSheet con pannello PT completo e modificabile
+- **Migration SQL** — eventuale fix RLS su tabelle catalogo
 
