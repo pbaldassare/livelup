@@ -10,35 +10,38 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
+import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { 
   Calendar as CalendarIcon, 
   Plus,
   Clock,
-  MapPin
+  MapPin,
+  Eye,
+  Users,
+  Lock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { toast } from 'sonner';
-
-// =====================================================
-// PT CALENDAR PAGE - Calendario Appuntamenti
-// Solo per ruolo: pt (web dashboard)
-// =====================================================
 
 interface CalendarEvent {
   id: string;
   title: string;
   description: string | null;
   event_type: string;
+  event_type_id: string | null;
   start_datetime: string;
   end_datetime: string | null;
   location: string | null;
   is_public: boolean;
-  atleta_user_id: string | null;
   creator_user_id: string;
   is_cancelled: boolean;
+  visibility: string;
+  is_closed_number: boolean;
+  max_participants: number | null;
 }
 
 export function PTCalendarPage() {
@@ -49,39 +52,30 @@ export function PTCalendarPage() {
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
-    event_type: 'allenamento',
+    event_type_id: '',
     start_datetime: '',
     end_datetime: '',
     location: '',
-    is_public: false,
-    atleta_user_id: '',
+    location_lat: null as number | null,
+    location_lng: null as number | null,
+    visibility: 'public',
+    is_closed_number: false,
+    max_participants: '' as number | '',
   });
+  const [locationSearch, setLocationSearch] = useState('');
 
-  // Fetch connected athletes for dropdown
-  const { data: athletes = [] } = useQuery({
-    queryKey: ['connected-athletes', user?.id],
+  // Fetch event types from DB
+  const { data: eventTypes = [] } = useQuery({
+    queryKey: ['event-types'],
     queryFn: async () => {
-      if (!user?.id) return [];
       const { data, error } = await supabase
-        .from('pt_atleta_connections')
-        .select('atleta_user_id')
-        .eq('pt_user_id', user.id)
-        .eq('status', 'active');
+        .from('event_types')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
       if (error) throw error;
-      
-      const enriched = await Promise.all(
-        (data || []).map(async (conn) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name')
-            .eq('user_id', conn.atleta_user_id)
-            .single();
-          return { id: conn.atleta_user_id, name: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() };
-        })
-      );
-      return enriched;
+      return data || [];
     },
-    enabled: !!user?.id,
   });
 
   // Fetch events
@@ -89,25 +83,36 @@ export function PTCalendarPage() {
     queryKey: ['pt-calendar', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
         .eq('pt_user_id', user.id)
         .eq('is_cancelled', false)
         .order('start_datetime', { ascending: true });
-
       if (error) throw error;
       return data as CalendarEvent[];
     },
     enabled: !!user?.id,
   });
 
+  const handlePlaceSelect = (place: {
+    name: string;
+    formatted_address: string;
+    geometry: { location: { lat: number; lng: number } };
+  }) => {
+    setNewEvent({
+      ...newEvent,
+      location: place.formatted_address || place.name,
+      location_lat: place.geometry.location.lat,
+      location_lng: place.geometry.location.lng,
+    });
+    setLocationSearch(place.name);
+  };
+
   // Create event mutation
   const createEventMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
-
       const { error } = await supabase
         .from('calendar_events')
         .insert([{
@@ -115,30 +120,31 @@ export function PTCalendarPage() {
           pt_user_id: user.id,
           title: newEvent.title,
           description: newEvent.description || null,
-          event_type: newEvent.event_type as 'allenamento' | 'raduno' | 'evento' | 'gara' | 'altro',
+          event_type: 'evento' as const,
+          event_type_id: newEvent.event_type_id || null,
           start_datetime: newEvent.start_datetime,
           end_datetime: newEvent.end_datetime || null,
           location: newEvent.location || null,
-          is_public: newEvent.is_public,
-          atleta_user_id: newEvent.atleta_user_id || null,
+          location_lat: newEvent.location_lat,
+          location_lng: newEvent.location_lng,
+          is_public: true,
+          visibility: newEvent.visibility,
+          is_closed_number: newEvent.is_closed_number,
+          max_participants: newEvent.is_closed_number && newEvent.max_participants ? Number(newEvent.max_participants) : null,
         }]);
-
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-calendar'] });
+      queryClient.invalidateQueries({ queryKey: ['public-events'] });
       toast.success('Evento creato con successo');
       setIsCreateDialogOpen(false);
       setNewEvent({
-        title: '',
-        description: '',
-        event_type: 'allenamento',
-        start_datetime: '',
-        end_datetime: '',
-        location: '',
-        is_public: false,
-        atleta_user_id: '',
+        title: '', description: '', event_type_id: '', start_datetime: '', end_datetime: '',
+        location: '', location_lat: null, location_lng: null, visibility: 'public',
+        is_closed_number: false, max_participants: '',
       });
+      setLocationSearch('');
     },
     onError: () => {
       toast.error('Errore durante la creazione dell\'evento');
@@ -156,10 +162,8 @@ export function PTCalendarPage() {
     );
   });
 
-  // Get dates with events for calendar highlighting
   const datesWithEvents = events.map((event) => new Date(event.start_datetime));
 
-  // Upcoming events (next 7 days)
   const now = new Date();
   const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const upcomingEvents = events.filter((event) => {
@@ -175,6 +179,15 @@ export function PTCalendarPage() {
       case 'gara': return 'bg-warning/10 text-warning border-warning/20';
       default: return 'bg-muted text-muted-foreground border-border';
     }
+  };
+
+  // Get event type name from ID
+  const getEventTypeName = (event: CalendarEvent) => {
+    if (event.event_type_id) {
+      const found = eventTypes.find(t => t.id === event.event_type_id);
+      if (found) return found.name;
+    }
+    return event.event_type;
   };
 
   const createButton = (
@@ -200,45 +213,25 @@ export function PTCalendarPage() {
               id="title"
               value={newEvent.title}
               onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-              placeholder="Es: Sessione con Mario Rossi"
+              placeholder="Es: Calisthenics Day Brescia"
             />
           </div>
           <div className="space-y-2">
             <Label>Tipo Evento</Label>
             <Select
-              value={newEvent.event_type}
-              onValueChange={(value) => setNewEvent({ ...newEvent, event_type: value })}
+              value={newEvent.event_type_id}
+              onValueChange={(value) => setNewEvent({ ...newEvent, event_type_id: value })}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Seleziona tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="allenamento">Allenamento</SelectItem>
-                <SelectItem value="raduno">Raduno</SelectItem>
-                <SelectItem value="evento">Evento</SelectItem>
-                <SelectItem value="gara">Gara</SelectItem>
-                <SelectItem value="altro">Altro</SelectItem>
+                {eventTypes.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          {athletes.length > 0 && (
-            <div className="space-y-2">
-              <Label>Atleta (opzionale)</Label>
-              <Select
-                value={newEvent.atleta_user_id}
-                onValueChange={(value) => setNewEvent({ ...newEvent, atleta_user_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona atleta..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {athletes.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="start">Inizio</Label>
@@ -260,13 +253,70 @@ export function PTCalendarPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="location">Luogo</Label>
-            <Input
-              id="location"
-              value={newEvent.location}
-              onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
-              placeholder="Es: Palestra XYZ"
+            <Label>
+              <MapPin className="h-4 w-4 inline mr-1" />
+              Luogo
+            </Label>
+            <PlacesAutocomplete
+              value={locationSearch}
+              onChange={setLocationSearch}
+              onPlaceSelect={handlePlaceSelect}
+              placeholder="Cerca indirizzo o luogo..."
             />
+            {newEvent.location && (
+              <p className="text-sm text-muted-foreground mt-1">📍 {newEvent.location}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>
+              <Eye className="h-4 w-4 inline mr-1" />
+              Visibilità
+            </Label>
+            <Select
+              value={newEvent.visibility}
+              onValueChange={(value) => setNewEvent({ ...newEvent, visibility: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">
+                  <div className="flex items-center gap-2"><Eye className="h-4 w-4" />Aperto a tutti</div>
+                </SelectItem>
+                <SelectItem value="app_users">
+                  <div className="flex items-center gap-2"><Users className="h-4 w-4" />Solo utenti app</div>
+                </SelectItem>
+                <SelectItem value="connected_only">
+                  <div className="flex items-center gap-2"><Lock className="h-4 w-4" />Solo atleti collegati</div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="closed-web">Numero chiuso</Label>
+                <p className="text-xs text-muted-foreground">Limita il numero di partecipanti</p>
+              </div>
+              <Switch
+                id="closed-web"
+                checked={newEvent.is_closed_number}
+                onCheckedChange={(checked) => setNewEvent({ ...newEvent, is_closed_number: checked })}
+              />
+            </div>
+            {newEvent.is_closed_number && (
+              <div className="space-y-2">
+                <Label htmlFor="maxP">Max partecipanti</Label>
+                <Input
+                  id="maxP"
+                  type="number"
+                  min={1}
+                  value={newEvent.max_participants}
+                  onChange={(e) => setNewEvent({ ...newEvent, max_participants: e.target.value ? parseInt(e.target.value) : '' })}
+                  placeholder="Es: 20"
+                />
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Note</Label>
@@ -304,13 +354,10 @@ export function PTCalendarPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Calendar */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Calendario</CardTitle>
-            <CardDescription>
-              Seleziona una data per vedere gli eventi
-            </CardDescription>
+            <CardDescription>Seleziona una data per vedere gli eventi</CardDescription>
           </CardHeader>
           <CardContent>
             <Calendar
@@ -319,9 +366,7 @@ export function PTCalendarPage() {
               onSelect={setSelectedDate}
               locale={it}
               className="rounded-md border"
-              modifiers={{
-                hasEvent: datesWithEvents,
-              }}
+              modifiers={{ hasEvent: datesWithEvents }}
               modifiersStyles={{
                 hasEvent: {
                   fontWeight: 'bold',
@@ -333,31 +378,20 @@ export function PTCalendarPage() {
           </CardContent>
         </Card>
 
-        {/* Selected Day Events */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">
-              {selectedDate 
-                ? format(selectedDate, 'EEEE d MMMM', { locale: it })
-                : 'Seleziona una data'
-              }
+              {selectedDate ? format(selectedDate, 'EEEE d MMMM', { locale: it }) : 'Seleziona una data'}
             </CardTitle>
-            <CardDescription>
-              {selectedDateEvents.length} eventi
-            </CardDescription>
+            <CardDescription>{selectedDateEvents.length} eventi</CardDescription>
           </CardHeader>
           <CardContent>
             {selectedDateEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Nessun evento per questa data
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-8">Nessun evento per questa data</p>
             ) : (
               <div className="space-y-3">
                 {selectedDateEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className={`p-3 rounded-lg border ${getEventTypeColor(event.event_type)}`}
-                  >
+                  <div key={event.id} className={`p-3 rounded-lg border ${getEventTypeColor(event.event_type)}`}>
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{event.title}</p>
                       {event.creator_user_id !== user?.id && (
@@ -385,26 +419,18 @@ export function PTCalendarPage() {
         </Card>
       </div>
 
-      {/* Upcoming Events */}
       <Card>
         <CardHeader>
           <CardTitle>Prossimi 7 Giorni</CardTitle>
-          <CardDescription>
-            {upcomingEvents.length} eventi in programma
-          </CardDescription>
+          <CardDescription>{upcomingEvents.length} eventi in programma</CardDescription>
         </CardHeader>
         <CardContent>
           {upcomingEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Nessun evento nei prossimi 7 giorni
-            </p>
+            <p className="text-sm text-muted-foreground text-center py-8">Nessun evento nei prossimi 7 giorni</p>
           ) : (
             <div className="space-y-4">
               {upcomingEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                >
+                <div key={event.id} className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
                   <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${getEventTypeColor(event.event_type)}`}>
                     <CalendarIcon className="h-5 w-5" />
                   </div>
@@ -427,9 +453,7 @@ export function PTCalendarPage() {
                       )}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    Modifica
-                  </Button>
+                  <Badge variant="outline" className="text-xs">{getEventTypeName(event)}</Badge>
                 </div>
               ))}
             </div>
