@@ -115,7 +115,7 @@ export function AdminSettingsPage() {
 
   // Generic catalog dialog state
   const [catalogDialogOpen, setCatalogDialogOpen] = useState(false);
-  const [catalogDialogTable, setCatalogDialogTable] = useState<'pt_types' | 'pt_specializations' | 'pt_certifications'>('pt_types');
+  const [catalogDialogTable, setCatalogDialogTable] = useState<'pt_types' | 'pt_specializations' | 'pt_certifications' | 'event_types'>('pt_types');
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [itemName, setItemName] = useState('');
   const [itemDescription, setItemDescription] = useState('');
@@ -163,6 +163,15 @@ export function AdminSettingsPage() {
     },
   });
 
+  const { data: eventTypes = [], isLoading: loadingEventTypes } = useQuery({
+    queryKey: ['admin-event-types'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('event_types').select('*').order('sort_order');
+      if (error) throw error;
+      return (data || []) as CatalogItem[];
+    },
+  });
+
   // Fetch suggestions
   const { data: suggestions = [], isLoading: loadingSuggestions } = useQuery({
     queryKey: ['admin-pt-suggestions'],
@@ -204,7 +213,7 @@ export function AdminSettingsPage() {
   const saveCatalogMutation = useMutation({
     mutationFn: async () => {
       const table = catalogDialogTable;
-      const items = table === 'pt_types' ? ptTypes : table === 'pt_specializations' ? specializations : certifications;
+      const items = table === 'pt_types' ? ptTypes : table === 'pt_specializations' ? specializations : table === 'pt_certifications' ? certifications : eventTypes;
       if (editingItem) {
         const { error } = await supabase.from(table).update({ name: itemName, description: itemDescription || null }).eq('id', editingItem.id);
         if (error) throw error;
@@ -216,10 +225,11 @@ export function AdminSettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`admin-${catalogDialogTable.replace('pt_', 'pt-')}`] });
-      // Also invalidate the non-admin queries
+      queryClient.invalidateQueries({ queryKey: ['admin-event-types'] });
       queryClient.invalidateQueries({ queryKey: ['pt-types'] });
       queryClient.invalidateQueries({ queryKey: ['pt-specializations'] });
       queryClient.invalidateQueries({ queryKey: ['pt-certifications'] });
+      queryClient.invalidateQueries({ queryKey: ['event-types'] });
       toast.success(editingItem ? 'Aggiornato' : 'Creato');
       closeCatalogDialog();
     },
@@ -228,7 +238,7 @@ export function AdminSettingsPage() {
 
   // Toggle active (generic)
   const toggleActiveMutation = useMutation({
-    mutationFn: async ({ table, id, is_active }: { table: 'pt_types' | 'pt_specializations' | 'pt_certifications'; id: string; is_active: boolean }) => {
+    mutationFn: async ({ table, id, is_active }: { table: 'pt_types' | 'pt_specializations' | 'pt_certifications' | 'event_types'; id: string; is_active: boolean }) => {
       const { error } = await supabase.from(table).update({ is_active }).eq('id', id);
       if (error) throw error;
     },
@@ -236,6 +246,7 @@ export function AdminSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-pt-types'] });
       queryClient.invalidateQueries({ queryKey: ['admin-pt-specializations'] });
       queryClient.invalidateQueries({ queryKey: ['admin-pt-certifications'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-event-types'] });
       toast.success('Stato aggiornato');
     },
     onError: (e) => toast.error('Errore: ' + e.message),
@@ -269,7 +280,7 @@ export function AdminSettingsPage() {
     onError: (e) => toast.error('Errore: ' + e.message),
   });
 
-  const openCatalogDialog = (table: 'pt_types' | 'pt_specializations' | 'pt_certifications', item?: CatalogItem) => {
+  const openCatalogDialog = (table: 'pt_types' | 'pt_specializations' | 'pt_certifications' | 'event_types', item?: CatalogItem) => {
     setCatalogDialogTable(table);
     setEditingItem(item || null);
     setItemName(item?.name || '');
@@ -288,6 +299,7 @@ export function AdminSettingsPage() {
     pt_types: 'Tipologia PT',
     pt_specializations: 'Specializzazione',
     pt_certifications: 'Certificazione',
+    event_types: 'Tipo Evento',
   }[catalogDialogTable];
 
   return (
@@ -354,6 +366,7 @@ export function AdminSettingsPage() {
               <TabsTrigger value="types">Tipologie PT</TabsTrigger>
               <TabsTrigger value="specializations">Specializzazioni</TabsTrigger>
               <TabsTrigger value="certifications">Certificazioni</TabsTrigger>
+              <TabsTrigger value="event_types">Tipi Evento</TabsTrigger>
               <TabsTrigger value="suggestions" className="gap-2">
                 <Lightbulb className="h-4 w-4" />
                 Suggerimenti
@@ -398,6 +411,18 @@ export function AdminSettingsPage() {
                 onAdd={() => openCatalogDialog('pt_certifications')}
                 onEdit={(item) => openCatalogDialog('pt_certifications', item)}
                 onToggleActive={(id, active) => toggleActiveMutation.mutate({ table: 'pt_certifications', id, is_active: active })}
+              />
+            </TabsContent>
+
+            <TabsContent value="event_types" className="mt-4">
+              <CatalogManager
+                title="Tipi Evento"
+                subtitle="I tipi di evento disponibili per i PT"
+                items={eventTypes}
+                isLoading={loadingEventTypes}
+                onAdd={() => openCatalogDialog('event_types')}
+                onEdit={(item) => openCatalogDialog('event_types', item)}
+                onToggleActive={(id, active) => toggleActiveMutation.mutate({ table: 'event_types', id, is_active: active })}
               />
             </TabsContent>
 

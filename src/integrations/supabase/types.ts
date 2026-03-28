@@ -282,20 +282,24 @@ export type Database = {
           description: string | null
           end_datetime: string | null
           event_type: Database["public"]["Enums"]["event_type"]
+          event_type_id: string | null
           id: string
           is_all_day: boolean
           is_cancelled: boolean
+          is_closed_number: boolean
           is_public: boolean
           is_recurring: boolean
           location: string | null
           location_lat: number | null
           location_lng: number | null
+          max_participants: number | null
           pt_user_id: string | null
           recurrence_rule: string | null
           reminder_minutes: number | null
           start_datetime: string
           title: string
           updated_at: string
+          visibility: string
         }
         Insert: {
           atleta_user_id?: string | null
@@ -305,20 +309,24 @@ export type Database = {
           description?: string | null
           end_datetime?: string | null
           event_type?: Database["public"]["Enums"]["event_type"]
+          event_type_id?: string | null
           id?: string
           is_all_day?: boolean
           is_cancelled?: boolean
+          is_closed_number?: boolean
           is_public?: boolean
           is_recurring?: boolean
           location?: string | null
           location_lat?: number | null
           location_lng?: number | null
+          max_participants?: number | null
           pt_user_id?: string | null
           recurrence_rule?: string | null
           reminder_minutes?: number | null
           start_datetime: string
           title: string
           updated_at?: string
+          visibility?: string
         }
         Update: {
           atleta_user_id?: string | null
@@ -328,22 +336,34 @@ export type Database = {
           description?: string | null
           end_datetime?: string | null
           event_type?: Database["public"]["Enums"]["event_type"]
+          event_type_id?: string | null
           id?: string
           is_all_day?: boolean
           is_cancelled?: boolean
+          is_closed_number?: boolean
           is_public?: boolean
           is_recurring?: boolean
           location?: string | null
           location_lat?: number | null
           location_lng?: number | null
+          max_participants?: number | null
           pt_user_id?: string | null
           recurrence_rule?: string | null
           reminder_minutes?: number | null
           start_datetime?: string
           title?: string
           updated_at?: string
+          visibility?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       chats: {
         Row: {
@@ -691,6 +711,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      event_types: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       exercises: {
         Row: {

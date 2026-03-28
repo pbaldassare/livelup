@@ -31,7 +31,8 @@ interface PublicEventProps {
     id: string;
     title: string;
     description: string | null;
-    event_type: 'raduno' | 'evento' | 'gara' | 'allenamento' | 'altro';
+    event_type: string;
+    event_type_name?: string;
     start_datetime: string;
     end_datetime: string | null;
     location: string | null;
@@ -44,6 +45,8 @@ interface PublicEventProps {
     } | null;
     participant_count: number;
     is_registered: boolean;
+    is_closed_number?: boolean;
+    max_participants?: number | null;
   };
   onRegistrationChange?: () => void;
 }
@@ -63,7 +66,9 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
   const [isRegistered, setIsRegistered] = useState(event.is_registered);
   const [participantCount, setParticipantCount] = useState(event.participant_count);
 
-  const typeConfig = EVENT_TYPE_CONFIG[event.event_type] || EVENT_TYPE_CONFIG.altro;
+  const isFull = event.is_closed_number && event.max_participants != null && participantCount >= event.max_participants;
+
+  const typeConfig = EVENT_TYPE_CONFIG[event.event_type as keyof typeof EVENT_TYPE_CONFIG] || EVENT_TYPE_CONFIG.altro;
   const TypeIcon = typeConfig.icon;
 
   const startDate = new Date(event.start_datetime);
@@ -146,9 +151,14 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
       <div className={cn("px-4 py-2 flex items-center justify-between", typeConfig.color)}>
         <div className="flex items-center gap-2">
           <TypeIcon className="h-4 w-4" />
-          <span className="text-sm font-medium">{typeConfig.label}</span>
+          <span className="text-sm font-medium">{event.event_type_name || typeConfig.label}</span>
         </div>
-        <ChevronRight className="h-4 w-4 opacity-70" />
+        <div className="flex items-center gap-2">
+          {event.is_closed_number && event.max_participants && (
+            <span className="text-xs opacity-80">{participantCount}/{event.max_participants}</span>
+          )}
+          <ChevronRight className="h-4 w-4 opacity-70" />
+        </div>
       </div>
 
       <CardContent className="p-4 space-y-4">
@@ -220,12 +230,14 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
             e.stopPropagation();
             handleRegistration();
           }}
-          disabled={isLoading}
+          disabled={isLoading || (isFull && !isRegistered)}
           className={cn(
             "w-full",
             isRegistered 
               ? "bg-app-muted text-app-foreground hover:bg-app-muted/80" 
-              : "bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+              : isFull
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : "bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
           )}
         >
           {isLoading ? (
@@ -235,6 +247,8 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
               <Check className="h-4 w-4 mr-2" />
               Iscritto
             </>
+          ) : isFull ? (
+            'Posti esauriti'
           ) : (
             'Partecipa'
           )}

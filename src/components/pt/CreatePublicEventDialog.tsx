@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -25,11 +25,10 @@ import { toast } from 'sonner';
 import {
   Calendar,
   MapPin,
-  Users,
-  PartyPopper,
-  Trophy,
-  Dumbbell,
   Loader2,
+  Eye,
+  Lock,
+  Users,
 } from 'lucide-react';
 import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 
@@ -38,14 +37,6 @@ interface CreatePublicEventDialogProps {
   onOpenChange: (open: boolean) => void;
   selectedDate?: Date;
 }
-
-const EVENT_TYPES = [
-  { value: 'raduno', label: 'Raduno', icon: Users },
-  { value: 'evento', label: 'Evento', icon: PartyPopper },
-  { value: 'gara', label: 'Gara', icon: Trophy },
-  { value: 'allenamento', label: 'Allenamento', icon: Dumbbell },
-  { value: 'altro', label: 'Altro', icon: Calendar },
-];
 
 export function CreatePublicEventDialog({
   open,
@@ -57,7 +48,7 @@ export function CreatePublicEventDialog({
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [eventType, setEventType] = useState<string>('raduno');
+  const [eventTypeId, setEventTypeId] = useState<string>('');
   const [startDate, setStartDate] = useState(
     selectedDate?.toISOString().slice(0, 10) || new Date().toISOString().slice(0, 10)
   );
@@ -67,7 +58,23 @@ export function CreatePublicEventDialog({
   const [location, setLocation] = useState('');
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLng, setLocationLng] = useState<number | null>(null);
-  const [isPublic, setIsPublic] = useState(true);
+  const [visibility, setVisibility] = useState('public');
+  const [isClosedNumber, setIsClosedNumber] = useState(false);
+  const [maxParticipants, setMaxParticipants] = useState<number | ''>('');
+
+  // Fetch event types from DB
+  const { data: eventTypes = [] } = useQuery({
+    queryKey: ['event-types'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('event_types')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const handlePlaceSelect = (place: {
     name: string;
@@ -92,13 +99,17 @@ export function CreatePublicEventDialog({
         pt_user_id: user.id,
         title,
         description: description || null,
-        event_type: eventType as 'allenamento' | 'evento' | 'gara' | 'raduno' | 'altro',
+        event_type: 'evento' as const,
+        event_type_id: eventTypeId || null,
         start_datetime: startDatetime,
         end_datetime: endDatetime,
         location: location || null,
         location_lat: locationLat,
         location_lng: locationLng,
-        is_public: isPublic,
+        is_public: true,
+        visibility,
+        is_closed_number: isClosedNumber,
+        max_participants: isClosedNumber && maxParticipants ? Number(maxParticipants) : null,
       }]);
 
       if (error) throw error;
@@ -107,6 +118,7 @@ export function CreatePublicEventDialog({
       toast.success('Evento creato con successo! 🎉');
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
       queryClient.invalidateQueries({ queryKey: ['public-events'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-calendar'] });
       onOpenChange(false);
       resetForm();
     },
@@ -119,7 +131,7 @@ export function CreatePublicEventDialog({
   const resetForm = () => {
     setTitle('');
     setDescription('');
-    setEventType('raduno');
+    setEventTypeId('');
     setStartDate(new Date().toISOString().slice(0, 10));
     setStartTime('10:00');
     setEndTime('12:00');
@@ -127,7 +139,9 @@ export function CreatePublicEventDialog({
     setLocation('');
     setLocationLat(null);
     setLocationLng(null);
-    setIsPublic(true);
+    setVisibility('public');
+    setIsClosedNumber(false);
+    setMaxParticipants('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -176,20 +190,17 @@ export function CreatePublicEventDialog({
             />
           </div>
 
-          {/* Event Type */}
+          {/* Event Type from DB */}
           <div className="space-y-2">
             <Label>Tipo evento</Label>
-            <Select value={eventType} onValueChange={setEventType}>
+            <Select value={eventTypeId} onValueChange={setEventTypeId}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleziona tipo" />
               </SelectTrigger>
               <SelectContent>
-                {EVENT_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    <div className="flex items-center gap-2">
-                      <type.icon className="h-4 w-4" />
-                      {type.label}
-                    </div>
+                {eventTypes.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {type.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -249,19 +260,67 @@ export function CreatePublicEventDialog({
             )}
           </div>
 
-          {/* Public Toggle */}
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
-              <Label htmlFor="public">Evento pubblico</Label>
-              <p className="text-sm text-muted-foreground">
-                Visibile a tutti gli atleti nella sezione Scopri
-              </p>
+          {/* Visibility */}
+          <div className="space-y-2">
+            <Label>
+              <Eye className="h-4 w-4 inline mr-1" />
+              Visibilità
+            </Label>
+            <Select value={visibility} onValueChange={setVisibility}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    Aperto a tutti
+                  </div>
+                </SelectItem>
+                <SelectItem value="app_users">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Solo utenti app
+                  </div>
+                </SelectItem>
+                <SelectItem value="connected_only">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    Solo atleti collegati
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Closed Number */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="closed">Numero chiuso</Label>
+                <p className="text-sm text-muted-foreground">
+                  Limita il numero di partecipanti
+                </p>
+              </div>
+              <Switch
+                id="closed"
+                checked={isClosedNumber}
+                onCheckedChange={setIsClosedNumber}
+              />
             </div>
-            <Switch
-              id="public"
-              checked={isPublic}
-              onCheckedChange={setIsPublic}
-            />
+            {isClosedNumber && (
+              <div className="space-y-2">
+                <Label htmlFor="maxParticipants">Max partecipanti</Label>
+                <Input
+                  id="maxParticipants"
+                  type="number"
+                  min={1}
+                  value={maxParticipants}
+                  onChange={(e) => setMaxParticipants(e.target.value ? parseInt(e.target.value) : '')}
+                  placeholder="Es: 20"
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
