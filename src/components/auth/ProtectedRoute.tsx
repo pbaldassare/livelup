@@ -65,6 +65,20 @@ export function ProtectedRoute({
             Il tuo account è in attesa di assegnazione ruolo.
             Contatta l'amministratore per completare la registrazione.
           </p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => refreshRole()} variant="default">
+              Riprova
+            </Button>
+            <Button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/auth';
+              }}
+              variant="outline"
+            >
+              Esci
+            </Button>
+          </div>
         </div>
       </div>
     );

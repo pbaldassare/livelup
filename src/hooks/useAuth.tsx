@@ -97,9 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           let nextRole = await fetchUserRoleWithTimeout(session.user.id);
 
-          // Retry once if role is null (token may not have been ready)
-          if (!nextRole && isMounted) {
-            await new Promise((r) => setTimeout(r, 500));
+          // Retry with increasing backoff if role is null
+          const retryDelays = [500, 1000, 2000];
+          for (const delay of retryDelays) {
+            if (nextRole || !isMounted) break;
+            console.warn(`Role fetch retry after ${delay}ms...`);
+            await new Promise((r) => setTimeout(r, delay));
             if (!isMounted) return;
             nextRole = await fetchUserRoleWithTimeout(session.user.id);
           }
