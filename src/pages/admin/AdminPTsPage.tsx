@@ -227,7 +227,7 @@ export function AdminPTsPage() {
     queryFn: async () => {
       const { data: ptData, error } = await supabase
         .from('pt_profiles')
-        .select('id, user_id, status, level, pt_type_id, specializations, location_city, rating_avg, review_count, created_at')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
