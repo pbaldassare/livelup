@@ -1,46 +1,40 @@
 
 
-## Piano: Fix Coupon Dialog, Rimuovere Atleti residui, Espandere Dettaglio PT Admin
+## Piano: Seed piani abbonamento piattaforma + pacchetti PT standard
 
-### Problemi identificati
+### Panoramica
+Inserire 3 piani di abbonamento piattaforma nella tabella `subscription_plans` e creare pacchetti PT di default nella tabella `pt_packages` come template standard per ogni nuovo PT. Il tutto via migration SQL.
 
-1. **"Atleti" ancora nella sidebar** — Il codice di `AdminLayout.tsx` NON ha più la voce "Atleti". Probabilmente è un problema di cache del preview. Tuttavia verifico e confermo che è già pulito.
+### 1. Migration SQL — Seed 3 piani piattaforma (`subscription_plans`)
 
-2. **Coupon dialog non centrato** — Il `DialogContent` in `AdminCouponsPage.tsx` usa il default senza classi di centraggio forzato. Bisogna aggiungere le classi `!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2` come usato negli altri dialog del progetto.
+Inserire 3 piani:
 
-3. **PT Detail Sheet troppo scarno** — Attualmente il pannello laterale mostra solo nome, email, stato, rating e specializzazioni. L'admin deve poter vedere e modificare TUTTI i dati del PT: bio, esperienza, tariffa, gallery, certificazioni caricate, disponibilità, contatti, ecc.
+| Piano | Target | Tipo | Prezzo/mese | Prezzo/anno | Trial | Features |
+|-------|--------|------|-------------|-------------|-------|----------|
+| **Atleta Free** | atleta | atleta_free | €0 | - | 0 | Allenamenti base, 1 PT, chat |
+| **Atleta Premium** | atleta | atleta_premium | €9.99 | €89.99 | 14gg | Allenamenti illimitati, analytics, video call, foto progresso |
+| **PT Premium** | pt | pt_premium | €19.99 | €179.99 | 30gg | Fino a 50 atleti, chat, analytics, video call, 10GB storage |
 
-4. **Impostazioni: cataloghi non visibili** — Il codice delle Impostazioni ha GIÀ i tab Categorie con Tipologie PT, Specializzazioni, Certificazioni e Tipi Evento. Probabilmente l'utente non li vede perché è nel tab sbagliato, oppure c'è un problema di query/RLS. Verifico le RLS sulle tabelle catalog.
+Ogni piano con `is_active = true`, features come array JSON, e `sort_order` crescente.
 
----
+### 2. Migration SQL — Seed 3 pacchetti PT standard (`pt_packages`)
 
-### Modifiche
+Creare pacchetti "template" per ogni PT esistente. Per fare questo:
+- Per ogni PT in `pt_profiles`, inserire 3 pacchetti default:
 
-#### 1. Fix Coupon Dialog centraggio (`AdminCouponsPage.tsx`)
-- Aggiungere classi di centraggio forzato al `DialogContent`: `!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2`
-- Aggiungere `max-h-[85vh] overflow-y-auto` per sicurezza su schermi piccoli
+| Pacchetto | Tipo | Prezzo | Sessioni | Durata |
+|-----------|------|--------|----------|--------|
+| **Pacchetto Base** | sessioni | €99 | 8 sessioni | - |
+| **Pacchetto Mensile** | temporale | €149 | - | 30gg |
+| **Pacchetto Trimestrale** | temporale | €399 | - | 90gg |
 
-#### 2. Espandere PT Detail Sheet in AdminPTsPage
-Sostituire il generico `DetailSheet` con un **pannello dettaglio PT completo** (Sheet custom) che mostra:
-- **Sezione Profilo**: avatar, nome, email, telefono, stato — modificabili
-- **Sezione Professionale**: tipologia, specializzazioni, certificazioni, bio, esperienza, tariffa — modificabili inline
-- **Sezione Galleria**: mostrare le foto dalla gallery PT (bucket `pt-gallery`)
-- **Sezione Certificazioni**: mostrare i file caricati dal PT (bucket `pt-certificates`)
-- **Sezione Contatto/Località**: indirizzo, coordinate, città — modificabile
-- **Azioni**: Approva / Sospendi / Riattiva / Elimina
+- I pacchetti vengono creati come `is_active = true` e il PT potrà poi modificarli/eliminarli dalla sua dashboard.
 
-Query aggiuntive nel detail: `pt_profiles` completo + `pt_gallery_photos` + `pt_certificates` (se tabella esiste) + conteggio atleti/allenamenti.
+### 3. Nessuna modifica UI necessaria
+- La pagina admin `AdminSubscriptionsPage` ha già CRUD completo (crea, modifica, elimina, toggle attivo).
+- Il componente `PTPackagesManager` ha già CRUD per i pacchetti PT.
+- Dopo il seed, i piani compariranno immediatamente nelle rispettive pagine.
 
-#### 3. Fix RLS cataloghi (migration SQL)
-Aggiungere policy `SELECT` per admin su `pt_types`, `pt_specializations`, `pt_certifications`, `event_types` nel caso manchino. Verifico e aggiungo solo se necessario.
-
-#### 4. Refresh sidebar (no-op nel codice)
-"Atleti" è già stato rimosso dal codice. Se il problema persiste, un semplice refresh del preview lo risolverà.
-
----
-
-### File modificati
-- **`AdminCouponsPage.tsx`** — fix centraggio dialog
-- **`AdminPTsPage.tsx`** — espandere DetailSheet con pannello PT completo e modificabile
-- **Migration SQL** — eventuale fix RLS su tabelle catalogo
+### File coinvolti
+- **Migration SQL** — seed `subscription_plans` + seed `pt_packages` per tutti i PT esistenti
 
