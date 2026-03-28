@@ -159,6 +159,9 @@ export function AdminPTsPage() {
     lastName: '',
     pt_type_id: '',
     location_city: '',
+    location_address: '',
+    location_lat: null as number | null,
+    location_lng: null as number | null,
     specializations: [] as string[],
     status: 'attivo' as 'registrato' | 'attivo'
   });
