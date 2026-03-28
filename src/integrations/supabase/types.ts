@@ -277,6 +277,7 @@ export type Database = {
         Row: {
           atleta_user_id: string | null
           cancelled_at: string | null
+          cover_image_url: string | null
           created_at: string
           creator_user_id: string
           description: string | null
@@ -304,6 +305,7 @@ export type Database = {
         Insert: {
           atleta_user_id?: string | null
           cancelled_at?: string | null
+          cover_image_url?: string | null
           created_at?: string
           creator_user_id: string
           description?: string | null
@@ -331,6 +333,7 @@ export type Database = {
         Update: {
           atleta_user_id?: string | null
           cancelled_at?: string | null
+          cover_image_url?: string | null
           created_at?: string
           creator_user_id?: string
           description?: string | null
