@@ -225,10 +225,11 @@ export function AdminSettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`admin-${catalogDialogTable.replace('pt_', 'pt-')}`] });
-      // Also invalidate the non-admin queries
+      queryClient.invalidateQueries({ queryKey: ['admin-event-types'] });
       queryClient.invalidateQueries({ queryKey: ['pt-types'] });
       queryClient.invalidateQueries({ queryKey: ['pt-specializations'] });
       queryClient.invalidateQueries({ queryKey: ['pt-certifications'] });
+      queryClient.invalidateQueries({ queryKey: ['event-types'] });
       toast.success(editingItem ? 'Aggiornato' : 'Creato');
       closeCatalogDialog();
     },
