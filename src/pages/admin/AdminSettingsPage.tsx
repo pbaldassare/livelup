@@ -238,7 +238,7 @@ export function AdminSettingsPage() {
 
   // Toggle active (generic)
   const toggleActiveMutation = useMutation({
-    mutationFn: async ({ table, id, is_active }: { table: 'pt_types' | 'pt_specializations' | 'pt_certifications'; id: string; is_active: boolean }) => {
+    mutationFn: async ({ table, id, is_active }: { table: 'pt_types' | 'pt_specializations' | 'pt_certifications' | 'event_types'; id: string; is_active: boolean }) => {
       const { error } = await supabase.from(table).update({ is_active }).eq('id', id);
       if (error) throw error;
     },
