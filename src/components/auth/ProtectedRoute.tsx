@@ -32,7 +32,7 @@ export function ProtectedRoute({
   redirectTo = '/auth',
   fallback,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, role } = useAuth();
+  const { isAuthenticated, isLoading, role, refreshRole } = useAuth();
   const { hasAccess, hasRole } = usePermissions();
   const location = useLocation();
 
