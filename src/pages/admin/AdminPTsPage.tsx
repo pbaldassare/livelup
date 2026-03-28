@@ -85,6 +85,7 @@ interface PTListItem {
   user_id: string;
   status: string;
   level: string | null;
+  pt_type_id: string | null;
   specializations: string[] | null;
   location_city: string | null;
   rating_avg: number;
@@ -99,15 +100,13 @@ interface PTListItem {
   } | null;
 }
 
-type PTStatus = 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium';
-type PTLevel = 'junior' | 'intermedio' | 'senior' | 'master';
+interface PTType {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
 
-const LEVEL_OPTIONS: { value: PTLevel; label: string }[] = [
-  { value: 'junior', label: 'Junior' },
-  { value: 'intermedio', label: 'Intermedio' },
-  { value: 'senior', label: 'Senior' },
-  { value: 'master', label: 'Master' },
-];
+type PTStatus = 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium';
 
 const SPECIALIZATION_SUGGESTIONS = [
   'Bodybuilding',
