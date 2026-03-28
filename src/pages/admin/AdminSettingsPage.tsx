@@ -280,7 +280,7 @@ export function AdminSettingsPage() {
     onError: (e) => toast.error('Errore: ' + e.message),
   });
 
-  const openCatalogDialog = (table: 'pt_types' | 'pt_specializations' | 'pt_certifications', item?: CatalogItem) => {
+  const openCatalogDialog = (table: 'pt_types' | 'pt_specializations' | 'pt_certifications' | 'event_types', item?: CatalogItem) => {
     setCatalogDialogTable(table);
     setEditingItem(item || null);
     setItemName(item?.name || '');
