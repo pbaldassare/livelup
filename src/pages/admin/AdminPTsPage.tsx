@@ -716,10 +716,10 @@ export function AdminPTsPage() {
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <InlineEditSelect
-                          value={pt.level}
-                          options={LEVEL_OPTIONS}
-                          onSave={(value) => handleUpdateField(pt.user_id, 'level', value)}
-                          placeholder="Seleziona livello"
+                          value={pt.pt_type_id}
+                          options={ptTypes.map(t => ({ value: t.id, label: t.name }))}
+                          onSave={(value) => handleUpdateField(pt.user_id, 'pt_type_id', value)}
+                          placeholder="Seleziona tipologia"
                         />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
