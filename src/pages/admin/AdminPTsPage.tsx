@@ -547,12 +547,24 @@ export function AdminPTsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="pt-city">Città</Label>
-                    <Input
-                      id="pt-city"
-                      placeholder="Milano"
-                      value={newPT.location_city}
-                      onChange={(e) => setNewPT({ ...newPT, location_city: e.target.value })}
+                    <Label>Indirizzo / Città</Label>
+                    <PlacesAutocomplete
+                      value={newPT.location_address || newPT.location_city}
+                      onChange={(val) => setNewPT({ ...newPT, location_address: val, location_city: val })}
+                      onPlaceSelect={(place) => {
+                        // Extract city from formatted address
+                        const parts = place.formatted_address.split(',').map(s => s.trim());
+                        const city = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
+                        setNewPT(prev => ({
+                          ...prev,
+                          location_city: city,
+                          location_address: place.formatted_address,
+                          location_lat: place.geometry.location.lat,
+                          location_lng: place.geometry.location.lng,
+                        }));
+                      }}
+                      placeholder="Cerca indirizzo o città..."
+                      types={['geocode']}
                     />
                   </div>
                 </div>
