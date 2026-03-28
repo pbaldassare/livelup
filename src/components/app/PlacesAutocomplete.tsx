@@ -136,8 +136,8 @@ export function PlacesAutocomplete({
     try {
       const request: google.maps.places.AutocompletionRequest = {
         input,
-        types: ['(cities)'],
-        componentRestrictions: { country: 'it' }, // Restrict to Italy
+        types,
+        componentRestrictions: { country: 'it' },
       };
 
       autocompleteService.current.getPlacePredictions(request, (results, status) => {

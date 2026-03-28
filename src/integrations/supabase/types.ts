@@ -1410,6 +1410,7 @@ export type Database = {
           id: string
           is_discoverable: boolean | null
           level: Database["public"]["Enums"]["pt_level"] | null
+          location_address: string | null
           location_city: string | null
           location_country: string | null
           location_lat: number | null
@@ -1440,6 +1441,7 @@ export type Database = {
           id?: string
           is_discoverable?: boolean | null
           level?: Database["public"]["Enums"]["pt_level"] | null
+          location_address?: string | null
           location_city?: string | null
           location_country?: string | null
           location_lat?: number | null
@@ -1470,6 +1472,7 @@ export type Database = {
           id?: string
           is_discoverable?: boolean | null
           level?: Database["public"]["Enums"]["pt_level"] | null
+          location_address?: string | null
           location_city?: string | null
           location_country?: string | null
           location_lat?: number | null

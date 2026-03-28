@@ -373,6 +373,9 @@ export function AdminPTsPage() {
         lastName: '',
         pt_type_id: '',
         location_city: '',
+        location_address: '',
+        location_lat: null,
+        location_lng: null,
         specializations: [],
         status: 'attivo'
       });
