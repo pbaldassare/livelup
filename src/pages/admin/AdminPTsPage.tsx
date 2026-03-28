@@ -71,7 +71,16 @@ import {
   CheckSquare,
   Plus,
   Loader2,
-  Trash2
+  Trash2,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Image,
+  FileText,
+  DollarSign,
+  Briefcase,
+  Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
