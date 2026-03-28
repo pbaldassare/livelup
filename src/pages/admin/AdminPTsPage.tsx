@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
