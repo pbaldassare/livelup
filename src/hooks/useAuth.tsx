@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { AppRole } from '@/types/roles';
@@ -13,6 +13,8 @@ interface AuthContextType {
   role: AppRole | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  /** true quando l'utente è autenticato ma il ruolo è ancora in fase di risoluzione */
+  isRoleLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, role: AppRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -20,6 +22,12 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const VALID_ROLES: AppRole[] = ['admin', 'pt', 'atleta'];
+
+function isValidRole(r: unknown): r is AppRole {
+  return typeof r === 'string' && VALID_ROLES.includes(r as AppRole);
+}
 
 // =====================================================
 // AUTH PROVIDER
@@ -30,199 +38,214 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRoleLoading, setIsRoleLoading] = useState(false);
 
-  // Fetch user role from database with RPC fallback
-  const fetchUserRole = async (userId: string): Promise<AppRole | null> => {
+  const isMountedRef = useRef(true);
+  // Tracks whether role has been resolved at least once for the current session
+  const roleResolvedRef = useRef(false);
+
+  // ── Deterministic role resolver ──────────────────────
+  const resolveRole = useCallback(async (userId: string): Promise<AppRole | null> => {
+    // 1) Primary: SECURITY DEFINER RPC (bypasses RLS entirely)
     try {
-      // Try direct query first
+      const { data: rpcRole, error: rpcError } = await supabase.rpc('get_my_role' as any);
+      if (!rpcError && isValidRole(rpcRole)) {
+        return rpcRole;
+      }
+      if (rpcError) {
+        console.warn('[Auth] RPC get_my_role failed:', rpcError.message);
+      }
+    } catch (e) {
+      console.warn('[Auth] RPC get_my_role exception:', e);
+    }
+
+    // 2) Fallback: direct query on user_roles
+    try {
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (!error && data?.role) {
-        return data.role as AppRole;
+      if (!error && data && isValidRole(data.role)) {
+        return data.role;
       }
-
       if (error) {
-        console.warn('Direct role query failed, trying RPC fallback:', error.message);
+        console.warn('[Auth] Direct role query failed:', error.message);
       }
-
-      // Fallback: use SECURITY DEFINER function that bypasses RLS
-      const { data: rpcRole, error: rpcError } = await supabase.rpc('get_my_role' as any);
-
-      if (rpcError) {
-        console.error('RPC get_my_role also failed:', rpcError.message);
-        return null;
-      }
-
-      return (rpcRole as unknown as AppRole) || null;
-    } catch (error) {
-      console.error('Error in fetchUserRole:', error);
-      return null;
+    } catch (e) {
+      console.warn('[Auth] Direct role query exception:', e);
     }
-  };
 
-  // Initialize auth state
+    return null;
+  }, []);
+
+  // ── Resolve role with retries + backoff ─────────────
+  const resolveRoleWithRetry = useCallback(async (userId: string): Promise<AppRole | null> => {
+    let resolved = await resolveRole(userId);
+    if (resolved) return resolved;
+
+    const delays = [500, 1000, 2000];
+    for (const delay of delays) {
+      if (!isMountedRef.current) return null;
+      console.warn(`[Auth] Role retry in ${delay}ms…`);
+      await new Promise(r => setTimeout(r, delay));
+      if (!isMountedRef.current) return null;
+      resolved = await resolveRole(userId);
+      if (resolved) return resolved;
+    }
+
+    return null;
+  }, [resolveRole]);
+
+  // ── Unified handler for session changes ─────────────
+  const handleSession = useCallback(async (newSession: Session | null) => {
+    if (!isMountedRef.current) return;
+
+    setSession(newSession);
+    setUser(newSession?.user ?? null);
+
+    if (!newSession?.user) {
+      setRole(null);
+      roleResolvedRef.current = false;
+      setIsRoleLoading(false);
+      setIsLoading(false);
+      return;
+    }
+
+    // Don't overwrite a valid role if already resolved for this user
+    if (roleResolvedRef.current && role !== null) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsRoleLoading(true);
+
+    // Small delay to let JWT propagate in the client
+    await new Promise(r => setTimeout(r, 100));
+    if (!isMountedRef.current) return;
+
+    const resolved = await resolveRoleWithRetry(newSession.user.id);
+
+    if (isMountedRef.current) {
+      // Anti-regression: never overwrite a valid role with null
+      if (resolved) {
+        setRole(resolved);
+        roleResolvedRef.current = true;
+      } else if (!roleResolvedRef.current) {
+        // Only set null if we never had a role for this session
+        setRole(null);
+      }
+      setIsRoleLoading(false);
+      setIsLoading(false);
+    }
+  }, [resolveRoleWithRetry, role]);
+
+  // ── Initialize auth ─────────────────────────────────
   useEffect(() => {
-    let isMounted = true;
+    isMountedRef.current = true;
+    let initialSessionHandled = false;
 
-    const fetchUserRoleWithTimeout = async (userId: string): Promise<AppRole | null> => {
-      return Promise.race([
-        fetchUserRole(userId),
-        new Promise<AppRole | null>((resolve) =>
-          setTimeout(() => resolve(null), 8000)
-        ),
-      ]);
-    };
-
-    const safeSetLoading = (value: boolean) => {
-      if (isMounted) setIsLoading(value);
-    };
-
-    // Set up auth state listener FIRST
+    // 1) Listen to auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!isMounted) return;
-
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          // Defer role fetch slightly to let the client set the JWT token
-          // This prevents RLS failures when the token isn't ready yet
-          await new Promise((r) => setTimeout(r, 150));
-          if (!isMounted) return;
-
-          let nextRole = await fetchUserRoleWithTimeout(session.user.id);
-
-          // Retry with increasing backoff if role is null
-          const retryDelays = [500, 1000, 2000];
-          for (const delay of retryDelays) {
-            if (nextRole || !isMounted) break;
-            console.warn(`Role fetch retry after ${delay}ms...`);
-            await new Promise((r) => setTimeout(r, delay));
-            if (!isMounted) return;
-            nextRole = await fetchUserRoleWithTimeout(session.user.id);
-          }
-
-          if (isMounted) {
-            setRole(nextRole);
-            safeSetLoading(false);
-          }
-        } else {
-          setRole(null);
-          safeSetLoading(false);
-        }
+        if (!isMountedRef.current) return;
 
         if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setSession(null);
           setRole(null);
-          safeSetLoading(false);
+          roleResolvedRef.current = false;
+          setIsRoleLoading(false);
+          setIsLoading(false);
+          return;
+        }
+
+        // Skip if getSession already handled this exact session
+        if (!initialSessionHandled || event !== 'INITIAL_SESSION') {
+          await handleSession(session);
         }
       }
     );
 
-    const loadingTimeout = window.setTimeout(() => {
-      console.warn('Auth initialization timeout: forcing loading completion');
-      safeSetLoading(false);
-    }, 10000);
-
-    // THEN check for existing session
+    // 2) Check existing session (runs once)
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
-        if (!isMounted) return;
-
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          const fetchedRole = await fetchUserRoleWithTimeout(session.user.id);
-          if (isMounted) setRole(fetchedRole);
-        } else {
-          setRole(null);
-        }
+        initialSessionHandled = true;
+        await handleSession(session);
       })
       .catch((error) => {
-        console.error('Error initializing auth session:', error);
-        if (isMounted) setRole(null);
-      })
-      .finally(() => {
-        window.clearTimeout(loadingTimeout);
-        safeSetLoading(false);
+        console.error('[Auth] getSession error:', error);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+          setIsRoleLoading(false);
+        }
       });
+
+    // Safety timeout
+    const timeout = window.setTimeout(() => {
+      if (isMountedRef.current && isLoading) {
+        console.warn('[Auth] Forcing loading=false after 12s timeout');
+        setIsLoading(false);
+        setIsRoleLoading(false);
+      }
+    }, 12000);
 
     return () => {
-      isMounted = false;
-      window.clearTimeout(loadingTimeout);
+      isMountedRef.current = false;
+      window.clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sign in with email/password
+  // ── Auth actions ────────────────────────────────────
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        return { error: new Error(error.message) };
-      }
-
-      return { error: null };
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return { error: error ? new Error(error.message) : null };
     } catch (error) {
       return { error: error as Error };
     }
   };
 
-  // Sign up with email/password and role assignment
   const signUp = async (email: string, password: string, selectedRole: AppRole) => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
-
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            role: selectedRole, // Il trigger handle_new_user_role leggerà questo valore
-          },
+          emailRedirectTo: `${window.location.origin}/`,
+          data: { role: selectedRole },
         },
       });
 
-      if (authError) {
-        return { error: new Error(authError.message) };
-      }
-
-      if (!authData.user) {
-        return { error: new Error('Errore durante la registrazione') };
-      }
-
-      // Il ruolo viene assegnato automaticamente dal trigger on_auth_user_created
-      // che crea anche i profili specifici (pt_profiles o atleta_profiles)
-      
+      if (authError) return { error: new Error(authError.message) };
+      if (!authData.user) return { error: new Error('Errore durante la registrazione') };
       return { error: null };
     } catch (error) {
       return { error: error as Error };
     }
   };
 
-  // Sign out
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setRole(null);
+    roleResolvedRef.current = false;
   };
 
-  // Refresh role from database
   const refreshRole = async () => {
     if (user) {
-      const newRole = await fetchUserRole(user.id);
-      setRole(newRole);
+      setIsRoleLoading(true);
+      const newRole = await resolveRoleWithRetry(user.id);
+      if (isMountedRef.current) {
+        if (newRole) {
+          setRole(newRole);
+          roleResolvedRef.current = true;
+        }
+        setIsRoleLoading(false);
+      }
     }
   };
 
@@ -232,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role,
     isLoading,
     isAuthenticated: !!user,
+    isRoleLoading,
     signIn,
     signUp,
     signOut,
