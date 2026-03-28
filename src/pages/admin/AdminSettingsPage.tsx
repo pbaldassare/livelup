@@ -414,6 +414,18 @@ export function AdminSettingsPage() {
               />
             </TabsContent>
 
+            <TabsContent value="event_types" className="mt-4">
+              <CatalogManager
+                title="Tipi Evento"
+                subtitle="I tipi di evento disponibili per i PT"
+                items={eventTypes}
+                isLoading={loadingEventTypes}
+                onAdd={() => openCatalogDialog('event_types')}
+                onEdit={(item) => openCatalogDialog('event_types', item)}
+                onToggleActive={(id, active) => toggleActiveMutation.mutate({ table: 'event_types', id, is_active: active })}
+              />
+            </TabsContent>
+
             <TabsContent value="suggestions" className="mt-4">
               <SectionCard title="Suggerimenti dai PT" subtitle="Nuove specializzazioni e certificazioni proposte" icon={Lightbulb} iconColor="yellow">
                 <div className="rounded-md border">
