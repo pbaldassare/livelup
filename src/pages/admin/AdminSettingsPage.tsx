@@ -366,6 +366,7 @@ export function AdminSettingsPage() {
               <TabsTrigger value="types">Tipologie PT</TabsTrigger>
               <TabsTrigger value="specializations">Specializzazioni</TabsTrigger>
               <TabsTrigger value="certifications">Certificazioni</TabsTrigger>
+              <TabsTrigger value="event_types">Tipi Evento</TabsTrigger>
               <TabsTrigger value="suggestions" className="gap-2">
                 <Lightbulb className="h-4 w-4" />
                 Suggerimenti
