@@ -299,6 +299,7 @@ export function AdminSettingsPage() {
     pt_types: 'Tipologia PT',
     pt_specializations: 'Specializzazione',
     pt_certifications: 'Certificazione',
+    event_types: 'Tipo Evento',
   }[catalogDialogTable];
 
   return (
