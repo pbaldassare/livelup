@@ -103,6 +103,7 @@ export function PlacesAutocomplete({
   onPlaceSelect,
   placeholder = 'Cerca città...',
   className,
+  types = ['(cities)'],
 }: PlacesAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
