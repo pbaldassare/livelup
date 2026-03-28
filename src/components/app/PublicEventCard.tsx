@@ -151,9 +151,14 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
       <div className={cn("px-4 py-2 flex items-center justify-between", typeConfig.color)}>
         <div className="flex items-center gap-2">
           <TypeIcon className="h-4 w-4" />
-          <span className="text-sm font-medium">{typeConfig.label}</span>
+          <span className="text-sm font-medium">{event.event_type_name || typeConfig.label}</span>
         </div>
-        <ChevronRight className="h-4 w-4 opacity-70" />
+        <div className="flex items-center gap-2">
+          {event.is_closed_number && event.max_participants && (
+            <span className="text-xs opacity-80">{participantCount}/{event.max_participants}</span>
+          )}
+          <ChevronRight className="h-4 w-4 opacity-70" />
+        </div>
       </div>
 
       <CardContent className="p-4 space-y-4">
