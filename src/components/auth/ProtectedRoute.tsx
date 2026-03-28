@@ -5,6 +5,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRole } from '@/types/roles';
 import { ROLE_ACCESS_MATRIX, getHomeRoute } from '@/types/roles';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 // =====================================================
 // PROTECTED ROUTE
@@ -30,7 +32,7 @@ export function ProtectedRoute({
   redirectTo = '/auth',
   fallback,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, role } = useAuth();
+  const { isAuthenticated, isLoading, role, refreshRole } = useAuth();
   const { hasAccess, hasRole } = usePermissions();
   const location = useLocation();
 
@@ -63,6 +65,20 @@ export function ProtectedRoute({
             Il tuo account è in attesa di assegnazione ruolo.
             Contatta l'amministratore per completare la registrazione.
           </p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => refreshRole()} variant="default">
+              Riprova
+            </Button>
+            <Button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/auth';
+              }}
+              variant="outline"
+            >
+              Esci
+            </Button>
+          </div>
         </div>
       </div>
     );

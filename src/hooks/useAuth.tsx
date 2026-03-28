@@ -31,21 +31,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch user role from database
+  // Fetch user role from database with RPC fallback
   const fetchUserRole = async (userId: string): Promise<AppRole | null> => {
     try {
+      // Try direct query first
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
+
+      if (!error && data?.role) {
+        return data.role as AppRole;
+      }
 
       if (error) {
-        console.error('Error fetching user role:', error);
+        console.warn('Direct role query failed, trying RPC fallback:', error.message);
+      }
+
+      // Fallback: use SECURITY DEFINER function that bypasses RLS
+      const { data: rpcRole, error: rpcError } = await supabase.rpc('get_my_role' as any);
+
+      if (rpcError) {
+        console.error('RPC get_my_role also failed:', rpcError.message);
         return null;
       }
 
-      return data?.role as AppRole | null;
+      return (rpcRole as unknown as AppRole) || null;
     } catch (error) {
       console.error('Error in fetchUserRole:', error);
       return null;
@@ -85,9 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           let nextRole = await fetchUserRoleWithTimeout(session.user.id);
 
-          // Retry once if role is null (token may not have been ready)
-          if (!nextRole && isMounted) {
-            await new Promise((r) => setTimeout(r, 500));
+          // Retry with increasing backoff if role is null
+          const retryDelays = [500, 1000, 2000];
+          for (const delay of retryDelays) {
+            if (nextRole || !isMounted) break;
+            console.warn(`Role fetch retry after ${delay}ms...`);
+            await new Promise((r) => setTimeout(r, delay));
             if (!isMounted) return;
             nextRole = await fetchUserRoleWithTimeout(session.user.id);
           }
