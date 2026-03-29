@@ -13,7 +13,8 @@ import {
   HeadphonesIcon,
   MessageSquare,
   Settings, 
-  LogOut
+  LogOut,
+  Map
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -80,6 +81,11 @@ const navigationItems = [
     label: 'Impostazioni', 
     href: '/admin/settings', 
     icon: Settings 
+  },
+  { 
+    label: 'Sitemap', 
+    href: '/admin/sitemap', 
+    icon: Map 
   },
 ];
 
