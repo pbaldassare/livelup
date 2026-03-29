@@ -81,6 +81,11 @@ const navigationItems = [
     href: '/admin/settings', 
     icon: Settings 
   },
+  { 
+    label: 'Sitemap', 
+    href: '/admin/sitemap', 
+    icon: Map 
+  },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {
