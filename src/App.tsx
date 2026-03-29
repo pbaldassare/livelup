@@ -221,6 +221,13 @@ const App = () => {
                   </AdminLayout>
                 </AdminRoute>
               } />
+              <Route path="/admin/sitemap" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminSitemapPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
 
               {/* ============================================= */}
               {/* PT DASHBOARD ROUTES - Solo ruolo pt (web)    */}
