@@ -48,6 +48,7 @@ import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminCoursesPage from "./pages/admin/AdminCoursesPage";
 import AdminMessagesPage from "./pages/admin/AdminMessagesPage";
+import AdminSitemapPage from "./pages/admin/AdminSitemapPage";
 
 // PT Dashboard pages (Web)
 import PTDashboard from "./pages/pt/PTDashboard";
