@@ -1,42 +1,31 @@
 
-Obiettivo: eliminare la schermata “Ruolo non assegnato” per l’admin (ora è un falso negativo).
 
-Diagnosi già verificata:
-- Nel database l’utente admin ha ruolo corretto (`admin`).
-- Le chiamate di rete a `user_roles` rispondono con `admin`.
-- Quindi il problema è nel frontend auth state (parsing/ordine aggiornamenti), non nei dati.
+## Piano: Creare pagina Sitemap Admin con organigramma ruoli e mappa funzionale
 
-Piano di correzione
+Adatto la stessa logica del progetto Consulnet: una pagina che mostra la **gerarchia dei ruoli**, la **mappa di tutte le sezioni/pagine** con i ruoli che vi hanno accesso, e una **tabella permessi**.
 
-1) Rendere deterministico il fetch ruolo in `useAuth.tsx`
-- Estrarre una funzione unica `resolveRole(session)` usata ovunque.
-- Prima chiamata: RPC `get_my_role()` (SECURITY DEFINER) come fonte principale.
-- Fallback: query `user_roles` solo se RPC fallisce.
-- Parsing robusto: gestire sia risposta oggetto sia array (evita `null` quando la risposta cambia formato).
+### Struttura della pagina
 
-2) Rimuovere race condition tra `onAuthStateChange` e `getSession`
-- Oggi ci sono 2 flussi che possono sovrascrivere `role` a `null`.
-- Unificare la logica: stesso handler, stesso retry/backoff.
-- Regola anti-regressione: non sovrascrivere un ruolo valido con `null` da fetch tardivo.
+**Sezione 1 — Gerarchia Ruoli** (3 livelli)
+- Livello 1: **Admin** — accesso totale, gestione piattaforma
+- Livello 2: **Personal Trainer** — dashboard web + app mobile, gestione atleti
+- Livello 2: **Atleta** — app mobile, allenamenti, prenotazioni
 
-3) Gestione loading più corretta per utenti autenticati
-- Se utente autenticato ma ruolo in risoluzione, mostrare “Caricamento permessi” (non “Ruolo non assegnato”).
-- Mostrare “Ruolo non assegnato” solo dopo esito finale negativo certo.
+Ogni card mostra icona, descrizione, mansioni espandibili.
 
-4) Migliorare `ProtectedRoute.tsx` per UX admin
-- Mantenere “Riprova/Esci”.
-- Aggiungere stato intermedio chiaro (pending permessi) per evitare pagina “senza senso” durante bootstrap.
-- Nessun bypass sicurezza client-side: accesso sempre basato su ruolo backend.
+**Sezione 2 — Mappa delle Sezioni** (card collassabili per area)
+- Admin: Dashboard, PT, Abbonamenti, Pagamenti, Messaggi, Coupon, Corsi, Supporto, Impostazioni, Sitemap
+- PT Dashboard: Dashboard, Atleti, Schede, Calendario, Messaggi, Pagamenti, Blog, Impostazioni
+- PT App: Home, Atleti, Calendario, Schede, Chat, Profilo
+- Atleta App: Home, Scopri, Attività, Prenota, Progressi, Chat, Profilo, Abbonamento, Corsi, Impostazioni
+- Sito Pubblico: Landing, Scopri PT, Profilo PT, Blog, Installa App
 
-5) Verifica finale end-to-end
-- Login admin → `/admin` carica dashboard senza schermata errore.
-- Hard refresh su `/admin`, `/admin/courses`, `/admin/settings`.
-- Test “Riprova” quando rete lenta.
-- Verifica che PT/Atleta non possano entrare in route admin.
+**Sezione 3 — Tabella Permessi**
+Chiavi permesso con descrizione e sezioni controllate (basate su `ROLE_ACCESS_MATRIX` da `types/roles.ts`).
 
-File da aggiornare
-- `src/hooks/useAuth.tsx` (fix principale)
-- `src/components/auth/ProtectedRoute.tsx` (stato intermedio + UX)
+### File coinvolti
 
-Database
-- Nessuna nuova migration necessaria (la funzione `get_my_role()` esiste già e va bene).
+1. **`src/pages/admin/AdminSitemapPage.tsx`** — Nuova pagina, stessa struttura di Consulnet adattata ai 3 ruoli LIVELLAPP
+2. **`src/components/layouts/AdminLayout.tsx`** — Aggiungere voce "Sitemap" nella sidebar con icona `Map`
+3. **`src/App.tsx`** — Aggiungere rotta `/admin/sitemap` protetta da `AdminRoute`
+
