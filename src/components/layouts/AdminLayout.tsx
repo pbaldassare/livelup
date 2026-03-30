@@ -14,7 +14,8 @@ import {
   MessageSquare,
   Settings, 
   LogOut,
-  Map
+  Map,
+  Dumbbell
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
