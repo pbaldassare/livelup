@@ -68,6 +68,11 @@ const navigationItems = [
     icon: Tag 
   },
   { 
+    label: 'Esercizi', 
+    href: '/admin/exercises', 
+    icon: Dumbbell 
+  },
+  { 
     label: 'Corsi', 
     href: '/admin/courses', 
     icon: LayoutDashboard 
