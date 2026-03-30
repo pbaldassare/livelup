@@ -92,12 +92,11 @@ export default function AdminExercisesPage() {
         description: values.description || null,
         category: values.category,
         muscle_groups: values.muscle_groups,
-        difficulty_level: values.difficulty_level,
+        difficulty_level: values.difficulty_level as 'principiante' | 'intermedio' | 'avanzato' | 'agonista',
         video_url: values.video_url || null,
         image_url: values.image_url || null,
         instructions: values.instructions || null,
         is_public: true,
-        created_by: null,
       };
 
       if (values.id) {
