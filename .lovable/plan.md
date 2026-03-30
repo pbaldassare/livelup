@@ -1,31 +1,33 @@
 
 
-## Piano: Creare pagina Sitemap Admin con organigramma ruoli e mappa funzionale
+## Piano: Gestione Libreria Esercizi lato Admin
 
-Adatto la stessa logica del progetto Consulnet: una pagina che mostra la **gerarchia dei ruoli**, la **mappa di tutte le sezioni/pagine** con i ruoli che vi hanno accesso, e una **tabella permessi**.
+### Situazione attuale
+La tabella `exercises` esiste già con campi: name, description, video_url, image_url, category, muscle_groups, difficulty_level, instructions, is_public, created_by. Gli esercizi con `is_public = true` o `created_by = null` sono visibili a tutti i PT nel TemplateExerciseBuilder. Attualmente solo i PT possono creare esercizi (privati). Manca una pagina admin per gestire la libreria globale.
 
-### Struttura della pagina
+### Cosa fare
 
-**Sezione 1 — Gerarchia Ruoli** (3 livelli)
-- Livello 1: **Admin** — accesso totale, gestione piattaforma
-- Livello 2: **Personal Trainer** — dashboard web + app mobile, gestione atleti
-- Livello 2: **Atleta** — app mobile, allenamenti, prenotazioni
+**1. Nuova pagina `src/pages/admin/AdminExercisesPage.tsx`**
+- Tabella con tutti gli esercizi della piattaforma (filtrabili per categoria)
+- Per ogni esercizio: nome, categoria, gruppi muscolari, video (link YouTube), stato attivo
+- Azioni: Aggiungi, Modifica, Elimina
+- Dialog per creare/modificare con campi: nome, descrizione, categoria, gruppi muscolari, livello difficoltà, video URL, immagine URL, istruzioni
+- Gli esercizi creati dall'admin avranno `is_public = true` e `created_by = null`
 
-Ogni card mostra icona, descrizione, mansioni espandibili.
+**2. Aggiungere RLS policy per admin su `exercises`**
+- Migration: aggiungere policy "Admins can manage all exercises" (ALL) per admin
+- Attualmente manca — l'admin non può fare CRUD sulla tabella exercises
 
-**Sezione 2 — Mappa delle Sezioni** (card collassabili per area)
-- Admin: Dashboard, PT, Abbonamenti, Pagamenti, Messaggi, Coupon, Corsi, Supporto, Impostazioni, Sitemap
-- PT Dashboard: Dashboard, Atleti, Schede, Calendario, Messaggi, Pagamenti, Blog, Impostazioni
-- PT App: Home, Atleti, Calendario, Schede, Chat, Profilo
-- Atleta App: Home, Scopri, Attività, Prenota, Progressi, Chat, Profilo, Abbonamento, Corsi, Impostazioni
-- Sito Pubblico: Landing, Scopri PT, Profilo PT, Blog, Installa App
+**3. Sidebar + Routing**
+- Aggiungere voce "Esercizi" con icona `Dumbbell` nella sidebar admin (`AdminLayout.tsx`)
+- Aggiungere rotta `/admin/exercises` in `App.tsx`
 
-**Sezione 3 — Tabella Permessi**
-Chiavi permesso con descrizione e sezioni controllate (basate su `ROLE_ACCESS_MATRIX` da `types/roles.ts`).
+**4. Seed esercizi esistenti**
+- Gli esercizi sono già stati seedati dalla edge function `seed-platform-data`. Non serve nuovo seed.
 
 ### File coinvolti
-
-1. **`src/pages/admin/AdminSitemapPage.tsx`** — Nuova pagina, stessa struttura di Consulnet adattata ai 3 ruoli LIVELLAPP
-2. **`src/components/layouts/AdminLayout.tsx`** — Aggiungere voce "Sitemap" nella sidebar con icona `Map`
-3. **`src/App.tsx`** — Aggiungere rotta `/admin/sitemap` protetta da `AdminRoute`
+- **Migration SQL** — RLS policy admin su `exercises`
+- **`src/pages/admin/AdminExercisesPage.tsx`** — nuova pagina CRUD
+- **`src/components/layouts/AdminLayout.tsx`** — voce sidebar
+- **`src/App.tsx`** — rotta
 
