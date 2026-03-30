@@ -183,7 +183,7 @@ export default function AdminExercisesPage() {
     <div className="space-y-6">
       <DashboardPageHeader
         title="Libreria Esercizi"
-        description="Gestisci gli esercizi disponibili per tutti i Personal Trainer"
+        subtitle="Gestisci gli esercizi disponibili per tutti i Personal Trainer"
       />
 
       {/* Filters + Add */}
