@@ -311,6 +311,13 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/coupons" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTCouponsPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
 
               {/* ============================================= */}
               {/* PT APP ROUTES - Solo ruolo pt (mobile/PWA)   */}
