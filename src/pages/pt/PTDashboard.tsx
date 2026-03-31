@@ -328,6 +328,37 @@ export function PTDashboard() {
         </InfoSection>
       </div>
 
+      {/* Referral Link Section */}
+      <SectionCard
+        title="Link di iscrizione"
+        subtitle="Condividi questo link con i tuoi clienti per farli registrare e collegarsi direttamente a te"
+        icon={Link2}
+        iconColor="primary"
+      >
+        <div className="flex items-center gap-3">
+          <Input
+            readOnly
+            value={`${window.location.origin}/auth?mode=signup&ref=${user?.id || ''}`}
+            className="font-mono text-sm bg-muted"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/auth?mode=signup&ref=${user?.id || ''}`);
+              toast.success('Link copiato negli appunti!');
+            }}
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Copia
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          Quando un atleta si registra con questo link, riceverai automaticamente una richiesta di collegamento.
+        </p>
+      </SectionCard>
+
       {/* Analytics Charts */}
       <PTAnalyticsCharts />
 
