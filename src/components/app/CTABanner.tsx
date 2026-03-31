@@ -27,7 +27,8 @@ export function CTABanner({
 }: CTABannerProps) {
   const renderIcon = () => {
     if (!icon) return null;
-    if (typeof icon === 'function') {
+    // Check for both regular components and forwardRef components
+    if (typeof icon === 'function' || (typeof icon === 'object' && icon !== null && '$$typeof' in (icon as any))) {
       const IconComponent = icon as LucideIcon;
       return <IconComponent className="h-6 w-6 text-app-accent" />;
     }
