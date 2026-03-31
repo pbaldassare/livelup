@@ -28,43 +28,12 @@ export function ProtectedRoute({
   redirectTo = '/auth',
   fallback,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, isRoleLoading, role, refreshRole } = useAuth();
+  const { isAuthenticated, isLoading, isRoleLoading, role } = useAuth();
   const { hasAccess, hasRole } = usePermissions();
   const location = useLocation();
-
-  // Initial auth loading
-  if (isLoading) {
-    return (
-      fallback ?? (
-        <LoadingSpinner 
-          variant="logo" 
-          size="lg" 
-          text="Caricamento..." 
-          fullScreen 
-        />
-      )
-    );
-  }
-
-  // Not authenticated
-  if (!isAuthenticated) {
-    return <Navigate to={redirectTo} state={{ from: location }} replace />;
-  }
-
-  // Authenticated but role still resolving — show intermediate state, NOT "Ruolo non assegnato"
-  if (!role && isRoleLoading) {
-    return (
-      <LoadingSpinner 
-        variant="logo" 
-        size="lg" 
-        text="Caricamento permessi..." 
-        fullScreen 
-      />
-    );
-  }
-
-  // No role after resolution — auto sign-out and redirect
   const signOutTriggered = useRef(false);
+
+  // Auto sign-out when role not resolved
   useEffect(() => {
     if (!role && !isRoleLoading && isAuthenticated && !signOutTriggered.current) {
       signOutTriggered.current = true;
@@ -75,9 +44,24 @@ export function ProtectedRoute({
     }
   }, [role, isRoleLoading, isAuthenticated]);
 
+  // Initial auth loading
+  if (isLoading) {
+    return (
+      fallback ?? (
+        <LoadingSpinner variant="logo" size="lg" text="Caricamento..." fullScreen />
+      )
+    );
+  }
+
+  // Not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to={redirectTo} state={{ from: location }} replace />;
+  }
+
+  // Role still resolving or sign-out in progress
   if (!role) {
     return (
-      <LoadingSpinner variant="logo" size="lg" text="Verifica sessione..." fullScreen />
+      <LoadingSpinner variant="logo" size="lg" text="Caricamento permessi..." fullScreen />
     );
   }
 
