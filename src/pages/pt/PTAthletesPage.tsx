@@ -34,7 +34,9 @@ import {
   UserCheck,
   UserX,
   History,
-  Download
+  Download,
+  Link2,
+  Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
 
