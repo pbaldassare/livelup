@@ -21,13 +21,15 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft,
   User,
-  Shield,
   Eye,
   Share2,
   Trash2,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  HelpCircle
 } from 'lucide-react';
+import { useTour } from '@/components/AppTourContext';
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 // =====================================================
 // ATLETA SETTINGS PAGE - Impostazioni e Privacy
