@@ -1,49 +1,26 @@
 
-Problema individuato: `pt2@fitplatform.com` ha già il ruolo corretto (`pt`) in `user_roles`, quindi il ruolo “sbagliato” non è nel routing. Il vero guasto è doppio:
 
-1. `pt2@fitplatform.com` e anche `pt3@fitplatform.com` non hanno una riga in `pt_profiles`
-2. il seed dei PT è rotto: in `supabase/functions/seed-test-users/index.ts` usa `level: 'mid'`, ma il tipo valido di `pt_profiles.level` non prevede `mid`, quindi l’inserimento del profilo PT fallisce
+## Piano: Fix login bloccato su "Verifica credenziali..."
 
-In più c’è una fragilità nel login:
-- `useAuth.tsx` può esporre per un attimo `isAuthenticated=true` con `role=null` mentre il ruolo si sta ancora risolvendo
-- questo fa partire toast/errori o logout prematuri invece di aspettare il caricamento completo
+### Causa root
+In `useAuth.tsx`, `handleSession` è un `useCallback` che dipende da `role` (linea 145). Ma il `useEffect` che registra `onAuthStateChange` ha `[]` come dependencies (linea 202), quindi cattura sempre la versione iniziale di `handleSession` dove `role = null`.
 
-Piano di fix
+Il check a linea 117:
+```ts
+if (roleResolvedRef.current && role !== null) {
+```
+Non funziona perché `role` nella closure è SEMPRE `null`. Quindi ogni evento auth (TOKEN_REFRESHED, ecc.) ri-esegue la risoluzione del ruolo, rimettendo `isLoading=true` e bloccando la UI.
 
-1. Correggere subito i dati utenti bloccati
-- creare i `pt_profiles` mancanti per `pt2@fitplatform.com` e `pt3@fitplatform.com`
-- impostare campi minimi validi e `status='attivo'`
-- usare un `level` valido del sistema, non `mid`
-- così i PT tornano coerenti con la loro tipologia utente e possono entrare nella dashboard PT
+### Soluzione
+**`src/hooks/useAuth.tsx`**:
+1. Rimuovere `role` dalle dipendenze di `handleSession`
+2. Usare un **ref** (`roleRef`) invece dello state `role` per il check di guardia dentro `handleSession`
+3. Il check diventa: `if (roleResolvedRef.current && roleRef.current !== null)` — usando il ref che è sempre aggiornato, non la closure stale
+4. Aggiornare sia `roleRef.current` che `setRole()` quando il ruolo viene risolto
 
-2. Correggere il seed dei PT
-- in `supabase/functions/seed-test-users/index.ts` sostituire i valori `level: 'mid'` con un enum valido
-- evitare che nuovi PT seeded vengano creati con `user_roles` ma senza `pt_profiles`
+### File
+- `src/hooks/useAuth.tsx` — aggiungere `roleRef = useRef(role)`, sincronizzarlo con `setRole`, usarlo in `handleSession` al posto di `role` nella closure
 
-3. Rendere robusto il caricamento ruolo nel login
-- in `src/hooks/useAuth.tsx` forzare lo stato di loading quando arriva una nuova sessione autenticata
-- non lasciare la UI in stato “autenticato ma senza ruolo” prima che i retry sul ruolo siano finiti
-- resettare in modo pulito lo stato quando cambia sessione utente
+### Risultato
+Il login non si blocca più. `handleSession` non ri-risolve il ruolo inutilmente, `isLoading` torna `false` correttamente, e il redirect a `/pt` avviene.
 
-4. Eliminare i falsi errori nella pagina auth
-- in `src/pages/auth/AuthPage.tsx` non mostrare “Errore nel caricamento del ruolo” finché la risoluzione del ruolo non è davvero conclusa
-- allineare il redirect solo dopo ruolo risolto:
-  - admin → `/admin`
-  - pt → `/pt`
-  - atleta → `/app`
-
-5. Tenere coerente il fallback delle route protette
-- in `src/components/auth/ProtectedRoute.tsx` mantenere il recupero automatico solo come estrema protezione
-- evitare sign-out anticipati mentre `useAuth` sta ancora finendo il resolve del ruolo
-
-File coinvolti
-- `supabase/functions/seed-test-users/index.ts`
-- fix dati backend per `pt2@fitplatform.com` e `pt3@fitplatform.com`
-- `src/hooks/useAuth.tsx`
-- `src/pages/auth/AuthPage.tsx`
-- `src/components/auth/ProtectedRoute.tsx`
-
-Risultato atteso
-- `pt2@fitplatform.com / Trainer123!` entra correttamente come PT
-- ogni utente viene reindirizzato in base alla sua tipologia reale
-- niente più errore fittizio di ruolo o loop login/logout durante l’accesso
