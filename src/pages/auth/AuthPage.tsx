@@ -25,7 +25,7 @@ const passwordSchema = z.string().min(6, 'La password deve avere almeno 6 caratt
 export function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn, signUp, isAuthenticated, role, isLoading: authLoading, user } = useAuth();
+  const { signIn, signUp, isAuthenticated, role, isLoading: authLoading, isRoleLoading, user } = useAuth();
   
   const refPt = searchParams.get('ref');
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(
