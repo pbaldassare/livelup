@@ -122,6 +122,7 @@ export type Database = {
           id: string
           injuries: string[] | null
           level: Database["public"]["Enums"]["fitness_level"] | null
+          referred_by_pt: string | null
           status: Database["public"]["Enums"]["atleta_status"]
           updated_at: string
           user_id: string
@@ -137,6 +138,7 @@ export type Database = {
           id?: string
           injuries?: string[] | null
           level?: Database["public"]["Enums"]["fitness_level"] | null
+          referred_by_pt?: string | null
           status?: Database["public"]["Enums"]["atleta_status"]
           updated_at?: string
           user_id: string
@@ -152,6 +154,7 @@ export type Database = {
           id?: string
           injuries?: string[] | null
           level?: Database["public"]["Enums"]["fitness_level"] | null
+          referred_by_pt?: string | null
           status?: Database["public"]["Enums"]["atleta_status"]
           updated_at?: string
           user_id?: string
