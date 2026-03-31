@@ -1,51 +1,38 @@
 
 
-## Piano: Fix definitivo login bloccato
+## Piano: Collegare atleta1 a pt2 con dati completi
 
-### Causa root
-Dai console log si vede chiaramente:
-1. `SIGNED_IN` scatta **2 volte** (normale con React StrictMode)
-2. `[Auth] resolved role:` **non appare MAI** → `resolveRole` non viene mai eseguita
-3. Dopo 8s scatta il safety timeout
+### Cosa fare
+Aggiornare la edge function `seed-platform-data` per creare la connessione atleta1↔pt2 (oltre a quelle esistenti), assegnare workout da pt2, simulare una chat, e aggiungere contatti. Poi inserire i dati nel DB tramite la insert tool.
 
-Il problema è il `setTimeout(0)` combinato con `isMountedRef`. In StrictMode, React smonta e rimonta il componente. Il cleanup del primo mount imposta `isMountedRef.current = false` **prima** che il `setTimeout(0)` esegua il suo callback. Quando il callback finalmente parte, trova `isMountedRef.current === false` e fa `return` senza mai chiamare `resolveRole`. Il secondo mount ricrea la subscription ma potrebbe avere lo stesso problema di timing.
+### Dati da inserire (via insert tool SQL)
 
-### Soluzione
-**`src/hooks/useAuth.tsx`** — 2 modifiche chirurgiche:
+**1. Connessione atleta1 ↔ pt2**
+- Inserire in `pt_atleta_connections`: `pt_user_id = pt2.user_id`, `atleta_user_id = atleta1.user_id`, `status = 'active'`
+- Il trigger `enforce_single_pt_connection` terminerà automaticamente la connessione con pt1
+- Aggiornare `atleta_profiles.status = 'collegato'` per atleta1
 
-1. **Rimuovere `setTimeout(0)`** — la callback di `onAuthStateChange` è già `async`, quindi basta fare `await resolveRole(...)` direttamente. Non serve il setTimeout per "dare tempo al token" perché il token è già nel `newSession` che Supabase passa al callback.
+**2. Contatti (profiles)**
+- Aggiornare `profiles` di atleta1 (Luca Ferrari): `phone = '+39 333 1234567'`
+- Aggiornare `profiles` di pt2: `phone = '+39 347 9876543'`
 
-2. **Rimuovere il check `isMountedRef` prima di resolveRole** — tenerlo solo prima di fare `setState`. Così la risoluzione del ruolo parte sempre, e solo il settaggio dello state viene protetto dal check di mount.
+**3. Workout da pt2 ad atleta1 (3 workout)**
+- "Forza Base - Settimana 1" (completato, 5gg fa)
+- "Upper Body Power" (completato, 2gg fa)  
+- "Lower Body & Core" (attivo, schedulato domani)
+- Ogni workout con 4-5 esercizi dalla libreria esistente
 
-Il blocco attuale (linee 106-121):
-```ts
-setIsRoleLoading(true);
-setTimeout(async () => {
-  if (!isMountedRef.current) return;
-  const resolved = await resolveRole(newSession.user.id);
-  if (isMountedRef.current) {
-    setRole(resolved);
-    setIsRoleLoading(false);
-    setIsLoading(false);
-  }
-}, 0);
-```
+**4. Chat simulata pt2 ↔ atleta1 (10 messaggi)**
+- Creare chat in `chats`
+- Inserire 10 messaggi alternati (pt e atleta) con contenuto realistico e timestamp progressivi
 
-Diventa:
-```ts
-setIsRoleLoading(true);
-const resolved = await resolveRole(newSession.user.id);
-console.log('[Auth] resolved role:', resolved);
-if (isMountedRef.current) {
-  setRole(resolved);
-  setIsRoleLoading(false);
-  setIsLoading(false);
-}
-```
+### Aggiornare seed function
+**`supabase/functions/seed-platform-data/index.ts`**:
+- Aggiungere connessione `pt2Id ↔ atleta1Id` nell'array connections
+- Aggiungere workout atleta1↔pt2 nell'array workouts
+- Aggiungere chat pair `pt2Id ↔ atleta1Id` con 10 messaggi
+- Aggiungere update dei numeri di telefono nei profiles
 
-### File coinvolto
-- `src/hooks/useAuth.tsx` — rimuovere setTimeout(0) e il check isMountedRef pre-resolveRole (linee 106-121)
-
-### Risultato
-`resolveRole` viene chiamata immediatamente dopo SIGNED_IN, il ruolo si risolve in millisecondi, e il redirect a `/pt` avviene subito. Zero attesa, zero timeout.
+### Esecuzione
+Usare la insert tool per eseguire le INSERT/UPDATE SQL direttamente, così i dati sono subito disponibili senza dover rieseguire il seed.
 
