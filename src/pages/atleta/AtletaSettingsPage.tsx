@@ -21,13 +21,15 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft,
   User,
-  Shield,
   Eye,
   Share2,
   Trash2,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  HelpCircle
 } from 'lucide-react';
+import { useTour } from '@/components/AppTourContext';
+import { safeRemove } from '@/lib/safeStorage';
 
 // =====================================================
 // ATLETA SETTINGS PAGE - Impostazioni e Privacy
@@ -41,6 +43,7 @@ export function AtletaSettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [profileVisibility, setProfileVisibility] = useState(true);
   const [shareData, setShareData] = useState(true);
+  const { startTour } = useTour();
 
   // Fetch profile
   const { data: profile } = useQuery({
@@ -173,7 +176,36 @@ export function AtletaSettingsPage() {
         </section>
 
 
-        {/* Danger Zone */}
+        {/* Tour Section */}
+        <section>
+          <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">
+            Assistenza
+          </h2>
+          <div className="bg-app-card rounded-xl overflow-hidden">
+            <button
+              onClick={() => {
+                safeRemove('livellapp_tour_done');
+                safeRemove('livellapp_tour_dismissed');
+                startTour();
+                toast.success('Tour riavviato!');
+              }}
+              className="w-full flex items-center justify-between p-4 hover:bg-app-muted/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <HelpCircle className="h-5 w-5 text-app-accent" />
+                <div className="text-left">
+                  <p className="font-medium text-app-foreground">Rifai il tour guidato</p>
+                  <p className="text-sm text-app-muted-foreground">
+                    Rivedi la guida introduttiva dell'app
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+            </button>
+          </div>
+        </section>
+
+
         <section>
           <h2 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">
             Zona pericolosa
