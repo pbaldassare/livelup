@@ -62,6 +62,7 @@ import PTMessagesPage from "./pages/pt/PTMessagesPage";
 import PTPaymentsPage from "./pages/pt/PTPaymentsPage";
 import PTSettingsPage from "./pages/pt/PTSettingsPage";
 import PTBlogPage from "./pages/pt/PTBlogPage";
+import PTCouponsPage from "./pages/pt/PTCouponsPage";
 
 // PT App pages (Mobile/PWA)
 import PTAppHome from "./pages/pt/PTAppHome";
