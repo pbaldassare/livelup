@@ -1,12 +1,12 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRole } from '@/types/roles';
 import { ROLE_ACCESS_MATRIX, getHomeRoute } from '@/types/roles';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // =====================================================
 // PROTECTED ROUTE
@@ -28,20 +28,27 @@ export function ProtectedRoute({
   redirectTo = '/auth',
   fallback,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, isRoleLoading, role, refreshRole } = useAuth();
+  const { isAuthenticated, isLoading, isRoleLoading, role } = useAuth();
   const { hasAccess, hasRole } = usePermissions();
   const location = useLocation();
+  const signOutTriggered = useRef(false);
+
+  // Auto sign-out when role not resolved
+  useEffect(() => {
+    if (!role && !isRoleLoading && isAuthenticated && !signOutTriggered.current) {
+      signOutTriggered.current = true;
+      toast.error('Sessione non valida. Effettua nuovamente il login.');
+      supabase.auth.signOut().finally(() => {
+        window.location.href = '/auth';
+      });
+    }
+  }, [role, isRoleLoading, isAuthenticated]);
 
   // Initial auth loading
   if (isLoading) {
     return (
       fallback ?? (
-        <LoadingSpinner 
-          variant="logo" 
-          size="lg" 
-          text="Caricamento..." 
-          fullScreen 
-        />
+        <LoadingSpinner variant="logo" size="lg" text="Caricamento..." fullScreen />
       )
     );
   }
@@ -51,44 +58,10 @@ export function ProtectedRoute({
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // Authenticated but role still resolving — show intermediate state, NOT "Ruolo non assegnato"
-  if (!role && isRoleLoading) {
-    return (
-      <LoadingSpinner 
-        variant="logo" 
-        size="lg" 
-        text="Caricamento permessi..." 
-        fullScreen 
-      />
-    );
-  }
-
-  // No role after resolution completed
+  // Role still resolving or sign-out in progress
   if (!role) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center max-w-md mx-auto p-6">
-          <h2 className="text-xl font-semibold mb-2">Ruolo non assegnato</h2>
-          <p className="text-muted-foreground mb-4">
-            Il tuo account è in attesa di assegnazione ruolo.
-            Contatta l'amministratore per completare la registrazione.
-          </p>
-          <div className="flex gap-3 justify-center">
-            <Button onClick={() => refreshRole()} variant="default">
-              Riprova
-            </Button>
-            <Button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                window.location.href = '/auth';
-              }}
-              variant="outline"
-            >
-              Esci
-            </Button>
-          </div>
-        </div>
-      </div>
+      <LoadingSpinner variant="logo" size="lg" text="Caricamento permessi..." fullScreen />
     );
   }
 
