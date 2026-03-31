@@ -43,6 +43,7 @@ export function AtletaSettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [profileVisibility, setProfileVisibility] = useState(true);
   const [shareData, setShareData] = useState(true);
+  const { startTour } = useTour();
 
   // Fetch profile
   const { data: profile } = useQuery({
