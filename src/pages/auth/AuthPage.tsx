@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { Logo } from '@/components/common/Logo';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { supabase } from '@/integrations/supabase/client';
 
 // =====================================================
 // AUTH PAGE - Login e Registrazione
