@@ -85,7 +85,7 @@ const testUsers: TestUser[] = [
       online_only: true,
       is_discoverable: true,
       status: 'attivo',
-      level: 'mid',
+      level: 'senior',
       max_athletes: 40,
       location_city: 'Napoli',
       location_country: 'Italia',

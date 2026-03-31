@@ -64,14 +64,18 @@ export function AuthPage() {
       navigate(homeRoute, { replace: true });
     }
 
-    // Handle case: authenticated but role is null after auth finished loading
-    if (isAuthenticated && !role && !authLoading) {
-      setIsLoading(false);
-      toast.error('Errore nel caricamento del ruolo', {
-        description: 'Riprova ad accedere.',
-      });
+    // Handle case: authenticated but role is null after auth fully finished loading
+    if (isAuthenticated && !role && !authLoading && !isRoleLoading) {
+      // Give extra grace period before showing error
+      const timeout = setTimeout(() => {
+        setIsLoading(false);
+        toast.error('Errore nel caricamento del ruolo', {
+          description: 'Riprova ad accedere.',
+        });
+      }, 3000);
+      return () => clearTimeout(timeout);
     }
-  }, [isAuthenticated, role, authLoading, navigate, user]);
+  }, [isAuthenticated, role, authLoading, isRoleLoading, navigate, user]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

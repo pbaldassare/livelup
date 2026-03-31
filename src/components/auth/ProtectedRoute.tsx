@@ -33,9 +33,9 @@ export function ProtectedRoute({
   const location = useLocation();
   const signOutTriggered = useRef(false);
 
-  // Auto sign-out when role not resolved (debounced to avoid race condition)
+  // Auto sign-out when role not resolved (long debounce to avoid race conditions)
   useEffect(() => {
-    if (!role && !isRoleLoading && isAuthenticated && !signOutTriggered.current) {
+    if (!role && !isRoleLoading && !isLoading && isAuthenticated && !signOutTriggered.current) {
       const timeout = setTimeout(() => {
         if (!signOutTriggered.current) {
           signOutTriggered.current = true;
@@ -44,10 +44,10 @@ export function ProtectedRoute({
             window.location.href = '/auth';
           });
         }
-      }, 3000);
+      }, 5000);
       return () => clearTimeout(timeout);
     }
-  }, [role, isRoleLoading, isAuthenticated]);
+  }, [role, isRoleLoading, isLoading, isAuthenticated]);
 
   // Initial auth loading
   if (isLoading) {
