@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsRoleLoading(false);
       setIsLoading(false);
     }
-  }, [resolveRoleWithRetry, role]);
+  }, [resolveRoleWithRetry, setRole]);
 
   // ── Initialize auth ─────────────────────────────────
   useEffect(() => {
