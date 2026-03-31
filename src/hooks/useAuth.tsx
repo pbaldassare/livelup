@@ -106,19 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Need to resolve role
         setIsRoleLoading(true);
 
-        // Give the client a tick to have the token ready
-        setTimeout(async () => {
-          if (!isMountedRef.current) return;
+        const resolved = await resolveRole(newSession.user.id);
+        console.log('[Auth] resolved role:', resolved);
 
-          const resolved = await resolveRole(newSession.user.id);
-          console.log('[Auth] resolved role:', resolved);
-
-          if (isMountedRef.current) {
-            setRole(resolved);
-            setIsRoleLoading(false);
-            setIsLoading(false);
-          }
-        }, 0);
+        if (isMountedRef.current) {
+          setRole(resolved);
+          setIsRoleLoading(false);
+          setIsLoading(false);
+        }
       }
     );
 
