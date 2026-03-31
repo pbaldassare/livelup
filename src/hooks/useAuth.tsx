@@ -36,9 +36,15 @@ function isValidRole(r: unknown): r is AppRole {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<AppRole | null>(null);
+  const [role, setRoleState] = useState<AppRole | null>(null);
+  const roleRef = useRef<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRoleLoading, setIsRoleLoading] = useState(false);
+
+  const setRole = useCallback((r: AppRole | null) => {
+    roleRef.current = r;
+    setRoleState(r);
+  }, []);
 
   const isMountedRef = useRef(true);
   // Tracks whether role has been resolved at least once for the current session
