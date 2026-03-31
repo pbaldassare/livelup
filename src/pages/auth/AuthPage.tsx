@@ -38,9 +38,28 @@ export function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated, handle referral connection
   useEffect(() => {
     if (isAuthenticated && role) {
+      // Process referral if present
+      const storedRef = localStorage.getItem('livellapp_ref_pt');
+      if (storedRef && role === 'atleta' && user) {
+        localStorage.removeItem('livellapp_ref_pt');
+        // Create connection request and save referred_by_pt
+        (async () => {
+          try {
+            await supabase.from('pt_atleta_connections').insert({
+              pt_user_id: storedRef,
+              atleta_user_id: user.id,
+              requested_by: user.id,
+              status: 'pending',
+            });
+            await supabase.from('atleta_profiles').update({ referred_by_pt: storedRef }).eq('user_id', user.id);
+          } catch (e) {
+            console.warn('Referral connection error', e);
+          }
+        })();
+      }
       const homeRoute = getHomeRoute(role);
       navigate(homeRoute, { replace: true });
     }
@@ -52,7 +71,7 @@ export function AuthPage() {
         description: 'Riprova ad accedere.',
       });
     }
-  }, [isAuthenticated, role, authLoading, navigate]);
+  }, [isAuthenticated, role, authLoading, navigate, user]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
