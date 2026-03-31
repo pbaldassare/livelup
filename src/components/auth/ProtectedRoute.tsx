@@ -33,14 +33,19 @@ export function ProtectedRoute({
   const location = useLocation();
   const signOutTriggered = useRef(false);
 
-  // Auto sign-out when role not resolved
+  // Auto sign-out when role not resolved (debounced to avoid race condition)
   useEffect(() => {
     if (!role && !isRoleLoading && isAuthenticated && !signOutTriggered.current) {
-      signOutTriggered.current = true;
-      toast.error('Sessione non valida. Effettua nuovamente il login.');
-      supabase.auth.signOut().finally(() => {
-        window.location.href = '/auth';
-      });
+      const timeout = setTimeout(() => {
+        if (!signOutTriggered.current) {
+          signOutTriggered.current = true;
+          toast.error('Sessione non valida. Effettua nuovamente il login.');
+          supabase.auth.signOut().finally(() => {
+            window.location.href = '/auth';
+          });
+        }
+      }, 3000);
+      return () => clearTimeout(timeout);
     }
   }, [role, isRoleLoading, isAuthenticated]);
 
