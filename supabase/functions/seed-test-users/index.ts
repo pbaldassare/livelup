@@ -60,7 +60,7 @@ const testUsers: TestUser[] = [
       offers_in_person: true,
       is_discoverable: true,
       status: 'attivo',
-      level: 'mid',
+      level: 'senior',
       max_athletes: 25,
       location_city: 'Roma',
       location_country: 'Italia',
