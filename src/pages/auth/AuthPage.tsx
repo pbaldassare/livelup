@@ -120,6 +120,15 @@ export function AuthPage() {
         });
       }
     } else {
+      // If ref PT param present and registering as atleta, save referral info
+      if (refPt && selectedRole === 'atleta') {
+        try {
+          // Store referral in localStorage, will be processed after email confirmation & login
+          localStorage.setItem('livellapp_ref_pt', refPt);
+        } catch (e) {
+          console.warn('Could not save referral info', e);
+        }
+      }
       toast.success('Registrazione completata', {
         description: 'Controlla la tua email per confermare la registrazione.',
       });
