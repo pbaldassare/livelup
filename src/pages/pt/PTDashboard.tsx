@@ -25,7 +25,9 @@ import {
   TrendingUp,
   CheckCircle2,
   AlertCircle,
-  User
+  User,
+  Copy,
+  Link2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
