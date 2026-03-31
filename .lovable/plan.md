@@ -1,38 +1,24 @@
 
 
-## Piano: Collegare atleta1 a pt2 con dati completi
+## Il tour guidato e' gia' implementato
 
-### Cosa fare
-Aggiornare la edge function `seed-platform-data` per creare la connessione atleta1↔pt2 (oltre a quelle esistenti), assegnare workout da pt2, simulare una chat, e aggiungere contatti. Poi inserire i dati nel DB tramite la insert tool.
+Il sistema tour di Livellapp e' gia' **identico a Cibarius HACCP**:
 
-### Dati da inserire (via insert tool SQL)
+- **AppTourContext.tsx** — 3 tour definiti (Atleta 16 step, PT 14 step, Admin 8 step) con navigazione tra pagine, scroll, auto-advance e countdown
+- **AppTour.tsx** — overlay SVG con spotlight, cursore animato, tooltip con pause/play, progress bar
+- **AppTourPrompt.tsx** — dialog "Benvenuto su Livellapp!" con opzione "Non mostrare piu'" 
+- **MobileNav.tsx** — tutti i `data-tour` attribute sono presenti (nav-home, nav-discover, nav-workout, etc.)
+- Tutte le pagine app hanno i `data-tour` attribute corrispondenti agli step del tour
+- TourProvider, AppTour e AppTourPrompt sono renderizzati in `App.tsx`
 
-**1. Connessione atleta1 ↔ pt2**
-- Inserire in `pt_atleta_connections`: `pt_user_id = pt2.user_id`, `atleta_user_id = atleta1.user_id`, `status = 'active'`
-- Il trigger `enforce_single_pt_connection` terminerà automaticamente la connessione con pt1
-- Aggiornare `atleta_profiles.status = 'collegato'` per atleta1
+### Perche' non lo vedi
 
-**2. Contatti (profiles)**
-- Aggiornare `profiles` di atleta1 (Luca Ferrari): `phone = '+39 333 1234567'`
-- Aggiornare `profiles` di pt2: `phone = '+39 347 9876543'`
+Il prompt del tour appare **solo la prima volta** che entri nell'app. Se lo hai gia' saltato o fatto, il flag `livellapp_tour_done` in localStorage impedisce che si ripresenti.
 
-**3. Workout da pt2 ad atleta1 (3 workout)**
-- "Forza Base - Settimana 1" (completato, 5gg fa)
-- "Upper Body Power" (completato, 2gg fa)  
-- "Lower Body & Core" (attivo, schedulato domani)
-- Ogni workout con 4-5 esercizi dalla libreria esistente
+### Cosa posso fare
 
-**4. Chat simulata pt2 ↔ atleta1 (10 messaggi)**
-- Creare chat in `chats`
-- Inserire 10 messaggi alternati (pt e atleta) con contenuto realistico e timestamp progressivi
+1. **Resettare il tour** — Aggiungere un pulsante "Rifai il tour" nella pagina Settings/Profile che cancella il flag localStorage e rilancia il tour
+2. **Forzare il tour per test** — Rimuovere manualmente `livellapp_tour_done` dal localStorage del browser (DevTools > Application > Local Storage > cancella la chiave)
 
-### Aggiornare seed function
-**`supabase/functions/seed-platform-data/index.ts`**:
-- Aggiungere connessione `pt2Id ↔ atleta1Id` nell'array connections
-- Aggiungere workout atleta1↔pt2 nell'array workouts
-- Aggiungere chat pair `pt2Id ↔ atleta1Id` con 10 messaggi
-- Aggiungere update dei numeri di telefono nei profiles
-
-### Esecuzione
-Usare la insert tool per eseguire le INSERT/UPDATE SQL direttamente, così i dati sono subito disponibili senza dover rieseguire il seed.
+Vuoi che aggiunga il pulsante "Rifai il tour" nelle pagine profilo/settings, oppure c'e' qualcos'altro che non funziona nel tour?
 
