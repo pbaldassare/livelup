@@ -116,9 +116,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Don't overwrite a valid role if already resolved for this user
     if (roleResolvedRef.current && role !== null) {
       setIsLoading(false);
+      setIsRoleLoading(false);
       return;
     }
 
+    // Force loading states IMMEDIATELY so UI never sees authenticated+no-role+not-loading
+    setIsLoading(true);
     setIsRoleLoading(true);
 
     // Small delay to let JWT propagate in the client
