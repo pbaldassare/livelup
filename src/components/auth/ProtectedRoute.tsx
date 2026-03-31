@@ -63,32 +63,21 @@ export function ProtectedRoute({
     );
   }
 
-  // No role after resolution completed
+  // No role after resolution — auto sign-out and redirect
+  const signOutTriggered = useRef(false);
+  useEffect(() => {
+    if (!role && !isRoleLoading && isAuthenticated && !signOutTriggered.current) {
+      signOutTriggered.current = true;
+      toast.error('Sessione non valida. Effettua nuovamente il login.');
+      supabase.auth.signOut().finally(() => {
+        window.location.href = '/auth';
+      });
+    }
+  }, [role, isRoleLoading, isAuthenticated]);
+
   if (!role) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center max-w-md mx-auto p-6">
-          <h2 className="text-xl font-semibold mb-2">Ruolo non assegnato</h2>
-          <p className="text-muted-foreground mb-4">
-            Il tuo account è in attesa di assegnazione ruolo.
-            Contatta l'amministratore per completare la registrazione.
-          </p>
-          <div className="flex gap-3 justify-center">
-            <Button onClick={() => refreshRole()} variant="default">
-              Riprova
-            </Button>
-            <Button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                window.location.href = '/auth';
-              }}
-              variant="outline"
-            >
-              Esci
-            </Button>
-          </div>
-        </div>
-      </div>
+      <LoadingSpinner variant="logo" size="lg" text="Verifica sessione..." fullScreen />
     );
   }
 
