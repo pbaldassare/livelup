@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { Logo } from '@/components/common/Logo';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { supabase } from '@/integrations/supabase/client';
 
 // =====================================================
 // AUTH PAGE - Login e Registrazione
@@ -24,10 +25,11 @@ const passwordSchema = z.string().min(6, 'La password deve avere almeno 6 caratt
 export function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn, signUp, isAuthenticated, role, isLoading: authLoading } = useAuth();
+  const { signIn, signUp, isAuthenticated, role, isLoading: authLoading, user } = useAuth();
   
+  const refPt = searchParams.get('ref');
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(
-    searchParams.get('mode') === 'signup' ? 'signup' : 'login'
+    searchParams.get('mode') === 'signup' || refPt ? 'signup' : 'login'
   );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,9 +38,28 @@ export function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated, handle referral connection
   useEffect(() => {
     if (isAuthenticated && role) {
+      // Process referral if present
+      const storedRef = localStorage.getItem('livellapp_ref_pt');
+      if (storedRef && role === 'atleta' && user) {
+        localStorage.removeItem('livellapp_ref_pt');
+        // Create connection request and save referred_by_pt
+        (async () => {
+          try {
+            await supabase.from('pt_atleta_connections').insert({
+              pt_user_id: storedRef,
+              atleta_user_id: user.id,
+              requested_by: user.id,
+              status: 'pending',
+            });
+            await supabase.from('atleta_profiles').update({ referred_by_pt: storedRef }).eq('user_id', user.id);
+          } catch (e) {
+            console.warn('Referral connection error', e);
+          }
+        })();
+      }
       const homeRoute = getHomeRoute(role);
       navigate(homeRoute, { replace: true });
     }
@@ -50,7 +71,7 @@ export function AuthPage() {
         description: 'Riprova ad accedere.',
       });
     }
-  }, [isAuthenticated, role, authLoading, navigate]);
+  }, [isAuthenticated, role, authLoading, navigate, user]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -118,6 +139,15 @@ export function AuthPage() {
         });
       }
     } else {
+      // If ref PT param present and registering as atleta, save referral info
+      if (refPt && selectedRole === 'atleta') {
+        try {
+          // Store referral in localStorage, will be processed after email confirmation & login
+          localStorage.setItem('livellapp_ref_pt', refPt);
+        } catch (e) {
+          console.warn('Could not save referral info', e);
+        }
+      }
       toast.success('Registrazione completata', {
         description: 'Controlla la tua email per confermare la registrazione.',
       });

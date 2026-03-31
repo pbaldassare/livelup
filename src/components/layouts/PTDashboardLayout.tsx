@@ -15,7 +15,8 @@ import {
   Smartphone,
   BookOpen,
   Menu,
-  X
+  X,
+  Tag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -35,6 +36,7 @@ const navigationItems = [
   { label: 'Calendario', href: '/pt/calendar', icon: Calendar },
   { label: 'Messaggi', href: '/pt/messages', icon: MessageSquare },
   { label: 'Pagamenti', href: '/pt/payments', icon: CreditCard },
+  { label: 'Coupon', href: '/pt/coupons', icon: Tag },
   { label: 'Blog', href: '/pt/blog', icon: BookOpen },
   { label: 'Impostazioni', href: '/pt/settings', icon: Settings },
 ];

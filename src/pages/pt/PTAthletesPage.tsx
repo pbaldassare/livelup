@@ -34,7 +34,9 @@ import {
   UserCheck,
   UserX,
   History,
-  Download
+  Download,
+  Link2,
+  Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -246,28 +248,38 @@ export function PTAthletesPage() {
           { label: 'Atleti' },
         ]}
         actions={
-          <Button variant="outline" size="sm" onClick={() => {
-            const csvRows = [['Nome', 'Email', 'Livello', 'Stato', 'Data']];
-            filteredConnections.forEach(c => {
-              csvRows.push([
-                `${c.profiles?.first_name || ''} ${c.profiles?.last_name || ''}`.trim(),
-                c.profiles?.email || '',
-                c.atleta_profiles?.level || 'N/A',
-                c.status,
-                c.accepted_at ? new Date(c.accepted_at).toLocaleDateString('it-IT') : new Date(c.requested_at).toLocaleDateString('it-IT'),
-              ]);
-            });
-            const csv = csvRows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'atleti.csv'; a.click();
-            URL.revokeObjectURL(url);
-            toast.success('CSV esportato');
-          }}>
-            <Download className="h-4 w-4 mr-2" />
-            Esporta CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => {
+              const link = `${window.location.origin}/auth?mode=signup&ref=${user?.id || ''}`;
+              navigator.clipboard.writeText(link);
+              toast.success('Link di invito copiato!');
+            }}>
+              <Link2 className="h-4 w-4 mr-2" />
+              Copia Link Invito
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => {
+              const csvRows = [['Nome', 'Email', 'Livello', 'Stato', 'Data']];
+              filteredConnections.forEach(c => {
+                csvRows.push([
+                  `${c.profiles?.first_name || ''} ${c.profiles?.last_name || ''}`.trim(),
+                  c.profiles?.email || '',
+                  c.atleta_profiles?.level || 'N/A',
+                  c.status,
+                  c.accepted_at ? new Date(c.accepted_at).toLocaleDateString('it-IT') : new Date(c.requested_at).toLocaleDateString('it-IT'),
+                ]);
+              });
+              const csv = csvRows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+              const blob = new Blob([csv], { type: 'text/csv' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url; a.download = 'atleti.csv'; a.click();
+              URL.revokeObjectURL(url);
+              toast.success('CSV esportato');
+            }}>
+              <Download className="h-4 w-4 mr-2" />
+              Esporta CSV
+            </Button>
+          </div>
         }
       />
 
