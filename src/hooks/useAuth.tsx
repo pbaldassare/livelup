@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Don't overwrite a valid role if already resolved for this user
-    if (roleResolvedRef.current && role !== null) {
+    if (roleResolvedRef.current && roleRef.current !== null) {
       setIsLoading(false);
       setIsRoleLoading(false);
       return;
