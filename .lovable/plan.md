@@ -1,26 +1,30 @@
 
 
-## Piano: Fix login bloccato su "Verifica credenziali..."
+## Piano: Riscrittura semplificata di useAuth.tsx
 
-### Causa root
-In `useAuth.tsx`, `handleSession` è un `useCallback` che dipende da `role` (linea 145). Ma il `useEffect` che registra `onAuthStateChange` ha `[]` come dependencies (linea 202), quindi cattura sempre la versione iniziale di `handleSession` dove `role = null`.
+### Problema reale
+Il codice di `useAuth.tsx` è troppo complesso: doppio handling (onAuthStateChange + getSession), retry con backoff, closures stale, e ref tracking multipli. Il risultato è che dopo il login, `handleSession` non completa mai la risoluzione del ruolo e il 12s safety timeout scatta.
 
-Il check a linea 117:
-```ts
-if (roleResolvedRef.current && role !== null) {
-```
-Non funziona perché `role` nella closure è SEMPRE `null`. Quindi ogni evento auth (TOKEN_REFRESHED, ecc.) ri-esegue la risoluzione del ruolo, rimettendo `isLoading=true` e bloccando la UI.
+I dati nel DB sono corretti: `pt2@fitplatform.com` ha ruolo `pt`, la RPC `get_my_role` (SECURITY DEFINER) funziona.
 
-### Soluzione
+### Soluzione: semplificazione radicale
+Riscrivere il cuore di `useAuth.tsx` eliminando tutta la complessità inutile:
+
 **`src/hooks/useAuth.tsx`**:
-1. Rimuovere `role` dalle dipendenze di `handleSession`
-2. Usare un **ref** (`roleRef`) invece dello state `role` per il check di guardia dentro `handleSession`
-3. Il check diventa: `if (roleResolvedRef.current && roleRef.current !== null)` — usando il ref che è sempre aggiornato, non la closure stale
-4. Aggiornare sia `roleRef.current` che `setRole()` quando il ruolo viene risolto
+- Rimuovere `handleSession` callback separato
+- Rimuovere il pattern `getSession()` + `onAuthStateChange` doppio → usare SOLO `onAuthStateChange` (che include già `INITIAL_SESSION`)
+- Rimuovere i retry con backoff (i dati esistono, una chiamata basta)
+- Rimuovere `initialSessionHandled`, `roleResolvedRef`, delay di 100ms
+- Gestire tutto inline nel listener:
+  - `SIGNED_OUT` o no user → reset tutto, `isLoading=false`
+  - `TOKEN_REFRESHED` con ruolo già presente → skip, `isLoading=false`
+  - Altrimenti → `setIsRoleLoading(true)`, `setTimeout(0)` per dare tempo al client di avere il token, poi una singola chiamata a `resolveRole`, set result, `isLoading=false`
+- Mantenere `roleRef` solo per il check "già risolto" su TOKEN_REFRESHED
+- Safety timeout ridotto a 8s
 
-### File
-- `src/hooks/useAuth.tsx` — aggiungere `roleRef = useRef(role)`, sincronizzarlo con `setRole`, usarlo in `handleSession` al posto di `role` nella closure
+### File coinvolti
+- `src/hooks/useAuth.tsx` — riscrittura della sezione init auth
 
 ### Risultato
-Il login non si blocca più. `handleSession` non ri-risolve il ruolo inutilmente, `isLoading` torna `false` correttamente, e il redirect a `/pt` avviene.
+Login diretto, zero complessità, zero stale closures. `pt2@fitplatform.com / Trainer123!` entra.
 
