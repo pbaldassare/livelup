@@ -29,7 +29,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { useTour } from '@/components/AppTourContext';
-import { safeLocalStorage } from '@/lib/safeStorage';
+import { safeRemove } from '@/lib/safeStorage';
 
 // =====================================================
 // ATLETA SETTINGS PAGE - Impostazioni e Privacy
