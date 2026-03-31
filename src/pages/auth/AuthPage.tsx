@@ -27,8 +27,9 @@ export function AuthPage() {
   const [searchParams] = useSearchParams();
   const { signIn, signUp, isAuthenticated, role, isLoading: authLoading } = useAuth();
   
+  const refPt = searchParams.get('ref');
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(
-    searchParams.get('mode') === 'signup' ? 'signup' : 'login'
+    searchParams.get('mode') === 'signup' || refPt ? 'signup' : 'login'
   );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
