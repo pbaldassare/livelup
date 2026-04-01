@@ -81,8 +81,9 @@ export function AdminCouponsPage() {
       const { error } = await supabase.from('coupons').insert([{
         code: newCoupon.code.toUpperCase(),
         description: newCoupon.description || null,
-        coupon_type: newCoupon.coupon_type as 'percentage' | 'fixed_amount',
-        discount_value: newCoupon.discount_value,
+        coupon_type: newCoupon.coupon_type as 'percentage' | 'fixed_amount' | 'free_months',
+        discount_value: newCoupon.coupon_type === 'free_months' ? 0 : newCoupon.discount_value,
+        free_months: newCoupon.coupon_type === 'free_months' ? newCoupon.free_months : null,
         valid_until: newCoupon.valid_until || null,
         max_uses: newCoupon.max_uses ? parseInt(newCoupon.max_uses) : null,
       }]);
