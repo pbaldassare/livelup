@@ -48,8 +48,8 @@ interface SubscriptionPlanFormProps {
 const defaultFormData: SubscriptionPlanFormData = {
   name: '',
   description: '',
-  target_role: 'atleta',
-  plan_type: 'atleta_free',
+  target_role: 'pt',
+  plan_type: 'pt_base',
   price_monthly: 0,
   price_yearly: null,
   trial_days: 14,
