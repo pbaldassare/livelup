@@ -95,7 +95,8 @@ export function AdminSubscriptionsPage() {
       const { data, error } = await supabase
         .from('subscriptions')
         .select('subscription_type, price_monthly')
-        .eq('status', 'attivo');
+        .eq('status', 'attivo')
+        .in('subscription_type', ['pt_base', 'pt_premium']);
 
       if (error) throw error;
       return data as SubscriptionStats[];
