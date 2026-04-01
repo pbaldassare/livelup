@@ -435,11 +435,16 @@ export function AdminPTsPage() {
       if (response.data?.error) throw new Error(response.data.error);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['admin-pts'] });
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       toast.success('Personal Trainer creato con successo');
       setCreateDialogOpen(false);
+      // Open invite link dialog for the newly created PT
+      const newUserId = data?.userId || data?.user_id;
+      if (newUserId) {
+        openInviteDialog(newUserId);
+      }
       setNewPT({
         email: '',
         password: '',
