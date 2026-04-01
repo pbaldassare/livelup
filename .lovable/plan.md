@@ -1,24 +1,38 @@
 
 
-## Il tour guidato e' gia' implementato
+## Piano: Aggiornare la Sitemap
 
-Il sistema tour di Livellapp e' gia' **identico a Cibarius HACCP**:
+La sitemap non è aggiornata. Confrontando `AdminSitemapPage.tsx` con le route reali in `App.tsx`, mancano diverse pagine e alcuni path sono sbagliati.
 
-- **AppTourContext.tsx** — 3 tour definiti (Atleta 16 step, PT 14 step, Admin 8 step) con navigazione tra pagine, scroll, auto-advance e countdown
-- **AppTour.tsx** — overlay SVG con spotlight, cursore animato, tooltip con pause/play, progress bar
-- **AppTourPrompt.tsx** — dialog "Benvenuto su Livellapp!" con opzione "Non mostrare piu'" 
-- **MobileNav.tsx** — tutti i `data-tour` attribute sono presenti (nav-home, nav-discover, nav-workout, etc.)
-- Tutte le pagine app hanno i `data-tour` attribute corrispondenti agli step del tour
-- TourProvider, AppTour e AppTourPrompt sono renderizzati in `App.tsx`
+### Differenze trovate
 
-### Perche' non lo vedi
+**Admin Dashboard** — mancano:
+- Esercizi `/admin/exercises` (c'è nella sidebar ma non nella sitemap)
+- Audit Log `/admin/audit-log`
+- Ticket Detail `/admin/support/:ticketId`
 
-Il prompt del tour appare **solo la prima volta** che entri nell'app. Se lo hai gia' saltato o fatto, il flag `livellapp_tour_done` in localStorage impedisce che si ripresenti.
+**PT Dashboard** — mancano:
+- Dettaglio Atleta `/pt/athletes/:atletaId`
+- Dettaglio Template `/pt/templates/:templateId`
+- Coupon `/pt/coupons`
 
-### Cosa posso fare
+**PT App** — manca:
+- Chat Dettaglio `/pt/app/chat/:atletaId`
 
-1. **Resettare il tour** — Aggiungere un pulsante "Rifai il tour" nella pagina Settings/Profile che cancella il flag localStorage e rilancia il tour
-2. **Forzare il tour per test** — Rimuovere manualmente `livellapp_tour_done` dal localStorage del browser (DevTools > Application > Local Storage > cancella la chiave)
+**Atleta App** — mancano:
+- Onboarding `/app/onboarding`
+- Profilo PT `/app/pt/:userId`
+- Dettaglio Workout `/app/workout/:workoutId`
+- Chat con destinatario `/app/chat/:recipientId`
+- Dettaglio Evento `/app/events/:eventId`
+- Profilo Professionista `/app/professional/:professionalId`
+- Prenotazioni `/app/booking`
 
-Vuoi che aggiunga il pulsante "Rifai il tour" nelle pagine profilo/settings, oppure c'e' qualcos'altro che non funziona nel tour?
+**Sito Pubblico** — path sbagliati:
+- Scopri PT reale: `/pts` (non `/discover`)
+- Profilo PT reale: `/pts/:userId` (non `/pt/:slug`)
+- Manca: Autenticazione `/auth`
+
+### Modifica
+**`src/pages/admin/AdminSitemapPage.tsx`** — aggiornare l'array `sections` con tutte le pagine mancanti e correggere i path errati.
 
