@@ -48,8 +48,8 @@ interface SubscriptionPlanFormProps {
 const defaultFormData: SubscriptionPlanFormData = {
   name: '',
   description: '',
-  target_role: 'atleta',
-  plan_type: 'atleta_free',
+  target_role: 'pt',
+  plan_type: 'pt_base',
   price_monthly: 0,
   price_yearly: null,
   trial_days: 14,
@@ -78,18 +78,6 @@ export function SubscriptionPlanForm({
   });
   const [newFeature, setNewFeature] = useState('');
 
-  // Auto-update plan_type based on target_role
-  useEffect(() => {
-    if (formData.target_role === 'pt') {
-      if (!formData.plan_type.startsWith('pt_')) {
-        setFormData(prev => ({ ...prev, plan_type: 'pt_base' }));
-      }
-    } else if (formData.target_role === 'atleta') {
-      if (!formData.plan_type.startsWith('atleta_')) {
-        setFormData(prev => ({ ...prev, plan_type: 'atleta_free' }));
-      }
-    }
-  }, [formData.target_role]);
 
   const handleAddFeature = () => {
     if (newFeature.trim()) {
@@ -147,47 +135,20 @@ export function SubscriptionPlanForm({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Target</Label>
-            <Select
-              value={formData.target_role}
-              onValueChange={(value: AppRole) => setFormData(prev => ({ ...prev, target_role: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pt">Personal Trainer</SelectItem>
-                <SelectItem value="atleta">Atleta</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Tipo Piano</Label>
-            <Select
-              value={formData.plan_type}
-              onValueChange={(value: SubscriptionType) => setFormData(prev => ({ ...prev, plan_type: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {formData.target_role === 'pt' ? (
-                  <>
-                    <SelectItem value="pt_base">PT Base</SelectItem>
-                    <SelectItem value="pt_premium">PT Premium</SelectItem>
-                  </>
-                ) : (
-                  <>
-                    <SelectItem value="atleta_free">Atleta Free</SelectItem>
-                    <SelectItem value="atleta_premium">Atleta Premium</SelectItem>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <Label>Tipo Piano</Label>
+          <Select
+            value={formData.plan_type}
+            onValueChange={(value: SubscriptionType) => setFormData(prev => ({ ...prev, plan_type: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pt_base">PT Base</SelectItem>
+              <SelectItem value="pt_premium">PT Premium</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

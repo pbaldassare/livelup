@@ -80,6 +80,7 @@ export function AdminSubscriptionsPage() {
       const { data, error } = await supabase
         .from('subscription_plans')
         .select('*')
+        .eq('target_role', 'pt')
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
@@ -94,7 +95,8 @@ export function AdminSubscriptionsPage() {
       const { data, error } = await supabase
         .from('subscriptions')
         .select('subscription_type, price_monthly')
-        .eq('status', 'attivo');
+        .eq('status', 'attivo')
+        .in('subscription_type', ['pt_base', 'pt_premium']);
 
       if (error) throw error;
       return data as SubscriptionStats[];
@@ -258,16 +260,6 @@ export function AdminSubscriptionsPage() {
       ),
     },
     {
-      key: 'target_role',
-      header: 'Target',
-      cell: (plan) => (
-        <StatusBadge 
-          status={plan.target_role === 'pt' ? 'PT' : 'Atleta'} 
-          variant={plan.target_role === 'pt' ? 'success' : 'info'} 
-        />
-      ),
-    },
-    {
       key: 'plan_type',
       header: 'Tipo',
       cell: (plan) => (
@@ -338,8 +330,8 @@ export function AdminSubscriptionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Piani e Abbonamenti"
-        description="Gestisci i piani di abbonamento della piattaforma"
+        title="Piani PT"
+        description="Gestisci i piani di abbonamento per i Personal Trainer"
         icon={CreditCard}
         actions={
           <Button onClick={handleOpenCreate}>
