@@ -543,6 +543,7 @@ export type Database = {
           current_uses: number
           description: string | null
           discount_value: number
+          free_months: number | null
           id: string
           is_active: boolean
           max_uses: number | null
@@ -562,6 +563,7 @@ export type Database = {
           current_uses?: number
           description?: string | null
           discount_value: number
+          free_months?: number | null
           id?: string
           is_active?: boolean
           max_uses?: number | null
@@ -581,6 +583,7 @@ export type Database = {
           current_uses?: number
           description?: string | null
           discount_value?: number
+          free_months?: number | null
           id?: string
           is_active?: boolean
           max_uses?: number | null
@@ -2507,7 +2510,7 @@ export type Database = {
       app_role: "admin" | "pt" | "atleta"
       atleta_status: "non_collegato" | "collegato" | "premium"
       content_type: "pdf" | "video" | "image" | "document" | "other"
-      coupon_type: "percentage" | "fixed_amount"
+      coupon_type: "percentage" | "fixed_amount" | "free_months"
       event_type: "allenamento" | "evento" | "gara" | "raduno" | "altro"
       fitness_level: "principiante" | "intermedio" | "avanzato" | "agonista"
       package_type:
@@ -2670,7 +2673,7 @@ export const Constants = {
       app_role: ["admin", "pt", "atleta"],
       atleta_status: ["non_collegato", "collegato", "premium"],
       content_type: ["pdf", "video", "image", "document", "other"],
-      coupon_type: ["percentage", "fixed_amount"],
+      coupon_type: ["percentage", "fixed_amount", "free_months"],
       event_type: ["allenamento", "evento", "gara", "raduno", "altro"],
       fitness_level: ["principiante", "intermedio", "avanzato", "agonista"],
       package_type: [
