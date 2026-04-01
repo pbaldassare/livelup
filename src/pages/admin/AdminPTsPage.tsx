@@ -92,6 +92,8 @@ import {
   DollarSign,
   Briefcase,
   Save,
+  Link,
+  Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
