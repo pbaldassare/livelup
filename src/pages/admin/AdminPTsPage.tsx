@@ -677,18 +677,19 @@ export function AdminPTsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="pt-type">Tipologia</Label>
+                    <Label htmlFor="pt-coupon">Coupon</Label>
                     <Select
-                      value={newPT.pt_type_id}
-                      onValueChange={(value) => setNewPT({ ...newPT, pt_type_id: value })}
+                      value={selectedCouponForCreate}
+                      onValueChange={setSelectedCouponForCreate}
                     >
-                      <SelectTrigger id="pt-type">
-                        <SelectValue placeholder="Seleziona tipologia" />
+                      <SelectTrigger id="pt-coupon">
+                        <SelectValue placeholder="Nessun coupon" />
                       </SelectTrigger>
                       <SelectContent>
-                        {ptTypes.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.name}
+                        <SelectItem value="none">Nessun coupon</SelectItem>
+                        {ptCoupons.map((c) => (
+                          <SelectItem key={c.id} value={c.code}>
+                            {c.code} — {c.coupon_type === 'free_months' ? `${c.free_months} mesi gratis` : c.coupon_type === 'percentage' ? `${c.discount_value}%` : `€${c.discount_value}`}
                           </SelectItem>
                         ))}
                       </SelectContent>
