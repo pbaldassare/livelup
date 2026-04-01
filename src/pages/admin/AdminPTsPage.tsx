@@ -946,6 +946,10 @@ export function AdminPTsPage() {
                                   Riattiva
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuItem onClick={() => openInviteDialog(pt.user_id)}>
+                                <Link className="mr-2 h-4 w-4 text-primary" />
+                                Genera link invito
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 onClick={() => {
