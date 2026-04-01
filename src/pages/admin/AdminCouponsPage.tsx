@@ -39,6 +39,7 @@ interface Coupon {
   description: string | null;
   coupon_type: string;
   discount_value: number;
+  free_months: number | null;
   valid_from: string;
   valid_until: string | null;
   max_uses: number | null;
