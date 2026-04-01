@@ -4,7 +4,9 @@ import {
   ExternalLink, Map, LayoutDashboard, CreditCard, Receipt, 
   MessageSquare, Tag, HeadphonesIcon, Settings, Dumbbell,
   Calendar, FileText, Home, Search, Activity, BookOpen,
-  Camera, Bell, HelpCircle, Globe, Smartphone, Monitor
+  Camera, Bell, HelpCircle, Globe, Smartphone, Monitor,
+  ClipboardList, ScrollText, TicketIcon, UserCheck, Layers,
+  MapPin, Eye, LogIn
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -98,7 +100,10 @@ const sections: Section[] = [
       { name: 'Messaggi', path: '/admin/messages', icon: MessageSquare },
       { name: 'Coupon', path: '/admin/coupons', icon: Tag },
       { name: 'Corsi', path: '/admin/courses', icon: BookOpen },
+      { name: 'Esercizi', path: '/admin/exercises', icon: Dumbbell },
       { name: 'Supporto', path: '/admin/support', icon: HeadphonesIcon },
+      { name: 'Dettaglio Ticket', path: '/admin/support/:ticketId', icon: TicketIcon },
+      { name: 'Audit Log', path: '/admin/audit-log', icon: ScrollText },
       { name: 'Impostazioni', path: '/admin/settings', icon: Settings },
       { name: 'Sitemap', path: '/admin/sitemap', icon: Map },
     ],
@@ -111,10 +116,13 @@ const sections: Section[] = [
     pages: [
       { name: 'Dashboard', path: '/pt', icon: LayoutDashboard },
       { name: 'Atleti', path: '/pt/athletes', icon: Users },
+      { name: 'Dettaglio Atleta', path: '/pt/athletes/:atletaId', icon: UserCheck },
       { name: 'Schede Workout', path: '/pt/workouts', icon: Dumbbell },
+      { name: 'Dettaglio Template', path: '/pt/templates/:templateId', icon: Layers },
       { name: 'Calendario', path: '/pt/calendar', icon: Calendar },
       { name: 'Messaggi', path: '/pt/messages', icon: MessageSquare },
       { name: 'Pagamenti', path: '/pt/payments', icon: Receipt },
+      { name: 'Coupon', path: '/pt/coupons', icon: Tag },
       { name: 'Blog', path: '/pt/blog', icon: FileText },
       { name: 'Impostazioni', path: '/pt/settings', icon: Settings },
     ],
@@ -130,6 +138,7 @@ const sections: Section[] = [
       { name: 'Calendario', path: '/pt/app/calendar', icon: Calendar },
       { name: 'Schede', path: '/pt/app/workouts', icon: Dumbbell },
       { name: 'Chat', path: '/pt/app/chat', icon: MessageSquare },
+      { name: 'Chat Dettaglio', path: '/pt/app/chat/:atletaId', icon: MessageSquare },
       { name: 'Profilo', path: '/pt/app/profile', icon: UserCog },
     ],
   },
@@ -139,12 +148,19 @@ const sections: Section[] = [
     platform: 'Mobile/PWA',
     roles: ['atleta'],
     pages: [
+      { name: 'Onboarding', path: '/app/onboarding', icon: ClipboardList },
       { name: 'Home', path: '/app', icon: Home },
       { name: 'Scopri PT', path: '/app/discover', icon: Search },
-      { name: 'Allenamenti', path: '/app/workouts', icon: Dumbbell },
+      { name: 'Allenamenti', path: '/app/workout', icon: Dumbbell },
+      { name: 'Dettaglio Workout', path: '/app/workout/:workoutId', icon: Dumbbell },
       { name: 'Progressi', path: '/app/progress', icon: Activity },
       { name: 'Chat', path: '/app/chat', icon: MessageSquare },
+      { name: 'Chat Dettaglio', path: '/app/chat/:recipientId', icon: MessageSquare },
       { name: 'Profilo', path: '/app/profile', icon: Users },
+      { name: 'Profilo PT', path: '/app/pt/:userId', icon: UserCog },
+      { name: 'Profilo Professionista', path: '/app/professional/:professionalId', icon: Eye },
+      { name: 'Dettaglio Evento', path: '/app/events/:eventId', icon: Calendar },
+      { name: 'Prenotazioni', path: '/app/booking', icon: MapPin },
       { name: 'Abbonamento', path: '/app/subscription', icon: CreditCard },
       { name: 'Corsi', path: '/app/courses', icon: BookOpen },
       { name: 'Notifiche', path: '/app/notifications', icon: Bell },
@@ -159,10 +175,11 @@ const sections: Section[] = [
     roles: ['tutti'],
     pages: [
       { name: 'Landing Page', path: '/', icon: Home },
-      { name: 'Scopri PT', path: '/discover', icon: Search },
-      { name: 'Profilo PT', path: '/pt/:slug', icon: UserCog },
+      { name: 'Scopri PT', path: '/pts', icon: Search },
+      { name: 'Profilo PT', path: '/pts/:userId', icon: UserCog },
       { name: 'Blog Post', path: '/blog/:slug', icon: FileText },
       { name: 'Installa App', path: '/install', icon: Smartphone },
+      { name: 'Autenticazione', path: '/auth', icon: LogIn },
     ],
   },
 ];
