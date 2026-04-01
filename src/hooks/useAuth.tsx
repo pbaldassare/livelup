@@ -65,55 +65,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRoleState(r);
   }, []);
 
-  // Single useEffect — only onAuthStateChange, no getSession
+  // 1) onAuthStateChange — ONLY synchronous state updates
   useEffect(() => {
     isMountedRef.current = true;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
+      (event, newSession) => {
         if (!isMountedRef.current) return;
 
         console.log('[Auth] event:', event, 'user:', newSession?.user?.email ?? 'none');
 
-        // SIGNED_OUT or no user
         if (event === 'SIGNED_OUT' || !newSession?.user) {
           setUser(null);
           setSession(null);
           setRole(null);
+          roleRef.current = null;
           setIsRoleLoading(false);
           setIsLoading(false);
           return;
         }
 
-        // Set user/session immediately
         setSession(newSession);
         setUser(newSession.user);
-
-        // TOKEN_REFRESHED with role already resolved — skip
-        if (event === 'TOKEN_REFRESHED' && roleRef.current !== null) {
-          setIsLoading(false);
-          setIsRoleLoading(false);
-          return;
-        }
-
-        // If role already resolved for this user, skip
-        if (roleRef.current !== null) {
-          setIsLoading(false);
-          setIsRoleLoading(false);
-          return;
-        }
-
-        // Need to resolve role
-        setIsRoleLoading(true);
-
-        const resolved = await resolveRole(newSession.user.id);
-        console.log('[Auth] resolved role:', resolved);
-
-        if (isMountedRef.current) {
-          setRole(resolved);
-          setIsRoleLoading(false);
-          setIsLoading(false);
-        }
+        // Do NOT call resolveRole here — it causes deadlock
       }
     );
 
@@ -132,6 +106,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 2) Resolve role OUTSIDE onAuthStateChange callback
+  useEffect(() => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+    if (roleRef.current !== null) {
+      setIsLoading(false);
+      setIsRoleLoading(false);
+      return;
+    }
+    setIsRoleLoading(true);
+    resolveRole(user.id)
+      .then((resolved) => {
+        console.log('[Auth] resolved role:', resolved);
+        if (isMountedRef.current) {
+          setRole(resolved);
+          setIsRoleLoading(false);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error('[Auth] role resolution error:', err);
+        if (isMountedRef.current) {
+          setIsRoleLoading(false);
+          setIsLoading(false);
+        }
+      });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signIn = async (email: string, password: string) => {
     try {
