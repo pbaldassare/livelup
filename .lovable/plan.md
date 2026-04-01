@@ -1,38 +1,21 @@
 
 
-## Piano: Aggiornare la Sitemap
+## Piano: Rimuovere piani Atleta dalla pagina Abbonamenti Admin
 
-La sitemap non è aggiornata. Confrontando `AdminSitemapPage.tsx` con le route reali in `App.tsx`, mancano diverse pagine e alcuni path sono sbagliati.
+L'Admin gestisce solo i PT, non gli atleti direttamente. La pagina Piani e Abbonamenti deve mostrare solo i piani PT.
 
-### Differenze trovate
+### Modifiche in `src/pages/admin/AdminSubscriptionsPage.tsx`
 
-**Admin Dashboard** — mancano:
-- Esercizi `/admin/exercises` (c'è nella sidebar ma non nella sitemap)
-- Audit Log `/admin/audit-log`
-- Ticket Detail `/admin/support/:ticketId`
+1. **Filtrare i piani** — aggiungere `.eq('target_role', 'pt')` alla query `subscription_plans` per caricare solo piani PT
+2. **Filtrare le stats** — le subscription attive filtrate solo per piani PT
+3. **Rimuovere colonna Target** — non serve più mostrare "PT/Atleta" se sono tutti PT
+4. **Aggiornare titolo e descrizione** — "Piani PT" / "Gestisci i piani di abbonamento per i Personal Trainer"
+5. **Form: forzare target_role='pt'** — nel `SubscriptionPlanForm`, pre-impostare e nascondere il campo target_role (o rimuoverlo)
 
-**PT Dashboard** — mancano:
-- Dettaglio Atleta `/pt/athletes/:atletaId`
-- Dettaglio Template `/pt/templates/:templateId`
-- Coupon `/pt/coupons`
+### Modifiche in `src/components/admin/SubscriptionPlanForm.tsx`
 
-**PT App** — manca:
-- Chat Dettaglio `/pt/app/chat/:atletaId`
+- Rimuovere il selettore target_role o forzarlo a `'pt'` come default fisso
 
-**Atleta App** — mancano:
-- Onboarding `/app/onboarding`
-- Profilo PT `/app/pt/:userId`
-- Dettaglio Workout `/app/workout/:workoutId`
-- Chat con destinatario `/app/chat/:recipientId`
-- Dettaglio Evento `/app/events/:eventId`
-- Profilo Professionista `/app/professional/:professionalId`
-- Prenotazioni `/app/booking`
-
-**Sito Pubblico** — path sbagliati:
-- Scopri PT reale: `/pts` (non `/discover`)
-- Profilo PT reale: `/pts/:userId` (non `/pt/:slug`)
-- Manca: Autenticazione `/auth`
-
-### Modifica
-**`src/pages/admin/AdminSitemapPage.tsx`** — aggiornare l'array `sections` con tutte le pagine mancanti e correggere i path errati.
+### Risultato
+L'Admin vede solo piani PT, coerente con l'architettura dove gli atleti sono gestiti dai rispettivi PT.
 
