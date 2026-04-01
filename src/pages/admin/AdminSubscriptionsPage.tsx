@@ -80,6 +80,7 @@ export function AdminSubscriptionsPage() {
       const { data, error } = await supabase
         .from('subscription_plans')
         .select('*')
+        .eq('target_role', 'pt')
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
