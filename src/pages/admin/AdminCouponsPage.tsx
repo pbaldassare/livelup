@@ -99,6 +99,7 @@ export function AdminCouponsPage() {
         description: '',
         coupon_type: 'percentage',
         discount_value: 10,
+        free_months: 1,
         valid_until: '',
         max_uses: '',
       });
