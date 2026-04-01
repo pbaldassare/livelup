@@ -420,7 +420,6 @@ export function AdminPTsPage() {
           lastName: newPT.lastName,
           role: 'pt',
           profileData: {
-            pt_type_id: newPT.pt_type_id || null,
             location_city: newPT.location_city || null,
             location_address: newPT.location_address || null,
             location_lat: newPT.location_lat,
