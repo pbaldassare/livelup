@@ -260,16 +260,6 @@ export function AdminSubscriptionsPage() {
       ),
     },
     {
-      key: 'target_role',
-      header: 'Target',
-      cell: (plan) => (
-        <StatusBadge 
-          status={plan.target_role === 'pt' ? 'PT' : 'Atleta'} 
-          variant={plan.target_role === 'pt' ? 'success' : 'info'} 
-        />
-      ),
-    },
-    {
       key: 'plan_type',
       header: 'Tipo',
       cell: (plan) => (
