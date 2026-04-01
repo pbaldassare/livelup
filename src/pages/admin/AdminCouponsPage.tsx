@@ -173,9 +173,11 @@ export function AdminCouponsPage() {
       header: 'Sconto',
       cell: (coupon) => (
         <span className="font-medium">
-          {coupon.coupon_type === 'percentage'
-            ? `${coupon.discount_value}%`
-            : `€${coupon.discount_value}`}
+          {coupon.coupon_type === 'free_months'
+            ? `${coupon.free_months} ${coupon.free_months === 1 ? 'mese' : 'mesi'} gratis`
+            : coupon.coupon_type === 'percentage'
+              ? `${coupon.discount_value}%`
+              : `€${coupon.discount_value}`}
         </span>
       ),
     },
