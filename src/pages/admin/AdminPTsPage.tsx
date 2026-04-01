@@ -228,6 +228,38 @@ export function AdminPTsPage() {
     return map;
   }, [ptTypes]);
 
+  // Fetch PT coupons for invite links
+  const { data: ptCoupons = [] } = useQuery({
+    queryKey: ['pt-coupons-for-invite'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('id, code, coupon_type, discount_value, free_months, description')
+        .eq('is_active', true)
+        .contains('applicable_roles', ['pt'])
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const inviteLink = useMemo(() => {
+    if (!invitePTUserId) return '';
+    const base = `${window.location.origin}/auth?ref=${invitePTUserId}`;
+    return selectedCouponCode ? `${base}&coupon=${selectedCouponCode}` : base;
+  }, [invitePTUserId, selectedCouponCode]);
+
+  const copyInviteLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    toast.success('Link copiato negli appunti');
+  };
+
+  const openInviteDialog = (ptUserId: string) => {
+    setInvitePTUserId(ptUserId);
+    setSelectedCouponCode('');
+    setInviteLinkDialogOpen(true);
+  };
+
   // Fetch PTs
   const { data: pts = [], isLoading } = useQuery({
     queryKey: ['admin-pts', statusFilter],
