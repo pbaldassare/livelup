@@ -1294,6 +1294,65 @@ export function AdminPTsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Invite Link Dialog */}
+      <Dialog open={inviteLinkDialogOpen} onOpenChange={setInviteLinkDialogOpen}>
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2">
+          <DialogHeader>
+            <DialogTitle>Link di Invito PT</DialogTitle>
+            <DialogDescription>
+              Genera un link di invito con un coupon opzionale da inviare al Personal Trainer
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Coupon (opzionale)</Label>
+              <Select
+                value={selectedCouponCode}
+                onValueChange={setSelectedCouponCode}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Nessun coupon" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nessun coupon</SelectItem>
+                  {ptCoupons.map((c) => (
+                    <SelectItem key={c.id} value={c.code}>
+                      {c.code} — {c.coupon_type === 'free_months' 
+                        ? `${c.free_months} ${c.free_months === 1 ? 'mese' : 'mesi'} gratis` 
+                        : c.coupon_type === 'percentage' 
+                          ? `${c.discount_value}%` 
+                          : `€${c.discount_value}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Link di invito</Label>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={inviteLink}
+                  className="font-mono text-xs"
+                />
+                <Button size="icon" variant="outline" onClick={copyInviteLink}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInviteLinkDialogOpen(false)}>
+              Chiudi
+            </Button>
+            <Button onClick={copyInviteLink}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copia Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
