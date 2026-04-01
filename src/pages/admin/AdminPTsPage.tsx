@@ -1309,7 +1309,7 @@ export function AdminPTsPage() {
               <Label>Coupon (opzionale)</Label>
               <Select
                 value={selectedCouponCode}
-                onValueChange={setSelectedCouponCode}
+                onValueChange={(v) => setSelectedCouponCode(v === 'none' ? '' : v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Nessun coupon" />
