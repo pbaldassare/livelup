@@ -303,21 +303,38 @@ export function AdminCouponsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>
-                  Valore {newCoupon.coupon_type === 'percentage' ? '(%)' : '(€)'}
-                </Label>
-                <Input
-                  type="number"
-                  value={newCoupon.discount_value}
-                  onChange={(e) =>
-                    setNewCoupon({
-                      ...newCoupon,
-                      discount_value: parseFloat(e.target.value),
-                    })
-                  }
-                />
-              </div>
+              {newCoupon.coupon_type === 'free_months' ? (
+                <div className="space-y-2">
+                  <Label>Mesi gratis</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={newCoupon.free_months}
+                    onChange={(e) =>
+                      setNewCoupon({
+                        ...newCoupon,
+                        free_months: parseInt(e.target.value) || 1,
+                      })
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>
+                    Valore {newCoupon.coupon_type === 'percentage' ? '(%)' : '(€)'}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={newCoupon.discount_value}
+                    onChange={(e) =>
+                      setNewCoupon({
+                        ...newCoupon,
+                        discount_value: parseFloat(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
