@@ -330,8 +330,8 @@ export function AdminSubscriptionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Piani e Abbonamenti"
-        description="Gestisci i piani di abbonamento della piattaforma"
+        title="Piani PT"
+        description="Gestisci i piani di abbonamento per i Personal Trainer"
         icon={CreditCard}
         actions={
           <Button onClick={handleOpenCreate}>

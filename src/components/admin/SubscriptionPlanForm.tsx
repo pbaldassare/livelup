@@ -147,47 +147,20 @@ export function SubscriptionPlanForm({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Target</Label>
-            <Select
-              value={formData.target_role}
-              onValueChange={(value: AppRole) => setFormData(prev => ({ ...prev, target_role: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pt">Personal Trainer</SelectItem>
-                <SelectItem value="atleta">Atleta</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Tipo Piano</Label>
-            <Select
-              value={formData.plan_type}
-              onValueChange={(value: SubscriptionType) => setFormData(prev => ({ ...prev, plan_type: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {formData.target_role === 'pt' ? (
-                  <>
-                    <SelectItem value="pt_base">PT Base</SelectItem>
-                    <SelectItem value="pt_premium">PT Premium</SelectItem>
-                  </>
-                ) : (
-                  <>
-                    <SelectItem value="atleta_free">Atleta Free</SelectItem>
-                    <SelectItem value="atleta_premium">Atleta Premium</SelectItem>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <Label>Tipo Piano</Label>
+          <Select
+            value={formData.plan_type}
+            onValueChange={(value: SubscriptionType) => setFormData(prev => ({ ...prev, plan_type: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pt_base">PT Base</SelectItem>
+              <SelectItem value="pt_premium">PT Premium</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
