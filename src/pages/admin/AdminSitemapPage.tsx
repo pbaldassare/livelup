@@ -4,7 +4,9 @@ import {
   ExternalLink, Map, LayoutDashboard, CreditCard, Receipt, 
   MessageSquare, Tag, HeadphonesIcon, Settings, Dumbbell,
   Calendar, FileText, Home, Search, Activity, BookOpen,
-  Camera, Bell, HelpCircle, Globe, Smartphone, Monitor
+  Camera, Bell, HelpCircle, Globe, Smartphone, Monitor,
+  ClipboardList, ScrollText, TicketIcon, UserCheck, Layers,
+  MapPin, Eye, LogIn
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
