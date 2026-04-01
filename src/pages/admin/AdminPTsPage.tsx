@@ -190,6 +190,10 @@ export function AdminPTsPage() {
   
   // Create PT Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  // Invite link dialog state
+  const [inviteLinkDialogOpen, setInviteLinkDialogOpen] = useState(false);
+  const [invitePTUserId, setInvitePTUserId] = useState<string | null>(null);
+  const [selectedCouponCode, setSelectedCouponCode] = useState('');
   const [newPT, setNewPT] = useState({
     email: '',
     password: '',
