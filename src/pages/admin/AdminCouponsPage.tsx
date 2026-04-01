@@ -299,6 +299,7 @@ export function AdminCouponsPage() {
                   <SelectContent>
                     <SelectItem value="percentage">Percentuale</SelectItem>
                     <SelectItem value="fixed_amount">Importo Fisso</SelectItem>
+                    <SelectItem value="free_months">Mesi Gratis</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
