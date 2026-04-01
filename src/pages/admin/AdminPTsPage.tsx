@@ -92,6 +92,8 @@ import {
   DollarSign,
   Briefcase,
   Save,
+  Link,
+  Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
@@ -188,6 +190,10 @@ export function AdminPTsPage() {
   
   // Create PT Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  // Invite link dialog state
+  const [inviteLinkDialogOpen, setInviteLinkDialogOpen] = useState(false);
+  const [invitePTUserId, setInvitePTUserId] = useState<string | null>(null);
+  const [selectedCouponCode, setSelectedCouponCode] = useState('');
   const [newPT, setNewPT] = useState({
     email: '',
     password: '',
@@ -221,6 +227,38 @@ export function AdminPTsPage() {
     ptTypes.forEach(t => map.set(t.id, t.name));
     return map;
   }, [ptTypes]);
+
+  // Fetch PT coupons for invite links
+  const { data: ptCoupons = [] } = useQuery({
+    queryKey: ['pt-coupons-for-invite'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('id, code, coupon_type, discount_value, free_months, description')
+        .eq('is_active', true)
+        .contains('applicable_roles', ['pt'])
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const inviteLink = useMemo(() => {
+    if (!invitePTUserId) return '';
+    const base = `${window.location.origin}/auth?ref=${invitePTUserId}`;
+    return selectedCouponCode ? `${base}&coupon=${selectedCouponCode}` : base;
+  }, [invitePTUserId, selectedCouponCode]);
+
+  const copyInviteLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    toast.success('Link copiato negli appunti');
+  };
+
+  const openInviteDialog = (ptUserId: string) => {
+    setInvitePTUserId(ptUserId);
+    setSelectedCouponCode('');
+    setInviteLinkDialogOpen(true);
+  };
 
   // Fetch PTs
   const { data: pts = [], isLoading } = useQuery({
@@ -397,11 +435,16 @@ export function AdminPTsPage() {
       if (response.data?.error) throw new Error(response.data.error);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['admin-pts'] });
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       toast.success('Personal Trainer creato con successo');
       setCreateDialogOpen(false);
+      // Open invite link dialog for the newly created PT
+      const newUserId = data?.userId || data?.user_id;
+      if (newUserId) {
+        openInviteDialog(newUserId);
+      }
       setNewPT({
         email: '',
         password: '',
@@ -903,6 +946,10 @@ export function AdminPTsPage() {
                                   Riattiva
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuItem onClick={() => openInviteDialog(pt.user_id)}>
+                                <Link className="mr-2 h-4 w-4 text-primary" />
+                                Genera link invito
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 onClick={() => {
@@ -1247,6 +1294,65 @@ export function AdminPTsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Invite Link Dialog */}
+      <Dialog open={inviteLinkDialogOpen} onOpenChange={setInviteLinkDialogOpen}>
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2">
+          <DialogHeader>
+            <DialogTitle>Link di Invito PT</DialogTitle>
+            <DialogDescription>
+              Genera un link di invito con un coupon opzionale da inviare al Personal Trainer
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Coupon (opzionale)</Label>
+              <Select
+                value={selectedCouponCode}
+                onValueChange={(v) => setSelectedCouponCode(v === 'none' ? '' : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Nessun coupon" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nessun coupon</SelectItem>
+                  {ptCoupons.map((c) => (
+                    <SelectItem key={c.id} value={c.code}>
+                      {c.code} — {c.coupon_type === 'free_months' 
+                        ? `${c.free_months} ${c.free_months === 1 ? 'mese' : 'mesi'} gratis` 
+                        : c.coupon_type === 'percentage' 
+                          ? `${c.discount_value}%` 
+                          : `€${c.discount_value}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Link di invito</Label>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={inviteLink}
+                  className="font-mono text-xs"
+                />
+                <Button size="icon" variant="outline" onClick={copyInviteLink}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInviteLinkDialogOpen(false)}>
+              Chiudi
+            </Button>
+            <Button onClick={copyInviteLink}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copia Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

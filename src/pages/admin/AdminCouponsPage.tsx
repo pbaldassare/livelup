@@ -39,6 +39,7 @@ interface Coupon {
   description: string | null;
   coupon_type: string;
   discount_value: number;
+  free_months: number | null;
   valid_from: string;
   valid_until: string | null;
   max_uses: number | null;
@@ -54,6 +55,7 @@ export function AdminCouponsPage() {
     description: '',
     coupon_type: 'percentage',
     discount_value: 10,
+    free_months: 1,
     valid_until: '',
     max_uses: '',
   });
@@ -79,8 +81,9 @@ export function AdminCouponsPage() {
       const { error } = await supabase.from('coupons').insert([{
         code: newCoupon.code.toUpperCase(),
         description: newCoupon.description || null,
-        coupon_type: newCoupon.coupon_type as 'percentage' | 'fixed_amount',
-        discount_value: newCoupon.discount_value,
+        coupon_type: newCoupon.coupon_type as 'percentage' | 'fixed_amount' | 'free_months',
+        discount_value: newCoupon.coupon_type === 'free_months' ? 0 : newCoupon.discount_value,
+        free_months: newCoupon.coupon_type === 'free_months' ? newCoupon.free_months : null,
         valid_until: newCoupon.valid_until || null,
         max_uses: newCoupon.max_uses ? parseInt(newCoupon.max_uses) : null,
       }]);
@@ -96,6 +99,7 @@ export function AdminCouponsPage() {
         description: '',
         coupon_type: 'percentage',
         discount_value: 10,
+        free_months: 1,
         valid_until: '',
         max_uses: '',
       });
@@ -169,9 +173,11 @@ export function AdminCouponsPage() {
       header: 'Sconto',
       cell: (coupon) => (
         <span className="font-medium">
-          {coupon.coupon_type === 'percentage'
-            ? `${coupon.discount_value}%`
-            : `€${coupon.discount_value}`}
+          {coupon.coupon_type === 'free_months'
+            ? `${coupon.free_months} ${coupon.free_months === 1 ? 'mese' : 'mesi'} gratis`
+            : coupon.coupon_type === 'percentage'
+              ? `${coupon.discount_value}%`
+              : `€${coupon.discount_value}`}
         </span>
       ),
     },
@@ -293,24 +299,42 @@ export function AdminCouponsPage() {
                   <SelectContent>
                     <SelectItem value="percentage">Percentuale</SelectItem>
                     <SelectItem value="fixed_amount">Importo Fisso</SelectItem>
+                    <SelectItem value="free_months">Mesi Gratis</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>
-                  Valore {newCoupon.coupon_type === 'percentage' ? '(%)' : '(€)'}
-                </Label>
-                <Input
-                  type="number"
-                  value={newCoupon.discount_value}
-                  onChange={(e) =>
-                    setNewCoupon({
-                      ...newCoupon,
-                      discount_value: parseFloat(e.target.value),
-                    })
-                  }
-                />
-              </div>
+              {newCoupon.coupon_type === 'free_months' ? (
+                <div className="space-y-2">
+                  <Label>Mesi gratis</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={newCoupon.free_months}
+                    onChange={(e) =>
+                      setNewCoupon({
+                        ...newCoupon,
+                        free_months: parseInt(e.target.value) || 1,
+                      })
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>
+                    Valore {newCoupon.coupon_type === 'percentage' ? '(%)' : '(€)'}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={newCoupon.discount_value}
+                    onChange={(e) =>
+                      setNewCoupon({
+                        ...newCoupon,
+                        discount_value: parseFloat(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
