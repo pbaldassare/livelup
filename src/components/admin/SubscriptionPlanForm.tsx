@@ -78,18 +78,6 @@ export function SubscriptionPlanForm({
   });
   const [newFeature, setNewFeature] = useState('');
 
-  // Auto-update plan_type based on target_role
-  useEffect(() => {
-    if (formData.target_role === 'pt') {
-      if (!formData.plan_type.startsWith('pt_')) {
-        setFormData(prev => ({ ...prev, plan_type: 'pt_base' }));
-      }
-    } else if (formData.target_role === 'atleta') {
-      if (!formData.plan_type.startsWith('atleta_')) {
-        setFormData(prev => ({ ...prev, plan_type: 'atleta_free' }));
-      }
-    }
-  }, [formData.target_role]);
 
   const handleAddFeature = () => {
     if (newFeature.trim()) {
