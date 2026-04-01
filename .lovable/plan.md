@@ -1,21 +1,49 @@
 
 
-## Piano: Rimuovere piani Atleta dalla pagina Abbonamenti Admin
+## Piano: Coupon Admin per PT con tipo "mesi gratis" + link invito + seed coupon reali
 
-L'Admin gestisce solo i PT, non gli atleti direttamente. La pagina Piani e Abbonamenti deve mostrare solo i piani PT.
+### Problema attuale
+La tabella `coupons` ha solo due tipi: `percentage` e `fixed_amount`. Manca il tipo `free_months` (mesi gratis). Inoltre non c'è un meccanismo per generare un link di invito PT con coupon allegato.
 
-### Modifiche in `src/pages/admin/AdminSubscriptionsPage.tsx`
+### 1. Migrazione DB
 
-1. **Filtrare i piani** — aggiungere `.eq('target_role', 'pt')` alla query `subscription_plans` per caricare solo piani PT
-2. **Filtrare le stats** — le subscription attive filtrate solo per piani PT
-3. **Rimuovere colonna Target** — non serve più mostrare "PT/Atleta" se sono tutti PT
-4. **Aggiornare titolo e descrizione** — "Piani PT" / "Gestisci i piani di abbonamento per i Personal Trainer"
-5. **Form: forzare target_role='pt'** — nel `SubscriptionPlanForm`, pre-impostare e nascondere il campo target_role (o rimuoverlo)
+**Estendere l'enum `coupon_type`** aggiungendo `free_months`:
+```sql
+ALTER TYPE public.coupon_type ADD VALUE 'free_months';
+```
 
-### Modifiche in `src/components/admin/SubscriptionPlanForm.tsx`
+**Aggiungere campo `free_months`** alla tabella coupons:
+```sql
+ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS free_months INTEGER;
+```
 
-- Rimuovere il selettore target_role o forzarlo a `'pt'` come default fisso
+**Inserire 3 coupon reali** (scadenza 5 anni = 2031-04-01):
+- `WELCOME1MESE` — 1 mese gratis, tipo `free_months`, free_months=1
+- `WELCOME3MESI` — 3 mesi gratis, tipo `free_months`, free_months=3
+- `SCONTO10` — 10% di sconto, tipo `percentage`, discount_value=10
 
-### Risultato
-L'Admin vede solo piani PT, coerente con l'architettura dove gli atleti sono gestiti dai rispettivi PT.
+Tutti con `is_active=true`, `valid_until='2031-04-01'`, `applicable_roles='{pt}'`.
+
+### 2. Aggiornare AdminCouponsPage
+
+- Aggiungere il tipo `free_months` (Mesi Gratis) nel select del form di creazione
+- Mostrare campo "Mesi gratis" quando il tipo è `free_months`
+- Aggiornare la colonna "Sconto" nella tabella per mostrare "X mesi gratis" per il tipo `free_months`
+
+### 3. Aggiornare AdminPTsPage — Link invito con coupon
+
+Dopo la creazione di un PT, mostrare un dialog con:
+- Link di invito personalizzato: `{origin}/auth?ref={ptUserId}&coupon={codice}`
+- Select per scegliere un coupon da allegare al link
+- Bottone "Copia link" per copiare negli appunti
+
+Aggiungere anche un'azione nel menu di ogni PT per "Genera link invito" con la stessa logica.
+
+### 4. File da modificare
+
+| File | Cosa |
+|------|------|
+| Migrazione SQL | Enum + colonna + seed 3 coupon |
+| `src/pages/admin/AdminCouponsPage.tsx` | Tipo `free_months` nel form e nella tabella |
+| `src/pages/admin/AdminPTsPage.tsx` | Dialog link invito con coupon dopo creazione + azione menu |
 
