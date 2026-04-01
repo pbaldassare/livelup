@@ -194,12 +194,12 @@ export function AdminPTsPage() {
   const [inviteLinkDialogOpen, setInviteLinkDialogOpen] = useState(false);
   const [invitePTUserId, setInvitePTUserId] = useState<string | null>(null);
   const [selectedCouponCode, setSelectedCouponCode] = useState('');
+  const [selectedCouponForCreate, setSelectedCouponForCreate] = useState('');
   const [newPT, setNewPT] = useState({
     email: '',
     password: '',
     firstName: '',
     lastName: '',
-    pt_type_id: '',
     location_city: '',
     location_address: '',
     location_lat: null as number | null,
