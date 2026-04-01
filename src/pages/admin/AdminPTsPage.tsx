@@ -439,17 +439,19 @@ export function AdminPTsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       toast.success('Personal Trainer creato con successo');
       setCreateDialogOpen(false);
-      // Open invite link dialog for the newly created PT
+      // Open invite link dialog for the newly created PT with pre-selected coupon
       const newUserId = data?.userId || data?.user_id;
       if (newUserId) {
-        openInviteDialog(newUserId);
+        setInvitePTUserId(newUserId);
+        setSelectedCouponCode(selectedCouponForCreate === 'none' ? '' : selectedCouponForCreate);
+        setInviteLinkDialogOpen(true);
       }
+      setSelectedCouponForCreate('');
       setNewPT({
         email: '',
         password: '',
         firstName: '',
         lastName: '',
-        pt_type_id: '',
         location_city: '',
         location_address: '',
         location_lat: null,
