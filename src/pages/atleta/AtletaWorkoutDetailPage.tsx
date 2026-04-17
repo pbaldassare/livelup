@@ -3,13 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { ExerciseVideoPlayer } from '@/components/app/ExerciseVideoPlayer';
-import { WorkoutTimer } from '@/components/app/WorkoutTimer';
-import { SetTracker } from '@/components/app/SetTracker';
+import { GuidedWorkoutFlow } from '@/components/app/GuidedWorkoutFlow';
 import { 
   ArrowLeft, 
   Settings2, 
@@ -55,17 +52,7 @@ const pageVariants = {
   exit: { opacity: 0, scale: 0.98 },
 };
 
-const exerciseVariants = {
-  initial: { opacity: 0, x: 100 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -100 },
-};
-
-const slideUpVariants = {
-  initial: { opacity: 0, y: 50 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: 50 },
-};
+// (variants extra rimossi: la vista attiva è gestita da GuidedWorkoutFlow)
 
 export function AtletaWorkoutDetailPage() {
   const { workoutId } = useParams<{ workoutId: string }>();
@@ -602,110 +589,47 @@ export function AtletaWorkoutDetailPage() {
     );
   }
 
-  // Active workout screen
+  // Active workout screen — Guided flow (ready → input → rest → next)
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="min-h-screen bg-app-background flex flex-col">
-      <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="sticky top-0 z-50 bg-app-background/95 backdrop-blur">
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      className="min-h-screen bg-app-background flex flex-col"
+    >
+      <div className="sticky top-0 z-50 bg-app-background/95 backdrop-blur">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-app-foreground tabular-nums">{formatTime(elapsedTime)}</span>
+            <span className="text-lg font-bold text-app-foreground tabular-nums">
+              {formatTime(elapsedTime)}
+            </span>
             <span className="text-app-muted-foreground">•</span>
-            <span className="text-app-muted-foreground">{Math.round(workoutProgress)}%</span>
+            <span className="text-app-muted-foreground text-sm">
+              {workout.title}
+            </span>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => navigate('/app/workout')} className="text-app-foreground hover:bg-app-muted">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/app/workout')}
+            className="text-app-foreground hover:bg-app-muted"
+          >
             <Settings2 className="h-5 w-5" />
           </Button>
         </div>
-        <div className="flex gap-1 px-4 pb-2">
-          {exercises.map((_: any, idx: number) => (
-            <motion.div
-              key={idx}
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ delay: idx * 0.05 }}
-              className={cn(
-                'flex-1 h-1 rounded-full origin-left',
-                idx < currentExerciseIndex ? 'bg-app-accent'
-                  : idx === currentExerciseIndex ? 'bg-app-accent/50'
-                  : 'bg-app-muted'
-              )}
-            />
-          ))}
-        </div>
-      </motion.div>
-
-      <div className="flex-1 relative overflow-hidden">
-        <AnimatePresence mode="wait" custom={exerciseDirection}>
-          <motion.div
-            key={currentExerciseIndex}
-            custom={exerciseDirection}
-            variants={exerciseVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="absolute inset-0"
-          >
-            <ExerciseVideoPlayer
-              videoUrl={currentExercise?.exercises?.video_url || undefined}
-              imageUrl={currentExercise?.exercises?.image_url || undefined}
-              exerciseName={currentExercise?.exercises?.name || 'Esercizio'}
-              setNumber={currentSet}
-              totalSets={currentExercise?.prescribed_sets || 1}
-              coachAvatar={ptProfile?.avatar_url || undefined}
-              coachName={`${ptProfile?.first_name || ''} ${ptProfile?.last_name || ''}`}
-            />
-          </motion.div>
-        </AnimatePresence>
       </div>
 
-      <motion.div variants={slideUpVariants} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
-        {(() => {
-          // Find last completed log for current exercise to pre-fill weight/reps
-          const logsForExercise = existingLogs?.filter(
-            l => l.workout_exercise_id === currentExercise?.id && l.is_completed
-          ) || [];
-          const lastLog = logsForExercise.sort((a, b) => b.set_number - a.set_number)[0];
-          return (
-            <SetTracker
-              sets={setsData}
-              currentSet={currentSet}
-              onSetComplete={handleSetComplete}
-              onSetChange={setCurrentSet}
-              restSeconds={currentExercise?.rest_seconds || 60}
-              initialReps={lastLog?.reps_completed ?? undefined}
-              initialWeight={lastLog?.weight_used != null ? Number(lastLog.weight_used) : undefined}
-            />
-          );
-        })()}
-      </motion.div>
-
-      <Sheet open={showTimer} onOpenChange={setShowTimer}>
-        <SheetContent side="bottom" className="bg-app-background border-app-border rounded-t-3xl">
-          <SheetHeader className="text-center">
-            <SheetTitle className="text-app-foreground">
-              {isResting ? 'Tempo di recupero' : 'Prossimo esercizio'}
-            </SheetTitle>
-          </SheetHeader>
-          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="py-8">
-            <WorkoutTimer
-              initialSeconds={currentExercise?.rest_seconds || 60}
-              onComplete={handleRestComplete}
-              isRest={true}
-              autoStart={true}
-            />
-          </motion.div>
-          <div className="text-center pb-4">
-            <p className="text-app-muted-foreground mb-2">Prossimo:</p>
-            <p className="text-lg font-semibold text-app-foreground">
-              {exercises[currentExerciseIndex + 1]?.exercises?.name || 'Fine allenamento'}
-            </p>
-          </div>
-          <Button onClick={handleRestComplete} variant="outline" className="w-full rounded-full border-app-border text-app-foreground hover:bg-app-muted">
-            Salta recupero
-          </Button>
-        </SheetContent>
-      </Sheet>
+      <div className="flex-1">
+        <GuidedWorkoutFlow
+          workoutId={workoutId!}
+          exercises={exercises as any}
+          initialExerciseIndex={currentExerciseIndex}
+          initialSet={currentSet}
+          initialCompletedSets={completedSets}
+          onCompleted={() => setShowSummary(true)}
+        />
+      </div>
     </motion.div>
   );
 }
