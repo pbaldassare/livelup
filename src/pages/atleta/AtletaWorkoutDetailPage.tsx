@@ -3,13 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { ExerciseVideoPlayer } from '@/components/app/ExerciseVideoPlayer';
 import { WorkoutTimer } from '@/components/app/WorkoutTimer';
-import { SetTracker } from '@/components/app/SetTracker';
+import { GuidedWorkoutFlow } from '@/components/app/GuidedWorkoutFlow';
 import { 
   ArrowLeft, 
   Settings2, 
