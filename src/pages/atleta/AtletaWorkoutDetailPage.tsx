@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { WorkoutTimer } from '@/components/app/WorkoutTimer';
 import { GuidedWorkoutFlow } from '@/components/app/GuidedWorkoutFlow';
 import { 
   ArrowLeft, 
@@ -53,17 +52,7 @@ const pageVariants = {
   exit: { opacity: 0, scale: 0.98 },
 };
 
-const exerciseVariants = {
-  initial: { opacity: 0, x: 100 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -100 },
-};
-
-const slideUpVariants = {
-  initial: { opacity: 0, y: 50 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: 50 },
-};
+// (variants extra rimossi: la vista attiva è gestita da GuidedWorkoutFlow)
 
 export function AtletaWorkoutDetailPage() {
   const { workoutId } = useParams<{ workoutId: string }>();
