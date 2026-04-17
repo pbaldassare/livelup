@@ -1,62 +1,73 @@
 
 
-## Piano: Risolvere il blocco del ruolo al login
+## Piano: Flusso allenamento guidato continuo (Atleta)
 
-### Problema
-Il `resolveRole()` viene chiamato **dentro** il callback `onAuthStateChange`, che è un pattern problematico con Supabase v2. Le chiamate async a Supabase (RPC, query) dentro quel callback possono causare deadlock perché il client auth mantiene un lock interno durante l'esecuzione del callback.
+### Obiettivo
+Trasformare l'esecuzione dell'allenamento in un flusso a stati (`ready → input → rest → next`) all'interno di **una sola vista dinamica**, senza navigazione tra schermate.
 
-Il risultato: il login va a buon fine (status 200), il SIGNED_IN event arriva, ma `resolveRole` non completa mai → lo spinner resta bloccato.
+### Analisi rapida
+Devo prima ispezionare:
+- `AtletaWorkoutDetailPage.tsx` (vista esecuzione attuale)
+- `SetTracker.tsx` + `WorkoutTimer.tsx` (componenti esistenti da riutilizzare/sostituire)
+- `workouts.ts` API e schema `workout_logs` / `workout_exercises` (campi: `set_number`, `reps_completed`, `weight_used`, `duration_seconds`, `rpe`, `notes`)
 
-### Soluzione
-Separare la risoluzione del ruolo dal callback `onAuthStateChange`:
+Verifica memoria: c'è già `workout-execution-system` con timer/sets/RPE. Ricostruisco il flusso UX sopra le stesse API senza migrazioni DB.
 
-**`src/hooks/useAuth.tsx`**
+### Architettura
 
-1. Il callback `onAuthStateChange` diventa **sincrono** — imposta solo `user`, `session` e un flag `needsRoleResolution`
-2. Un **secondo `useEffect`** che dipende da `user` gestisce la risoluzione asincrona del ruolo chiamando `resolveRole()` fuori dal callback auth
-3. Rimuovere l'`await resolveRole()` dal callback di `onAuthStateChange`
+**Nuovo componente unico**: `src/components/app/GuidedWorkoutFlow.tsx`
 
+State machine locale (useReducer):
 ```text
-Prima:
-  onAuthStateChange → set user/session → await resolveRole() [DEADLOCK]
-
-Dopo:
-  onAuthStateChange → set user/session (sincrono)
-  useEffect([user]) → await resolveRole() [OK, fuori dal lock]
+ready  ──[Inizia serie]──▶  input
+input  ──[Completa]──▶ save ──▶  rest
+rest   ──[timer end / skip]──▶  next
+next   ──┬─ altre serie ─▶ ready (set+1)
+         ├─ altri esercizi ─▶ ready (esercizio+1, set 1)
+         └─ fine ─▶ completato
 ```
 
-### Dettaglio tecnico
+### Componenti UI per stato
 
-```typescript
-// 1) onAuthStateChange — SOLO sincrono
-onAuthStateChange((event, newSession) => {
-  if (event === 'SIGNED_OUT' || !newSession?.user) {
-    setUser(null); setSession(null); setRole(null);
-    setIsLoading(false);
-    return;
-  }
-  setSession(newSession);
-  setUser(newSession.user);
-  // NON chiamare resolveRole qui
+1. **READY**: nome esercizio, note, badge `serie X/Y`, target reps/peso/tempo, recupero previsto. CTA grande: **"Inizia serie"**.
+2. **INPUT**: form compatto con 2 campi (`kg` + `reps` *oppure* `secondi` se cardio/isometrico). CTA: **"Completa serie"**.
+3. **REST**: timer circolare animato grande e centrale + barra progresso. Pulsanti `-15s` / `+15s` per modifica live (no reset). CTA secondaria piccola: **"Salta recupero"**. Auto-advance a fine timer.
+4. **NEXT** (transizione 600ms): micro-animazione "Serie completata" / "Esercizio completato" → switch automatico.
+
+### Logica salvataggio
+
+Al `Completa serie`:
+```ts
+await supabase.from('workout_logs').insert({
+  workout_exercise_id, set_number,
+  reps_completed, weight_used, duration_seconds,
+  is_completed: true,
+  notes: `rest_actual:${restActualSec}` // recupero reale
 });
-
-// 2) Nuovo useEffect per risolvere il ruolo
-useEffect(() => {
-  if (!user || roleRef.current !== null) {
-    setIsLoading(false);
-    return;
-  }
-  setIsRoleLoading(true);
-  resolveRole(user.id).then(resolved => {
-    if (isMountedRef.current) {
-      setRole(resolved);
-      setIsRoleLoading(false);
-      setIsLoading(false);
-    }
-  });
-}, [user?.id]);
 ```
+Al primo set del primo esercizio → update workout `status='in_corso'`.
+All'ultimo set dell'ultimo esercizio → `status='completato'`, `completed_at=now()`.
+
+### Azioni extra (sempre visibili come barra inferiore minimale)
+
+- **"+ Serie extra"**: visibile solo in stato `next` di fine esercizio. Aggiunge un set virtuale all'array locale.
+- **"Salta esercizio"**: sempre disponibile, marca tutti i set rimanenti dell'esercizio come skipped (in `notes`) e passa al prossimo.
+
+### Modifiche file
+
+| File | Azione |
+|---|---|
+| `src/components/app/GuidedWorkoutFlow.tsx` | **Nuovo** – stato machine + UI dinamica |
+| `src/pages/atleta/AtletaWorkoutDetailPage.tsx` | Sostituisce SetTracker con `<GuidedWorkoutFlow workout={...} />` |
+| `src/components/app/WorkoutTimer.tsx` | Riutilizzato per il timer di rest (con +/-15s live) |
+
+### Vincoli rispettati
+- 1 sola CTA principale per stato
+- 0 schermate vuote (sempre c'è qualcosa da fare o vedere)
+- Timer parte automaticamente, autoadvance al termine
+- Nessun bottone "vai avanti": progressione implicita
+- Recupero reale tracciato in `workout_logs.notes`
 
 ### Risultato
-Il login sblocca immediatamente, il ruolo si risolve senza deadlock, e il redirect avviene in millisecondi.
+L'atleta apre l'allenamento e segue un binario: tap "Inizia" → inserisce → vede recupero che parte da solo → si ritrova nel set successivo. Mai una decisione di navigazione.
 
