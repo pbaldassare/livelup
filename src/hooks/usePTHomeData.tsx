@@ -155,7 +155,7 @@ export function usePTHomeData() {
         .from('atleta_pt_subscriptions')
         .select('id, expires_at')
         .eq('pt_user_id', user.id)
-        .eq('status', 'active')
+        .eq('status', 'attivo')
         .not('expires_at', 'is', null)
         .lte('expires_at', expCutoff)
         .gte('expires_at', new Date(now).toISOString());
@@ -180,7 +180,7 @@ export function usePTHomeData() {
         .from('payments')
         .select('amount, status, paid_at')
         .gte('paid_at', startOfMonth.toISOString())
-        .eq('status', 'paid');
+        .eq('status', 'completed');
 
       const { data: pendingPayments } = await supabase
         .from('payments')
