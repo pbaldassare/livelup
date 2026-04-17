@@ -2542,7 +2542,12 @@ export type Database = {
       suggestion_type: "specialization" | "certification"
       ticket_priority: "low" | "medium" | "high" | "urgent"
       ticket_status: "open" | "in_progress" | "resolved" | "closed"
-      workout_status: "attivo" | "completato" | "scaduto"
+      workout_status:
+        | "attivo"
+        | "completato"
+        | "scaduto"
+        | "in_corso"
+        | "in_sospeso"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2708,7 +2713,13 @@ export const Constants = {
       suggestion_type: ["specialization", "certification"],
       ticket_priority: ["low", "medium", "high", "urgent"],
       ticket_status: ["open", "in_progress", "resolved", "closed"],
-      workout_status: ["attivo", "completato", "scaduto"],
+      workout_status: [
+        "attivo",
+        "completato",
+        "scaduto",
+        "in_corso",
+        "in_sospeso",
+      ],
     },
   },
 } as const
