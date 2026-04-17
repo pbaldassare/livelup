@@ -579,7 +579,18 @@ export function AtletaWorkoutDetailPage() {
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
             <Button
-              onClick={() => setIsWorkoutStarted(true)}
+              onClick={async () => {
+                setIsWorkoutStarted(true);
+                // Marca workout come "in_corso" per la Home action-first
+                if (workoutId && workout?.status !== 'in_corso') {
+                  await supabase
+                    .from('workouts')
+                    .update({ status: 'in_corso' as any })
+                    .eq('id', workoutId)
+                    .in('status', ['attivo', 'in_sospeso']);
+                  queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+                }
+              }}
               className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
             >
               <Play className="h-5 w-5 mr-2" />
