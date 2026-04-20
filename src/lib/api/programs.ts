@@ -158,6 +158,30 @@ export async function updateProgram(
   if (error) throw error;
 }
 
+/**
+ * Conta quante assegnazioni ATTIVE esistono per un programma.
+ * Utile per UX warning ("modifiche solo sul futuro").
+ */
+export async function countActiveAssignments(programId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('program_assignments')
+    .select('id', { count: 'exact', head: true })
+    .eq('program_id', programId)
+    .eq('status', 'active');
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Smart diff degli schedules:
+ * - schedules con `id` → UPDATE in-place (preserva FK e storico)
+ * - schedules senza `id` → INSERT
+ * - schedules esistenti non più presenti → DELETE
+ *
+ * I workouts già generati NON vengono toccati: program_schedules è solo
+ * la "ricetta" usata in fase di rolling. Le modifiche impattano SOLO
+ * le generazioni future.
+ */
 export async function replaceProgramSchedules(
   programId: string,
   schedules: ProgramScheduleInput[],
@@ -166,22 +190,92 @@ export async function replaceProgramSchedules(
   if (!schedules || schedules.length === 0) {
     throw new Error('Il programma deve contenere almeno una scheda');
   }
-  const { error: delErr } = await supabase
-    .from('program_schedules')
-    .delete()
-    .eq('program_id', programId);
-  if (delErr) throw delErr;
 
-  const rows = schedules.map((s, i) => ({
-    program_id: programId,
-    template_id: s.template_id,
-    day_of_week: mode === 'day_by_day' ? null : (s.day_of_week ?? 1),
-    week_offset: s.week_offset ?? 0,
-    order_index: i,
-    day_offset: mode === 'day_by_day' ? (s.day_offset ?? i) : null,
-  }));
-  const { error } = await supabase.from('program_schedules').insert(rows);
-  if (error) throw error;
+  // 1) Carica gli schedules esistenti
+  const { data: existingRows, error: loadErr } = await supabase
+    .from('program_schedules')
+    .select('id')
+    .eq('program_id', programId);
+  if (loadErr) throw loadErr;
+
+  const existingIds = new Set((existingRows || []).map((r) => r.id));
+  const incomingIds = new Set(
+    schedules.map((s) => s.id).filter((id): id is string => !!id),
+  );
+
+  // 2) DELETE: ids esistenti non più presenti nell'incoming
+  const idsToDelete = [...existingIds].filter((id) => !incomingIds.has(id));
+  if (idsToDelete.length > 0) {
+    const { error: delErr } = await supabase
+      .from('program_schedules')
+      .delete()
+      .in('id', idsToDelete);
+    if (delErr) throw delErr;
+  }
+
+  // 3) UPDATE + INSERT
+  for (let i = 0; i < schedules.length; i++) {
+    const s = schedules[i];
+    const row = {
+      template_id: s.template_id,
+      day_of_week: mode === 'day_by_day' ? null : (s.day_of_week ?? 1),
+      week_offset: s.week_offset ?? 0,
+      order_index: i,
+      day_offset: mode === 'day_by_day' ? (s.day_offset ?? i) : null,
+    };
+
+    if (s.id && existingIds.has(s.id)) {
+      const { error: updErr } = await supabase
+        .from('program_schedules')
+        .update(row)
+        .eq('id', s.id);
+      if (updErr) throw updErr;
+    } else {
+      const { error: insErr } = await supabase
+        .from('program_schedules')
+        .insert({ ...row, program_id: programId });
+      if (insErr) throw insErr;
+    }
+  }
+
+  // 4) Riallinea current_index su tutte le assegnazioni attive
+  await realignAssignmentsAfterUpdate(programId);
+}
+
+/**
+ * Riallinea il `current_index` di tutte le assegnazioni attive di un programma
+ * dopo che il numero di schede è cambiato. Evita che l'indice esca dal range.
+ *
+ * NON tocca `active_days` delle assegnazioni esistenti: ogni atleta mantiene
+ * i giorni scelti al momento dell'assegnazione (no side-effect inattesi).
+ */
+export async function realignAssignmentsAfterUpdate(programId: string) {
+  const { data: schedRows, error: schedErr } = await supabase
+    .from('program_schedules')
+    .select('id')
+    .eq('program_id', programId);
+  if (schedErr) throw schedErr;
+
+  const total = (schedRows || []).length;
+  if (total === 0) return; // bloccato a monte, ma per sicurezza
+
+  const { data: assigns, error: aErr } = await supabase
+    .from('program_assignments')
+    .select('id, current_index')
+    .eq('program_id', programId)
+    .eq('status', 'active');
+  if (aErr) throw aErr;
+
+  for (const a of assigns || []) {
+    const currentIdx = (a as any).current_index ?? 0;
+    const newIdx = ((currentIdx % total) + total) % total;
+    if (newIdx !== currentIdx) {
+      await supabase
+        .from('program_assignments')
+        .update({ current_index: newIdx })
+        .eq('id', a.id);
+    }
+  }
 }
 
 export async function deleteProgram(programId: string) {
