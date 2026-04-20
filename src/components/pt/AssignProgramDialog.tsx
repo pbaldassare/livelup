@@ -23,12 +23,27 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, CalendarDays, Users, CheckCircle2 } from 'lucide-react';
+import { CalendarIcon, CalendarDays, Users, CheckCircle2, Repeat } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { assignProgramToAthlete, getProgram } from '@/lib/api/programs';
+import { Toggle } from '@/components/ui/toggle';
+import {
+  assignProgramToAthlete,
+  getProgram,
+  describeRotation,
+} from '@/lib/api/programs';
+
+const WEEKDAYS = [
+  { iso: 1, label: 'Lun' },
+  { iso: 2, label: 'Mar' },
+  { iso: 3, label: 'Mer' },
+  { iso: 4, label: 'Gio' },
+  { iso: 5, label: 'Ven' },
+  { iso: 6, label: 'Sab' },
+  { iso: 7, label: 'Dom' },
+];
 
 interface AssignProgramDialogProps {
   open: boolean;
@@ -48,6 +63,7 @@ export function AssignProgramDialog({
 
   const [athleteId, setAthleteId] = useState(preselectedAthleteId || '');
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
+  const [activeDays, setActiveDays] = useState<number[]>([1, 3, 5]);
 
   useEffect(() => {
     if (open) {
@@ -61,6 +77,22 @@ export function AssignProgramDialog({
     queryFn: () => getProgram(programId!),
     enabled: !!programId && open,
   });
+
+  // Sincronizza i giorni attivi col programma quando cambia
+  useEffect(() => {
+    if (program && open) {
+      const programDays = (program as any).active_days as number[] | undefined;
+      if (programDays && programDays.length > 0) {
+        setActiveDays(programDays);
+      }
+    }
+  }, [program, open]);
+
+  const toggleDay = (iso: number) => {
+    setActiveDays((prev) =>
+      prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso].sort(),
+    );
+  };
 
   const { data: athletes = [] } = useQuery({
     queryKey: ['connected-athletes', user?.id],
@@ -92,11 +124,14 @@ export function AssignProgramDialog({
       if (!programId) throw new Error('Programma non valido');
       if (!athleteId) throw new Error('Seleziona un atleta');
       if (!startDate) throw new Error('Seleziona la data di inizio');
+      if (activeDays.length === 0)
+        throw new Error('Seleziona almeno un giorno di allenamento');
       return assignProgramToAthlete({
         ptUserId: user.id,
         atletaUserId: athleteId,
         programId,
         startDate,
+        activeDays,
       });
     },
     onSuccess: ({ created, skipped }) => {
@@ -114,9 +149,17 @@ export function AssignProgramDialog({
     onError: (err) => toast.error(err instanceof Error ? err.message : 'Errore'),
   });
 
+  // Anteprima rotazione
+  const rotationPreview = (() => {
+    if (!program) return '';
+    const schedules = ((program as any).program_schedules || []) as any[];
+    if (schedules.length === 0) return '';
+    return describeRotation(schedules, 2);
+  })();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 p-0 overflow-hidden flex flex-col">
+      <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 p-0 overflow-hidden flex flex-col">
         <DialogHeader className="px-6 pt-6 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <CalendarDays className="h-5 w-5 text-primary" />
@@ -127,7 +170,7 @@ export function AssignProgramDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
           {program && (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/30">
               <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
@@ -137,12 +180,24 @@ export function AssignProgramDialog({
                 </p>
                 <p className="font-semibold truncate">{program.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {program.duration_weeks} settimane · {program.frequency_per_week}x/sett.
+                  {program.duration_weeks} settimane · {activeDays.length}x/sett.
                 </p>
               </div>
               <Badge variant="outline" className="flex-shrink-0">
                 {(program as any).program_schedules?.length || 0} schede
               </Badge>
+            </div>
+          )}
+
+          {rotationPreview && (
+            <div className="rounded-lg bg-muted/50 border p-3 text-sm">
+              <div className="flex items-center gap-2 text-foreground font-medium mb-1">
+                <Repeat className="h-4 w-4 text-primary" />
+                Rotazione schede
+              </div>
+              <p className="text-muted-foreground break-words text-xs">
+                {rotationPreview}
+              </p>
             </div>
           )}
 
@@ -211,6 +266,32 @@ export function AssignProgramDialog({
                 />
               </PopoverContent>
             </Popover>
+            <p className="text-xs text-muted-foreground">
+              Il primo giorno è sempre la data scelta e prende la prima scheda della rotazione.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">
+              Giorni di allenamento <span className="text-destructive">*</span>
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {WEEKDAYS.map((d) => (
+                <Toggle
+                  key={d.iso}
+                  pressed={activeDays.includes(d.iso)}
+                  onPressedChange={() => toggleDay(d.iso)}
+                  variant="outline"
+                  size="sm"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  {d.label}
+                </Toggle>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Le schede ruotano in modo continuo: la sequenza non si resetta tra settimane.
+            </p>
           </div>
         </div>
 
@@ -220,7 +301,12 @@ export function AssignProgramDialog({
           </Button>
           <Button
             onClick={() => assignMutation.mutate()}
-            disabled={assignMutation.isPending || !athleteId || !startDate}
+            disabled={
+              assignMutation.isPending ||
+              !athleteId ||
+              !startDate ||
+              activeDays.length === 0
+            }
           >
             {assignMutation.isPending ? 'Assegnazione...' : 'Assegna programma'}
           </Button>

@@ -1,6 +1,10 @@
 // =====================================================
 // API: Gestione Programmi di allenamento
 // Programma = insieme ordinato di Schede su un periodo
+// Le schede vengono assegnate in ROTAZIONE CICLICA continua
+// (es. A→B→C→A→B…) sui giorni attivi della settimana.
+// Lo stato della rotazione (current_index) è persistente
+// sull'assegnazione e NON si resetta tra settimane.
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +17,7 @@ export type WorkoutProgram = {
   description: string | null;
   duration_weeks: number;
   frequency_per_week: number;
+  active_days: number[];
   notes: string | null;
   is_archived: boolean;
   created_at: string;
@@ -23,14 +28,14 @@ export type ProgramSchedule = {
   id: string;
   program_id: string;
   template_id: string;
-  day_of_week: number; // 1=Lun ... 7=Dom
-  week_offset: number; // 0 = ripeti ogni settimana
-  order_index: number;
+  day_of_week: number; // legacy: usato come "ordine alternativo", non più vincolante
+  week_offset: number; // 0 = sempre presente nella rotazione
+  order_index: number; // ORDINE NELLA ROTAZIONE (A=0, B=1, C=2…)
 };
 
 export type ProgramScheduleInput = {
   template_id: string;
-  day_of_week: number;
+  day_of_week?: number;
   week_offset?: number;
   order_index?: number;
 };
@@ -69,11 +74,15 @@ export async function createProgram(params: {
   description?: string;
   durationWeeks: number;
   frequencyPerWeek: number;
+  activeDays: number[]; // 1=Lun..7=Dom
   notes?: string;
-  schedules: ProgramScheduleInput[];
+  schedules: ProgramScheduleInput[]; // ordine = order_index = posizione in rotazione
 }) {
   if (!params.schedules || params.schedules.length === 0) {
     throw new Error('Aggiungi almeno una scheda al programma');
+  }
+  if (!params.activeDays || params.activeDays.length === 0) {
+    throw new Error('Seleziona almeno un giorno di allenamento');
   }
 
   const { data: program, error } = await supabase
@@ -84,18 +93,20 @@ export async function createProgram(params: {
       description: params.description ?? null,
       duration_weeks: params.durationWeeks,
       frequency_per_week: params.frequencyPerWeek,
+      active_days: params.activeDays,
       notes: params.notes ?? null,
     })
     .select()
     .single();
   if (error) throw error;
 
+  // order_index = posizione esatta nell'array → posizione in rotazione
   const scheduleRows = params.schedules.map((s, i) => ({
     program_id: program.id,
     template_id: s.template_id,
-    day_of_week: s.day_of_week,
+    day_of_week: s.day_of_week ?? 1, // legacy fill
     week_offset: s.week_offset ?? 0,
-    order_index: s.order_index ?? i,
+    order_index: i,
   }));
 
   const { error: scheduleError } = await supabase
@@ -103,7 +114,6 @@ export async function createProgram(params: {
     .insert(scheduleRows);
 
   if (scheduleError) {
-    // rollback
     await supabase.from('workout_programs').delete().eq('id', program.id);
     throw scheduleError;
   }
@@ -118,6 +128,7 @@ export async function updateProgram(
     description: string | null;
     duration_weeks: number;
     frequency_per_week: number;
+    active_days: number[];
     notes: string | null;
   }>,
 ) {
@@ -144,9 +155,9 @@ export async function replaceProgramSchedules(
   const rows = schedules.map((s, i) => ({
     program_id: programId,
     template_id: s.template_id,
-    day_of_week: s.day_of_week,
+    day_of_week: s.day_of_week ?? 1,
     week_offset: s.week_offset ?? 0,
-    order_index: s.order_index ?? i,
+    order_index: i,
   }));
   const { error } = await supabase.from('program_schedules').insert(rows);
   if (error) throw error;
@@ -164,14 +175,15 @@ export async function duplicateProgram(programId: string, ptUserId: string) {
   const original = await getProgram(programId);
   if (!original) throw new Error('Programma non trovato');
 
-  const schedules: ProgramScheduleInput[] = (original.program_schedules || []).map(
-    (s: any) => ({
-      template_id: s.template_id,
-      day_of_week: s.day_of_week,
-      week_offset: s.week_offset,
-      order_index: s.order_index,
-    }),
+  const sortedSchedules = [...((original as any).program_schedules || [])].sort(
+    (a: any, b: any) => a.order_index - b.order_index,
   );
+  const schedules: ProgramScheduleInput[] = sortedSchedules.map((s: any) => ({
+    template_id: s.template_id,
+    day_of_week: s.day_of_week,
+    week_offset: s.week_offset,
+    order_index: s.order_index,
+  }));
 
   return createProgram({
     ptUserId,
@@ -179,112 +191,197 @@ export async function duplicateProgram(programId: string, ptUserId: string) {
     description: original.description ?? undefined,
     durationWeeks: original.duration_weeks,
     frequencyPerWeek: original.frequency_per_week,
+    activeDays: (original as any).active_days ?? [1, 3, 5],
     notes: original.notes ?? undefined,
     schedules,
   });
 }
 
-// ----------------------- Assegnazioni -----------------------
-
-const ISO_WEEKDAY_TO_JS = (iso: number) => (iso === 7 ? 0 : iso); // ISO 1-7 (Lun..Dom) -> JS 0-6 (Dom..Sab)
+// ----------------------- Assegnazioni / Rotazione -----------------------
 
 /**
- * Genera workouts per N settimane a partire da una data.
- * Salta date già occupate (stesso titolo / stesso atleta).
+ * Calcola le date attive (in ordine cronologico) dentro una finestra di settimane.
+ * - startDate: prima data attiva (sempre inclusa, anche se non rientra in active_days)
+ * - activeDays: ISO 1..7 (Lun..Dom)
+ * - fromWeek/toWeek: finestra in settimane dall'inizio assegnazione
+ *
+ * Regola critica: il PRIMO giorno è SEMPRE startDate, prende la prima scheda.
  */
-async function generateWorkoutsForWeeks(params: {
+function computeActiveDates(
+  startDate: Date,
+  activeDays: number[],
+  fromWeek: number,
+  toWeek: number,
+): Date[] {
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+
+  const result: Date[] = [];
+
+  // Settimane: itera giorno per giorno e tieni quelli attivi
+  const windowStart = new Date(start);
+  windowStart.setDate(windowStart.getDate() + fromWeek * 7);
+  const windowEnd = new Date(start);
+  windowEnd.setDate(windowEnd.getDate() + toWeek * 7);
+
+  // Costruiamo prima la sequenza globale dall'inizio dell'assegnazione fino a windowEnd
+  // così l'indice è coerente, poi filtriamo dalla windowStart in poi.
+  const globalSequence: Date[] = [];
+
+  // Garantiamo che startDate sia sempre il primo elemento (anche se non in active_days)
+  globalSequence.push(new Date(start));
+
+  const cursor = new Date(start);
+  cursor.setDate(cursor.getDate() + 1);
+  while (cursor < windowEnd) {
+    const jsDay = cursor.getDay(); // 0=Dom..6=Sab
+    const isoDay = jsDay === 0 ? 7 : jsDay;
+    if (activeDays.includes(isoDay)) {
+      globalSequence.push(new Date(cursor));
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  // Filtra solo le date dentro la finestra richiesta
+  for (const d of globalSequence) {
+    if (d >= windowStart && d < windowEnd) result.push(d);
+  }
+
+  return result;
+}
+
+/**
+ * Calcola quante date attive esistono dall'inizio fino (esclusivo) a fromWeek.
+ * Serve per sapere quale dovrebbe essere current_index "atteso" se si rigenerasse
+ * tutto da zero. Usato come safety se assignment.current_index non è coerente.
+ */
+function countActiveDatesBefore(
+  startDate: Date,
+  activeDays: number[],
+  beforeWeek: number,
+): number {
+  if (beforeWeek <= 0) return 0;
+  const fakeEnd = new Date(startDate);
+  fakeEnd.setDate(fakeEnd.getDate() + beforeWeek * 7);
+  const sequence = computeActiveDates(startDate, activeDays, 0, beforeWeek);
+  return sequence.length;
+}
+
+/**
+ * Genera workouts per la finestra [fromWeek, toWeek) usando rotazione ciclica.
+ * - Le schede vengono prese in ordine ciclico A→B→C→A… per ogni data attiva.
+ * - current_index parte da `startIndex` (di solito = assignment.current_index).
+ * - Salta date già occupate (stesso atleta + stesso titolo o stesso template_id).
+ * - Ritorna anche il NUOVO indice da persistere.
+ */
+async function generateRotationWorkouts(params: {
   ptUserId: string;
   atletaUserId: string;
   programId: string;
   startDate: Date;
-  fromWeek: number; // inclusive (0-indexed)
-  toWeek: number; // exclusive
+  activeDays: number[];
+  fromWeek: number;
+  toWeek: number;
+  startIndex: number;
 }) {
-  const { ptUserId, atletaUserId, programId, startDate, fromWeek, toWeek } = params;
+  const {
+    ptUserId,
+    atletaUserId,
+    programId,
+    startDate,
+    activeDays,
+    fromWeek,
+    toWeek,
+    startIndex,
+  } = params;
 
   const program = await getProgram(programId);
   if (!program) throw new Error('Programma non trovato');
-  const schedules = (program.program_schedules || []) as any[];
-  if (schedules.length === 0) return { created: 0, skipped: 0 };
 
-  // Pre-fetch existing workouts in window
-  const windowStart = new Date(startDate);
-  windowStart.setDate(windowStart.getDate() + fromWeek * 7);
-  const windowEnd = new Date(startDate);
-  windowEnd.setDate(windowEnd.getDate() + toWeek * 7);
+  // Schede ordinate per order_index → la sequenza ciclica
+  const sortedSchedules = [...((program as any).program_schedules || [])].sort(
+    (a: any, b: any) => a.order_index - b.order_index,
+  );
+  if (sortedSchedules.length === 0) {
+    return { created: 0, skipped: 0, newIndex: startIndex };
+  }
+
+  const dates = computeActiveDates(startDate, activeDays, fromWeek, toWeek);
+  if (dates.length === 0) {
+    return { created: 0, skipped: 0, newIndex: startIndex };
+  }
+
+  // Pre-fetch workouts esistenti nella finestra per skip duplicati
+  const windowStart = dates[0];
+  const windowEndDate = new Date(dates[dates.length - 1]);
+  windowEndDate.setDate(windowEndDate.getDate() + 1);
 
   const { data: existing } = await supabase
     .from('workouts')
-    .select('scheduled_date, title')
+    .select('scheduled_date, title, template_id')
     .eq('atleta_user_id', atletaUserId)
     .eq('pt_user_id', ptUserId)
     .gte('scheduled_date', windowStart.toISOString())
-    .lt('scheduled_date', windowEnd.toISOString());
+    .lt('scheduled_date', windowEndDate.toISOString());
 
   const existingKeys = new Set(
     (existing || []).map(
-      (w) => `${w.title}__${w.scheduled_date ? w.scheduled_date.slice(0, 10) : ''}`,
+      (w: any) =>
+        `${w.template_id ?? ''}__${
+          w.scheduled_date ? w.scheduled_date.slice(0, 10) : ''
+        }`,
     ),
   );
 
   let created = 0;
   let skipped = 0;
+  let index = ((startIndex % sortedSchedules.length) + sortedSchedules.length) %
+    sortedSchedules.length;
 
-  for (let week = fromWeek; week < toWeek; week++) {
-    for (const sch of schedules) {
-      // week_offset 0 = ripeti ogni settimana, altrimenti solo settimana specifica (1-indexed)
-      if (sch.week_offset !== 0 && sch.week_offset !== week + 1) continue;
+  for (const date of dates) {
+    const sch = sortedSchedules[index];
+    const dateKey = date.toISOString().slice(0, 10);
+    const dedupeKey = `${sch.template_id}__${dateKey}`;
 
-      const targetDate = new Date(startDate);
-      targetDate.setHours(0, 0, 0, 0);
-      // Allinea a inizio settimana del primo giorno (lunedì della settimana di start)
-      const startJsDay = startDate.getDay(); // 0=Dom..6=Sab
-      const startISODay = startJsDay === 0 ? 7 : startJsDay; // 1..7
-      const daysFromMondayOfStart = startISODay - 1;
-      const mondayOfStartWeek = new Date(startDate);
-      mondayOfStartWeek.setDate(mondayOfStartWeek.getDate() - daysFromMondayOfStart);
-      mondayOfStartWeek.setHours(0, 0, 0, 0);
-
-      const target = new Date(mondayOfStartWeek);
-      target.setDate(target.getDate() + week * 7 + (sch.day_of_week - 1));
-
-      // Skip date precedenti alla startDate
-      if (target < new Date(startDate.toDateString())) continue;
-
-      const key = `${sch.workout_templates?.title ?? ''}__${target.toISOString().slice(0, 10)}`;
-      if (existingKeys.has(key)) {
-        skipped++;
-        continue;
-      }
-
-      // Carica esercizi del template
-      const { data: tex } = await supabase
-        .from('template_exercises')
-        .select('*')
-        .eq('template_id', sch.template_id)
-        .order('order_index');
-
-      await createWorkout({
-        atletaUserId,
-        ptUserId,
-        title: sch.workout_templates?.title ?? 'Allenamento',
-        templateId: sch.template_id,
-        scheduledDate: target.toISOString(),
-        exercises: (tex || []).map((te) => ({
-          exerciseId: te.exercise_id,
-          orderIndex: te.order_index,
-          prescribedSets: te.sets,
-          prescribedRepsMin: te.reps_min ?? undefined,
-          prescribedRepsMax: te.reps_max ?? undefined,
-          restSeconds: te.rest_seconds ?? undefined,
-          notes: te.notes ?? undefined,
-        })),
-      });
-      created++;
+    if (existingKeys.has(dedupeKey)) {
+      skipped++;
+      // ⚠️ avanziamo comunque l'indice per mantenere la rotazione coerente,
+      // come se la scheda fosse stata "consumata" (lo era già)
+      index = (index + 1) % sortedSchedules.length;
+      continue;
     }
+
+    // Carica esercizi del template
+    const { data: tex } = await supabase
+      .from('template_exercises')
+      .select('*')
+      .eq('template_id', sch.template_id)
+      .order('order_index');
+
+    const scheduledISO = new Date(date);
+    scheduledISO.setHours(0, 0, 0, 0);
+
+    await createWorkout({
+      atletaUserId,
+      ptUserId,
+      title: sch.workout_templates?.title ?? 'Allenamento',
+      templateId: sch.template_id,
+      scheduledDate: scheduledISO.toISOString(),
+      exercises: (tex || []).map((te) => ({
+        exerciseId: te.exercise_id,
+        orderIndex: te.order_index,
+        prescribedSets: te.sets,
+        prescribedRepsMin: te.reps_min ?? undefined,
+        prescribedRepsMax: te.reps_max ?? undefined,
+        restSeconds: te.rest_seconds ?? undefined,
+        notes: te.notes ?? undefined,
+      })),
+    });
+    created++;
+    index = (index + 1) % sortedSchedules.length;
   }
 
-  return { created, skipped };
+  return { created, skipped, newIndex: index };
 }
 
 export async function assignProgramToAthlete(params: {
@@ -292,21 +389,25 @@ export async function assignProgramToAthlete(params: {
   atletaUserId: string;
   programId: string;
   startDate: Date;
+  activeDays?: number[]; // override; default = program.active_days
 }) {
   const { ptUserId, atletaUserId, programId, startDate } = params;
 
   const program = await getProgram(programId);
   if (!program) throw new Error('Programma non trovato');
-  const schedules = (program.program_schedules || []) as any[];
+  const schedules = ((program as any).program_schedules || []) as any[];
   if (schedules.length === 0) {
     throw new Error('Il programma non contiene schede');
   }
 
-  // Calcola data fine
+  const activeDays =
+    params.activeDays && params.activeDays.length > 0
+      ? params.activeDays
+      : ((program as any).active_days as number[]) ?? [1, 3, 5];
+
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + program.duration_weeks * 7 - 1);
 
-  // Crea assegnazione
   const { data: assignment, error } = await supabase
     .from('program_assignments')
     .insert({
@@ -316,29 +417,35 @@ export async function assignProgramToAthlete(params: {
       start_date: startDate.toISOString().slice(0, 10),
       end_date: endDate.toISOString().slice(0, 10),
       weeks_generated: 0,
+      current_index: 0,
+      active_days: activeDays,
       status: 'active',
     })
     .select()
     .single();
   if (error) throw error;
 
-  // Genera prima settimana subito
+  // Genera prima settimana subito (rotazione parte da 0)
   const weeksToGenerate = Math.min(1, program.duration_weeks);
-  const result = await generateWorkoutsForWeeks({
+  const result = await generateRotationWorkouts({
     ptUserId,
     atletaUserId,
     programId,
     startDate,
+    activeDays,
     fromWeek: 0,
     toWeek: weeksToGenerate,
+    startIndex: 0,
   });
 
   await supabase
     .from('program_assignments')
-    .update({ weeks_generated: weeksToGenerate })
+    .update({
+      weeks_generated: weeksToGenerate,
+      current_index: result.newIndex,
+    })
     .eq('id', assignment.id);
 
-  // Notifica atleta
   await supabase.from('notifications').insert({
     user_id: atletaUserId,
     type: 'program_assigned',
@@ -353,12 +460,13 @@ export async function assignProgramToAthlete(params: {
 
 /**
  * Genera la prossima settimana per un'assegnazione attiva.
- * Idempotente: se la settimana esiste già viene saltata.
+ * Idempotente: salta i workout già esistenti.
+ * Continua la rotazione dall'indice salvato (NIENTE reset).
  */
 export async function rollProgramAssignment(assignmentId: string) {
   const { data: assignment, error } = await supabase
     .from('program_assignments')
-    .select('*, workout_programs:program_id (id, duration_weeks)')
+    .select('*, workout_programs:program_id (id, duration_weeks, active_days)')
     .eq('id', assignmentId)
     .single();
   if (error) throw error;
@@ -372,21 +480,29 @@ export async function rollProgramAssignment(assignmentId: string) {
   }
 
   const nextWeek = assignment.weeks_generated;
-  const result = await generateWorkoutsForWeeks({
+  const activeDays =
+    (assignment as any).active_days ?? program.active_days ?? [1, 3, 5];
+
+  const result = await generateRotationWorkouts({
     ptUserId: assignment.pt_user_id,
     atletaUserId: assignment.atleta_user_id,
     programId: assignment.program_id,
     startDate: new Date(assignment.start_date),
+    activeDays,
     fromWeek: nextWeek,
     toWeek: nextWeek + 1,
+    startIndex: (assignment as any).current_index ?? 0,
   });
 
   await supabase
     .from('program_assignments')
-    .update({ weeks_generated: nextWeek + 1 })
+    .update({
+      weeks_generated: nextWeek + 1,
+      current_index: result.newIndex,
+    })
     .eq('id', assignmentId);
 
-  return result;
+  return { created: result.created, skipped: result.skipped };
 }
 
 export async function listProgramAssignments(ptUserId: string) {
@@ -397,4 +513,21 @@ export async function listProgramAssignments(ptUserId: string) {
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
+}
+
+/**
+ * Costruisce una rappresentazione leggibile della rotazione: A → B → C → A...
+ */
+export function describeRotation(
+  schedules: { order_index: number; workout_templates?: { title?: string } | null }[],
+  cycles = 2,
+): string {
+  if (!schedules || schedules.length === 0) return '';
+  const sorted = [...schedules].sort((a, b) => a.order_index - b.order_index);
+  const labels = sorted.map(
+    (s, i) => s.workout_templates?.title ?? `Scheda ${i + 1}`,
+  );
+  const seq: string[] = [];
+  for (let c = 0; c < cycles; c++) seq.push(...labels);
+  return seq.join(' → ') + ' → …';
 }

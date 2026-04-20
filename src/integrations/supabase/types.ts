@@ -1242,8 +1242,10 @@ export type Database = {
       }
       program_assignments: {
         Row: {
+          active_days: number[]
           atleta_user_id: string
           created_at: string
+          current_index: number
           end_date: string | null
           id: string
           notes: string | null
@@ -1255,8 +1257,10 @@ export type Database = {
           weeks_generated: number
         }
         Insert: {
+          active_days?: number[]
           atleta_user_id: string
           created_at?: string
+          current_index?: number
           end_date?: string | null
           id?: string
           notes?: string | null
@@ -1268,8 +1272,10 @@ export type Database = {
           weeks_generated?: number
         }
         Update: {
+          active_days?: number[]
           atleta_user_id?: string
           created_at?: string
+          current_index?: number
           end_date?: string | null
           id?: string
           notes?: string | null
@@ -2388,6 +2394,7 @@ export type Database = {
       }
       workout_programs: {
         Row: {
+          active_days: number[]
           created_at: string
           description: string | null
           duration_weeks: number
@@ -2400,6 +2407,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_days?: number[]
           created_at?: string
           description?: string | null
           duration_weeks?: number
@@ -2412,6 +2420,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_days?: number[]
           created_at?: string
           description?: string | null
           duration_weeks?: number
