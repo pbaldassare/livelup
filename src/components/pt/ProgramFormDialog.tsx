@@ -284,10 +284,31 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       const dayByDaySchedules: ProgramScheduleInput[] = [...dayByDayEntries]
         .sort((a, b) => a.day_offset - b.day_offset)
         .map((e, i) => ({
+          id: e.id,
           template_id: e.template_id,
           day_offset: e.day_offset,
           order_index: i,
         }));
+
+      // Conferma extra: cambi sostanziali su programma con assegnazioni attive
+      if (isEdit && activeAssignmentsCount > 0) {
+        const modeChanged = initialMode && initialMode !== mode;
+        const durationChanged =
+          initialDuration !== null && initialDuration !== durationWeeks;
+        const currentCount =
+          mode === 'recurring' ? schedules.length : dayByDayEntries.length;
+        const countChanged =
+          initialSchedulesCount !== null && initialSchedulesCount !== currentCount;
+
+        if (modeChanged || durationChanged || countChanged) {
+          const ok = window.confirm(
+            `Stai per modificare un programma assegnato a ${activeAssignmentsCount} atleta/i.\n\n` +
+              `Le modifiche si applicheranno SOLO agli allenamenti futuri. Lo storico resta invariato.\n\n` +
+              `Vuoi procedere?`,
+          );
+          if (!ok) throw new Error('__cancelled__');
+        }
+      }
 
       if (isEdit && programId) {
         await updateProgram(programId, {
