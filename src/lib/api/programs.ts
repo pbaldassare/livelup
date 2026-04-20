@@ -658,7 +658,7 @@ async function assignDayByDayProgram(params: {
 export async function rollProgramAssignment(assignmentId: string) {
   const { data: assignment, error } = await supabase
     .from('program_assignments')
-    .select('*, workout_programs:program_id (id, duration_weeks, active_days)')
+    .select('*, workout_programs:program_id (id, duration_weeks, active_days, mode)')
     .eq('id', assignmentId)
     .single();
   if (error) throw error;
@@ -667,6 +667,9 @@ export async function rollProgramAssignment(assignmentId: string) {
   const program = (assignment as any).workout_programs;
   if (!program) return { created: 0, skipped: 0 };
   if (assignment.status !== 'active') return { created: 0, skipped: 0 };
+  // I programmi day_by_day generano TUTTI i workouts in fase di assegnazione.
+  // Niente rolling per loro.
+  if (program.mode === 'day_by_day') return { created: 0, skipped: 0 };
   if (assignment.weeks_generated >= program.duration_weeks) {
     return { created: 0, skipped: 0 };
   }
