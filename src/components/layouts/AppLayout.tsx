@@ -12,7 +12,8 @@ import {
   User,
   Search,
   Users,
-  FileText
+  FileText,
+  CalendarDays
 } from 'lucide-react';
 
 // =====================================================
@@ -57,7 +58,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       ]
     : [
         { label: 'Home', href: '/app', icon: Home, exact: true },
-        { label: 'Scheda', href: '/app/scheda', icon: FileText },
+        { label: 'Programma', href: '/app/programma', icon: CalendarDays },
         { label: 'Esercizi', href: '/app/esercizi', icon: Dumbbell },
         { label: 'Scopri', href: '/app/discover', icon: Search },
         { label: 'Profilo', href: '/app/profile', icon: User },

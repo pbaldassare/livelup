@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { LucideIcon, Dumbbell, MessageSquare, Users, User, Zap, Home, Search, Calendar, TrendingUp, CalendarDays, FileText } from 'lucide-react';
 
+
 // =====================================================
 // MOBILE BOTTOM NAVIGATION - Navigazione app mobile
 // Design: dark theme, accent lime, icons with labels
@@ -21,7 +22,7 @@ interface MobileNavProps {
 
 const atletaNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/app', tourId: 'nav-home' },
-  { icon: FileText, label: 'Scheda', path: '/app/scheda', tourId: 'nav-scheda' },
+  { icon: CalendarDays, label: 'Programma', path: '/app/programma', tourId: 'nav-programma' },
   { icon: Dumbbell, label: 'Esercizi', path: '/app/esercizi', tourId: 'nav-esercizi' },
   { icon: Search, label: 'Scopri', path: '/app/discover', tourId: 'nav-discover' },
   { icon: User, label: 'Profilo', path: '/app/profile', tourId: 'nav-profile' },

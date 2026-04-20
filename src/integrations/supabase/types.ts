@@ -2698,6 +2698,7 @@ export type Database = {
         | "scaduto"
         | "in_corso"
         | "in_sospeso"
+        | "saltato"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2870,6 +2871,7 @@ export const Constants = {
         "scaduto",
         "in_corso",
         "in_sospeso",
+        "saltato",
       ],
     },
   },

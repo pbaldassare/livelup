@@ -1,14 +1,27 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { format, parseISO } from 'date-fns';
+import { it } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ListSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 import {
   Dumbbell,
   Lock,
@@ -19,12 +32,15 @@ import {
   Repeat,
   CheckCircle2,
   Circle,
+  SkipForward,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // =====================================================
-// ATLETA ESERCIZI PAGE
-// Vista operativa: esercizi del giorno con tracking serie
+// ATLETA ESERCIZI PAGE — vista operativa "del giorno"
+// Priorità: in_corso > in_sospeso > attivo oggi > prossimo attivo
+// Azioni: Completa / Salta
 // =====================================================
 
 interface DayExercise {
@@ -35,95 +51,117 @@ interface DayExercise {
   prescribed_reps_max: number | null;
   rest_seconds: number | null;
   notes: string | null;
-  exercises: {
-    name: string;
-    category: string | null;
-  } | null;
+  exercises: { name: string; category: string | null } | null;
 }
+
+type WorkoutContext = 'in_corso' | 'in_sospeso' | 'oggi' | 'prossimo';
 
 interface DayWorkout {
   id: string;
   title: string;
+  status: string;
+  scheduled_date: string | null;
+  context: WorkoutContext;
   workout_exercises: DayExercise[];
 }
 
 const STORAGE_KEY_PREFIX = 'atleta-esercizi-tracking-';
 
+const SELECT_CLAUSE = `
+  id,
+  title,
+  status,
+  scheduled_date,
+  workout_exercises (
+    id,
+    order_index,
+    prescribed_sets,
+    prescribed_reps_min,
+    prescribed_reps_max,
+    rest_seconds,
+    notes,
+    exercises:exercise_id ( name, category )
+  )
+`;
+
+async function fetchPriorityWorkout(userId: string): Promise<DayWorkout | null> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // 1. in_corso — qualsiasi data, il più recente
+  const { data: inCorso } = await supabase
+    .from('workouts')
+    .select(SELECT_CLAUSE)
+    .eq('atleta_user_id', userId)
+    .eq('status', 'in_corso')
+    .order('scheduled_date', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  if (inCorso) return wrap(inCorso, 'in_corso');
+
+  // 2. in_sospeso
+  const { data: inSospeso } = await supabase
+    .from('workouts')
+    .select(SELECT_CLAUSE)
+    .eq('atleta_user_id', userId)
+    .eq('status', 'in_sospeso')
+    .order('scheduled_date', { ascending: true, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  if (inSospeso) return wrap(inSospeso, 'in_sospeso');
+
+  // 3. attivo OGGI
+  const { data: oggi } = await supabase
+    .from('workouts')
+    .select(SELECT_CLAUSE)
+    .eq('atleta_user_id', userId)
+    .eq('status', 'attivo')
+    .gte('scheduled_date', today.toISOString().slice(0, 10))
+    .lt('scheduled_date', tomorrow.toISOString().slice(0, 10))
+    .order('scheduled_date', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (oggi) return wrap(oggi, 'oggi');
+
+  // 4. attivo prossimo (futuro)
+  const { data: prossimo } = await supabase
+    .from('workouts')
+    .select(SELECT_CLAUSE)
+    .eq('atleta_user_id', userId)
+    .eq('status', 'attivo')
+    .gte('scheduled_date', today.toISOString().slice(0, 10))
+    .order('scheduled_date', { ascending: true, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  if (prossimo) return wrap(prossimo, 'prossimo');
+
+  return null;
+}
+
+function wrap(raw: any, context: WorkoutContext): DayWorkout {
+  return {
+    ...raw,
+    context,
+    workout_exercises: (raw.workout_exercises || []).sort(
+      (a: DayExercise, b: DayExercise) => a.order_index - b.order_index,
+    ),
+  } as DayWorkout;
+}
+
 export function AtletaEserciziPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { canAccessWorkouts, isLoading: statusLoading } = useAtletaStatus();
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState<'complete' | 'skip' | null>(
+    null,
+  );
 
   const { data: workout, isLoading } = useQuery({
-    queryKey: ['atleta-esercizi-oggi', user?.id],
-    queryFn: async (): Promise<DayWorkout | null> => {
-      if (!user?.id) return null;
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      // Priorità: workout attivo programmato per oggi → altrimenti il prossimo attivo
-      const { data: todayData, error: errToday } = await supabase
-        .from('workouts')
-        .select(`
-          id,
-          title,
-          workout_exercises (
-            id,
-            order_index,
-            prescribed_sets,
-            prescribed_reps_min,
-            prescribed_reps_max,
-            rest_seconds,
-            notes,
-            exercises:exercise_id ( name, category )
-          )
-        `)
-        .eq('atleta_user_id', user.id)
-        .eq('status', 'attivo')
-        .gte('scheduled_date', today.toISOString().slice(0, 10))
-        .lt('scheduled_date', tomorrow.toISOString().slice(0, 10))
-        .order('scheduled_date', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (errToday) throw errToday;
-
-      let chosen = todayData;
-      if (!chosen) {
-        const { data: nextData } = await supabase
-          .from('workouts')
-          .select(`
-            id,
-            title,
-            workout_exercises (
-              id,
-              order_index,
-              prescribed_sets,
-              prescribed_reps_min,
-              prescribed_reps_max,
-              rest_seconds,
-              notes,
-              exercises:exercise_id ( name, category )
-            )
-          `)
-          .eq('atleta_user_id', user.id)
-          .eq('status', 'attivo')
-          .order('scheduled_date', { ascending: true, nullsFirst: false })
-          .limit(1)
-          .maybeSingle();
-        chosen = nextData;
-      }
-
-      if (!chosen) return null;
-      return {
-        ...chosen,
-        workout_exercises: (chosen.workout_exercises || []).sort(
-          (a, b) => a.order_index - b.order_index,
-        ),
-      } as DayWorkout;
-    },
+    queryKey: ['atleta-esercizi-priority', user?.id],
+    queryFn: () => (user?.id ? fetchPriorityWorkout(user.id) : Promise.resolve(null)),
     enabled: !!user?.id && canAccessWorkouts,
   });
 
@@ -181,6 +219,70 @@ export function AtletaEserciziPage() {
 
   const resetTracking = () => setCompletedSets({});
 
+  const completeWorkout = async () => {
+    if (!workout) return;
+    setActionLoading('complete');
+    try {
+      const { error } = await supabase
+        .from('workouts')
+        .update({
+          status: 'completato',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', workout.id);
+      if (error) throw error;
+      try {
+        if (storageKey) localStorage.removeItem(storageKey);
+      } catch {
+        /* ignore */
+      }
+      toast({ title: 'Allenamento completato 💪', description: 'Bravo!' });
+      await queryClient.invalidateQueries({
+        queryKey: ['atleta-esercizi-priority'],
+      });
+      await queryClient.invalidateQueries({ queryKey: ['atleta-programma-attivo'] });
+    } catch (e: any) {
+      toast({
+        title: 'Errore',
+        description: e?.message ?? 'Impossibile completare',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const skipWorkout = async () => {
+    if (!workout) return;
+    setActionLoading('skip');
+    try {
+      const { error } = await supabase
+        .from('workouts')
+        .update({ status: 'saltato' as any })
+        .eq('id', workout.id);
+      if (error) throw error;
+      try {
+        if (storageKey) localStorage.removeItem(storageKey);
+      } catch {
+        /* ignore */
+      }
+      toast({ title: 'Allenamento saltato', description: 'Passiamo al prossimo.' });
+      await queryClient.invalidateQueries({
+        queryKey: ['atleta-esercizi-priority'],
+      });
+      await queryClient.invalidateQueries({ queryKey: ['atleta-programma-attivo'] });
+      setSkipDialogOpen(false);
+    } catch (e: any) {
+      toast({
+        title: 'Errore',
+        description: e?.message ?? 'Impossibile saltare',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   // Locked
   if (!statusLoading && !canAccessWorkouts) {
     return (
@@ -207,6 +309,8 @@ export function AtletaEserciziPage() {
     );
   }
 
+  const ctxBadge = workout ? contextBadge(workout) : null;
+
   return (
     <div className="pb-4 bg-app-background min-h-screen">
       {/* Header */}
@@ -228,16 +332,41 @@ export function AtletaEserciziPage() {
             <CardContent className="p-8 text-center">
               <Dumbbell className="h-10 w-10 mx-auto text-app-muted-foreground mb-3" />
               <h3 className="font-semibold text-app-foreground mb-1">
-                Nessun esercizio per oggi
+                Nessun allenamento disponibile
               </h3>
-              <p className="text-sm text-app-muted-foreground">
-                Non hai allenamenti programmati al momento.
+              <p className="text-sm text-app-muted-foreground mb-4">
+                Hai completato tutti gli allenamenti programmati. Controlla il
+                tuo programma per vedere lo storico o scopri nuovi contenuti.
               </p>
+              <div className="flex gap-2 justify-center">
+                <Button variant="outline" className="border-app-border" asChild>
+                  <Link to="/app/programma">Vai al programma</Link>
+                </Button>
+                <Button
+                  className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+                  asChild
+                >
+                  <Link to="/app/discover">Scopri</Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
       ) : (
         <div className="px-4 space-y-4">
+          {/* Context badge */}
+          {ctxBadge && (
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-[11px] font-semibold gap-1.5 px-2.5 py-1',
+                ctxBadge.cls,
+              )}
+            >
+              {ctxBadge.label}
+            </Badge>
+          )}
+
           {/* Progress summary */}
           <Card className="bg-app-card border-app-border">
             <CardContent className="p-4 space-y-3">
@@ -294,9 +423,7 @@ export function AtletaEserciziPage() {
                       <div
                         className={cn(
                           'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
-                          isComplete
-                            ? 'bg-success/20'
-                            : 'bg-app-accent/20',
+                          isComplete ? 'bg-success/20' : 'bg-app-accent/20',
                         )}
                       >
                         {isComplete ? (
@@ -332,7 +459,6 @@ export function AtletaEserciziPage() {
 
                     {/* Set tracker */}
                     <div className="pl-11 space-y-2">
-                      {/* Set dots */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {Array.from({ length: total }).map((_, i) => (
                           <div
@@ -353,7 +479,6 @@ export function AtletaEserciziPage() {
                         ))}
                       </div>
 
-                      {/* Counter controls */}
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs text-app-muted-foreground">
                           Serie completate{' '}
@@ -400,10 +525,90 @@ export function AtletaEserciziPage() {
               Apri esecuzione guidata
             </Link>
           </Button>
+
+          {/* Azioni Completa / Salta */}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              className="border-app-border bg-app-muted/30 text-app-foreground hover:bg-app-muted"
+              onClick={() => setSkipDialogOpen(true)}
+              disabled={actionLoading !== null}
+            >
+              {actionLoading === 'skip' ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <SkipForward className="h-4 w-4 mr-2" />
+              )}
+              Salta
+            </Button>
+            <Button
+              className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+              onClick={completeWorkout}
+              disabled={actionLoading !== null}
+            >
+              {actionLoading === 'complete' ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              Completa
+            </Button>
+          </div>
         </div>
       )}
+
+      <AlertDialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Saltare l'allenamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Verrà marcato come saltato e non sarà più recuperato. Il tuo
+              programma continuerà normalmente con il prossimo allenamento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                skipWorkout();
+              }}
+              disabled={actionLoading !== null}
+            >
+              Salta allenamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+function contextBadge(w: DayWorkout): { label: string; cls: string } {
+  switch (w.context) {
+    case 'in_corso':
+      return {
+        label: 'IN CORSO',
+        cls: 'bg-app-accent/20 text-app-accent border-app-accent/40',
+      };
+    case 'in_sospeso':
+      return {
+        label: 'DA RECUPERARE',
+        cls: 'bg-warning/20 text-warning border-warning/40',
+      };
+    case 'oggi':
+      return {
+        label: 'OGGI',
+        cls: 'bg-app-accent/20 text-app-accent border-app-accent/40',
+      };
+    case 'prossimo':
+      return {
+        label: w.scheduled_date
+          ? `PROSSIMO · ${format(parseISO(w.scheduled_date), 'EEE d MMM', { locale: it })}`
+          : 'PROSSIMO',
+        cls: 'bg-app-muted/40 text-app-foreground border-app-border',
+      };
+  }
 }
 
 function formatReps(min: number | null, max: number | null): string {
