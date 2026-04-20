@@ -408,12 +408,16 @@ async function generateRotationWorkouts(params: {
   return { created, skipped, newIndex: index };
 }
 
+/**
+ * Wrapper principale: in base al `mode` del programma, instrada
+ * verso la logica ricorrente (rotazione) o quella day_by_day (date specifiche).
+ */
 export async function assignProgramToAthlete(params: {
   ptUserId: string;
   atletaUserId: string;
   programId: string;
   startDate: Date;
-  activeDays?: number[]; // override; default = program.active_days
+  activeDays?: number[]; // override; default = program.active_days (solo recurring)
 }) {
   const { ptUserId, atletaUserId, programId, startDate } = params;
 
@@ -423,6 +427,41 @@ export async function assignProgramToAthlete(params: {
   if (schedules.length === 0) {
     throw new Error('Il programma non contiene schede');
   }
+
+  const mode: ProgramMode = ((program as any).mode as ProgramMode) ?? 'recurring';
+
+  if (mode === 'day_by_day') {
+    return assignDayByDayProgram({
+      ptUserId,
+      atletaUserId,
+      programId,
+      startDate,
+    });
+  }
+
+  return assignRecurringProgram({
+    ptUserId,
+    atletaUserId,
+    programId,
+    startDate,
+    activeDays: params.activeDays,
+  });
+}
+
+/**
+ * Assegnazione MODALITÀ RICORRENTE (rotazione ciclica).
+ */
+async function assignRecurringProgram(params: {
+  ptUserId: string;
+  atletaUserId: string;
+  programId: string;
+  startDate: Date;
+  activeDays?: number[];
+}) {
+  const { ptUserId, atletaUserId, programId, startDate } = params;
+
+  const program = await getProgram(programId);
+  if (!program) throw new Error('Programma non trovato');
 
   const activeDays =
     params.activeDays && params.activeDays.length > 0
@@ -480,6 +519,135 @@ export async function assignProgramToAthlete(params: {
   });
 
   return { assignment, ...result };
+}
+
+/**
+ * Assegnazione MODALITÀ DAY BY DAY.
+ * Genera workouts puntuali su date assolute = startDate + day_offset.
+ * NESSUNA rotazione, NESSUN rolling, NESSUN current_index.
+ */
+async function assignDayByDayProgram(params: {
+  ptUserId: string;
+  atletaUserId: string;
+  programId: string;
+  startDate: Date;
+}) {
+  const { ptUserId, atletaUserId, programId, startDate } = params;
+
+  const program = await getProgram(programId);
+  if (!program) throw new Error('Programma non trovato');
+  const schedules = (((program as any).program_schedules || []) as any[]).filter(
+    (s) => s.day_offset !== null && s.day_offset !== undefined,
+  );
+  if (schedules.length === 0) {
+    throw new Error('Il programma Day by Day non contiene giorni programmati');
+  }
+
+  // Ordina per offset crescente
+  schedules.sort((a, b) => (a.day_offset ?? 0) - (b.day_offset ?? 0));
+
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+
+  // End date = startDate + max(day_offset)
+  const maxOffset = Math.max(...schedules.map((s) => s.day_offset ?? 0));
+  const endDate = new Date(start);
+  endDate.setDate(endDate.getDate() + maxOffset);
+
+  // Crea assignment (current_index resta 0, non significativo)
+  const { data: assignment, error } = await supabase
+    .from('program_assignments')
+    .insert({
+      program_id: programId,
+      pt_user_id: ptUserId,
+      atleta_user_id: atletaUserId,
+      start_date: start.toISOString().slice(0, 10),
+      end_date: endDate.toISOString().slice(0, 10),
+      weeks_generated: Math.ceil((maxOffset + 1) / 7),
+      current_index: 0,
+      active_days: [],
+      status: 'active',
+    })
+    .select()
+    .single();
+  if (error) throw error;
+
+  // Pre-fetch workouts esistenti nelle date target per skip duplicati
+  const targetDates = schedules.map((s) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + (s.day_offset ?? 0));
+    return d;
+  });
+  const minDate = targetDates[0];
+  const maxDate = new Date(targetDates[targetDates.length - 1]);
+  maxDate.setDate(maxDate.getDate() + 1);
+
+  const { data: existing } = await supabase
+    .from('workouts')
+    .select('scheduled_date, template_id')
+    .eq('atleta_user_id', atletaUserId)
+    .eq('pt_user_id', ptUserId)
+    .gte('scheduled_date', minDate.toISOString())
+    .lt('scheduled_date', maxDate.toISOString());
+
+  const existingKeys = new Set(
+    (existing || []).map(
+      (w: any) =>
+        `${w.template_id ?? ''}__${
+          w.scheduled_date ? w.scheduled_date.slice(0, 10) : ''
+        }`,
+    ),
+  );
+
+  let created = 0;
+  let skipped = 0;
+
+  for (let i = 0; i < schedules.length; i++) {
+    const sch = schedules[i];
+    const targetDate = targetDates[i];
+    const dateKey = targetDate.toISOString().slice(0, 10);
+    const dedupeKey = `${sch.template_id}__${dateKey}`;
+
+    if (existingKeys.has(dedupeKey)) {
+      skipped++;
+      continue;
+    }
+
+    const { data: tex } = await supabase
+      .from('template_exercises')
+      .select('*')
+      .eq('template_id', sch.template_id)
+      .order('order_index');
+
+    await createWorkout({
+      atletaUserId,
+      ptUserId,
+      title: sch.workout_templates?.title ?? 'Allenamento',
+      templateId: sch.template_id,
+      scheduledDate: targetDate.toISOString(),
+      exercises: (tex || []).map((te) => ({
+        exerciseId: te.exercise_id,
+        orderIndex: te.order_index,
+        prescribedSets: te.sets,
+        prescribedRepsMin: te.reps_min ?? undefined,
+        prescribedRepsMax: te.reps_max ?? undefined,
+        restSeconds: te.rest_seconds ?? undefined,
+        notes: te.notes ?? undefined,
+      })),
+    });
+    created++;
+  }
+
+  await supabase.from('notifications').insert({
+    user_id: atletaUserId,
+    type: 'program_assigned',
+    title: 'Nuovo programma di allenamento!',
+    body: `Il tuo Coach ti ha assegnato il programma "${program.name}"`,
+    action_url: '/app/scheda',
+    data: { pt_user_id: ptUserId, program_id: programId },
+  });
+
+  return { assignment, created, skipped, newIndex: 0 };
 }
 
 /**
