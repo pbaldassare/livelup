@@ -44,9 +44,11 @@ import {
   replaceProgramSchedules,
   getProgram,
   describeRotation,
+  countActiveAssignments,
   type ProgramScheduleInput,
   type ProgramMode,
 } from '@/lib/api/programs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 const WEEKDAYS = [
