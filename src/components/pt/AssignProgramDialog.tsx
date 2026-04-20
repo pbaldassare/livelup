@@ -301,7 +301,12 @@ export function AssignProgramDialog({
           </Button>
           <Button
             onClick={() => assignMutation.mutate()}
-            disabled={assignMutation.isPending || !athleteId || !startDate}
+            disabled={
+              assignMutation.isPending ||
+              !athleteId ||
+              !startDate ||
+              activeDays.length === 0
+            }
           >
             {assignMutation.isPending ? 'Assegnazione...' : 'Assegna programma'}
           </Button>
