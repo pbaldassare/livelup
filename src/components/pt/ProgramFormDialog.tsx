@@ -68,6 +68,7 @@ interface ProgramFormDialogProps {
 }
 
 type DayByDayEntry = {
+  id?: string; // schedule id originale (per smart diff in edit)
   template_id: string;
   day_offset: number; // giorni dall'inizio (0 = giorno 1)
 };
