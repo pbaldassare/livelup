@@ -124,11 +124,14 @@ export function AssignProgramDialog({
       if (!programId) throw new Error('Programma non valido');
       if (!athleteId) throw new Error('Seleziona un atleta');
       if (!startDate) throw new Error('Seleziona la data di inizio');
+      if (activeDays.length === 0)
+        throw new Error('Seleziona almeno un giorno di allenamento');
       return assignProgramToAthlete({
         ptUserId: user.id,
         atletaUserId: athleteId,
         programId,
         startDate,
+        activeDays,
       });
     },
     onSuccess: ({ created, skipped }) => {
