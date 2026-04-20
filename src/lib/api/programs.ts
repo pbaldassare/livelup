@@ -38,6 +38,7 @@ export type ProgramSchedule = {
 };
 
 export type ProgramScheduleInput = {
+  id?: string; // se presente → UPDATE esistente, altrimenti INSERT nuovo
   template_id: string;
   day_of_week?: number;
   week_offset?: number;
