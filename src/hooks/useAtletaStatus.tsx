@@ -14,6 +14,7 @@ interface AtletaConnection {
   pt_user_id: string;
   status: string;
   accepted_at: string | null;
+  requested_by: string | null;
   pt_profiles: {
     bio: string | null;
     specializations: string[] | null;
@@ -44,7 +45,10 @@ interface UseAtletaStatusReturn {
   isLoading: boolean;
   isConnected: boolean;
   hasPendingRequest: boolean;
+  /** True quando il PT ha invitato l'atleta (l'atleta deve accettare/rifiutare) */
+  pendingInvitationFromPT: boolean;
   ptName: string | null;
+  ptAvatarUrl: string | null;
   canAccessWorkouts: boolean;
   canAccessChat: boolean;
   canAccessProgress: boolean;
@@ -61,14 +65,19 @@ export function useAtletaStatus(): UseAtletaStatusReturn {
     queryFn: async () => {
       if (!user?.id) return null;
 
-      const { data, error } = await supabase
+      // Priorità: active > pending. Recuperiamo tutte le righe non terminate
+      // e scegliamo manualmente per evitare ambiguità.
+      const { data: rows, error } = await supabase
         .from('pt_atleta_connections')
-        .select('id, pt_user_id, status, accepted_at')
+        .select('id, pt_user_id, status, accepted_at, requested_by')
         .eq('atleta_user_id', user.id)
         .in('status', ['active', 'pending'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
+
+      const data =
+        rows?.find((r) => r.status === 'active') ||
+        rows?.find((r) => r.status === 'pending') ||
+        null;
 
       if (error) throw error;
       
@@ -130,6 +139,13 @@ export function useAtletaStatus(): UseAtletaStatusReturn {
   const ptName = connection?.profiles
     ? `${connection.profiles.first_name || ''} ${connection.profiles.last_name || ''}`.trim() || null
     : null;
+  const ptAvatarUrl = connection?.profiles?.avatar_url || null;
+
+  // True quando la richiesta pending è stata inviata dal PT (non dall'atleta)
+  const pendingInvitationFromPT =
+    hasPendingRequest &&
+    !!connection?.requested_by &&
+    connection.requested_by === connection.pt_user_id;
 
   // Feature gating based on connection status
   const canAccessWorkouts = isConnected;
@@ -144,7 +160,9 @@ export function useAtletaStatus(): UseAtletaStatusReturn {
     isLoading,
     isConnected,
     hasPendingRequest,
+    pendingInvitationFromPT,
     ptName,
+    ptAvatarUrl,
     canAccessWorkouts,
     canAccessChat,
     canAccessProgress,
