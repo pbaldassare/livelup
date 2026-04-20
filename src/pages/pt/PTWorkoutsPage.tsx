@@ -30,8 +30,10 @@ import {
   Users,
   Eye,
   UserPlus,
-  BookOpen
+  BookOpen,
+  CalendarDays
 } from 'lucide-react';
+import { ProgramsTab } from '@/components/pt/ProgramsTab';
 import { toast } from 'sonner';
 
 // =====================================================
@@ -599,10 +601,14 @@ export function PTWorkoutsPage() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
+            <TabsList className="flex-wrap h-auto">
               <TabsTrigger value="templates" className="gap-2">
                 <FileText className="h-4 w-4" />
-                Template ({templates.length})
+                Schede ({templates.length})
+              </TabsTrigger>
+              <TabsTrigger value="programs" className="gap-2">
+                <CalendarDays className="h-4 w-4" />
+                Programmi
               </TabsTrigger>
               <TabsTrigger value="assigned" className="gap-2">
                 <Dumbbell className="h-4 w-4" />
@@ -618,9 +624,12 @@ export function PTWorkoutsPage() {
                 columns={templateColumns}
                 data={filteredTemplates}
                 isLoading={templatesLoading}
-                emptyMessage="Nessun template creato. Crea il tuo primo template!"
+                emptyMessage="Nessuna scheda creata. Crea la tua prima scheda!"
                 actions={templateActions}
               />
+            </TabsContent>
+            <TabsContent value="programs" className="mt-4">
+              <ProgramsTab layout="grid" />
             </TabsContent>
             <TabsContent value="assigned" className="mt-4">
               <DataTable
