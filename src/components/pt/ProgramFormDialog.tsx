@@ -23,14 +23,24 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { CalendarDays, Plus, Trash2, FileText, Dumbbell } from 'lucide-react';
+import { Toggle } from '@/components/ui/toggle';
+import {
+  CalendarDays,
+  Plus,
+  Trash2,
+  FileText,
+  Dumbbell,
+  ArrowUp,
+  ArrowDown,
+  Repeat,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import {
   createProgram,
   updateProgram,
   replaceProgramSchedules,
   getProgram,
+  describeRotation,
   type ProgramScheduleInput,
 } from '@/lib/api/programs';
 
@@ -58,11 +68,10 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [durationWeeks, setDurationWeeks] = useState(4);
-  const [frequencyPerWeek, setFrequencyPerWeek] = useState(3);
+  const [activeDays, setActiveDays] = useState<number[]>([1, 3, 5]);
   const [notes, setNotes] = useState('');
   const [schedules, setSchedules] = useState<ProgramScheduleInput[]>([]);
 
-  // Templates del PT
   const { data: templates = [] } = useQuery({
     queryKey: ['pt-templates-min', user?.id],
     queryFn: async () => {
@@ -78,7 +87,6 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
     enabled: !!user?.id && open,
   });
 
-  // Carica programma esistente
   const { data: existing } = useQuery({
     queryKey: ['program', programId],
     queryFn: () => getProgram(programId!),
@@ -90,10 +98,13 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       setName(existing.name);
       setDescription(existing.description ?? '');
       setDurationWeeks(existing.duration_weeks);
-      setFrequencyPerWeek(existing.frequency_per_week);
+      setActiveDays((existing as any).active_days ?? [1, 3, 5]);
       setNotes(existing.notes ?? '');
+      const sortedExisting = [...((existing as any).program_schedules || [])].sort(
+        (a: any, b: any) => a.order_index - b.order_index,
+      );
       setSchedules(
-        ((existing as any).program_schedules || []).map((s: any) => ({
+        sortedExisting.map((s: any) => ({
           template_id: s.template_id,
           day_of_week: s.day_of_week,
           week_offset: s.week_offset,
@@ -104,11 +115,17 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       setName('');
       setDescription('');
       setDurationWeeks(4);
-      setFrequencyPerWeek(3);
+      setActiveDays([1, 3, 5]);
       setNotes('');
       setSchedules([]);
     }
   }, [open, existing, programId]);
+
+  const toggleDay = (iso: number) => {
+    setActiveDays((prev) =>
+      prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso].sort(),
+    );
+  };
 
   const addSchedule = () => {
     if (templates.length === 0) {
@@ -130,6 +147,16 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
     setSchedules((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const moveSchedule = (idx: number, dir: -1 | 1) => {
+    setSchedules((prev) => {
+      const next = [...prev];
+      const j = idx + dir;
+      if (j < 0 || j >= next.length) return prev;
+      [next[idx], next[j]] = [next[j], next[idx]];
+      return next;
+    });
+  };
+
   const updateScheduleField = (
     idx: number,
     field: keyof ProgramScheduleInput,
@@ -140,10 +167,24 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
     );
   };
 
+  // Costruisci preview rotazione
+  const rotationPreview = (() => {
+    if (schedules.length === 0) return '';
+    const enriched = schedules.map((s, i) => ({
+      order_index: i,
+      workout_templates: {
+        title: templates.find((t) => t.id === s.template_id)?.title,
+      },
+    }));
+    return describeRotation(enriched as any, 2);
+  })();
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error('Non autenticato');
       if (!name.trim()) throw new Error('Inserisci un nome');
+      if (activeDays.length === 0)
+        throw new Error('Seleziona almeno un giorno di allenamento');
       if (schedules.length === 0)
         throw new Error('Aggiungi almeno una scheda al programma');
 
@@ -152,7 +193,8 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
           name: name.trim(),
           description: description.trim() || null,
           duration_weeks: durationWeeks,
-          frequency_per_week: frequencyPerWeek,
+          frequency_per_week: activeDays.length,
+          active_days: activeDays,
           notes: notes.trim() || null,
         });
         await replaceProgramSchedules(programId, schedules);
@@ -162,7 +204,8 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
           name: name.trim(),
           description: description.trim() || undefined,
           durationWeeks,
-          frequencyPerWeek,
+          frequencyPerWeek: activeDays.length,
+          activeDays,
           notes: notes.trim() || undefined,
           schedules,
         });
@@ -188,7 +231,7 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
             {isEdit ? 'Modifica Programma' : 'Nuovo Programma'}
           </DialogTitle>
           <DialogDescription>
-            Un programma è un insieme di schede distribuite nel tempo
+            Le schede ruotano in ordine ciclico (A → B → C → A …) sui giorni attivi
           </DialogDescription>
         </DialogHeader>
 
@@ -226,31 +269,50 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
                   min={1}
                   max={52}
                   value={durationWeeks}
-                  onChange={(e) => setDurationWeeks(Math.max(1, Number(e.target.value) || 1))}
+                  onChange={(e) =>
+                    setDurationWeeks(Math.max(1, Number(e.target.value) || 1))
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Frequenza /sett.</Label>
-                <Input
-                  className="h-11"
-                  type="number"
-                  min={1}
-                  max={7}
-                  value={frequencyPerWeek}
-                  onChange={(e) =>
-                    setFrequencyPerWeek(Math.max(1, Math.min(7, Number(e.target.value) || 1)))
-                  }
-                />
+                <div className="h-11 flex items-center px-3 rounded-md border bg-muted/40 text-sm">
+                  {activeDays.length}x ({activeDays.length === 0 ? 'nessun giorno' : 'da giorni attivi'})
+                </div>
               </div>
             </div>
           </section>
 
-          {/* Schede */}
+          {/* Giorni attivi */}
+          <section className="space-y-2">
+            <Label className="text-sm font-semibold">
+              Giorni di allenamento <span className="text-destructive">*</span>
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {WEEKDAYS.map((d) => (
+                <Toggle
+                  key={d.iso}
+                  pressed={activeDays.includes(d.iso)}
+                  onPressedChange={() => toggleDay(d.iso)}
+                  variant="outline"
+                  size="sm"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  {d.label}
+                </Toggle>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Le schede vengono distribuite SOLO nei giorni selezionati, in rotazione continua.
+            </p>
+          </section>
+
+          {/* Schede in rotazione */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                Schede del programma{' '}
+                Schede in rotazione{' '}
                 <span className="text-muted-foreground font-normal">
                   ({schedules.length})
                 </span>
@@ -275,12 +337,12 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
                     <div className="flex items-start gap-2">
                       <Badge
                         variant="secondary"
-                        className="h-7 w-7 rounded-full flex items-center justify-center p-0 flex-shrink-0 mt-0.5"
+                        className="h-7 w-7 rounded-full flex items-center justify-center p-0 flex-shrink-0 mt-0.5 font-bold"
                       >
-                        {idx + 1}
+                        {String.fromCharCode(65 + idx)}
                       </Badge>
 
-                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="flex-1">
                         <Select
                           value={sch.template_id}
                           onValueChange={(v) => updateScheduleField(idx, 'template_id', v)}
@@ -296,24 +358,29 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
 
-                        <Select
-                          value={String(sch.day_of_week)}
-                          onValueChange={(v) =>
-                            updateScheduleField(idx, 'day_of_week', Number(v))
-                          }
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          onClick={() => moveSchedule(idx, -1)}
+                          disabled={idx === 0}
                         >
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {WEEKDAYS.map((d) => (
-                              <SelectItem key={d.iso} value={String(d.iso)}>
-                                {d.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <ArrowUp className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          onClick={() => moveSchedule(idx, 1)}
+                          disabled={idx === schedules.length - 1}
+                        >
+                          <ArrowDown className="h-3 w-3" />
+                        </Button>
                       </div>
 
                       <Button
@@ -328,6 +395,16 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
                     </div>
                   </Card>
                 ))}
+              </div>
+            )}
+
+            {rotationPreview && (
+              <div className="rounded-lg bg-primary/10 border border-primary/30 p-3 text-sm">
+                <div className="flex items-center gap-2 text-primary font-medium mb-1">
+                  <Repeat className="h-4 w-4" />
+                  Sequenza ciclica
+                </div>
+                <p className="text-foreground/90 break-words">{rotationPreview}</p>
               </div>
             )}
           </section>
@@ -350,7 +427,12 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
           </Button>
           <Button
             onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || !name.trim() || schedules.length === 0}
+            disabled={
+              saveMutation.isPending ||
+              !name.trim() ||
+              schedules.length === 0 ||
+              activeDays.length === 0
+            }
           >
             {saveMutation.isPending
               ? 'Salvataggio...'
