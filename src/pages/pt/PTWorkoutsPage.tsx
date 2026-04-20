@@ -31,9 +31,21 @@ import {
   Eye,
   UserPlus,
   BookOpen,
-  CalendarDays
+  CalendarDays,
+  Pencil,
+  Video,
 } from 'lucide-react';
 import { ProgramsTab } from '@/components/pt/ProgramsTab';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 // =====================================================
