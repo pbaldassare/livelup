@@ -79,15 +79,27 @@ export async function createProgram(params: {
   description?: string;
   durationWeeks: number;
   frequencyPerWeek: number;
-  activeDays: number[]; // 1=Lun..7=Dom
+  activeDays: number[]; // 1=Lun..7=Dom (per recurring; per day_by_day può essere [])
   notes?: string;
   schedules: ProgramScheduleInput[]; // ordine = order_index = posizione in rotazione
+  mode?: ProgramMode; // default 'recurring'
 }) {
+  const mode: ProgramMode = params.mode ?? 'recurring';
+
   if (!params.schedules || params.schedules.length === 0) {
     throw new Error('Aggiungi almeno una scheda al programma');
   }
-  if (!params.activeDays || params.activeDays.length === 0) {
+  if (mode === 'recurring' && (!params.activeDays || params.activeDays.length === 0)) {
     throw new Error('Seleziona almeno un giorno di allenamento');
+  }
+  if (mode === 'day_by_day') {
+    // ogni schedule deve avere day_offset valido
+    const invalid = params.schedules.some(
+      (s) => s.day_offset === undefined || s.day_offset === null || s.day_offset < 0,
+    );
+    if (invalid) {
+      throw new Error('Ogni giorno del programma Day by Day deve avere un offset valido');
+    }
   }
 
   const { data: program, error } = await supabase
@@ -98,20 +110,21 @@ export async function createProgram(params: {
       description: params.description ?? null,
       duration_weeks: params.durationWeeks,
       frequency_per_week: params.frequencyPerWeek,
-      active_days: params.activeDays,
+      active_days: mode === 'recurring' ? params.activeDays : [],
+      mode,
       notes: params.notes ?? null,
     })
     .select()
     .single();
   if (error) throw error;
 
-  // order_index = posizione esatta nell'array → posizione in rotazione
   const scheduleRows = params.schedules.map((s, i) => ({
     program_id: program.id,
     template_id: s.template_id,
-    day_of_week: s.day_of_week ?? 1, // legacy fill
+    day_of_week: mode === 'day_by_day' ? null : (s.day_of_week ?? 1),
     week_offset: s.week_offset ?? 0,
     order_index: i,
+    day_offset: mode === 'day_by_day' ? (s.day_offset ?? i) : null,
   }));
 
   const { error: scheduleError } = await supabase
