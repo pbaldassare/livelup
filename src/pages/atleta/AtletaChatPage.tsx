@@ -86,8 +86,41 @@ export function AtletaChatPage() {
     enabled: !!user?.id,
   });
 
-  // Get current chat
-  const currentChat = chats?.find(c => c.recipientUserId === recipientId);
+  // Get current chat from existing list
+  const existingChat = chats?.find(c => c.recipientUserId === recipientId);
+
+  // If recipientId is provided but no chat exists yet → create it on the fly
+  const { data: createdChat, isLoading: creatingChat } = useQuery({
+    queryKey: ['atleta-create-chat', user?.id, recipientId],
+    queryFn: async () => {
+      if (!user?.id || !recipientId) return null;
+      // recipientId è il PT, user.id è l'atleta
+      const chat = await getOrCreateChat(recipientId, user.id);
+      return chat;
+    },
+    enabled: !!user?.id && !!recipientId && !chatsLoading && !existingChat,
+    retry: false,
+  });
+
+  // Refetch chat list once a new chat has been created so it appears in sidebar
+  useEffect(() => {
+    if (createdChat) {
+      queryClient.invalidateQueries({ queryKey: ['atleta-chats', user?.id] });
+    }
+  }, [createdChat, queryClient, user?.id]);
+
+  // Resolve current chat: existing one OR newly created
+  const currentChat = existingChat ?? (createdChat
+    ? {
+        id: createdChat.id,
+        recipientUserId: recipientId!,
+        name: 'Il tuo Coach',
+        avatarUrl: undefined as string | undefined,
+        lastMessage: undefined as string | undefined,
+        lastMessageAt: undefined as string | undefined,
+        unreadCount: 0,
+      }
+    : undefined);
 
   // Fetch messages for selected chat
   const { data: messages, isLoading: messagesLoading } = useQuery({
