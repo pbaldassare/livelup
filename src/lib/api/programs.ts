@@ -10,6 +10,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import { createWorkout } from './workouts';
 
+export type ProgramMode = 'recurring' | 'day_by_day';
+
 export type WorkoutProgram = {
   id: string;
   pt_user_id: string;
@@ -18,6 +20,7 @@ export type WorkoutProgram = {
   duration_weeks: number;
   frequency_per_week: number;
   active_days: number[];
+  mode: ProgramMode;
   notes: string | null;
   is_archived: boolean;
   created_at: string;
@@ -28,9 +31,10 @@ export type ProgramSchedule = {
   id: string;
   program_id: string;
   template_id: string;
-  day_of_week: number; // legacy: usato come "ordine alternativo", non più vincolante
+  day_of_week: number | null; // legacy
   week_offset: number; // 0 = sempre presente nella rotazione
   order_index: number; // ORDINE NELLA ROTAZIONE (A=0, B=1, C=2…)
+  day_offset: number | null; // SOLO day_by_day: offset in giorni dalla data inizio assegnazione
 };
 
 export type ProgramScheduleInput = {
@@ -38,6 +42,7 @@ export type ProgramScheduleInput = {
   day_of_week?: number;
   week_offset?: number;
   order_index?: number;
+  day_offset?: number; // per day_by_day
 };
 
 // ----------------------- Programmi -----------------------
