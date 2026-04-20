@@ -85,6 +85,8 @@ export function PTWorkoutsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isCreateExerciseOpen, setIsCreateExerciseOpen] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<any | null>(null);
+  const [deleteExerciseId, setDeleteExerciseId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [editExercisesDialogOpen, setEditExercisesDialogOpen] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
