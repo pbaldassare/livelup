@@ -11,7 +11,7 @@ const NotFound = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { role } = usePermissions();
+  const { currentRole: role } = usePermissions();
 
   useEffect(() => {
     const path = location.pathname + location.search;
