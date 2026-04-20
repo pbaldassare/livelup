@@ -114,6 +114,18 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
     enabled: !!programId && open,
   });
 
+  // Conta assegnazioni attive per warning UX (modifiche → solo futuro)
+  const { data: activeAssignmentsCount = 0 } = useQuery({
+    queryKey: ['program-active-assignments', programId],
+    queryFn: () => countActiveAssignments(programId!),
+    enabled: !!programId && open,
+  });
+
+  // Snapshot iniziale (per warning su cambi sostanziali)
+  const [initialMode, setInitialMode] = useState<ProgramMode | null>(null);
+  const [initialDuration, setInitialDuration] = useState<number | null>(null);
+  const [initialSchedulesCount, setInitialSchedulesCount] = useState<number | null>(null);
+
   useEffect(() => {
     if (open && existing) {
       const existingMode = ((existing as any).mode as ProgramMode) ?? 'recurring';
@@ -126,12 +138,16 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       const sortedExisting = [...((existing as any).program_schedules || [])].sort(
         (a: any, b: any) => a.order_index - b.order_index,
       );
+      setInitialMode(existingMode);
+      setInitialDuration(existing.duration_weeks);
+      setInitialSchedulesCount(((existing as any).program_schedules || []).length);
       if (existingMode === 'day_by_day') {
         const sortedByOffset = [...((existing as any).program_schedules || [])].sort(
           (a: any, b: any) => (a.day_offset ?? 0) - (b.day_offset ?? 0),
         );
         setDayByDayEntries(
           sortedByOffset.map((s: any) => ({
+            id: s.id,
             template_id: s.template_id,
             day_offset: s.day_offset ?? 0,
           })),
@@ -140,6 +156,7 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       } else {
         setSchedules(
           sortedExisting.map((s: any) => ({
+            id: s.id,
             template_id: s.template_id,
             day_of_week: s.day_of_week,
             week_offset: s.week_offset,
@@ -158,6 +175,9 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       setSchedules([]);
       setDayByDayEntries([]);
       setExtraStrategy('continuous');
+      setInitialMode(null);
+      setInitialDuration(null);
+      setInitialSchedulesCount(null);
     }
   }, [open, existing, programId]);
 
