@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
-import { TemplateExerciseBuilder } from '@/components/pt/TemplateExerciseBuilder';
+import { TemplateBlockBuilder } from '@/components/pt/TemplateBlockBuilder';
 import { PageLoader } from '@/components/common/PageLoader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -184,13 +184,13 @@ export function PTTemplateDetailPage() {
         {/* Exercise Builder */}
         <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Esercizi del Template</CardTitle>
+            <CardTitle>Blocchi e protocolli</CardTitle>
             <CardDescription>
-              Aggiungi e configura gli esercizi per questo template
+              Costruisci la scheda usando blocchi (protocolli). Ogni blocco contiene uno o più esercizi.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <TemplateExerciseBuilder templateId={template.id} />
+            <TemplateBlockBuilder templateId={template.id} />
           </CardContent>
         </Card>
       </div>

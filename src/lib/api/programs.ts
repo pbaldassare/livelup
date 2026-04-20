@@ -9,6 +9,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { createWorkout } from './workouts';
+import { loadTemplateForWorkoutCreate } from './templateLoader';
 
 export type ProgramMode = 'recurring' | 'day_by_day';
 
@@ -470,12 +471,8 @@ async function generateRotationWorkouts(params: {
       continue;
     }
 
-    // Carica esercizi del template
-    const { data: tex } = await supabase
-      .from('template_exercises')
-      .select('*')
-      .eq('template_id', sch.template_id)
-      .order('order_index');
+    // Carica blocchi + esercizi del template (preserva struttura protocolli)
+    const { blocks, exercises } = await loadTemplateForWorkoutCreate(sch.template_id);
 
     const scheduledISO = new Date(date);
     scheduledISO.setHours(0, 0, 0, 0);
@@ -486,15 +483,8 @@ async function generateRotationWorkouts(params: {
       title: sch.workout_templates?.title ?? 'Allenamento',
       templateId: sch.template_id,
       scheduledDate: scheduledISO.toISOString(),
-      exercises: (tex || []).map((te) => ({
-        exerciseId: te.exercise_id,
-        orderIndex: te.order_index,
-        prescribedSets: te.sets,
-        prescribedRepsMin: te.reps_min ?? undefined,
-        prescribedRepsMax: te.reps_max ?? undefined,
-        restSeconds: te.rest_seconds ?? undefined,
-        notes: te.notes ?? undefined,
-      })),
+      blocks,
+      exercises,
     });
     created++;
     index = (index + 1) % sortedSchedules.length;
@@ -706,11 +696,7 @@ async function assignDayByDayProgram(params: {
       continue;
     }
 
-    const { data: tex } = await supabase
-      .from('template_exercises')
-      .select('*')
-      .eq('template_id', sch.template_id)
-      .order('order_index');
+    const { blocks, exercises } = await loadTemplateForWorkoutCreate(sch.template_id);
 
     await createWorkout({
       atletaUserId,
@@ -718,15 +704,8 @@ async function assignDayByDayProgram(params: {
       title: sch.workout_templates?.title ?? 'Allenamento',
       templateId: sch.template_id,
       scheduledDate: targetDate.toISOString(),
-      exercises: (tex || []).map((te) => ({
-        exerciseId: te.exercise_id,
-        orderIndex: te.order_index,
-        prescribedSets: te.sets,
-        prescribedRepsMin: te.reps_min ?? undefined,
-        prescribedRepsMax: te.reps_max ?? undefined,
-        restSeconds: te.rest_seconds ?? undefined,
-        notes: te.notes ?? undefined,
-      })),
+      blocks,
+      exercises,
     });
     created++;
   }

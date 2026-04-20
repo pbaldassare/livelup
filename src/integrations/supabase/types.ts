@@ -2172,8 +2172,53 @@ export type Database = {
         }
         Relationships: []
       }
+      template_blocks: {
+        Row: {
+          created_at: string
+          id: string
+          info_note: string | null
+          name: string | null
+          order_index: number
+          params: Json
+          template_id: string
+          type: Database["public"]["Enums"]["protocol_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          info_note?: string | null
+          name?: string | null
+          order_index?: number
+          params?: Json
+          template_id: string
+          type?: Database["public"]["Enums"]["protocol_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          info_note?: string | null
+          name?: string | null
+          order_index?: number
+          params?: Json
+          template_id?: string
+          type?: Database["public"]["Enums"]["protocol_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_blocks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "workout_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       template_exercises: {
         Row: {
+          block_id: string | null
           created_at: string
           exercise_id: string
           id: string
@@ -2187,6 +2232,7 @@ export type Database = {
           tempo: string | null
         }
         Insert: {
+          block_id?: string | null
           created_at?: string
           exercise_id: string
           id?: string
@@ -2200,6 +2246,7 @@ export type Database = {
           tempo?: string | null
         }
         Update: {
+          block_id?: string | null
           created_at?: string
           exercise_id?: string
           id?: string
@@ -2213,6 +2260,13 @@ export type Database = {
           tempo?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "template_exercises_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "template_blocks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "template_exercises_exercise_id_fkey"
             columns: ["exercise_id"]
@@ -2291,8 +2345,53 @@ export type Database = {
         }
         Relationships: []
       }
+      workout_blocks: {
+        Row: {
+          created_at: string
+          id: string
+          info_note: string | null
+          name: string | null
+          order_index: number
+          params: Json
+          type: Database["public"]["Enums"]["protocol_type"]
+          updated_at: string
+          workout_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          info_note?: string | null
+          name?: string | null
+          order_index?: number
+          params?: Json
+          type?: Database["public"]["Enums"]["protocol_type"]
+          updated_at?: string
+          workout_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          info_note?: string | null
+          name?: string | null
+          order_index?: number
+          params?: Json
+          type?: Database["public"]["Enums"]["protocol_type"]
+          updated_at?: string
+          workout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_blocks_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: false
+            referencedRelation: "workouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workout_exercises: {
         Row: {
+          block_id: string | null
           created_at: string
           exercise_id: string
           id: string
@@ -2306,6 +2405,7 @@ export type Database = {
           workout_id: string
         }
         Insert: {
+          block_id?: string | null
           created_at?: string
           exercise_id: string
           id?: string
@@ -2319,6 +2419,7 @@ export type Database = {
           workout_id: string
         }
         Update: {
+          block_id?: string | null
           created_at?: string
           exercise_id?: string
           id?: string
@@ -2332,6 +2433,13 @@ export type Database = {
           workout_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workout_exercises_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "workout_blocks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workout_exercises_exercise_id_fkey"
             columns: ["exercise_id"]
@@ -2672,6 +2780,7 @@ export type Database = {
       payment_method: "stripe" | "paypal" | "bank_transfer" | "cash"
       payment_status: "pending" | "completed" | "failed" | "refunded"
       program_assignment_status: "active" | "completed" | "cancelled" | "paused"
+      protocol_type: "SET" | "TOP_SET_BACKOFF" | "RAMPING" | "EMOM" | "AMRAP"
       pt_level: "junior" | "senior" | "elite"
       pt_status:
         | "registrato"
@@ -2843,6 +2952,7 @@ export const Constants = {
       payment_method: ["stripe", "paypal", "bank_transfer", "cash"],
       payment_status: ["pending", "completed", "failed", "refunded"],
       program_assignment_status: ["active", "completed", "cancelled", "paused"],
+      protocol_type: ["SET", "TOP_SET_BACKOFF", "RAMPING", "EMOM", "AMRAP"],
       pt_level: ["junior", "senior", "elite"],
       pt_status: [
         "registrato",

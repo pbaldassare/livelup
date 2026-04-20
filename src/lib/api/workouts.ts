@@ -27,9 +27,23 @@ export async function createWorkout(params: {
     prescribedWeight?: number;
     restSeconds?: number;
     notes?: string;
+    blockTempId?: string; // ref locale al blocco (vedi `blocks` sotto)
+  }>;
+  // Blocchi opzionali da duplicare in workout_blocks; gli esercizi possono
+  // referenziarli via `blockTempId` per essere associati al blocco corretto.
+  blocks?: Array<{
+    tempId: string;
+    orderIndex: number;
+    type: string;
+    name?: string | null;
+    params?: any;
+    infoNote?: string | null;
   }>;
 }) {
-  const { atletaUserId, ptUserId, title, description, templateId, scheduledDate, dueDate, exercises } = params;
+  const {
+    atletaUserId, ptUserId, title, description, templateId,
+    scheduledDate, dueDate, exercises, blocks,
+  } = params;
 
   // Crea workout
   const { data: workout, error: workoutError } = await supabase
@@ -51,6 +65,35 @@ export async function createWorkout(params: {
     throw new Error('Errore creazione workout: ' + workoutError.message);
   }
 
+  // Mappa tempId → real workout_block id
+  const blockIdMap = new Map<string, string>();
+
+  if (blocks && blocks.length > 0) {
+    const blockInserts = blocks.map((b) => ({
+      workout_id: workout.id,
+      order_index: b.orderIndex,
+      type: b.type as any,
+      name: b.name ?? null,
+      params: b.params ?? {},
+      info_note: b.infoNote ?? null,
+    }));
+    const { data: insertedBlocks, error: blocksErr } = await supabase
+      .from('workout_blocks')
+      .insert(blockInserts)
+      .select('id, order_index');
+    if (blocksErr) {
+      await supabase.from('workouts').delete().eq('id', workout.id);
+      throw new Error('Errore creazione blocchi: ' + blocksErr.message);
+    }
+    // Associa per orderIndex (univoco nella stessa creazione)
+    const byOrder = new Map<number, string>();
+    (insertedBlocks || []).forEach((b: any) => byOrder.set(b.order_index, b.id));
+    blocks.forEach((b) => {
+      const realId = byOrder.get(b.orderIndex);
+      if (realId) blockIdMap.set(b.tempId, realId);
+    });
+  }
+
   // Aggiungi esercizi
   if (exercises.length > 0) {
     const exerciseInserts = exercises.map((ex) => ({
@@ -63,6 +106,7 @@ export async function createWorkout(params: {
       prescribed_weight: ex.prescribedWeight,
       rest_seconds: ex.restSeconds ?? 60,
       notes: ex.notes,
+      block_id: ex.blockTempId ? blockIdMap.get(ex.blockTempId) ?? null : null,
     }));
 
     const { error: exercisesError } = await supabase
@@ -70,7 +114,6 @@ export async function createWorkout(params: {
       .insert(exerciseInserts);
 
     if (exercisesError) {
-      // Rollback: elimina workout
       await supabase.from('workouts').delete().eq('id', workout.id);
       throw new Error('Errore aggiunta esercizi: ' + exercisesError.message);
     }
