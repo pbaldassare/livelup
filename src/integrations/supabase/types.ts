@@ -2224,6 +2224,7 @@ export type Database = {
           id: string
           notes: string | null
           order_index: number
+          prescribed_duration_seconds: number | null
           reps_max: number | null
           reps_min: number | null
           rest_seconds: number | null
@@ -2238,6 +2239,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_index?: number
+          prescribed_duration_seconds?: number | null
           reps_max?: number | null
           reps_min?: number | null
           rest_seconds?: number | null
@@ -2252,6 +2254,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_index?: number
+          prescribed_duration_seconds?: number | null
           reps_max?: number | null
           reps_min?: number | null
           rest_seconds?: number | null
@@ -2397,6 +2400,7 @@ export type Database = {
           id: string
           notes: string | null
           order_index: number
+          prescribed_duration_seconds: number | null
           prescribed_reps_max: number | null
           prescribed_reps_min: number | null
           prescribed_sets: number
@@ -2411,6 +2415,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_index?: number
+          prescribed_duration_seconds?: number | null
           prescribed_reps_max?: number | null
           prescribed_reps_min?: number | null
           prescribed_sets?: number
@@ -2425,6 +2430,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_index?: number
+          prescribed_duration_seconds?: number | null
           prescribed_reps_max?: number | null
           prescribed_reps_min?: number | null
           prescribed_sets?: number

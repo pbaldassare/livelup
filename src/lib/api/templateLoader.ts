@@ -15,7 +15,7 @@ export async function loadTemplateForWorkoutCreate(templateId: string) {
       .order('order_index'),
     supabase
       .from('template_exercises')
-      .select('exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, block_id')
+      .select('exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, block_id, prescribed_duration_seconds')
       .eq('template_id', templateId)
       .order('order_index'),
   ]);
@@ -38,6 +38,7 @@ export async function loadTemplateForWorkoutCreate(templateId: string) {
     prescribedSets: e.sets as number,
     prescribedRepsMin: e.reps_min ?? undefined,
     prescribedRepsMax: e.reps_max ?? undefined,
+    prescribedDurationSeconds: e.prescribed_duration_seconds ?? undefined,
     restSeconds: e.rest_seconds ?? undefined,
     notes: e.notes ?? undefined,
     // block_id del template = tempId nel payload (lo riusiamo come ref)

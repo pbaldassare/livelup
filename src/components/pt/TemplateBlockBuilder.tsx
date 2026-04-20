@@ -230,8 +230,23 @@ export function TemplateBlockBuilder({ templateId }: TemplateBlockBuilderProps) 
 
   const updateParam = (block: TemplateBlock, path: string, raw: string) => {
     const num = raw === '' ? null : Number(raw);
-    const next = setNested(block.params || {}, path, num);
+    let next = setNested(block.params || {}, path, num);
+    // Mutua esclusione SET: reps ↔ duration_seconds
+    if (block.type === 'SET') {
+      if (path === 'reps' && num != null) next = setNested(next, 'duration_seconds', null);
+      if (path === 'duration_seconds' && num != null) next = setNested(next, 'reps', null);
+    }
     updateBlockMutation.mutate({ id: block.id, patch: { params: next as any } });
+  };
+
+  // Disabilita campi mutualmente esclusivi nel form (solo SET)
+  const isFieldDisabled = (block: TemplateBlock, key: string): boolean => {
+    if (block.type !== 'SET') return false;
+    const reps = getNested(block.params, 'reps');
+    const dur = getNested(block.params, 'duration_seconds');
+    if (key === 'reps' && dur != null && dur !== '') return true;
+    if (key === 'duration_seconds' && reps != null && reps !== '') return true;
+    return false;
   };
 
   return (
@@ -394,12 +409,13 @@ export function TemplateBlockBuilder({ templateId }: TemplateBlockBuilderProps) 
 
                           {/* Parametri dinamici */}
                           {def.paramFields.length > 0 && (
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                               {def.paramFields.map((f) => {
                                 const val = getNested(block.params || {}, f.key);
+                                const disabled = isFieldDisabled(block, f.key);
                                 return (
                                   <div key={f.key} className="space-y-1">
-                                    <Label className="text-xs">{f.label}</Label>
+                                    <Label className={cn('text-xs', disabled && 'opacity-50')}>{f.label}</Label>
                                     <Input
                                       type={f.type}
                                       min={f.min}
@@ -407,6 +423,7 @@ export function TemplateBlockBuilder({ templateId }: TemplateBlockBuilderProps) 
                                       step={f.step}
                                       placeholder={f.placeholder}
                                       value={val ?? ''}
+                                      disabled={disabled}
                                       onChange={(e) => updateParam(block, f.key, e.target.value)}
                                       className="h-8"
                                     />
@@ -424,6 +441,8 @@ export function TemplateBlockBuilder({ templateId }: TemplateBlockBuilderProps) 
                             <TemplateExerciseBuilder
                               templateId={templateId}
                               blockId={block.id}
+                              blockType={block.type}
+                              blockParams={block.params as any}
                             />
                           </div>
                         </CardContent>
