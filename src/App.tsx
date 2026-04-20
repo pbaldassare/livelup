@@ -91,6 +91,8 @@ import AtletaEventDetailPage from "./pages/atleta/AtletaEventDetailPage";
 import AtletaProfessionalProfilePage from "./pages/atleta/AtletaProfessionalProfilePage";
 import AtletaBookingPage from "./pages/atleta/AtletaBookingPage";
 import AtletaCoursesPage from "./pages/atleta/AtletaCoursesPage";
+import AtletaSchedaPage from "./pages/atleta/AtletaSchedaPage";
+import AtletaEserciziPage from "./pages/atleta/AtletaEserciziPage";
 
 // PT pages
 import PTOnboardingPage from "./pages/pt/PTOnboardingPage";
@@ -405,6 +407,20 @@ const App = () => {
                 <AtletaRoute>
                   <AppLayout>
                     <AtletaWorkoutPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/scheda" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaSchedaPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/esercizi" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaEserciziPage />
                   </AppLayout>
                 </AtletaRoute>
               } />

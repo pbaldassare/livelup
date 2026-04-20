@@ -11,7 +11,8 @@ import {
   MessageSquare, 
   User,
   Search,
-  Users
+  Users,
+  FileText
 } from 'lucide-react';
 
 // =====================================================
@@ -56,9 +57,9 @@ export function AppLayout({ children }: AppLayoutProps) {
       ]
     : [
         { label: 'Home', href: '/app', icon: Home, exact: true },
-        { label: 'Attività', href: '/app/workout', icon: Dumbbell },
+        { label: 'Scheda', href: '/app/scheda', icon: FileText },
+        { label: 'Esercizi', href: '/app/esercizi', icon: Dumbbell },
         { label: 'Scopri', href: '/app/discover', icon: Search },
-        { label: 'Progressi', href: '/app/progress', icon: TrendingUp },
         { label: 'Profilo', href: '/app/profile', icon: User },
       ];
 
