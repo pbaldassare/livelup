@@ -163,11 +163,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['template-exercises', templateId] });
+      queryClient.invalidateQueries({ queryKey });
     },
-  });
-
-  // Remove exercise mutation
   const removeExerciseMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -178,7 +175,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['template-exercises', templateId] });
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['template-blocks', templateId] });
       toast.success('Esercizio rimosso');
     },
     onError: () => {
@@ -225,7 +223,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     }));
 
     // Optimistically update the cache
-    queryClient.setQueryData(['template-exercises', templateId], 
+    queryClient.setQueryData(queryKey,
       reordered.map((item, index) => ({ ...item, order_index: index }))
     );
 
@@ -318,12 +316,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="template-exercises">
             {(provided, snapshot) => (
-              <ScrollArea className="h-[400px] pr-4">
-                <div
+              <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className={cn(
-                    "space-y-3 min-h-[100px] transition-colors rounded-lg p-1",
+                    "space-y-3 min-h-[80px] transition-colors rounded-lg p-1",
                     snapshot.isDraggingOver && "bg-accent/50"
                   )}
                 >
@@ -514,7 +511,6 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                   ))}
                   {provided.placeholder}
                 </div>
-              </ScrollArea>
             )}
           </Droppable>
         </DragDropContext>
