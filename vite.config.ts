@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      devOptions: { enabled: false },
       includeAssets: ["livellapp-icon.svg", "favicon.ico", "apple-touch-icon.png"],
       manifest: {
         name: "LIVELLAPP - Piattaforma Fitness",
@@ -58,7 +59,7 @@ export default defineConfig(({ mode }) => ({
           {
             name: "Allenamenti",
             short_name: "Workout",
-            url: "/app/workouts",
+            url: "/app/esercizi",
             icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }],
           },
           {
@@ -72,6 +73,7 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/api/, /^\/functions\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*supabase.*$/,
