@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { buildCoachFullName, getCoachInitials } from '@/lib/coachName';
 
 export type AtletaStatus = 'libero' | 'pending' | 'collegato';
 
@@ -47,7 +48,10 @@ interface UseAtletaStatusReturn {
   hasPendingRequest: boolean;
   /** True quando il PT ha invitato l'atleta (l'atleta deve accettare/rifiutare) */
   pendingInvitationFromPT: boolean;
+  /** Nome reale del Coach (first_name + last_name validati). Null se incoerente. */
   ptName: string | null;
+  /** Iniziali calcolate dal nome reale (es. "MR"). "?" se mancano. */
+  ptInitials: string;
   ptAvatarUrl: string | null;
   canAccessWorkouts: boolean;
   canAccessChat: boolean;
@@ -135,10 +139,15 @@ export function useAtletaStatus(): UseAtletaStatusReturn {
     status = 'pending';
   }
 
-  // PT name helper
-  const ptName = connection?.profiles
-    ? `${connection.profiles.first_name || ''} ${connection.profiles.last_name || ''}`.trim() || null
-    : null;
+  // PT name helper — usa nome reale validato (no placeholder come "coach", "pt", ecc.)
+  const ptName = buildCoachFullName(
+    connection?.profiles?.first_name,
+    connection?.profiles?.last_name,
+  );
+  const ptInitials = getCoachInitials(
+    connection?.profiles?.first_name,
+    connection?.profiles?.last_name,
+  );
   const ptAvatarUrl = connection?.profiles?.avatar_url || null;
 
   // True quando la richiesta pending è stata inviata dal PT (non dall'atleta)
@@ -162,6 +171,7 @@ export function useAtletaStatus(): UseAtletaStatusReturn {
     hasPendingRequest,
     pendingInvitationFromPT,
     ptName,
+    ptInitials,
     ptAvatarUrl,
     canAccessWorkouts,
     canAccessChat,
