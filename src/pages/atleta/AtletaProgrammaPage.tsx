@@ -177,8 +177,7 @@ export function AtletaProgrammaPage() {
                 allenamento.
               </p>
               <Button
-                variant="outline"
-                className="border-app-border text-app-foreground"
+                className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
                 asChild
               >
                 <Link to="/app/esercizi">Vai agli esercizi</Link>
