@@ -1240,6 +1240,101 @@ export type Database = {
         }
         Relationships: []
       }
+      program_assignments: {
+        Row: {
+          atleta_user_id: string
+          created_at: string
+          end_date: string | null
+          id: string
+          notes: string | null
+          program_id: string
+          pt_user_id: string
+          start_date: string
+          status: Database["public"]["Enums"]["program_assignment_status"]
+          updated_at: string
+          weeks_generated: number
+        }
+        Insert: {
+          atleta_user_id: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          program_id: string
+          pt_user_id: string
+          start_date: string
+          status?: Database["public"]["Enums"]["program_assignment_status"]
+          updated_at?: string
+          weeks_generated?: number
+        }
+        Update: {
+          atleta_user_id?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          program_id?: string
+          pt_user_id?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["program_assignment_status"]
+          updated_at?: string
+          weeks_generated?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_assignments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "workout_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_schedules: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          id: string
+          order_index: number
+          program_id: string
+          template_id: string
+          week_offset: number
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          id?: string
+          order_index?: number
+          program_id: string
+          template_id: string
+          week_offset?: number
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          order_index?: number
+          program_id?: string
+          template_id?: string
+          week_offset?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_schedules_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "workout_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_schedules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "workout_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       progress_photos: {
         Row: {
           atleta_user_id: string
@@ -2291,6 +2386,45 @@ export type Database = {
           },
         ]
       }
+      workout_programs: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_weeks: number
+          frequency_per_week: number
+          id: string
+          is_archived: boolean
+          name: string
+          notes: string | null
+          pt_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_weeks?: number
+          frequency_per_week?: number
+          id?: string
+          is_archived?: boolean
+          name: string
+          notes?: string | null
+          pt_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_weeks?: number
+          frequency_per_week?: number
+          id?: string
+          is_archived?: boolean
+          name?: string
+          notes?: string | null
+          pt_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       workout_templates: {
         Row: {
           category: string | null
@@ -2522,6 +2656,7 @@ export type Database = {
         | "custom"
       payment_method: "stripe" | "paypal" | "bank_transfer" | "cash"
       payment_status: "pending" | "completed" | "failed" | "refunded"
+      program_assignment_status: "active" | "completed" | "cancelled" | "paused"
       pt_level: "junior" | "senior" | "elite"
       pt_status:
         | "registrato"
@@ -2691,6 +2826,7 @@ export const Constants = {
       ],
       payment_method: ["stripe", "paypal", "bank_transfer", "cash"],
       payment_status: ["pending", "completed", "failed", "refunded"],
+      program_assignment_status: ["active", "completed", "cancelled", "paused"],
       pt_level: ["junior", "senior", "elite"],
       pt_status: [
         "registrato",
