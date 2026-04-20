@@ -78,6 +78,22 @@ export function AssignProgramDialog({
     enabled: !!programId && open,
   });
 
+  // Sincronizza i giorni attivi col programma quando cambia
+  useEffect(() => {
+    if (program && open) {
+      const programDays = (program as any).active_days as number[] | undefined;
+      if (programDays && programDays.length > 0) {
+        setActiveDays(programDays);
+      }
+    }
+  }, [program, open]);
+
+  const toggleDay = (iso: number) => {
+    setActiveDays((prev) =>
+      prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso].sort(),
+    );
+  };
+
   const { data: athletes = [] } = useQuery({
     queryKey: ['connected-athletes', user?.id],
     queryFn: async () => {
