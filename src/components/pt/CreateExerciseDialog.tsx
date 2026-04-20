@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,9 +12,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, Link2, Film, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface ExerciseFormData {
+  id?: string;
+  name?: string;
+  description?: string | null;
+  category?: string;
+  difficulty_level?: string;
+  muscle_groups?: string[];
+  instructions?: string | null;
+  video_url?: string | null;
+  image_url?: string | null;
+}
+
 interface CreateExerciseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Se passato, il dialog è in modalità modifica */
+  exercise?: ExerciseFormData | null;
 }
 
 const CATEGORIES = [
@@ -28,21 +42,43 @@ const MUSCLE_GROUPS = [
   'Core', 'Full Body', 'Avambracci', 'Trapezio'
 ];
 
-export function CreateExerciseDialog({ open, onOpenChange }: CreateExerciseDialogProps) {
+const emptyForm = {
+  name: '',
+  description: '',
+  category: '',
+  difficulty_level: 'intermedio',
+  instructions: '',
+  video_url: '',
+  image_url: '',
+};
+
+export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExerciseDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [videoMode, setVideoMode] = useState<'link' | 'upload'>('link');
   const [isUploading, setIsUploading] = useState(false);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
+  const [form, setForm] = useState(emptyForm);
 
-  const [form, setForm] = useState({
-    name: '',
-    category: '',
-    difficulty_level: 'intermedio',
-    instructions: '',
-    video_url: '',
-    image_url: '',
-  });
+  const isEditMode = !!exercise?.id;
+
+  // Carica dati esistenti quando si apre in modalità edit
+  useEffect(() => {
+    if (open && exercise?.id) {
+      setForm({
+        name: exercise.name || '',
+        description: exercise.description || '',
+        category: exercise.category || '',
+        difficulty_level: exercise.difficulty_level || 'intermedio',
+        instructions: exercise.instructions || '',
+        video_url: exercise.video_url || '',
+        image_url: exercise.image_url || '',
+      });
+      setSelectedMuscles(exercise.muscle_groups || []);
+    } else if (open) {
+      resetForm();
+    }
+  }, [open, exercise]);
 
   const toggleMuscle = (muscle: string) => {
     setSelectedMuscles(prev =>
@@ -74,34 +110,50 @@ export function CreateExerciseDialog({ open, onOpenChange }: CreateExerciseDialo
     }
   };
 
-  const createMutation = useMutation({
+  const upsertMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
-      const { error } = await supabase.from('exercises').insert({
+      const payload = {
         name: form.name,
+        description: form.description || null,
         category: form.category,
         difficulty_level: form.difficulty_level as 'principiante' | 'intermedio' | 'avanzato' | 'agonista',
         muscle_groups: selectedMuscles,
         instructions: form.instructions || null,
         video_url: form.video_url || null,
         image_url: form.image_url || null,
-        created_by: user.id,
-        is_public: false,
-      });
-      if (error) throw error;
+      };
+
+      if (isEditMode && exercise?.id) {
+        const { error } = await supabase
+          .from('exercises')
+          .update(payload)
+          .eq('id', exercise.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('exercises').insert({
+          ...payload,
+          created_by: user.id,
+          is_public: false,
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
+      // Invalidazione completa: tab Esercizi + builder scheda + admin library
       queryClient.invalidateQueries({ queryKey: ['pt-exercises'] });
       queryClient.invalidateQueries({ queryKey: ['exercises'] });
-      toast.success('Esercizio creato con successo');
+      queryClient.invalidateQueries({ queryKey: ['admin-exercises'] });
+      queryClient.invalidateQueries({ queryKey: ['template-exercises'] });
+      toast.success(isEditMode ? 'Esercizio aggiornato' : 'Esercizio creato con successo');
       resetForm();
       onOpenChange(false);
     },
-    onError: () => toast.error('Errore nella creazione'),
+    onError: () => toast.error(isEditMode ? 'Errore nell\'aggiornamento' : 'Errore nella creazione'),
   });
 
   const resetForm = () => {
-    setForm({ name: '', category: '', difficulty_level: 'intermedio', instructions: '', video_url: '', image_url: '' });
+    setForm(emptyForm);
     setSelectedMuscles([]);
     setVideoMode('link');
   };
@@ -110,8 +162,12 @@ export function CreateExerciseDialog({ open, onOpenChange }: CreateExerciseDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Crea Esercizio</DialogTitle>
-          <DialogDescription>Aggiungi un nuovo esercizio alla tua libreria personale</DialogDescription>
+          <DialogTitle>{isEditMode ? 'Modifica Esercizio' : 'Crea Esercizio'}</DialogTitle>
+          <DialogDescription>
+            {isEditMode
+              ? 'Le modifiche si applicheranno anche alle schede che lo utilizzano'
+              : 'Aggiungi un nuovo esercizio alla tua libreria personale'}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
@@ -119,6 +175,17 @@ export function CreateExerciseDialog({ open, onOpenChange }: CreateExerciseDialo
           <div className="space-y-1.5">
             <Label>Nome esercizio *</Label>
             <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Es: Squat bulgaro" />
+          </div>
+
+          {/* Descrizione breve */}
+          <div className="space-y-1.5">
+            <Label>Descrizione</Label>
+            <Textarea
+              value={form.description}
+              onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+              placeholder="Breve descrizione dell'esercizio..."
+              className="min-h-[60px]"
+            />
           </div>
 
           {/* Categoria + Difficoltà */}
@@ -169,7 +236,7 @@ export function CreateExerciseDialog({ open, onOpenChange }: CreateExerciseDialo
 
           {/* Istruzioni */}
           <div className="space-y-1.5">
-            <Label>Istruzioni</Label>
+            <Label>Istruzioni di esecuzione</Label>
             <Textarea
               value={form.instructions}
               onChange={e => setForm(p => ({ ...p, instructions: e.target.value }))}
@@ -241,10 +308,12 @@ export function CreateExerciseDialog({ open, onOpenChange }: CreateExerciseDialo
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annulla</Button>
           <Button
-            onClick={() => createMutation.mutate()}
-            disabled={!form.name || !form.category || selectedMuscles.length === 0 || createMutation.isPending}
+            onClick={() => upsertMutation.mutate()}
+            disabled={!form.name || !form.category || selectedMuscles.length === 0 || upsertMutation.isPending}
           >
-            {createMutation.isPending ? 'Creazione...' : 'Crea Esercizio'}
+            {upsertMutation.isPending
+              ? (isEditMode ? 'Salvataggio...' : 'Creazione...')
+              : (isEditMode ? 'Salva modifiche' : 'Crea Esercizio')}
           </Button>
         </div>
       </DialogContent>
