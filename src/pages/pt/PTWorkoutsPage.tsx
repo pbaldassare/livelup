@@ -681,8 +681,11 @@ export function PTWorkoutsPage() {
               />
             </TabsContent>
             <TabsContent value="exercises" className="mt-4">
-              <div className="flex justify-end mb-4">
-                <Button onClick={() => setIsCreateExerciseOpen(true)} size="sm">
+              <div className="flex items-center justify-between mb-4 gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Gli esercizi qui sono gli stessi disponibili nel builder delle schede.
+                </p>
+                <Button onClick={() => { setEditingExercise(null); setIsCreateExerciseOpen(true); }} size="sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Nuovo Esercizio
                 </Button>
@@ -690,34 +693,71 @@ export function PTWorkoutsPage() {
               {exercisesLoading ? (
                 <p className="text-muted-foreground text-center py-8">Caricamento...</p>
               ) : myExercises.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-12 text-muted-foreground">
                   <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-30" />
                   <p>Nessun esercizio personalizzato</p>
-                  <Button variant="link" onClick={() => setIsCreateExerciseOpen(true)}>Crea il tuo primo esercizio</Button>
+                  <p className="text-xs mt-1">Crea esercizi riutilizzabili in tutte le tue schede</p>
+                  <Button variant="link" onClick={() => { setEditingExercise(null); setIsCreateExerciseOpen(true); }}>
+                    Crea il tuo primo esercizio
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {myExercises.filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase())).map(ex => (
-                    <div key={ex.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-muted">
-                          <Dumbbell className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{ex.name}</p>
-                          <div className="flex gap-1.5 mt-0.5">
-                            <Badge variant="outline" className="text-xs capitalize">{ex.category}</Badge>
-                            <Badge variant="secondary" className="text-xs capitalize">{ex.difficulty_level}</Badge>
+                  {myExercises
+                    .filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map(ex => (
+                      <div
+                        key={ex.id}
+                        className="flex items-start justify-between gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <div className="p-2 rounded-lg bg-muted shrink-0">
+                            {ex.video_url ? (
+                              <Video className="h-4 w-4 text-primary" />
+                            ) : (
+                              <Dumbbell className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{ex.name}</p>
+                            {ex.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                                {ex.description}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              <Badge variant="outline" className="text-xs capitalize">{ex.category}</Badge>
+                              <Badge variant="secondary" className="text-xs capitalize">{ex.difficulty_level}</Badge>
+                              {(ex.muscle_groups || []).slice(0, 3).map((m: string) => (
+                                <Badge key={m} variant="outline" className="text-xs">{m}</Badge>
+                              ))}
+                              {(ex.muscle_groups || []).length > 3 && (
+                                <Badge variant="outline" className="text-xs">+{ex.muscle_groups.length - 3}</Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => { setEditingExercise(ex); setIsCreateExerciseOpen(true); }}
+                            title="Modifica"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-destructive"
+                            onClick={() => setDeleteExerciseId(ex.id)}
+                            title="Elimina"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {(ex.muscle_groups || []).slice(0, 3).map((m: string) => (
-                          <Badge key={m} variant="outline" className="text-xs">{m}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </TabsContent>
