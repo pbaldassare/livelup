@@ -7,6 +7,7 @@ import { ChatList } from '@/components/app/ChatList';
 import { ChatMessages } from '@/components/app/ChatMessages';
 import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from '@/lib/api/messages';
 import { toast } from 'sonner';
+import { buildCoachFullName } from '@/lib/coachName';
 
 // =====================================================
 // ATLETA CHAT PAGE - Chat with PT
@@ -58,10 +59,13 @@ export function AtletaChatPage() {
             .neq('sender_user_id', user.id)
             .eq('is_read', false);
 
+          // Nome reale validato (no placeholder come "coach", "pt", ecc.)
+          const realName = buildCoachFullName(profile?.first_name, profile?.last_name);
+
           return {
             id: chat.id,
             recipientUserId: chat.pt_user_id,
-            name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Coach' : 'Coach',
+            name: realName ?? 'Coach assegnato',
             avatarUrl: profile?.avatar_url,
             lastMessage: lastMessage?.content,
             lastMessageAt: lastMessage?.created_at,

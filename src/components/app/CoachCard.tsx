@@ -35,6 +35,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
   const {
     connection,
     ptName,
+    ptInitials,
     ptAvatarUrl,
     isConnected,
     hasPendingRequest,
@@ -42,6 +43,9 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
     isLoading,
   } = useAtletaStatus();
   const [acting, setActing] = useState(false);
+
+  // Nome visibile: nome reale o fallback descrittivo (mai "coach"/"pt")
+  const displayName = ptName ?? 'Coach assegnato';
 
   if (isLoading) {
     return (
@@ -90,9 +94,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
     );
   }
 
-  const initials = ptName
-    ? ptName.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
-    : 'C';
+  const initials = ptInitials;
 
   // ─── CASO 2A: Invito ricevuto dal PT ─────────────────
   if (pendingInvitationFromPT) {
@@ -117,7 +119,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
           title: newStatus === 'active' ? 'Coach collegato!' : 'Invito rifiutato',
           description:
             newStatus === 'active'
-              ? `Sei ora collegato a ${ptName || 'il tuo Coach'}`
+              ? `Sei ora collegato a ${displayName}`
               : 'Hai rifiutato l\'invito',
         });
         queryClient.invalidateQueries({ queryKey: ['atleta-connection', user.id] });
@@ -151,7 +153,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
               Invito ricevuto
             </p>
             <p className="text-sm font-semibold text-white truncate">
-              {ptName} vuole essere il tuo Coach
+              {displayName} vuole essere il tuo Coach
             </p>
           </div>
         </div>
@@ -200,7 +202,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
               <Hourglass className="inline h-3 w-3 mr-1" />
               In attesa
             </p>
-            <p className="text-sm font-semibold text-white truncate">{ptName}</p>
+            <p className="text-sm font-semibold text-white truncate">{displayName}</p>
             <p className="text-xs text-white/50">Richiesta inviata</p>
           </div>
         </div>
@@ -226,7 +228,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
             <p className="text-[10px] font-medium uppercase tracking-wide text-white/40">
               Il tuo Coach
             </p>
-            <p className="text-sm font-semibold text-white truncate">{ptName}</p>
+            <p className="text-sm font-semibold text-white truncate">{displayName}</p>
           </div>
           <MessageCircle className="h-4 w-4 text-white/40" />
         </button>
@@ -255,7 +257,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
             <p className="text-[10px] font-medium uppercase tracking-wide text-app-accent">
               Il tuo Coach
             </p>
-            <p className="text-base font-bold text-white truncate">{ptName}</p>
+            <p className="text-base font-bold text-white truncate">{displayName}</p>
             <p className="text-xs text-white/40 truncate">Collegato</p>
           </div>
           <Button
