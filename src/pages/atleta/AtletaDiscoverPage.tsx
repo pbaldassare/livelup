@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { useAuth } from '@/hooks/useAuth';
+import { buildCoachFullName, getCoachInitials } from '@/lib/coachName';
 import { PTMapView } from '@/components/app/PTMapView';
 import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { PublicEventCard } from '@/components/app/PublicEventCard';
@@ -776,14 +777,16 @@ function PTSearchSection({ isConnected = false, ptName }: PTSearchSectionProps) 
                         <Avatar className="h-16 w-16 border-2 border-app-border">
                           <AvatarImage src={pt.profiles?.avatar_url || undefined} />
                           <AvatarFallback className="bg-app-muted text-app-foreground text-lg">
-                            {(pt.profiles?.first_name?.[0] || '') + (pt.profiles?.last_name?.[0] || '')}
+                            {getCoachInitials(pt.profiles?.first_name, pt.profiles?.last_name)}
                           </AvatarFallback>
                         </Avatar>
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between">
                             <h3 className="font-semibold text-app-foreground truncate">
-                              {pt.profiles?.first_name} {pt.profiles?.last_name}
+                              {buildCoachFullName(pt.profiles?.first_name, pt.profiles?.last_name) ?? (
+                                <span className="italic text-app-muted-foreground">Profilo incompleto</span>
+                              )}
                             </h3>
                             <ChevronRight className="h-5 w-5 text-app-muted-foreground flex-shrink-0" />
                           </div>
