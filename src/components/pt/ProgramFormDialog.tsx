@@ -371,6 +371,21 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-6">
+          {/* Alert: programma assegnato → modifiche solo sul futuro */}
+          {isEdit && activeAssignmentsCount > 0 && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>
+                Programma assegnato a {activeAssignmentsCount} atleta
+                {activeAssignmentsCount === 1 ? '' : '/i'}
+              </AlertTitle>
+              <AlertDescription>
+                Le modifiche si applicheranno <strong>solo agli allenamenti futuri</strong>.
+                Lo storico (allenamenti già pianificati, in corso o completati) resta invariato.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* MODALITÀ */}
           <section className="space-y-2">
             <Label className="text-sm font-semibold">
