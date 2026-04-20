@@ -1,95 +1,88 @@
 
 
-## Piano: Sistema Protocolli nelle Schede
+## Piano: risoluzione definitiva 404 intermittenti
 
-### Analisi attuale
-- `workout_templates` → `template_exercises` (esercizi piatti) → istanziati su `workouts` → `workout_exercises`.
-- Il drag&drop esiste già in `TemplateExerciseBuilder.tsx` per esercizi.
-- L'esecuzione atleta in `AtletaWorkoutDetailPage.tsx` itera su `workout_exercises` per `order_index`.
-- L'assegnazione (in `programs.ts`/`workouts.ts`) duplica `template_exercises` → `workout_exercises`.
+### Cause identificate (in ordine di impatto)
 
-### Modello dati (introduzione blocchi)
+**1. Doppio service worker in conflitto** (causa principale)
+- `public/sw.js` registrato manualmente da `usePushNotifications.tsx` per push.
+- `vite-plugin-pwa` con `registerType: "autoUpdate"` registra automaticamente il SUO sw generato.
+- Entrambi competono per lo scope `/`. Il primo che vince serve risorse vecchie → bundle JS stale → route nuove ritornano 404 dopo deploy.
+- Inoltre: nessun guard contro iframe/preview Lovable → SW attivo anche in dev preview → cache stale dopo ogni edit.
 
-Inserisco un livello intermedio "block/protocol" sia su template che su workout, mantenendo retrocompatibilità (esercizi senza block_id = blocco "SET" implicito).
+**2. URL inesistenti hard-coded nell'app**
+- `vite.config.ts` shortcut PWA: `/app/workouts` ❌ (la rotta è `/app/workout`).
+- `supabase/functions/seed-platform-data/index.ts`: notifiche con `action_url: '/app/workouts'` ❌ → click notifica = 404.
+- Click su notifica push da home screen → 404 su pagina inesistente.
 
-**Migration nuove tabelle:**
-- `template_blocks` (id, template_id FK, order_index, type ENUM, name, params JSONB, info_note, created_at)
-- `workout_blocks` (id, workout_id FK, order_index, type, name, params JSONB, info_note, created_at)
-- Aggiungo `block_id UUID NULL` a `template_exercises` e `workout_exercises` (FK con ON DELETE CASCADE verso il rispettivo `*_blocks`).
-- Nuovo enum `protocol_type`: `SET | TOP_SET_BACKOFF | RAMPING | EMOM | AMRAP`.
-- RLS clonate dalle tabelle parent (PT manage own, atleta view own).
+**3. NotFound non a tema + nessun fallback intelligente**
+- `NotFound.tsx` usa `bg-muted` (tema chiaro) → su dark theme appare bianco/illeggibile.
+- Nessun redirect intelligente: se utente loggato finisce su `/admin/dashboard` (digitato a mano o da link vecchio), vede 404 invece di essere portato alla sua home.
 
-**Schema `params` (JSONB unificato):**
-```json
-{ "sets": 3, "reps": 10, "rest_seconds": 60, "weight": null,
-  "duration_seconds": null, "rounds": null, "interval_seconds": null,
-  "top_set": { "reps": 3, "rpe": 9 }, "back_off": { "sets": 3, "drop_pct": 10 } }
+**4. Telemetria 404 assente**
+- Console solo `console.error` locale → non capiamo *quale* link genera il 404 (referrer mancante, no breadcrumb).
+
+---
+
+### Fix proposti (definitivi, niente workaround)
+
+**Fix A — Service Worker unificato e iframe-safe**
+- `vite.config.ts`: aggiungere `devOptions: { enabled: false }` e `navigateFallbackDenylist: [/^\/~oauth/, /^\/api/]`. Rimuovere lo shortcut `/app/workouts` (sostituire con `/app` neutro o `/app/esercizi` esistente).
+- `src/main.tsx`: aggiungere guard che **disinstalla TUTTI i SW** quando hostname include `id-preview--` o `lovableproject.com` o quando `window.self !== window.top` (iframe). Eseguito PRIMA di `createRoot`.
+- `usePushNotifications.tsx`: NON registrare più `/sw.js` separatamente. Riusare il SW di vite-plugin-pwa via `navigator.serviceWorker.ready` per il push subscription. Eliminare conflitto.
+- `public/sw.js`: lo manteniamo come file ma *non viene più registrato* → niente più doppio scope. (In alternativa lo eliminiamo del tutto.)
+
+**Fix B — URL morti fixati**
+- `vite.config.ts` shortcut: `/app/workouts` → `/app/esercizi`.
+- `supabase/functions/seed-platform-data/index.ts`: tutti `/app/workouts` → `/app/esercizi`.
+- Migration una-tantum: `UPDATE notifications SET action_url = '/app/esercizi' WHERE action_url = '/app/workouts'` per ripulire dati esistenti.
+
+**Fix C — NotFound intelligente + a tema**
+- `NotFound.tsx`: 
+  - usare `bg-background text-foreground` (rispetto tema dark/light).
+  - se `isAuthenticated && role` → bottone "Vai alla tua area" che porta a `getHomeRoute(role)`.
+  - logging arricchito: `pathname`, `referrer`, `userAgent`, `userId` (se loggato), `role`, `timestamp`.
+  - posta i log su tabella `app_404_logs` (nuova) per analisi.
+
+**Fix D — Tabella `app_404_logs`** (telemetria)
+- Migration: `id, path, referrer, user_id (nullable), role, user_agent, created_at`.
+- RLS: solo admin può leggere; insert pubblico (logging anche utenti non loggati).
+- `NotFound.tsx` fa `supabase.from('app_404_logs').insert(...)` non bloccante.
+- Aggiungere viewer in `AdminAuditLogPage` (o dedicato) per vedere top 404 con counts.
+
+**Fix E — Guardia route catch-all per typo comuni**
+Sopra `<Route path="*">` aggiungere redirects espliciti per pattern comuni:
+```tsx
+<Route path="/admin/dashboard" element={<Navigate to="/admin" replace />} />
+<Route path="/pt/dashboard" element={<Navigate to="/pt" replace />} />
+<Route path="/app/home" element={<Navigate to="/app" replace />} />
+<Route path="/app/workouts" element={<Navigate to="/app/esercizi" replace />} />
 ```
-Solo i campi rilevanti per ogni `type` vengono usati; struttura unica → estendibile senza refactor.
 
-### Codice frontend
+---
 
-**1. Libreria protocolli — `src/lib/protocols/registry.ts` (nuovo)**
-Registry centrale tipo-safe con: `type`, `label`, `icon`, `description` (per ⓘ), `defaultParams`, `paramFields[]` (lista campi da renderizzare), `executionMode` (per UI atleta).
-Aggiungere nuovi protocolli = aggiungere voce nel registry. Niente hardcoding nei componenti.
+### File modificati
 
-**2. PT — `src/components/pt/TemplateBlockBuilder.tsx` (nuovo, sostituisce uso diretto di TemplateExerciseBuilder dentro `PTTemplateDetailPage`)**
-- Lista verticale di blocchi (DnD con `@hello-pangea/dnd`).
-- "Aggiungi protocollo" → popover/sheet con la libreria (cards dei 5 tipi, descrizione breve).
-- Card blocco: header con nome tipo + icona ⓘ (Popover descrizione fissa dal registry) + actions (duplica, elimina, drag).
-- Body: form parametri renderizzato dinamicamente dal `paramFields[]` del registry.
-- All'interno: `TemplateExerciseBuilder` esistente riusato passando `blockId` come scope (filtro esercizi per `block_id`). Drag&drop esercizi dentro il blocco resta funzionante.
-- Warning visivo se blocco senza esercizi.
-- Duplica blocco → copia row + tutti i suoi `template_exercises`.
+- `vite.config.ts` — devOptions disabled, denylist, shortcut fix
+- `src/main.tsx` — iframe/preview SW unregister guard
+- `src/hooks/usePushNotifications.tsx` — usa `serviceWorker.ready`, no register manuale
+- `src/pages/NotFound.tsx` — tema, redirect smart, telemetria
+- `src/App.tsx` — 4 redirect espliciti per typo URL
+- `supabase/functions/seed-platform-data/index.ts` — `/app/workouts` → `/app/esercizi`
+- **Migration nuova**: tabella `app_404_logs` + RLS + UPDATE notifications
+- (Opzionale) `public/sw.js` — eliminato
 
-**3. Refactor minimale `TemplateExerciseBuilder.tsx`**
-- Aggiungere prop `blockId: string` e usarla in INSERT + filtro query.
-- Rimosso lo "scroll-area" globale dei 400px (ora ogni blocco gestisce i suoi esercizi).
-
-**4. Aggiornamento `PTTemplateDetailPage.tsx`**
-- Sostituire `<TemplateExerciseBuilder/>` con `<TemplateBlockBuilder templateId={..}/>`.
-
-**5. Assegnazione workout — `src/lib/api/workouts.ts` + `programs.ts`**
-- `createWorkoutFromTemplate(templateId, ...)`: 
-  1. Legge `template_blocks` + `template_exercises` (con `block_id`).
-  2. Inserisce `workout_blocks` mantenendo mapping `oldBlockId → newBlockId`.
-  3. Inserisce `workout_exercises` con `block_id` rimappato.
-- Path già esistente (`createWorkout` con array piatto) resta compatibile (esercizi senza block_id = legacy).
-
-**6. Atleta — `AtletaWorkoutDetailPage.tsx`**
-- Query: include `workout_blocks (*, workout_exercises(*, exercises(*)))`.
-- Render: itera sui blocchi (in `order_index`), per ognuno mostra header semplice ("Blocco 1 — Set standard 4×10") **senza esporre il tipo tecnico**, poi gli esercizi del blocco.
-- Per Fase 1 il flusso esecuzione resta lineare per esercizio (come oggi). Tutta la "decisione UI per tipo" passa da una funzione `renderBlockExecution(type, params)` con default = comportamento attuale. EMOM/AMRAP/RAMPING avranno solo etichette descrittive in Fase 1, logica avanzata in Fase 2.
-- Esercizi orfani (senza block_id) raccolti in un blocco virtuale "Esercizi" in coda.
-
-**7. Componente comune — `src/components/protocols/ProtocolInfoPopover.tsx` (nuovo)**
-Icona ⓘ + popover con descrizione dal registry. Riutilizzato lato PT (config) e atleta (header blocco, opzionale).
-
-### File creati/modificati
-- **DB migration**: 2 tabelle, 2 colonne, 1 enum, RLS.
-- `src/lib/protocols/registry.ts` (nuovo)
-- `src/components/protocols/ProtocolInfoPopover.tsx` (nuovo)
-- `src/components/pt/TemplateBlockBuilder.tsx` (nuovo)
-- `src/components/pt/TemplateExerciseBuilder.tsx` (prop `blockId`)
-- `src/pages/pt/PTTemplateDetailPage.tsx` (usa BlockBuilder)
-- `src/lib/api/workouts.ts` (duplicazione blocchi+esercizi su create)
-- `src/lib/api/programs.ts` (allineare assignWorkout/rotation per duplicare blocchi)
-- `src/pages/atleta/AtletaWorkoutDetailPage.tsx` (render per blocco + fallback orfani)
-
-### Edge case gestiti
-- Blocco vuoto → badge warning lato PT, ma salvataggio consentito.
-- Eliminazione blocco → cascade elimina i suoi esercizi (FK).
-- Duplicazione blocco → copia params + tutti gli esercizi col nuovo `block_id`.
-- Workout/template legacy (senza blocchi) → continuano a funzionare via fallback "blocco virtuale".
-- Più protocolli misti in stessa scheda → ordinamento garantito da `order_index` su `*_blocks`.
+### Edge case
+- Utenti già con SW vecchio installato → dopo deploy il guard in `main.tsx` lo disinstalla automaticamente al primo caricamento.
+- Notifiche push esistenti puntate a `/app/workouts` → migration corregge i record vecchi.
+- Refresh diretto su URL valido (`/app/profile`) → SPA fallback Lovable lo gestisce già (verificato in docs).
 
 ### Checklist test
-1. PT: aggiungo blocco SET + 3 esercizi → ordina/salva ok
-2. PT: aggiungo blocco EMOM con `rounds=10, interval=60` → params salvati in JSONB
-3. PT: clic ⓘ → popover descrizione corretta dal registry
-4. PT: drag riordino blocchi e esercizi dentro blocchi → ok
-5. PT: duplico blocco → nuovo blocco con stessi params + esercizi clonati
-6. Assegno template a atleta → workout creato con `workout_blocks` + `workout_exercises` mappati
-7. Atleta: vede blocchi in ordine, header descrittivo non tecnico, esegue normalmente
-8. Template legacy (senza blocchi) → atleta vede gli esercizi in blocco virtuale, nessuna regressione
+1. Refresh su `/pt/workouts` da loggato → carica, no 404 ✓
+2. Click su notifica vecchia con `/app/workouts` → redirect a `/app/esercizi` ✓
+3. Inserimento manuale `/admin/dashboard` → redirect a `/admin` ✓
+4. URL totalmente inventato `/foo/bar` → NotFound a tema, log inserito in `app_404_logs`
+5. DevTools Application → Service Workers in preview = 0 (era 1-2)
+6. Logout → navigate `/auth` (no 404)
+7. Admin apre log 404 → vede top URL falliti con count
 
