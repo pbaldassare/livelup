@@ -35,6 +35,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
   const {
     connection,
     ptName,
+    ptInitials,
     ptAvatarUrl,
     isConnected,
     hasPendingRequest,
@@ -42,6 +43,9 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
     isLoading,
   } = useAtletaStatus();
   const [acting, setActing] = useState(false);
+
+  // Nome visibile: nome reale o fallback descrittivo (mai "coach"/"pt")
+  const displayName = ptName ?? 'Coach assegnato';
 
   if (isLoading) {
     return (
@@ -90,9 +94,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
     );
   }
 
-  const initials = ptName
-    ? ptName.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
-    : 'C';
+  const initials = ptInitials;
 
   // ─── CASO 2A: Invito ricevuto dal PT ─────────────────
   if (pendingInvitationFromPT) {
