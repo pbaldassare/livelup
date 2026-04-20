@@ -472,20 +472,31 @@ export function PTWorkoutsPage() {
   );
 
   const createButton = (
-    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuovo Template
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-xl w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Crea Nuovo Template</DialogTitle>
-          <DialogDescription>
-            Crea un nuovo template di allenamento riutilizzabile
-          </DialogDescription>
-        </DialogHeader>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setActiveTab('programs');
+          toast.info('Apri la tab Programmi per creare un nuovo programma');
+        }}
+      >
+        <CalendarDays className="h-4 w-4 mr-2" />
+        Nuovo Programma
+      </Button>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuova Scheda
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-xl w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Crea Nuova Scheda</DialogTitle>
+            <DialogDescription>
+              Una scheda è un singolo allenamento composto da blocchi (protocolli) ed esercizi.
+            </DialogDescription>
+          </DialogHeader>
         <div className="flex-1 min-h-0 overflow-y-auto pr-4">
           <div className="space-y-4 py-4">
             <div className="space-y-2">

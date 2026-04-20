@@ -11,6 +11,9 @@ interface ProtocolInfoPopoverProps {
 }
 
 export function ProtocolInfoPopover({ type, className, size = 'sm' }: ProtocolInfoPopoverProps) {
+  // Regola: il protocollo SET è il default base e NON ha introduzione/descrizione.
+  if (type === 'SET') return null;
+
   const def = getProtocolDef(type);
   const Icon = def.icon;
   const dim = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4';
