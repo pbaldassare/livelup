@@ -215,7 +215,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
     if (variant === 'compact') {
       return (
         <button
-          onClick={() => navigate('/app/chat')}
+          onClick={() => navigate(`/app/chat/${connection.pt_user_id}`)}
           className="w-full flex items-center gap-3 rounded-2xl border border-white/10 bg-gray-900/60 p-3 text-left transition-colors hover:bg-gray-900/90"
         >
           <Avatar className="h-10 w-10 ring-2 ring-app-accent/40">
@@ -262,7 +262,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
           </div>
           <Button
             size="sm"
-            onClick={() => navigate('/app/chat')}
+            onClick={() => navigate(`/app/chat/${connection.pt_user_id}`)}
             className="bg-app-accent text-black hover:bg-app-accent/90 font-semibold"
           >
             <MessageCircle className="h-4 w-4" />
