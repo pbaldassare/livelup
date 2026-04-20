@@ -1,89 +1,95 @@
 
 
-## Piano: Riorganizzazione Atleta — "Esercizi" (operativa) + "Programma" (visione)
+## Piano: Sistema Protocolli nelle Schede
 
-### Stato attuale
-- `/app/esercizi` → mostra workout del giorno o prossimo, con tracking serie. **Va bene come base**, ma manca: priorità `in_corso` / `in_sospeso`, azioni "Completa" / "Salta", stato esercizio.
-- `/app/scheda` → mostra dettaglio del singolo workout del giorno (PDF-like). **Da sostituire** con vista "Programma" (calendario completo del programma assegnato).
-- Nav (`MobileNav.tsx`): voce "Scheda" → diventa **"Programma"**.
-- Status DB workout: `attivo | completato | scaduto | in_corso | in_sospeso`. **Manca `saltato`** → riuso `in_sospeso` come "saltato" (decisione da confermare in implementazione, oppure aggiungiamo enum value).
+### Analisi attuale
+- `workout_templates` → `template_exercises` (esercizi piatti) → istanziati su `workouts` → `workout_exercises`.
+- Il drag&drop esiste già in `TemplateExerciseBuilder.tsx` per esercizi.
+- L'esecuzione atleta in `AtletaWorkoutDetailPage.tsx` itera su `workout_exercises` per `order_index`.
+- L'assegnazione (in `programs.ts`/`workouts.ts`) duplica `template_exercises` → `workout_exercises`.
 
-### Decisione sullo status "saltato"
-Aggiungo `'saltato'` all'enum `workout_status` via migration. Tre stati visivi finali per l'atleta: `completato`, `saltato`, `attivo/futuro`. `in_corso` e `in_sospeso` restano intermedi.
+### Modello dati (introduzione blocchi)
 
-```text
-Esercizi (azione)             Programma (visione)
-─────────────────────         ───────────────────────
-Solo workout di oggi          Tutti i workout del programma
-o prossimo + tracking         assegnato attivo: lista calendario
-+ azioni Completa/Salta       con stato per giornata
+Inserisco un livello intermedio "block/protocol" sia su template che su workout, mantenendo retrocompatibilità (esercizi senza block_id = blocco "SET" implicito).
+
+**Migration nuove tabelle:**
+- `template_blocks` (id, template_id FK, order_index, type ENUM, name, params JSONB, info_note, created_at)
+- `workout_blocks` (id, workout_id FK, order_index, type, name, params JSONB, info_note, created_at)
+- Aggiungo `block_id UUID NULL` a `template_exercises` e `workout_exercises` (FK con ON DELETE CASCADE verso il rispettivo `*_blocks`).
+- Nuovo enum `protocol_type`: `SET | TOP_SET_BACKOFF | RAMPING | EMOM | AMRAP`.
+- RLS clonate dalle tabelle parent (PT manage own, atleta view own).
+
+**Schema `params` (JSONB unificato):**
+```json
+{ "sets": 3, "reps": 10, "rest_seconds": 60, "weight": null,
+  "duration_seconds": null, "rounds": null, "interval_seconds": null,
+  "top_set": { "reps": 3, "rpe": 9 }, "back_off": { "sets": 3, "drop_pct": 10 } }
 ```
+Solo i campi rilevanti per ogni `type` vengono usati; struttura unica → estendibile senza refactor.
 
-### Modifiche
+### Codice frontend
 
-**1. Migration DB**
-- `ALTER TYPE workout_status ADD VALUE 'saltato';`
+**1. Libreria protocolli — `src/lib/protocols/registry.ts` (nuovo)**
+Registry centrale tipo-safe con: `type`, `label`, `icon`, `description` (per ⓘ), `defaultParams`, `paramFields[]` (lista campi da renderizzare), `executionMode` (per UI atleta).
+Aggiungere nuovi protocolli = aggiungere voce nel registry. Niente hardcoding nei componenti.
 
-**2. `src/pages/atleta/AtletaEserciziPage.tsx` — refactor priorità + azioni**
-- Query rivista con priorità chiara (1 sola query con OR + sort):
-  1. `status = 'in_corso'` (qualsiasi data)
-  2. `status = 'in_sospeso'` (qualsiasi data)
-  3. `status = 'attivo'` AND `scheduled_date = oggi`
-  4. `status = 'attivo'` AND `scheduled_date > oggi` (più vicino)
-- Badge stato in alto (es. "In corso", "Da recuperare", "Oggi", "Prossimo: lun 22 apr").
-- Aggiungo due bottoni in fondo:
-  - **Completa** → `UPDATE workouts SET status='completato', completed_at=now()` + invalidate query + redirect/refresh
-  - **Salta** → `UPDATE workouts SET status='saltato'` + conferma dialog + invalidate
-- Conservo set tracker localStorage esistente.
-- Empty state: "Nessun allenamento disponibile" con CTA discover.
+**2. PT — `src/components/pt/TemplateBlockBuilder.tsx` (nuovo, sostituisce uso diretto di TemplateExerciseBuilder dentro `PTTemplateDetailPage`)**
+- Lista verticale di blocchi (DnD con `@hello-pangea/dnd`).
+- "Aggiungi protocollo" → popover/sheet con la libreria (cards dei 5 tipi, descrizione breve).
+- Card blocco: header con nome tipo + icona ⓘ (Popover descrizione fissa dal registry) + actions (duplica, elimina, drag).
+- Body: form parametri renderizzato dinamicamente dal `paramFields[]` del registry.
+- All'interno: `TemplateExerciseBuilder` esistente riusato passando `blockId` come scope (filtro esercizi per `block_id`). Drag&drop esercizi dentro il blocco resta funzionante.
+- Warning visivo se blocco senza esercizi.
+- Duplica blocco → copia row + tutti i suoi `template_exercises`.
 
-**3. `src/pages/atleta/AtletaSchedaPage.tsx` → trasformata in `AtletaProgrammaPage.tsx`**
-- Rinomino il file (creo nuovo + elimino vecchio mantenendo route alias).
-- Header: nome programma + periodo + frequenza + giorni attivi.
-- Body: lista cronologica di tutti i `workouts` del `program_assignment` attivo (filtro per `program_id` via assignment), raggruppati per settimana.
-- Per ogni giornata mostro:
-  - data + nome scheda
-  - badge stato: `Completato` (verde), `Saltato` (grigio), `In corso` (giallo), `Futuro` (neutro)
-- Card cliccabile → naviga a `/app/workout/:id` (dettaglio sola lettura, già esistente) o `/app/esercizi` se è il workout corrente.
-- **Niente azioni di esecuzione qui** (no completa/salta da questa vista — solo visione).
-- Empty state: "Nessun programma attivo" con CTA discover.
+**3. Refactor minimale `TemplateExerciseBuilder.tsx`**
+- Aggiungere prop `blockId: string` e usarla in INSERT + filtro query.
+- Rimosso lo "scroll-area" globale dei 400px (ora ogni blocco gestisce i suoi esercizi).
 
-**4. Routing & Nav**
-- `src/App.tsx`: rinomino route `/app/scheda` → `/app/programma` (mantengo redirect da `/app/scheda` per retrocompatibilità tour).
-- `src/components/app/MobileNav.tsx`: voce "Scheda" → "Programma", icona `CalendarDays`, path `/app/programma`, tourId `nav-programma`.
-- Aggiorno `AppTour.tsx` se referenzia `nav-scheda`.
+**4. Aggiornamento `PTTemplateDetailPage.tsx`**
+- Sostituire `<TemplateExerciseBuilder/>` con `<TemplateBlockBuilder templateId={..}/>`.
 
-**5. Query "programma attivo dell'atleta"** (nuova in `src/lib/api/programs.ts`)
-```ts
-export async function getAtletaActiveProgram(atletaUserId: string) {
-  // 1. Ultimo program_assignment status='active' per l'atleta
-  // 2. Join con workout_programs (nome, mode, duration_weeks, frequency, active_days)
-  // 3. Lista workouts (status, scheduled_date, title) per quell'atleta+pt da start_date in poi
-}
-```
+**5. Assegnazione workout — `src/lib/api/workouts.ts` + `programs.ts`**
+- `createWorkoutFromTemplate(templateId, ...)`: 
+  1. Legge `template_blocks` + `template_exercises` (con `block_id`).
+  2. Inserisce `workout_blocks` mantenendo mapping `oldBlockId → newBlockId`.
+  3. Inserisce `workout_exercises` con `block_id` rimappato.
+- Path già esistente (`createWorkout` con array piatto) resta compatibile (esercizi senza block_id = legacy).
 
-### File modificati/creati
-- `supabase/migrations/<new>.sql` — aggiunge `'saltato'` a `workout_status`
-- `src/pages/atleta/AtletaEserciziPage.tsx` — priorità query + azioni Completa/Salta
-- `src/pages/atleta/AtletaProgrammaPage.tsx` — **nuovo** (rimpiazza AtletaSchedaPage logicamente)
-- `src/pages/atleta/AtletaSchedaPage.tsx` — eliminato (o lasciato come stub redirect a `/app/programma`)
-- `src/lib/api/programs.ts` — nuova `getAtletaActiveProgram`
-- `src/App.tsx` — route aggiornata + redirect
-- `src/components/app/MobileNav.tsx` — voce "Programma"
-- `src/components/AppTour.tsx` — eventuale rename tourId
+**6. Atleta — `AtletaWorkoutDetailPage.tsx`**
+- Query: include `workout_blocks (*, workout_exercises(*, exercises(*)))`.
+- Render: itera sui blocchi (in `order_index`), per ognuno mostra header semplice ("Blocco 1 — Set standard 4×10") **senza esporre il tipo tecnico**, poi gli esercizi del blocco.
+- Per Fase 1 il flusso esecuzione resta lineare per esercizio (come oggi). Tutta la "decisione UI per tipo" passa da una funzione `renderBlockExecution(type, params)` con default = comportamento attuale. EMOM/AMRAP/RAMPING avranno solo etichette descrittive in Fase 1, logica avanzata in Fase 2.
+- Esercizi orfani (senza block_id) raccolti in un blocco virtuale "Esercizi" in coda.
 
-### Edge case
-- Atleta senza programma → empty state in "Programma"
-- Atleta con workout tutti completati → "Esercizi" mostra prossimo futuro o messaggio "Hai completato tutto"
-- Più workout stessa data → priorità `in_corso > in_sospeso > attivo`, in caso di pari merito quello con `created_at` più recente
-- Workout `scaduto` → mostrato in "Programma" come "Saltato" (visivamente)
+**7. Componente comune — `src/components/protocols/ProtocolInfoPopover.tsx` (nuovo)**
+Icona ⓘ + popover con descrizione dal registry. Riutilizzato lato PT (config) e atleta (header blocco, opzionale).
+
+### File creati/modificati
+- **DB migration**: 2 tabelle, 2 colonne, 1 enum, RLS.
+- `src/lib/protocols/registry.ts` (nuovo)
+- `src/components/protocols/ProtocolInfoPopover.tsx` (nuovo)
+- `src/components/pt/TemplateBlockBuilder.tsx` (nuovo)
+- `src/components/pt/TemplateExerciseBuilder.tsx` (prop `blockId`)
+- `src/pages/pt/PTTemplateDetailPage.tsx` (usa BlockBuilder)
+- `src/lib/api/workouts.ts` (duplicazione blocchi+esercizi su create)
+- `src/lib/api/programs.ts` (allineare assignWorkout/rotation per duplicare blocchi)
+- `src/pages/atleta/AtletaWorkoutDetailPage.tsx` (render per blocco + fallback orfani)
+
+### Edge case gestiti
+- Blocco vuoto → badge warning lato PT, ma salvataggio consentito.
+- Eliminazione blocco → cascade elimina i suoi esercizi (FK).
+- Duplicazione blocco → copia params + tutti gli esercizi col nuovo `block_id`.
+- Workout/template legacy (senza blocchi) → continuano a funzionare via fallback "blocco virtuale".
+- Più protocolli misti in stessa scheda → ordinamento garantito da `order_index` su `*_blocks`.
 
 ### Checklist test
-1. Apro `/app/esercizi` con workout `in_corso` → lo vedo prioritario
-2. Apro `/app/esercizi` senza workout oggi → vedo prossimo futuro
-3. Click "Completa" → status diventa `completato`, query invalidata, vedo prossimo
-4. Click "Salta" → conferma → status `saltato`, vedo prossimo (rotazione invariata)
-5. Apro `/app/programma` → vedo lista completa workout del programma con stati corretti
-6. Atleta senza programma → empty state chiaro
-7. Nav mostra "Programma" e "Esercizi" come voci distinte
+1. PT: aggiungo blocco SET + 3 esercizi → ordina/salva ok
+2. PT: aggiungo blocco EMOM con `rounds=10, interval=60` → params salvati in JSONB
+3. PT: clic ⓘ → popover descrizione corretta dal registry
+4. PT: drag riordino blocchi e esercizi dentro blocchi → ok
+5. PT: duplico blocco → nuovo blocco con stessi params + esercizi clonati
+6. Assegno template a atleta → workout creato con `workout_blocks` + `workout_exercises` mappati
+7. Atleta: vede blocchi in ordine, header descrittivo non tecnico, esegue normalmente
+8. Template legacy (senza blocchi) → atleta vede gli esercizi in blocco virtuale, nessuna regressione
 
