@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { Logo } from '@/components/common/Logo';
+import { RequireUserName } from '@/components/auth/RequireUserName';
 
 // =====================================================
 // ADMIN LAYOUT - Dashboard Web Admin
@@ -187,7 +188,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
-            {children}
+            <RequireUserName>{children}</RequireUserName>
           </motion.div>
         </main>
       </div>

@@ -24,6 +24,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { RequireUserName } from '@/components/auth/RequireUserName';
 
 interface PTDashboardLayoutProps {
   children: ReactNode;
@@ -236,7 +237,7 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
           >
-            {children}
+            <RequireUserName>{children}</RequireUserName>
           </motion.div>
         </main>
       </div>
