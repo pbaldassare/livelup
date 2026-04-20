@@ -20,68 +20,104 @@ export function AtletaChatPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch chats list
+  // Fetch chats list — parte dalle CONNESSIONI ATTIVE PT, non dai messaggi
+  // Così il coach è sempre visibile anche senza messaggi.
   const { data: chats, isLoading: chatsLoading } = useQuery({
     queryKey: ['atleta-chats', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data, error } = await supabase
+      // 1. Connessioni attive (coach collegati)
+      const { data: connections, error: connErr } = await supabase
+        .from('pt_atleta_connections')
+        .select('pt_user_id')
+        .eq('atleta_user_id', user.id)
+        .eq('status', 'active');
+
+      if (connErr) throw connErr;
+
+      const ptIds = (connections || []).map((c) => c.pt_user_id);
+      if (ptIds.length === 0) return [];
+
+      // 2. Chat esistenti per queste connessioni
+      const { data: existingChats } = await supabase
         .from('chats')
-        .select('id, pt_user_id, last_message_at, is_active')
+        .select('id, pt_user_id, last_message_at')
         .eq('atleta_user_id', user.id)
         .eq('is_active', true)
-        .order('last_message_at', { ascending: false });
+        .in('pt_user_id', ptIds);
 
-      if (error) throw error;
+      const chatByPt = new Map(
+        (existingChats || []).map((c) => [c.pt_user_id, c]),
+      );
 
-      // Fetch PT profiles and last messages
-      const chatsWithDetails = await Promise.all(
-        (data || []).map(async (chat) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, avatar_url')
-            .eq('user_id', chat.pt_user_id)
-            .single();
+      // 3. Profili coach
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, avatar_url')
+        .in('user_id', ptIds);
+      const profileByUser = new Map(
+        (profiles || []).map((p) => [p.user_id, p]),
+      );
 
-          const { data: lastMessage } = await supabase
-            .from('messages')
-            .select('content, sender_user_id, created_at, is_read')
-            .eq('chat_id', chat.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+      // 4. Ultimo messaggio + non letti per chat esistenti
+      const enriched = await Promise.all(
+        ptIds.map(async (ptId) => {
+          const chat = chatByPt.get(ptId);
+          const profile = profileByUser.get(ptId);
+          const realName = buildCoachFullName(
+            profile?.first_name,
+            profile?.last_name,
+          );
 
-          const { count: unreadCount } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('chat_id', chat.id)
-            .neq('sender_user_id', user.id)
-            .eq('is_read', false);
+          let lastMessage: string | undefined;
+          let lastMessageAt: string | undefined = chat?.last_message_at ?? undefined;
+          let unreadCount = 0;
 
-          // Nome reale validato (no placeholder come "coach", "pt", ecc.)
-          const realName = buildCoachFullName(profile?.first_name, profile?.last_name);
+          if (chat?.id) {
+            const { data: lastMsg } = await supabase
+              .from('messages')
+              .select('content, created_at')
+              .eq('chat_id', chat.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            lastMessage = lastMsg?.content ?? undefined;
+            lastMessageAt = lastMsg?.created_at ?? lastMessageAt;
 
-          if (!realName) {
-            console.warn('[AtletaChat] Profilo Coach non leggibile o dati incoerenti', {
-              pt_user_id: chat.pt_user_id,
-              profile,
-            });
+            const { count } = await supabase
+              .from('messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('chat_id', chat.id)
+              .neq('sender_user_id', user.id)
+              .eq('is_read', false);
+            unreadCount = count || 0;
           }
 
           return {
-            id: chat.id,
-            recipientUserId: chat.pt_user_id,
+            id: chat?.id ?? `pending-${ptId}`,
+            recipientUserId: ptId,
             name: realName ?? 'Il tuo Coach',
             avatarUrl: profile?.avatar_url,
-            lastMessage: lastMessage?.content,
-            lastMessageAt: lastMessage?.created_at,
-            unreadCount: unreadCount || 0,
+            lastMessage: lastMessage ?? (chat ? undefined : 'Nessuna conversazione'),
+            lastMessageAt,
+            unreadCount,
+            _hasChat: !!chat,
           };
-        })
+        }),
       );
 
-      return chatsWithDetails;
+      // Ordina: chat con messaggi recenti prima, poi senza
+      enriched.sort((a, b) => {
+        if (a.lastMessageAt && b.lastMessageAt) {
+          return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+        }
+        if (a.lastMessageAt) return -1;
+        if (b.lastMessageAt) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      return enriched;
     },
     enabled: !!user?.id,
   });

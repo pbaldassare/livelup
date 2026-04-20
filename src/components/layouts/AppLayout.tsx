@@ -15,6 +15,7 @@ import {
   FileText,
   CalendarDays
 } from 'lucide-react';
+import { RequireUserName } from '@/components/auth/RequireUserName';
 
 // =====================================================
 // APP LAYOUT - Mobile/PWA Layout
@@ -89,7 +90,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
             className="h-full"
           >
-            {children}
+            <RequireUserName>{children}</RequireUserName>
           </motion.div>
         </AnimatePresence>
       </main>

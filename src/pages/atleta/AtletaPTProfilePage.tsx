@@ -12,6 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { requestConnection } from '@/lib/api/connections';
 import { PTPackagesSection } from '@/components/atleta/PTPackagesSection';
 import { toast } from 'sonner';
+import { buildCoachFullName, getCoachInitials } from '@/lib/coachName';
+import { MessageCircle } from 'lucide-react';
 import { 
   ArrowLeft,
   Star, 
@@ -218,13 +220,15 @@ export function AtletaPTProfilePage() {
           <Avatar className="h-20 w-20 border-2 border-app-border">
             <AvatarImage src={pt.profiles?.avatar_url || undefined} />
             <AvatarFallback className="text-2xl bg-app-muted text-app-foreground">
-              {(pt.profiles?.first_name?.[0] || '') + (pt.profiles?.last_name?.[0] || '')}
+              {getCoachInitials(pt.profiles?.first_name, pt.profiles?.last_name)}
             </AvatarFallback>
           </Avatar>
           
           <div className="flex-1">
             <h1 className="text-xl font-bold text-app-foreground">
-              {pt.profiles?.first_name} {pt.profiles?.last_name}
+              {buildCoachFullName(pt.profiles?.first_name, pt.profiles?.last_name) ?? (
+                <span className="italic text-app-muted-foreground">Profilo incompleto</span>
+              )}
             </h1>
             
             {pt.rating_avg && pt.rating_avg > 0 && (
@@ -411,9 +415,12 @@ export function AtletaPTProfilePage() {
       <div className="fixed bottom-20 left-0 right-0 p-4 bg-app-card border-t border-app-border safe-bottom">
         <div className="max-w-lg mx-auto">
           {isConnectedToThisPT ? (
-            <Button className="w-full bg-app-accent text-app-accent-foreground" disabled>
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Già collegato
+            <Button 
+              className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 font-semibold"
+              onClick={() => navigate(`/app/chat/${userId}`)}
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Scrivi al tuo coach
             </Button>
           ) : isPendingThisPT ? (
             <Button className="w-full bg-app-muted text-app-muted-foreground" disabled>
