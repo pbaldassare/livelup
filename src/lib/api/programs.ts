@@ -435,20 +435,21 @@ async function generateRotationWorkouts(params: {
   const windowEndDate = new Date(dates[dates.length - 1]);
   windowEndDate.setDate(windowEndDate.getDate() + 1);
 
+  // Pre-fetch workouts esistenti nella finestra per skip duplicati.
+  // REGOLA: se in una data esiste GIÀ un qualsiasi workout per quell'atleta+PT
+  // → SKIP (mai sovrascrivere, mai duplicare). L'index della rotazione avanza
+  // comunque per mantenere la sequenza A→B→C→A coerente.
   const { data: existing } = await supabase
     .from('workouts')
-    .select('scheduled_date, title, template_id')
+    .select('scheduled_date')
     .eq('atleta_user_id', atletaUserId)
     .eq('pt_user_id', ptUserId)
     .gte('scheduled_date', windowStart.toISOString())
     .lt('scheduled_date', windowEndDate.toISOString());
 
-  const existingKeys = new Set(
-    (existing || []).map(
-      (w: any) =>
-        `${w.template_id ?? ''}__${
-          w.scheduled_date ? w.scheduled_date.slice(0, 10) : ''
-        }`,
+  const occupiedDates = new Set(
+    (existing || []).map((w: any) =>
+      w.scheduled_date ? w.scheduled_date.slice(0, 10) : '',
     ),
   );
 
@@ -460,12 +461,11 @@ async function generateRotationWorkouts(params: {
   for (const date of dates) {
     const sch = sortedSchedules[index];
     const dateKey = date.toISOString().slice(0, 10);
-    const dedupeKey = `${sch.template_id}__${dateKey}`;
 
-    if (existingKeys.has(dedupeKey)) {
+    if (occupiedDates.has(dateKey)) {
       skipped++;
       // ⚠️ avanziamo comunque l'indice per mantenere la rotazione coerente,
-      // come se la scheda fosse stata "consumata" (lo era già)
+      // come se la scheda fosse stata "consumata" (la data era già occupata)
       index = (index + 1) % sortedSchedules.length;
       continue;
     }
