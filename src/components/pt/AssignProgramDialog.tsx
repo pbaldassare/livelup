@@ -23,12 +23,27 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, CalendarDays, Users, CheckCircle2 } from 'lucide-react';
+import { CalendarIcon, CalendarDays, Users, CheckCircle2, Repeat } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { assignProgramToAthlete, getProgram } from '@/lib/api/programs';
+import { Toggle } from '@/components/ui/toggle';
+import {
+  assignProgramToAthlete,
+  getProgram,
+  describeRotation,
+} from '@/lib/api/programs';
+
+const WEEKDAYS = [
+  { iso: 1, label: 'Lun' },
+  { iso: 2, label: 'Mar' },
+  { iso: 3, label: 'Mer' },
+  { iso: 4, label: 'Gio' },
+  { iso: 5, label: 'Ven' },
+  { iso: 6, label: 'Sab' },
+  { iso: 7, label: 'Dom' },
+];
 
 interface AssignProgramDialogProps {
   open: boolean;
