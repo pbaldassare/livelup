@@ -295,6 +295,32 @@ export function PTWorkoutsPage() {
     },
   });
 
+  // Delete exercise mutation (con check uso nelle schede)
+  const deleteExerciseMutation = useMutation({
+    mutationFn: async (exerciseId: string) => {
+      const { count, error: countError } = await supabase
+        .from('template_exercises')
+        .select('*', { count: 'exact', head: true })
+        .eq('exercise_id', exerciseId);
+      if (countError) throw countError;
+      if ((count || 0) > 0) {
+        throw new Error(`Esercizio usato in ${count} scheda/e. Rimuovilo prima dalle schede.`);
+      }
+      const { error } = await supabase.from('exercises').delete().eq('id', exerciseId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-exercises'] });
+      queryClient.invalidateQueries({ queryKey: ['exercises'] });
+      setDeleteExerciseId(null);
+      toast.success('Esercizio eliminato');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Errore durante l\'eliminazione');
+      setDeleteExerciseId(null);
+    },
+  });
+
   // Difficulty options for inline edit
   const difficultyOptions = [
     { value: 'principiante', label: 'Principiante' },
