@@ -2,129 +2,86 @@
 
 ## Analisi
 
-L'utente vuole introdurre **due modalità di creazione programma**:
-- **Day by Day (manuale)**: assegnazione diretta scheda↔giorno dal calendario, nessuna rotazione
-- **Ricorrente (automatica)**: usa la logica di rotazione già implementata (`current_index`, `active_days`)
-
-Devo verificare lo stato attuale di `ProgramFormDialog`, `AssignProgramDialog`, `programs.ts` e la pagina calendario PT per capire dove integrare la modalità manuale.
-<lov-tool-use id="toolu_vrtx_01VnvMzuas78tAk2eRH2A5xQ" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/pt/ProgramFormDialog.tsx\"}">
+Devo capire come funziona oggi `updateProgram` e la rigenerazione/rolling. Verifico i file chiave.
+<lov-tool-use name="code--view" data="{\"file_path\": \"src/lib/api/programs.ts\"}">
 </lov-tool-use>
 
-<lov-tool-use id="toolu_vrtx_016waVPcqbSaRQwDpxMqKjLa" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/pt/ProgramFormDialog.tsx\"}">
-</lov-tool-use>
+Ho visto in precedenza la struttura. Riepilogo i punti critici:
 
-<lov-tool-use id="toolu_vrtx_013NQ3JNrTvNPuy319A1sB1S" name="code--view" integration-id="code" data="{\"file_path\": \"src/lib/api/programs.ts\"}">
-</lov-tool-use>
+- `updateProgram` esiste ma probabilmente sostituisce `program_schedules` interamente (DELETE+INSERT) e non protegge nulla.
+- `rollProgramAssignment` rigenera settimane future leggendo `program_schedules` correnti — questo è OK (i workouts già creati restano), ma serve garantire che NON sovrascriva date già occupate.
+- `current_index` rischia di andare fuori range se il numero di schede cala dopo una modifica.
+- Manca filtro "data >= oggi AND status NOT IN (completato, in_corso)" sulla rigenerazione.
 
-<lov-tool-use id="toolu_vrtx_01GVJAYvFskYmaym3T59HXDL" name="code--view" integration-id="code" data="{\"file_path\": \"src/pages/pt/PTCalendarPage.tsx\", \"lines\": \"1-100\"}">
-</lov-tool-use>
+## Piano: Modifica sicura di un Programma assegnato
 
-<lov-tool-use id="toolu_vrtx_01Hx597BPEQUxqGqVFDTwrsL" name="code--view" integration-id="code" data="{\"file_path\": \"src/lib/api/programs.ts\", \"lines\": \"500-533\"}">
-</lov-tool-use>
-
-<lov-tool-use id="toolu_vrtx_01SGsCtGXQ7VFhRptExrzBFq" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/pt/AssignWorkoutDialog.tsx\", \"lines\": \"1-80\"}">
-</lov-tool-use>
-I have enough context. The Day-by-Day mode already maps to the existing `AssignWorkoutDialog` with frequency = "once" (single date assignment). The Recurring mode maps to the existing program rotation system. I need to add a mode selector at the start of `ProgramFormDialog` and adjust how Day-by-Day programs are stored/assigned.
-
-<lov-plan>
-
-## Piano: Programma con due modalità (Day by Day vs Ricorrente)
-
-### Architettura
-
-Sfrutto al massimo il sistema esistente (rotazione + `AssignWorkoutDialog`). Aggiungo un campo `mode` al programma per distinguere le due modalità, con UI condizionale.
-
-```text
-ProgramFormDialog
- ├─ STEP 1: Scelta modalità (Day by Day | Ricorrente)
- │
- ├─ MODE = "recurring"  →  UI attuale (durata, giorni attivi, schede in rotazione)
- │                          → assignProgramToAthlete() esistente (rotazione ciclica)
- │
- └─ MODE = "day_by_day" →  UI calendario:
-                            - data inizio + durata (settimane)
-                            - per ogni giornata cliccata, scheda specifica
-                            - lista "giorno → scheda" modificabile
-                            → nuova funzione assignDayByDayProgram()
-                              che crea workouts puntuali senza rotazione
-```
-
-### Modifiche Database
-
-Migration: aggiungo a `workout_programs`:
-- `mode` TEXT NOT NULL DEFAULT 'recurring' — valori: `'recurring'` | `'day_by_day'`
-
-Aggiungo a `program_schedules` (per modalità day_by_day, solo opzionale):
-- `specific_date` DATE NULL — quando valorizzato, indica giorno fisso (ignora rotazione)
-- `day_of_week` resta come fallback (già nullable)
-
-In modalità `day_by_day`, ogni `program_schedule` rappresenta una coppia "data specifica → template". Niente rotazione, niente `current_index`.
+### Principio cardine
+Le modifiche al programma toccano SOLO la configurazione (`workout_programs` + `program_schedules`). I record in `workouts` già esistenti non vengono mai toccati. Le rigenerazioni future leggono la nuova configurazione e usano la regola di skip-on-collision già esistente.
 
 ### Modifiche file
 
-**1. `supabase/migrations/<new>.sql`** (nuovo)
-- ALTER TABLE per i campi sopra.
+**1. `src/lib/api/programs.ts` — `updateProgram`**
 
-**2. `src/lib/api/programs.ts`**
-- `WorkoutProgram` type: aggiungo `mode`.
-- `ProgramScheduleInput`: aggiungo `specific_date?: string`.
-- `createProgram`: accetta `mode`. Se `day_by_day`, salta validazione `activeDays` e accetta schedules con `specific_date`.
-- Nuova funzione `assignDayByDayProgram({ ptUserId, atletaUserId, programId, startDate })`: 
-  - crea record `program_assignments` (status active, no current_index meaningful)
-  - itera `program_schedules` ordinati per `specific_date` (offset rispetto a startDate del programma originale, o data assoluta) e crea workouts puntuali (skip duplicati)
-  - nessuna rotazione, no rolling
-- `assignProgramToAthlete` (esistente) diventa wrapper che switcha sul `mode`.
-- `rollProgramAssignment`: skip se mode = `day_by_day`.
+Refactor della funzione per essere safe:
+- Aggiorna i campi del programma (`name`, `description`, `mode`, `duration_weeks`, `frequency_per_week`, `active_days`, ecc.) sempre.
+- Per `program_schedules`: invece di DELETE+INSERT cieco, faccio un **diff intelligente**:
+  - schedules esistenti con stesso `id` → UPDATE solo dei campi cambiati
+  - nuovi schedules (senza id) → INSERT
+  - schedules rimossi → DELETE solo dal record di configurazione (non tocca workouts già generati)
+- Restituisco il programma aggiornato + lista `assignment_ids` impattati.
 
-**3. `src/components/pt/ProgramFormDialog.tsx`**
-- Aggiungo state `mode: 'recurring' | 'day_by_day'`.
-- Sopra il form attuale, sezione `RadioGroup` con due card:
-  - "Ricorrente" (icona Repeat) — descrizione breve
-  - "Day by Day" (icona Calendar) — descrizione breve
-- Se `mode = recurring` → mostro UI esistente (giorni attivi + schede in rotazione + preview).
-- Se `mode = day_by_day` → mostro:
-  - data inizio (default oggi) + durata in settimane
-  - lista "Giorno → Scheda" (offset in giorni dalla data di inizio)
-  - bottone "+ Aggiungi giorno": apre selettore data + dropdown template
-  - rimozione singola riga
-  - nessuna preview rotazione
-- Nel salvataggio, passo `mode` e adatto i payload `schedules`.
-- Validazione: in day_by_day richiedo almeno 1 giornata.
+**2. `src/lib/api/programs.ts` — Nuova funzione `realignAssignmentsAfterUpdate(programId)`**
 
-**4. `src/components/pt/AssignProgramDialog.tsx`**
-- Mostro badge "Modalità: Ricorrente / Day by Day" nel summary.
-- Se `mode = day_by_day` → nascondo l'override di `active_days` e la preview rotazione (mostro invece elenco "giorni programmati").
-- Chiamata API: il wrapper `assignProgramToAthlete` farà routing automatico.
+Per ogni `program_assignment` attivo collegato a quel programma:
+- Rilegge `program_schedules` aggiornati e calcola il nuovo `total_templates`.
+- Riallinea `current_index`: `new_index = current_index % new_total` (clamp a 0 se 0 schede — bloccato a monte).
+- Aggiorna `active_days` se modificato a livello di programma E l'assignment usa ancora i default (campo `active_days` mai customizzato). Decisione: per sicurezza NON propago automaticamente `active_days` agli assignment esistenti — restano come scelti al momento dell'assegnazione. Solo `current_index` viene clamped.
 
-**5. Caso speciale "frequenza > schede"** (solo modalità Ricorrente)
-- In `ProgramFormDialog`, quando `activeDays.length > schedules.length`, mostro un alert `Card` informativo con `RadioGroup` 2 opzioni:
-  - **Rotazione continua** (default, già implementata)
-  - **Genera scheda aggiuntiva** (disabilitata/placeholder con tooltip "Disponibile prossimamente")
-- Per ora persiste solo la scelta UI (campo `extra_template_strategy` opzionale, NON salvato in DB in questa iterazione — lasciato come state locale + nota visiva).
+**3. `src/lib/api/programs.ts` — Hardening `rollProgramAssignment` e `assignRecurringProgram`**
 
-### Modalità Day by Day — flusso operativo
+Aggiungere controllo esplicito sulla collisione: prima di INSERT in `workouts`, query su:
+```ts
+.from('workouts')
+.select('id, status')
+.eq('atleta_user_id', ...)
+.eq('scheduled_date', date)
+```
+Se esiste un workout per quella data (qualunque status) → **skip** (mai sovrascrivere). L'index della rotazione avanza comunque per mantenere continuità (logica già presente, da confermare).
 
-Il programma "Day by Day" è una **collezione di assegnazioni puntuali pre-confezionate**. Quando il PT lo assegna a un atleta:
-- la data di inizio dell'assegnazione fa da "ancora" (offset 0)
-- ogni `program_schedule.specific_date` è interpretata come offset in giorni dalla data di creazione del programma; in fase di assegnazione viene rimappata su `startDate + offset`.
-- Alternative considerata: salvare l'offset (intero) invece di `specific_date`. **Scelgo offset_days** per chiarezza → aggiungo invece `day_offset INT` al posto di `specific_date`. Più pulito.
+Nota: la regola "data >= oggi AND status NOT IN (completato, in_corso) → modificabile" non si applica alla **generazione** (che già non tocca i record esistenti), ma servirebbe solo se in futuro si aggiunge un'opzione "rigenera anche i futuri". Per ora la mettiamo come **regola di sola lettura/visualizzazione**, non di azione automatica.
 
-**Decisione finale schema:**
-- `program_schedules.day_offset INT NULL` (nuovo) — solo per day_by_day
-- `program_schedules.day_of_week INT` resta NOT NULL ma valorizzato a 1 come placeholder per day_by_day
+**4. `src/components/pt/ProgramFormDialog.tsx` — UX in modalità "edit"**
 
-### Edge case gestiti
-- Programma senza schede → blocco submit (entrambe modalità)
-- Day by Day con 0 giorni → blocco submit
-- Ricorrente con `activeDays = []` → blocco submit
-- Frequenza > schede → warning UI + opzioni
-- Conflitto data esistente → skip silenzioso (logica già presente)
+- Quando il dialog è aperto su un programma esistente che ha almeno 1 `program_assignment` attivo:
+  - Mostro `Alert` informativo in cima:
+    > ⚠️ Questo programma è assegnato a N atleta/i. Le modifiche si applicheranno **solo agli allenamenti futuri**. Lo storico resta invariato.
+  - Mostro count assegnazioni attive.
+- Validazioni rinforzate:
+  - Non permetto di salvare con 0 schede se ci sono assegnazioni attive (bloccare).
+  - Avviso prima del submit se cambia `mode`, `duration_weeks`, o numero schede.
+- Conservo gli `id` degli `program_schedules` esistenti nel form state per permettere il diff lato API.
+
+**5. Edge case e controlli espliciti**
+
+- Programma con 0 schede su salvataggio → bloccato (sia create che update).
+- Cambio mode (`recurring` ↔ `day_by_day`) su programma assegnato → mostro warning forte ("Cambierà la logica di generazione futura").
+- Riallineamento `current_index`: se `new_total < current_index`, applico `% new_total`.
+- I workout già su DB con riferimento a un template rimosso dal programma restano validi (non c'è FK cascade verso `program_schedules`).
+
+### Schema DB
+**Nessuna migrazione necessaria.** L'attuale schema (`workouts` indipendente da `program_schedules`, `current_index` su `program_assignments`) supporta già tutto.
+
+### File modificati
+- `src/lib/api/programs.ts` — `updateProgram` con diff, nuova `realignAssignmentsAfterUpdate`, hardening collision-skip in `rollProgramAssignment` / `assignRecurringProgram` / `assignDayByDayProgram`.
+- `src/components/pt/ProgramFormDialog.tsx` — Alert "modifiche solo future", count assegnazioni attive, validazione 0 schede, warning su cambio mode/duration.
 
 ### Checklist test manuale
-1. Creo programma "Ricorrente" 3 schede + 3 giorni → rotazione A→B→C corretta
-2. Creo programma "Ricorrente" 3 schede + 4 giorni → vedo banner "frequenza > schede" con scelta
-3. Creo programma "Day by Day" con 3 giornate diverse → assegno → vedo solo quei 3 workouts nelle date corrette
-4. Day by Day NON ruota schede e NON genera ulteriori settimane
-5. AssignProgramDialog mostra badge modalità corretto
-6. Atleta vede schede corrette nelle date corrispondenti
+1. Modifico nome/descrizione programma → workouts esistenti invariati ✓
+2. Aggiungo scheda D al programma → la rigenerazione settimanale successiva la include nella rotazione, passato invariato ✓
+3. Rimuovo scheda C → workouts già generati con C restano, futuri usano solo A,B ✓
+4. Cambio ordine A,B,C → C,A,B → solo nuove generazioni rispettano nuovo ordine ✓
+5. Programma con `current_index = 4` e poi rimuovo schede portandole a 3 → index riallineato a `4 % 3 = 1` ✓
+6. Modifico `active_days` → assegnazioni esistenti mantengono i loro `active_days` originali (nessun side-effect inatteso sul calendario atleta) ✓
+7. Provo a salvare programma con 0 schede e atleti assegnati → bloccato con errore chiaro ✓
+8. Atleta con workout `in_corso` o `completato` → invariato in ogni scenario ✓
 
