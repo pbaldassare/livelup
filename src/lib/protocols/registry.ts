@@ -52,11 +52,13 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     athleteLabel: 'Serie e ripetizioni',
     icon: Layers,
     description:
-      'Set standard: ripeti N serie da X ripetizioni con un recupero fisso tra una serie e l\'altra. Il protocollo classico per costruire forza e ipertrofia.',
-    defaultParams: { sets: 3, reps: 10, rest_seconds: 60 },
+      'Esercizio standard con serie e ripetizioni (o secondi) fisse. Ogni serie ha il proprio tempo di recupero. Usa "Ripetizioni" oppure "Tempo (s)", non entrambi.',
+    defaultParams: { sets: 3, reps: 10, duration_seconds: null, rest_seconds: 60, weight: null },
     paramFields: [
       { key: 'sets', label: 'Serie', type: 'number', min: 1, placeholder: '3' },
-      { key: 'reps', label: 'Ripetizioni', type: 'number', min: 1, placeholder: '10' },
+      { key: 'reps', label: 'Ripetizioni', type: 'number', min: 1, placeholder: '10', hint: 'Lascia vuoto se usi il tempo' },
+      { key: 'duration_seconds', label: 'Tempo (s)', type: 'number', min: 1, step: 5, placeholder: '30', hint: 'Lascia vuoto se usi le reps' },
+      { key: 'weight', label: 'Carico (kg)', type: 'number', min: 0, step: 0.5, placeholder: '—', hint: 'Opzionale' },
       { key: 'rest_seconds', label: 'Recupero (s)', type: 'number', min: 0, step: 15, placeholder: '60' },
     ],
     executionMode: 'standard',
