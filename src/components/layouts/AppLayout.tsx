@@ -15,6 +15,7 @@ import {
   FileText,
   CalendarDays
 } from 'lucide-react';
+import { RequireUserName } from '@/components/auth/RequireUserName';
 
 // =====================================================
 // APP LAYOUT - Mobile/PWA Layout
