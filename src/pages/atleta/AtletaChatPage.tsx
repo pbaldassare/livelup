@@ -199,18 +199,18 @@ export function AtletaChatPage() {
   }, [currentChat?.id, user?.id, queryClient]);
 
   // Show chat detail if recipientId is provided
-  if (recipientId && currentChat) {
+  if (recipientId && (currentChat || creatingChat)) {
     return (
       <div className="h-full min-h-0 bg-app-background">
         <ChatMessages
-          recipientName={currentChat.name}
-          recipientAvatar={currentChat.avatarUrl}
+          recipientName={currentChat?.name ?? 'Il tuo Coach'}
+          recipientAvatar={currentChat?.avatarUrl}
           messages={messages || []}
           currentUserId={user?.id || ''}
           onBack={() => navigate('/app/chat')}
           onSend={(content) => sendMutation.mutate(content)}
           onAttach={() => toast.info('Allegati in arrivo')}
-          isLoading={messagesLoading}
+          isLoading={messagesLoading || creatingChat}
         />
       </div>
     );
