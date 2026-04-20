@@ -536,39 +536,86 @@ export function AtletaWorkoutDetailPage() {
             )}
           </motion.div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             <h3 className="font-semibold text-app-foreground">Esercizi</h3>
-            {exercises.map((ex: WorkoutExercise, idx: number) => {
-              const logCount = existingLogs?.filter(l => l.workout_exercise_id === ex.id && l.is_completed).length || 0;
-              return (
-                <motion.div
-                  key={ex.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.15 + idx * 0.05 }}
-                  className="flex items-center gap-3 p-3 bg-app-card border border-app-border rounded-xl"
-                >
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center",
-                    logCount >= ex.prescribed_sets ? "bg-app-accent/20" : "bg-app-accent/10"
-                  )}>
-                    {logCount >= ex.prescribed_sets ? (
-                      <CheckCircle2 className="h-4 w-4 text-app-accent" />
-                    ) : (
-                      <span className="text-sm font-bold text-app-accent">{idx + 1}</span>
-                    )}
+            {(() => {
+              // Raggruppa esercizi per blocco; orfani in blocco virtuale finale
+              const blocks = (workout as any).workout_blocks as WorkoutBlock[] | undefined;
+              const groups: Array<{ block: WorkoutBlock | null; items: WorkoutExercise[] }> = [];
+              if (blocks && blocks.length > 0) {
+                blocks.forEach((b) => {
+                  const items = exercises.filter((e: any) => e.block_id === b.id);
+                  if (items.length > 0) groups.push({ block: b, items });
+                });
+                const orphans = exercises.filter((e: any) => !e.block_id);
+                if (orphans.length > 0) groups.push({ block: null, items: orphans });
+              } else {
+                groups.push({ block: null, items: exercises });
+              }
+
+              let globalIdx = 0;
+              return groups.map((g, gi) => {
+                const blockTitle = g.block
+                  ? (g.block.name && g.block.name.trim() !== ''
+                      ? g.block.name
+                      : `Blocco ${gi + 1}`)
+                  : 'Esercizi';
+                // Soft summary: solo numeri, no tipo tecnico
+                const p = g.block?.params || {};
+                const summaryParts: string[] = [];
+                if (p.sets) {
+                  if (p.reps) summaryParts.push(`${p.sets}×${p.reps}`);
+                  else if (p.duration_seconds) summaryParts.push(`${p.sets}×${p.duration_seconds}s`);
+                  else summaryParts.push(`${p.sets} serie`);
+                }
+                if (p.rest_seconds) summaryParts.push(`recupero ${p.rest_seconds}s`);
+
+                return (
+                  <div key={g.block?.id || `orphans-${gi}`} className="space-y-2">
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-sm font-semibold text-app-foreground">{blockTitle}</p>
+                      {summaryParts.length > 0 && (
+                        <p className="text-xs text-app-muted-foreground">{summaryParts.join(' · ')}</p>
+                      )}
+                    </div>
+                    {g.items.map((ex: WorkoutExercise) => {
+                      const idx = globalIdx++;
+                      const logCount = existingLogs?.filter(l => l.workout_exercise_id === ex.id && l.is_completed).length || 0;
+                      const repsLabel = ex.prescribed_duration_seconds
+                        ? `${ex.prescribed_duration_seconds}s`
+                        : `${ex.prescribed_reps_min || 10}${ex.prescribed_reps_max ? `-${ex.prescribed_reps_max}` : ''} rep`;
+                      return (
+                        <motion.div
+                          key={ex.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.15 + idx * 0.05 }}
+                          className="flex items-center gap-3 p-3 bg-app-card border border-app-border rounded-xl"
+                        >
+                          <div className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center",
+                            logCount >= ex.prescribed_sets ? "bg-app-accent/20" : "bg-app-accent/10"
+                          )}>
+                            {logCount >= ex.prescribed_sets ? (
+                              <CheckCircle2 className="h-4 w-4 text-app-accent" />
+                            ) : (
+                              <span className="text-sm font-bold text-app-accent">{idx + 1}</span>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-app-foreground">{ex.exercises?.name}</p>
+                            <p className="text-sm text-app-muted-foreground">
+                              {ex.prescribed_sets} set × {repsLabel}
+                              {logCount > 0 && ` • ${logCount}/${ex.prescribed_sets} completati`}
+                            </p>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-app-foreground">{ex.exercises?.name}</p>
-                    <p className="text-sm text-app-muted-foreground">
-                      {ex.prescribed_sets} set × {ex.prescribed_reps_min || 10}
-                      {ex.prescribed_reps_max ? `-${ex.prescribed_reps_max}` : ''} rep
-                      {logCount > 0 && ` • ${logCount}/${ex.prescribed_sets} completati`}
-                    </p>
-                  </div>
-                </motion.div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
 
           {workout.notes_pt && (
