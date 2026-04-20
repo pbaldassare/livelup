@@ -31,9 +31,21 @@ import {
   Eye,
   UserPlus,
   BookOpen,
-  CalendarDays
+  CalendarDays,
+  Pencil,
+  Video,
 } from 'lucide-react';
 import { ProgramsTab } from '@/components/pt/ProgramsTab';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 // =====================================================
@@ -73,6 +85,8 @@ export function PTWorkoutsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isCreateExerciseOpen, setIsCreateExerciseOpen] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<any | null>(null);
+  const [deleteExerciseId, setDeleteExerciseId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [editExercisesDialogOpen, setEditExercisesDialogOpen] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
@@ -278,6 +292,32 @@ export function PTWorkoutsPage() {
     },
     onError: () => {
       toast.error('Errore durante l\'aggiornamento');
+    },
+  });
+
+  // Delete exercise mutation (con check uso nelle schede)
+  const deleteExerciseMutation = useMutation({
+    mutationFn: async (exerciseId: string) => {
+      const { count, error: countError } = await supabase
+        .from('template_exercises')
+        .select('*', { count: 'exact', head: true })
+        .eq('exercise_id', exerciseId);
+      if (countError) throw countError;
+      if ((count || 0) > 0) {
+        throw new Error(`Esercizio usato in ${count} scheda/e. Rimuovilo prima dalle schede.`);
+      }
+      const { error } = await supabase.from('exercises').delete().eq('id', exerciseId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-exercises'] });
+      queryClient.invalidateQueries({ queryKey: ['exercises'] });
+      setDeleteExerciseId(null);
+      toast.success('Esercizio eliminato');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Errore durante l\'eliminazione');
+      setDeleteExerciseId(null);
     },
   });
 
@@ -616,7 +656,7 @@ export function PTWorkoutsPage() {
               </TabsTrigger>
               <TabsTrigger value="exercises" className="gap-2">
                 <BookOpen className="h-4 w-4" />
-                Libreria ({myExercises.length})
+                Esercizi ({myExercises.length})
               </TabsTrigger>
             </TabsList>
             <TabsContent value="templates" className="mt-4">
@@ -641,8 +681,11 @@ export function PTWorkoutsPage() {
               />
             </TabsContent>
             <TabsContent value="exercises" className="mt-4">
-              <div className="flex justify-end mb-4">
-                <Button onClick={() => setIsCreateExerciseOpen(true)} size="sm">
+              <div className="flex items-center justify-between mb-4 gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Gli esercizi qui sono gli stessi disponibili nel builder delle schede.
+                </p>
+                <Button onClick={() => { setEditingExercise(null); setIsCreateExerciseOpen(true); }} size="sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Nuovo Esercizio
                 </Button>
@@ -650,34 +693,71 @@ export function PTWorkoutsPage() {
               {exercisesLoading ? (
                 <p className="text-muted-foreground text-center py-8">Caricamento...</p>
               ) : myExercises.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-12 text-muted-foreground">
                   <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-30" />
                   <p>Nessun esercizio personalizzato</p>
-                  <Button variant="link" onClick={() => setIsCreateExerciseOpen(true)}>Crea il tuo primo esercizio</Button>
+                  <p className="text-xs mt-1">Crea esercizi riutilizzabili in tutte le tue schede</p>
+                  <Button variant="link" onClick={() => { setEditingExercise(null); setIsCreateExerciseOpen(true); }}>
+                    Crea il tuo primo esercizio
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {myExercises.filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase())).map(ex => (
-                    <div key={ex.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-muted">
-                          <Dumbbell className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{ex.name}</p>
-                          <div className="flex gap-1.5 mt-0.5">
-                            <Badge variant="outline" className="text-xs capitalize">{ex.category}</Badge>
-                            <Badge variant="secondary" className="text-xs capitalize">{ex.difficulty_level}</Badge>
+                  {myExercises
+                    .filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map(ex => (
+                      <div
+                        key={ex.id}
+                        className="flex items-start justify-between gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <div className="p-2 rounded-lg bg-muted shrink-0">
+                            {ex.video_url ? (
+                              <Video className="h-4 w-4 text-primary" />
+                            ) : (
+                              <Dumbbell className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{ex.name}</p>
+                            {ex.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                                {ex.description}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              <Badge variant="outline" className="text-xs capitalize">{ex.category}</Badge>
+                              <Badge variant="secondary" className="text-xs capitalize">{ex.difficulty_level}</Badge>
+                              {(ex.muscle_groups || []).slice(0, 3).map((m: string) => (
+                                <Badge key={m} variant="outline" className="text-xs">{m}</Badge>
+                              ))}
+                              {(ex.muscle_groups || []).length > 3 && (
+                                <Badge variant="outline" className="text-xs">+{ex.muscle_groups.length - 3}</Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => { setEditingExercise(ex); setIsCreateExerciseOpen(true); }}
+                            title="Modifica"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-destructive"
+                            onClick={() => setDeleteExerciseId(ex.id)}
+                            title="Elimina"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {(ex.muscle_groups || []).slice(0, 3).map((m: string) => (
-                          <Badge key={m} variant="outline" className="text-xs">{m}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </TabsContent>
@@ -695,11 +775,38 @@ export function PTWorkoutsPage() {
         preselectedTemplateId={selectedTemplateId || undefined}
       />
 
-      {/* Create Exercise Dialog */}
+      {/* Create / Edit Exercise Dialog (stessa fonte dati del builder) */}
       <CreateExerciseDialog
         open={isCreateExerciseOpen}
-        onOpenChange={setIsCreateExerciseOpen}
+        onOpenChange={(open) => {
+          setIsCreateExerciseOpen(open);
+          if (!open) setEditingExercise(null);
+        }}
+        exercise={editingExercise}
       />
+
+      {/* Conferma eliminazione esercizio */}
+      <AlertDialog open={!!deleteExerciseId} onOpenChange={(o) => !o && setDeleteExerciseId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare l'esercizio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L'esercizio sarà rimosso dalla tua libreria. Se è già usato in qualche scheda,
+              l'operazione verrà bloccata e dovrai prima rimuoverlo dalle schede.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteExerciseId && deleteExerciseMutation.mutate(deleteExerciseId)}
+              disabled={deleteExerciseMutation.isPending}
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
