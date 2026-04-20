@@ -165,6 +165,9 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
     },
+  });
+
+  // Remove exercise mutation
   const removeExerciseMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -195,7 +198,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       await Promise.all(updates);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['template-exercises', templateId] });
+      queryClient.invalidateQueries({ queryKey });
     },
     onError: () => {
       toast.error('Errore durante il riordinamento');
