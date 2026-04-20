@@ -7,6 +7,7 @@ import { ChatList } from '@/components/app/ChatList';
 import { ChatMessages } from '@/components/app/ChatMessages';
 import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from '@/lib/api/messages';
 import { toast } from 'sonner';
+import { buildCoachFullName } from '@/lib/coachName';
 
 // =====================================================
 // ATLETA CHAT PAGE - Chat with PT
