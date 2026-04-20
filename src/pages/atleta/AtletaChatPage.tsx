@@ -62,10 +62,17 @@ export function AtletaChatPage() {
           // Nome reale validato (no placeholder come "coach", "pt", ecc.)
           const realName = buildCoachFullName(profile?.first_name, profile?.last_name);
 
+          if (!realName) {
+            console.warn('[AtletaChat] Profilo Coach non leggibile o dati incoerenti', {
+              pt_user_id: chat.pt_user_id,
+              profile,
+            });
+          }
+
           return {
             id: chat.id,
             recipientUserId: chat.pt_user_id,
-            name: realName ?? 'Coach assegnato',
+            name: realName ?? 'Il tuo Coach',
             avatarUrl: profile?.avatar_url,
             lastMessage: lastMessage?.content,
             lastMessageAt: lastMessage?.created_at,
