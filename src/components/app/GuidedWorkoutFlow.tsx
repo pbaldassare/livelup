@@ -30,6 +30,7 @@ export interface GWExercise {
   prescribed_sets: number;
   prescribed_reps_min?: number | null;
   prescribed_reps_max?: number | null;
+  prescribed_duration_seconds?: number | null;
   prescribed_weight?: number | null;
   rest_seconds?: number | null;
   notes?: string | null;
@@ -57,6 +58,7 @@ interface State {
   exerciseIndex: number;
   setNumber: number;
   reps: number;
+  duration: number; // secondi (per esercizi a tempo)
   weight: number;
   restSeconds: number;
   restTotal: number;
@@ -73,6 +75,7 @@ interface State {
 type Action =
   | { type: 'START_SET' }
   | { type: 'SET_REPS'; v: number }
+  | { type: 'SET_DURATION'; v: number }
   | { type: 'SET_WEIGHT'; v: number }
   | { type: 'COMPLETE_SET' }
   | { type: 'AFTER_SAVE'; rest: number }
@@ -91,6 +94,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, flow: 'input' };
     case 'SET_REPS':
       return { ...state, reps: Math.max(0, action.v) };
+    case 'SET_DURATION':
+      return { ...state, duration: Math.max(0, action.v) };
     case 'SET_WEIGHT':
       return { ...state, weight: Math.max(0, action.v) };
     case 'AFTER_SAVE':
@@ -142,6 +147,9 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+const isTimedExercise = (ex?: GWExercise) =>
+  !!ex && (ex.prescribed_duration_seconds ?? 0) > 0;
+
 export function GuidedWorkoutFlow({
   workoutId,
   exercises,
@@ -158,6 +166,7 @@ export function GuidedWorkoutFlow({
     exerciseIndex: initialExerciseIndex,
     setNumber: initialSet,
     reps: parseInitialReps(initialExercise),
+    duration: Number(initialExercise?.prescribed_duration_seconds || 0),
     weight: Number(initialExercise?.prescribed_weight || 0),
     restSeconds: initialExercise?.rest_seconds || 60,
     restTotal: initialExercise?.rest_seconds || 60,
@@ -192,6 +201,7 @@ export function GuidedWorkoutFlow({
   // Re-sync inputs when exercise changes
   useEffect(() => {
     dispatch({ type: 'SET_REPS', v: parseInitialReps(currentExercise) });
+    dispatch({ type: 'SET_DURATION', v: Number(currentExercise?.prescribed_duration_seconds || 0) });
     dispatch({ type: 'SET_WEIGHT', v: Number(currentExercise?.prescribed_weight || 0) });
   }, [state.exerciseIndex, currentExercise]);
 
@@ -220,6 +230,7 @@ export function GuidedWorkoutFlow({
       workoutExerciseId: string;
       setNumber: number;
       reps: number;
+      durationSeconds: number;
       weight: number;
       restPlanned: number;
     }) => {
@@ -232,7 +243,8 @@ export function GuidedWorkoutFlow({
       const { error } = await supabase.from('workout_logs').insert({
         workout_exercise_id: payload.workoutExerciseId,
         set_number: payload.setNumber,
-        reps_completed: payload.reps,
+        reps_completed: payload.reps || null,
+        duration_seconds: payload.durationSeconds || null,
         weight_used: payload.weight || null,
         is_completed: true,
         notes: `rest_planned:${payload.restPlanned}`,
@@ -299,7 +311,8 @@ export function GuidedWorkoutFlow({
       await saveSet.mutateAsync({
         workoutExerciseId: currentExercise.id,
         setNumber: state.setNumber,
-        reps: state.reps,
+        reps: isTimedExercise(currentExercise) ? 0 : state.reps,
+        durationSeconds: isTimedExercise(currentExercise) ? state.duration : 0,
         weight: state.weight,
         restPlanned,
       });
