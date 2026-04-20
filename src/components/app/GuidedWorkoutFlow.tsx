@@ -433,7 +433,10 @@ export function GuidedWorkoutFlow({
               </p>
 
               <div className="grid grid-cols-3 gap-3 w-full max-w-xs mb-6">
-                <Stat label="Target" value={repsLabel} />
+                <Stat
+                  label="Target"
+                  value={isTimedExercise(currentExercise) ? `${currentExercise.prescribed_duration_seconds}s` : repsLabel}
+                />
                 <Stat
                   label="Peso"
                   value={
@@ -480,12 +483,21 @@ export function GuidedWorkoutFlow({
               </p>
 
               <div className="w-full max-w-xs space-y-5 mb-8">
-                <NumberRow
-                  label="Reps"
-                  value={state.reps}
-                  step={1}
-                  onChange={(v) => dispatch({ type: 'SET_REPS', v })}
-                />
+                {isTimedExercise(currentExercise) ? (
+                  <NumberRow
+                    label="Tempo (s)"
+                    value={state.duration}
+                    step={5}
+                    onChange={(v) => dispatch({ type: 'SET_DURATION', v })}
+                  />
+                ) : (
+                  <NumberRow
+                    label="Reps"
+                    value={state.reps}
+                    step={1}
+                    onChange={(v) => dispatch({ type: 'SET_REPS', v })}
+                  />
+                )}
                 <NumberRow
                   label="Peso (kg)"
                   value={state.weight}
