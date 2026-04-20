@@ -139,6 +139,13 @@ export function useAtletaStatus(): UseAtletaStatusReturn {
   const ptName = connection?.profiles
     ? `${connection.profiles.first_name || ''} ${connection.profiles.last_name || ''}`.trim() || null
     : null;
+  const ptAvatarUrl = connection?.profiles?.avatar_url || null;
+
+  // True quando la richiesta pending è stata inviata dal PT (non dall'atleta)
+  const pendingInvitationFromPT =
+    hasPendingRequest &&
+    !!connection?.requested_by &&
+    connection.requested_by === connection.pt_user_id;
 
   // Feature gating based on connection status
   const canAccessWorkouts = isConnected;
@@ -153,7 +160,9 @@ export function useAtletaStatus(): UseAtletaStatusReturn {
     isLoading,
     isConnected,
     hasPendingRequest,
+    pendingInvitationFromPT,
     ptName,
+    ptAvatarUrl,
     canAccessWorkouts,
     canAccessChat,
     canAccessProgress,
