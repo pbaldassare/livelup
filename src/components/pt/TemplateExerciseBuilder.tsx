@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Command,
   CommandEmpty,
@@ -63,14 +62,18 @@ interface TemplateExercise {
 
 interface TemplateExerciseBuilderProps {
   templateId: string;
+  blockId?: string | null; // se presente, scope esercizi al blocco
   onSave?: () => void;
 }
 
-export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExerciseBuilderProps) {
+export function TemplateExerciseBuilder({ templateId, blockId, onSave }: TemplateExerciseBuilderProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Cache key — separato per blocco
+  const queryKey = ['template-exercises', templateId, blockId ?? 'no-block'];
 
   // Fetch all exercises
   const { data: exercises = [] } = useQuery({
@@ -87,19 +90,26 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
     },
   });
 
-  // Fetch template exercises
+  // Fetch template exercises (filtrati per block_id se presente)
   const { data: templateExercises = [], isLoading } = useQuery({
-    queryKey: ['template-exercises', templateId],
+    queryKey,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('template_exercises')
         .select(`
-          id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo,
+          id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id,
           exercises (*)
         `)
         .eq('template_id', templateId)
         .order('order_index');
-      
+
+      if (blockId) {
+        q = q.eq('block_id', blockId);
+      } else {
+        q = q.is('block_id', null);
+      }
+
+      const { data, error } = await q;
       if (error) throw error;
       return data.map(te => ({
         ...te,
@@ -126,12 +136,14 @@ export function TemplateExerciseBuilder({ templateId, onSave }: TemplateExercise
           reps_min: 10,
           reps_max: 12,
           rest_seconds: 60,
+          block_id: blockId ?? null,
         });
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['template-exercises', templateId] });
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['template-blocks', templateId] });
       toast.success('Esercizio aggiunto');
       setSearchOpen(false);
     },
