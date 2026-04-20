@@ -1,87 +1,89 @@
 
 
-## Analisi
+## Piano: Riorganizzazione Atleta — "Esercizi" (operativa) + "Programma" (visione)
 
-Devo capire come funziona oggi `updateProgram` e la rigenerazione/rolling. Verifico i file chiave.
-<lov-tool-use name="code--view" data="{\"file_path\": \"src/lib/api/programs.ts\"}">
-</lov-tool-use>
+### Stato attuale
+- `/app/esercizi` → mostra workout del giorno o prossimo, con tracking serie. **Va bene come base**, ma manca: priorità `in_corso` / `in_sospeso`, azioni "Completa" / "Salta", stato esercizio.
+- `/app/scheda` → mostra dettaglio del singolo workout del giorno (PDF-like). **Da sostituire** con vista "Programma" (calendario completo del programma assegnato).
+- Nav (`MobileNav.tsx`): voce "Scheda" → diventa **"Programma"**.
+- Status DB workout: `attivo | completato | scaduto | in_corso | in_sospeso`. **Manca `saltato`** → riuso `in_sospeso` come "saltato" (decisione da confermare in implementazione, oppure aggiungiamo enum value).
 
-Ho visto in precedenza la struttura. Riepilogo i punti critici:
+### Decisione sullo status "saltato"
+Aggiungo `'saltato'` all'enum `workout_status` via migration. Tre stati visivi finali per l'atleta: `completato`, `saltato`, `attivo/futuro`. `in_corso` e `in_sospeso` restano intermedi.
 
-- `updateProgram` esiste ma probabilmente sostituisce `program_schedules` interamente (DELETE+INSERT) e non protegge nulla.
-- `rollProgramAssignment` rigenera settimane future leggendo `program_schedules` correnti — questo è OK (i workouts già creati restano), ma serve garantire che NON sovrascriva date già occupate.
-- `current_index` rischia di andare fuori range se il numero di schede cala dopo una modifica.
-- Manca filtro "data >= oggi AND status NOT IN (completato, in_corso)" sulla rigenerazione.
-
-## Piano: Modifica sicura di un Programma assegnato
-
-### Principio cardine
-Le modifiche al programma toccano SOLO la configurazione (`workout_programs` + `program_schedules`). I record in `workouts` già esistenti non vengono mai toccati. Le rigenerazioni future leggono la nuova configurazione e usano la regola di skip-on-collision già esistente.
-
-### Modifiche file
-
-**1. `src/lib/api/programs.ts` — `updateProgram`**
-
-Refactor della funzione per essere safe:
-- Aggiorna i campi del programma (`name`, `description`, `mode`, `duration_weeks`, `frequency_per_week`, `active_days`, ecc.) sempre.
-- Per `program_schedules`: invece di DELETE+INSERT cieco, faccio un **diff intelligente**:
-  - schedules esistenti con stesso `id` → UPDATE solo dei campi cambiati
-  - nuovi schedules (senza id) → INSERT
-  - schedules rimossi → DELETE solo dal record di configurazione (non tocca workouts già generati)
-- Restituisco il programma aggiornato + lista `assignment_ids` impattati.
-
-**2. `src/lib/api/programs.ts` — Nuova funzione `realignAssignmentsAfterUpdate(programId)`**
-
-Per ogni `program_assignment` attivo collegato a quel programma:
-- Rilegge `program_schedules` aggiornati e calcola il nuovo `total_templates`.
-- Riallinea `current_index`: `new_index = current_index % new_total` (clamp a 0 se 0 schede — bloccato a monte).
-- Aggiorna `active_days` se modificato a livello di programma E l'assignment usa ancora i default (campo `active_days` mai customizzato). Decisione: per sicurezza NON propago automaticamente `active_days` agli assignment esistenti — restano come scelti al momento dell'assegnazione. Solo `current_index` viene clamped.
-
-**3. `src/lib/api/programs.ts` — Hardening `rollProgramAssignment` e `assignRecurringProgram`**
-
-Aggiungere controllo esplicito sulla collisione: prima di INSERT in `workouts`, query su:
-```ts
-.from('workouts')
-.select('id, status')
-.eq('atleta_user_id', ...)
-.eq('scheduled_date', date)
+```text
+Esercizi (azione)             Programma (visione)
+─────────────────────         ───────────────────────
+Solo workout di oggi          Tutti i workout del programma
+o prossimo + tracking         assegnato attivo: lista calendario
++ azioni Completa/Salta       con stato per giornata
 ```
-Se esiste un workout per quella data (qualunque status) → **skip** (mai sovrascrivere). L'index della rotazione avanza comunque per mantenere continuità (logica già presente, da confermare).
 
-Nota: la regola "data >= oggi AND status NOT IN (completato, in_corso) → modificabile" non si applica alla **generazione** (che già non tocca i record esistenti), ma servirebbe solo se in futuro si aggiunge un'opzione "rigenera anche i futuri". Per ora la mettiamo come **regola di sola lettura/visualizzazione**, non di azione automatica.
+### Modifiche
 
-**4. `src/components/pt/ProgramFormDialog.tsx` — UX in modalità "edit"**
+**1. Migration DB**
+- `ALTER TYPE workout_status ADD VALUE 'saltato';`
 
-- Quando il dialog è aperto su un programma esistente che ha almeno 1 `program_assignment` attivo:
-  - Mostro `Alert` informativo in cima:
-    > ⚠️ Questo programma è assegnato a N atleta/i. Le modifiche si applicheranno **solo agli allenamenti futuri**. Lo storico resta invariato.
-  - Mostro count assegnazioni attive.
-- Validazioni rinforzate:
-  - Non permetto di salvare con 0 schede se ci sono assegnazioni attive (bloccare).
-  - Avviso prima del submit se cambia `mode`, `duration_weeks`, o numero schede.
-- Conservo gli `id` degli `program_schedules` esistenti nel form state per permettere il diff lato API.
+**2. `src/pages/atleta/AtletaEserciziPage.tsx` — refactor priorità + azioni**
+- Query rivista con priorità chiara (1 sola query con OR + sort):
+  1. `status = 'in_corso'` (qualsiasi data)
+  2. `status = 'in_sospeso'` (qualsiasi data)
+  3. `status = 'attivo'` AND `scheduled_date = oggi`
+  4. `status = 'attivo'` AND `scheduled_date > oggi` (più vicino)
+- Badge stato in alto (es. "In corso", "Da recuperare", "Oggi", "Prossimo: lun 22 apr").
+- Aggiungo due bottoni in fondo:
+  - **Completa** → `UPDATE workouts SET status='completato', completed_at=now()` + invalidate query + redirect/refresh
+  - **Salta** → `UPDATE workouts SET status='saltato'` + conferma dialog + invalidate
+- Conservo set tracker localStorage esistente.
+- Empty state: "Nessun allenamento disponibile" con CTA discover.
 
-**5. Edge case e controlli espliciti**
+**3. `src/pages/atleta/AtletaSchedaPage.tsx` → trasformata in `AtletaProgrammaPage.tsx`**
+- Rinomino il file (creo nuovo + elimino vecchio mantenendo route alias).
+- Header: nome programma + periodo + frequenza + giorni attivi.
+- Body: lista cronologica di tutti i `workouts` del `program_assignment` attivo (filtro per `program_id` via assignment), raggruppati per settimana.
+- Per ogni giornata mostro:
+  - data + nome scheda
+  - badge stato: `Completato` (verde), `Saltato` (grigio), `In corso` (giallo), `Futuro` (neutro)
+- Card cliccabile → naviga a `/app/workout/:id` (dettaglio sola lettura, già esistente) o `/app/esercizi` se è il workout corrente.
+- **Niente azioni di esecuzione qui** (no completa/salta da questa vista — solo visione).
+- Empty state: "Nessun programma attivo" con CTA discover.
 
-- Programma con 0 schede su salvataggio → bloccato (sia create che update).
-- Cambio mode (`recurring` ↔ `day_by_day`) su programma assegnato → mostro warning forte ("Cambierà la logica di generazione futura").
-- Riallineamento `current_index`: se `new_total < current_index`, applico `% new_total`.
-- I workout già su DB con riferimento a un template rimosso dal programma restano validi (non c'è FK cascade verso `program_schedules`).
+**4. Routing & Nav**
+- `src/App.tsx`: rinomino route `/app/scheda` → `/app/programma` (mantengo redirect da `/app/scheda` per retrocompatibilità tour).
+- `src/components/app/MobileNav.tsx`: voce "Scheda" → "Programma", icona `CalendarDays`, path `/app/programma`, tourId `nav-programma`.
+- Aggiorno `AppTour.tsx` se referenzia `nav-scheda`.
 
-### Schema DB
-**Nessuna migrazione necessaria.** L'attuale schema (`workouts` indipendente da `program_schedules`, `current_index` su `program_assignments`) supporta già tutto.
+**5. Query "programma attivo dell'atleta"** (nuova in `src/lib/api/programs.ts`)
+```ts
+export async function getAtletaActiveProgram(atletaUserId: string) {
+  // 1. Ultimo program_assignment status='active' per l'atleta
+  // 2. Join con workout_programs (nome, mode, duration_weeks, frequency, active_days)
+  // 3. Lista workouts (status, scheduled_date, title) per quell'atleta+pt da start_date in poi
+}
+```
 
-### File modificati
-- `src/lib/api/programs.ts` — `updateProgram` con diff, nuova `realignAssignmentsAfterUpdate`, hardening collision-skip in `rollProgramAssignment` / `assignRecurringProgram` / `assignDayByDayProgram`.
-- `src/components/pt/ProgramFormDialog.tsx` — Alert "modifiche solo future", count assegnazioni attive, validazione 0 schede, warning su cambio mode/duration.
+### File modificati/creati
+- `supabase/migrations/<new>.sql` — aggiunge `'saltato'` a `workout_status`
+- `src/pages/atleta/AtletaEserciziPage.tsx` — priorità query + azioni Completa/Salta
+- `src/pages/atleta/AtletaProgrammaPage.tsx` — **nuovo** (rimpiazza AtletaSchedaPage logicamente)
+- `src/pages/atleta/AtletaSchedaPage.tsx` — eliminato (o lasciato come stub redirect a `/app/programma`)
+- `src/lib/api/programs.ts` — nuova `getAtletaActiveProgram`
+- `src/App.tsx` — route aggiornata + redirect
+- `src/components/app/MobileNav.tsx` — voce "Programma"
+- `src/components/AppTour.tsx` — eventuale rename tourId
 
-### Checklist test manuale
-1. Modifico nome/descrizione programma → workouts esistenti invariati ✓
-2. Aggiungo scheda D al programma → la rigenerazione settimanale successiva la include nella rotazione, passato invariato ✓
-3. Rimuovo scheda C → workouts già generati con C restano, futuri usano solo A,B ✓
-4. Cambio ordine A,B,C → C,A,B → solo nuove generazioni rispettano nuovo ordine ✓
-5. Programma con `current_index = 4` e poi rimuovo schede portandole a 3 → index riallineato a `4 % 3 = 1` ✓
-6. Modifico `active_days` → assegnazioni esistenti mantengono i loro `active_days` originali (nessun side-effect inatteso sul calendario atleta) ✓
-7. Provo a salvare programma con 0 schede e atleti assegnati → bloccato con errore chiaro ✓
-8. Atleta con workout `in_corso` o `completato` → invariato in ogni scenario ✓
+### Edge case
+- Atleta senza programma → empty state in "Programma"
+- Atleta con workout tutti completati → "Esercizi" mostra prossimo futuro o messaggio "Hai completato tutto"
+- Più workout stessa data → priorità `in_corso > in_sospeso > attivo`, in caso di pari merito quello con `created_at` più recente
+- Workout `scaduto` → mostrato in "Programma" come "Saltato" (visivamente)
+
+### Checklist test
+1. Apro `/app/esercizi` con workout `in_corso` → lo vedo prioritario
+2. Apro `/app/esercizi` senza workout oggi → vedo prossimo futuro
+3. Click "Completa" → status diventa `completato`, query invalidata, vedo prossimo
+4. Click "Salta" → conferma → status `saltato`, vedo prossimo (rotazione invariata)
+5. Apro `/app/programma` → vedo lista completa workout del programma con stati corretti
+6. Atleta senza programma → empty state chiaro
+7. Nav mostra "Programma" e "Esercizi" come voci distinte
 
