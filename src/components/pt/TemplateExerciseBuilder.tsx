@@ -57,16 +57,27 @@ interface TemplateExercise {
   rest_seconds: number | null;
   notes: string | null;
   tempo: string | null;
+  prescribed_duration_seconds?: number | null;
   exercise?: Exercise;
 }
 
 interface TemplateExerciseBuilderProps {
   templateId: string;
   blockId?: string | null; // se presente, scope esercizi al blocco
+  // Parametri ereditati dal blocco (per protocolli come SET dove i parametri
+  // sono definiti a livello di blocco e applicati a ciascun esercizio).
+  blockParams?: {
+    sets?: number | null;
+    reps?: number | null;
+    duration_seconds?: number | null;
+    rest_seconds?: number | null;
+    weight?: number | null;
+  } | null;
+  blockType?: string | null;
   onSave?: () => void;
 }
 
-export function TemplateExerciseBuilder({ templateId, blockId, onSave }: TemplateExerciseBuilderProps) {
+export function TemplateExerciseBuilder({ templateId, blockId, blockParams, blockType, onSave }: TemplateExerciseBuilderProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -97,7 +108,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       let q = supabase
         .from('template_exercises')
         .select(`
-          id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id,
+          id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds,
           exercises (*)
         `)
         .eq('template_id', templateId)
@@ -119,12 +130,17 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     enabled: !!templateId,
   });
 
-  // Add exercise mutation
+  // Add exercise mutation — eredita params dal blocco se presenti (es. SET)
   const addExerciseMutation = useMutation({
     mutationFn: async (exercise: Exercise) => {
       const maxOrder = templateExercises.length > 0 
         ? Math.max(...templateExercises.map(te => te.order_index)) + 1 
         : 0;
+
+      const sets = blockParams?.sets ?? 3;
+      const repsVal = blockParams?.reps ?? null;
+      const dur = blockParams?.duration_seconds ?? null;
+      const rest = blockParams?.rest_seconds ?? 60;
 
       const { error } = await supabase
         .from('template_exercises')
@@ -132,10 +148,12 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
           template_id: templateId,
           exercise_id: exercise.id,
           order_index: maxOrder,
-          sets: 3,
-          reps_min: 10,
-          reps_max: 12,
-          rest_seconds: 60,
+          sets,
+          // se il blocco usa tempo, lascia reps a null e viceversa
+          reps_min: dur != null ? null : (repsVal ?? 10),
+          reps_max: dur != null ? null : (repsVal ? null : 12),
+          rest_seconds: rest,
+          prescribed_duration_seconds: dur,
           block_id: blockId ?? null,
         });
       

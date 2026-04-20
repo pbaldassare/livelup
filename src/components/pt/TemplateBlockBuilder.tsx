@@ -441,6 +441,8 @@ export function TemplateBlockBuilder({ templateId }: TemplateBlockBuilderProps) 
                             <TemplateExerciseBuilder
                               templateId={templateId}
                               blockId={block.id}
+                              blockType={block.type}
+                              blockParams={block.params as any}
                             />
                           </div>
                         </CardContent>
