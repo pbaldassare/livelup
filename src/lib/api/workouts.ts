@@ -24,6 +24,7 @@ export async function createWorkout(params: {
     prescribedSets: number;
     prescribedRepsMin?: number;
     prescribedRepsMax?: number;
+    prescribedDurationSeconds?: number;
     prescribedWeight?: number;
     restSeconds?: number;
     notes?: string;
@@ -103,6 +104,7 @@ export async function createWorkout(params: {
       prescribed_sets: ex.prescribedSets,
       prescribed_reps_min: ex.prescribedRepsMin,
       prescribed_reps_max: ex.prescribedRepsMax,
+      prescribed_duration_seconds: ex.prescribedDurationSeconds,
       prescribed_weight: ex.prescribedWeight,
       rest_seconds: ex.restSeconds ?? 60,
       notes: ex.notes,
