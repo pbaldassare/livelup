@@ -571,9 +571,9 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
                 )}
 
                 {showFrequencyWarning && (
-                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-3">
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-3">
                     <div className="flex items-start gap-2 text-sm">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <p className="font-medium text-foreground">
                           Frequenza ({activeDays.length}x) maggiore del numero di schede ({schedules.length})
