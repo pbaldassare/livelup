@@ -44,9 +44,11 @@ import {
   replaceProgramSchedules,
   getProgram,
   describeRotation,
+  countActiveAssignments,
   type ProgramScheduleInput,
   type ProgramMode,
 } from '@/lib/api/programs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 const WEEKDAYS = [
@@ -66,6 +68,7 @@ interface ProgramFormDialogProps {
 }
 
 type DayByDayEntry = {
+  id?: string; // schedule id originale (per smart diff in edit)
   template_id: string;
   day_offset: number; // giorni dall'inizio (0 = giorno 1)
 };
@@ -111,6 +114,18 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
     enabled: !!programId && open,
   });
 
+  // Conta assegnazioni attive per warning UX (modifiche → solo futuro)
+  const { data: activeAssignmentsCount = 0 } = useQuery({
+    queryKey: ['program-active-assignments', programId],
+    queryFn: () => countActiveAssignments(programId!),
+    enabled: !!programId && open,
+  });
+
+  // Snapshot iniziale (per warning su cambi sostanziali)
+  const [initialMode, setInitialMode] = useState<ProgramMode | null>(null);
+  const [initialDuration, setInitialDuration] = useState<number | null>(null);
+  const [initialSchedulesCount, setInitialSchedulesCount] = useState<number | null>(null);
+
   useEffect(() => {
     if (open && existing) {
       const existingMode = ((existing as any).mode as ProgramMode) ?? 'recurring';
@@ -123,12 +138,16 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       const sortedExisting = [...((existing as any).program_schedules || [])].sort(
         (a: any, b: any) => a.order_index - b.order_index,
       );
+      setInitialMode(existingMode);
+      setInitialDuration(existing.duration_weeks);
+      setInitialSchedulesCount(((existing as any).program_schedules || []).length);
       if (existingMode === 'day_by_day') {
         const sortedByOffset = [...((existing as any).program_schedules || [])].sort(
           (a: any, b: any) => (a.day_offset ?? 0) - (b.day_offset ?? 0),
         );
         setDayByDayEntries(
           sortedByOffset.map((s: any) => ({
+            id: s.id,
             template_id: s.template_id,
             day_offset: s.day_offset ?? 0,
           })),
@@ -137,6 +156,7 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       } else {
         setSchedules(
           sortedExisting.map((s: any) => ({
+            id: s.id,
             template_id: s.template_id,
             day_of_week: s.day_of_week,
             week_offset: s.week_offset,
@@ -155,6 +175,9 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       setSchedules([]);
       setDayByDayEntries([]);
       setExtraStrategy('continuous');
+      setInitialMode(null);
+      setInitialDuration(null);
+      setInitialSchedulesCount(null);
     }
   }, [open, existing, programId]);
 
@@ -261,10 +284,31 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       const dayByDaySchedules: ProgramScheduleInput[] = [...dayByDayEntries]
         .sort((a, b) => a.day_offset - b.day_offset)
         .map((e, i) => ({
+          id: e.id,
           template_id: e.template_id,
           day_offset: e.day_offset,
           order_index: i,
         }));
+
+      // Conferma extra: cambi sostanziali su programma con assegnazioni attive
+      if (isEdit && activeAssignmentsCount > 0) {
+        const modeChanged = initialMode && initialMode !== mode;
+        const durationChanged =
+          initialDuration !== null && initialDuration !== durationWeeks;
+        const currentCount =
+          mode === 'recurring' ? schedules.length : dayByDayEntries.length;
+        const countChanged =
+          initialSchedulesCount !== null && initialSchedulesCount !== currentCount;
+
+        if (modeChanged || durationChanged || countChanged) {
+          const ok = window.confirm(
+            `Stai per modificare un programma assegnato a ${activeAssignmentsCount} atleta/i.\n\n` +
+              `Le modifiche si applicheranno SOLO agli allenamenti futuri. Lo storico resta invariato.\n\n` +
+              `Vuoi procedere?`,
+          );
+          if (!ok) throw new Error('__cancelled__');
+        }
+      }
 
       if (isEdit && programId) {
         await updateProgram(programId, {
@@ -301,7 +345,9 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       onOpenChange(false);
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Errore');
+      const msg = err instanceof Error ? err.message : 'Errore';
+      if (msg === '__cancelled__') return;
+      toast.error(msg);
     },
   });
 
@@ -325,6 +371,21 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-6">
+          {/* Alert: programma assegnato → modifiche solo sul futuro */}
+          {isEdit && activeAssignmentsCount > 0 && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>
+                Programma assegnato a {activeAssignmentsCount} atleta
+                {activeAssignmentsCount === 1 ? '' : '/i'}
+              </AlertTitle>
+              <AlertDescription>
+                Le modifiche si applicheranno <strong>solo agli allenamenti futuri</strong>.
+                Lo storico (allenamenti già pianificati, in corso o completati) resta invariato.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* MODALITÀ */}
           <section className="space-y-2">
             <Label className="text-sm font-semibold">
