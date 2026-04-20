@@ -171,7 +171,7 @@ export function PTWorkoutsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
-      toast.success('Template creato con successo');
+      toast.success('Scheda creata con successo');
       setIsCreateDialogOpen(false);
       setNewTemplate({
         title: '',
@@ -182,7 +182,7 @@ export function PTWorkoutsPage() {
       });
     },
     onError: () => {
-      toast.error('Errore durante la creazione del template');
+      toast.error('Errore durante la creazione della scheda');
     },
   });
 
@@ -197,7 +197,7 @@ export function PTWorkoutsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
-      toast.success('Template eliminato');
+      toast.success('Scheda eliminata');
     },
     onError: () => {
       toast.error('Errore durante l\'eliminazione');
@@ -270,10 +270,10 @@ export function PTWorkoutsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
-      toast.success('Template duplicato con successo');
+      toast.success('Scheda duplicata con successo');
     },
     onError: () => {
-      toast.error('Errore durante la duplicazione del template');
+      toast.error('Errore durante la duplicazione della scheda');
     },
   });
 
@@ -288,7 +288,7 @@ export function PTWorkoutsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
-      toast.success('Template aggiornato');
+      toast.success('Scheda aggiornata');
     },
     onError: () => {
       toast.error('Errore durante l\'aggiornamento');
@@ -472,20 +472,31 @@ export function PTWorkoutsPage() {
   );
 
   const createButton = (
-    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuovo Template
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-xl w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Crea Nuovo Template</DialogTitle>
-          <DialogDescription>
-            Crea un nuovo template di allenamento riutilizzabile
-          </DialogDescription>
-        </DialogHeader>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setActiveTab('programs');
+          toast.info('Apri la tab Programmi per creare un nuovo programma');
+        }}
+      >
+        <CalendarDays className="h-4 w-4 mr-2" />
+        Nuovo Programma
+      </Button>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuova Scheda
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-xl w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Crea Nuova Scheda</DialogTitle>
+            <DialogDescription>
+              Una scheda è un singolo allenamento composto da blocchi (protocolli) ed esercizi.
+            </DialogDescription>
+          </DialogHeader>
         <div className="flex-1 min-h-0 overflow-y-auto pr-4">
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -548,19 +559,20 @@ export function PTWorkoutsPage() {
             </div>
           </div>
         </div>
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-            Annulla
-          </Button>
-          <Button 
-            onClick={() => createTemplateMutation.mutate()}
-            disabled={!newTemplate.title || createTemplateMutation.isPending}
-          >
-            Crea Template
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Annulla
+            </Button>
+            <Button 
+              onClick={() => createTemplateMutation.mutate()}
+              disabled={!newTemplate.title || createTemplateMutation.isPending}
+            >
+              Crea Scheda
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 
   return (
@@ -576,7 +588,7 @@ export function PTWorkoutsPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Template</CardTitle>
+            <CardTitle className="text-sm font-medium">Schede</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
@@ -626,7 +638,7 @@ export function PTWorkoutsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <CardTitle>Gestione Allenamenti</CardTitle>
-              <CardDescription>Template e allenamenti assegnati</CardDescription>
+              <CardDescription>Schede, programmi e allenamenti assegnati</CardDescription>
             </div>
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
