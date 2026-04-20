@@ -345,7 +345,9 @@ export function ProgramFormDialog({ open, onOpenChange, programId }: ProgramForm
       onOpenChange(false);
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Errore');
+      const msg = err instanceof Error ? err.message : 'Errore';
+      if (msg === '__cancelled__') return;
+      toast.error(msg);
     },
   });
 
