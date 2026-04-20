@@ -50,7 +50,7 @@ export type ProgramScheduleInput = {
 export async function listPrograms(ptUserId: string) {
   const { data, error } = await supabase
     .from('workout_programs')
-    .select('*, program_schedules(id, template_id, day_of_week, week_offset, order_index)')
+    .select('*, program_schedules(id, template_id, day_of_week, week_offset, order_index, day_offset)')
     .eq('pt_user_id', ptUserId)
     .eq('is_archived', false)
     .order('created_at', { ascending: false });
@@ -63,7 +63,7 @@ export async function getProgram(programId: string) {
     .from('workout_programs')
     .select(
       `*, program_schedules(
-        id, template_id, day_of_week, week_offset, order_index,
+        id, template_id, day_of_week, week_offset, order_index, day_offset,
         workout_templates:template_id (id, title, difficulty_level, estimated_duration)
       )`,
     )
