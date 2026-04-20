@@ -803,6 +803,96 @@ export async function listProgramAssignments(ptUserId: string) {
   return data || [];
 }
 
+// ----------------------- Vista Atleta -----------------------
+
+export type AtletaProgramWorkout = {
+  id: string;
+  title: string;
+  scheduled_date: string | null;
+  status: string;
+  completed_at: string | null;
+};
+
+export type AtletaActiveProgram = {
+  assignment: {
+    id: string;
+    program_id: string;
+    pt_user_id: string;
+    start_date: string;
+    end_date: string | null;
+    active_days: number[];
+    status: string;
+  };
+  program: {
+    id: string;
+    name: string;
+    description: string | null;
+    duration_weeks: number;
+    frequency_per_week: number;
+    active_days: number[];
+    mode: ProgramMode;
+  };
+  workouts: AtletaProgramWorkout[];
+};
+
+/**
+ * Restituisce il programma attivo dell'atleta con tutti i workout generati
+ * (passati, presenti e futuri) per la finestra dell'assegnazione.
+ *
+ * NB: filtriamo per atleta + pt + finestra date (start_date → end_date | +duration_weeks).
+ * Non possiamo collegare i workout direttamente al program_id perché lo schema
+ * `workouts` non ha questo riferimento — usiamo (atleta, pt, date) come proxy.
+ */
+export async function getAtletaActiveProgram(
+  atletaUserId: string,
+): Promise<AtletaActiveProgram | null> {
+  // 1) Ultima assegnazione attiva
+  const { data: assignRows, error: aErr } = await supabase
+    .from('program_assignments')
+    .select('id, program_id, pt_user_id, start_date, end_date, active_days, status')
+    .eq('atleta_user_id', atletaUserId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (aErr) throw aErr;
+  const assignment = assignRows?.[0];
+  if (!assignment) return null;
+
+  // 2) Programma collegato
+  const { data: program, error: pErr } = await supabase
+    .from('workout_programs')
+    .select('id, name, description, duration_weeks, frequency_per_week, active_days, mode')
+    .eq('id', assignment.program_id)
+    .maybeSingle();
+  if (pErr) throw pErr;
+  if (!program) return null;
+
+  // 3) Finestra date: start_date → end_date oppure +duration_weeks
+  const startDate = new Date(assignment.start_date);
+  startDate.setHours(0, 0, 0, 0);
+  const endDate = assignment.end_date
+    ? new Date(assignment.end_date)
+    : new Date(startDate.getTime() + program.duration_weeks * 7 * 24 * 60 * 60 * 1000);
+  endDate.setHours(23, 59, 59, 999);
+
+  // 4) Workouts dell'atleta con questo PT, in finestra
+  const { data: workouts, error: wErr } = await supabase
+    .from('workouts')
+    .select('id, title, scheduled_date, status, completed_at')
+    .eq('atleta_user_id', atletaUserId)
+    .eq('pt_user_id', assignment.pt_user_id)
+    .gte('scheduled_date', startDate.toISOString())
+    .lte('scheduled_date', endDate.toISOString())
+    .order('scheduled_date', { ascending: true });
+  if (wErr) throw wErr;
+
+  return {
+    assignment: assignment as AtletaActiveProgram['assignment'],
+    program: program as AtletaActiveProgram['program'],
+    workouts: (workouts || []) as AtletaProgramWorkout[],
+  };
+}
+
 /**
  * Costruisce una rappresentazione leggibile della rotazione: A → B → C → A...
  */
