@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { MobileNav } from '@/components/app/MobileNav';
 import { AppHeader } from '@/components/app/AppHeader';
+import { CoachCard } from '@/components/app/CoachCard';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -156,50 +157,49 @@ export function AtletaAppHome() {
       <main className="px-4 pt-6 space-y-6">
         {statusLoading ? (
           <DashboardSkeleton />
-        ) : !isConnected && !hasPendingRequest ? (
-          // ───────────────── NON COLLEGATO ─────────────────
-          <NoConnectionState onDiscover={() => navigate('/app/discover')} />
-        ) : hasPendingRequest ? (
-          // ───────────────── RICHIESTA PENDING ─────────────
-          <PendingRequestState
-            ptUserId={connection?.pt_user_id}
-            onViewPT={() =>
-              connection && navigate(`/app/pt/${connection.pt_user_id}`)
-            }
-          />
-        ) : workoutLoading ? (
-          <FocusSkeleton />
-        ) : focusWorkout ? (
-          // ───────── ALLENAMENTO IN CORSO / DI OGGI ─────────
-          <FocusWorkoutHero
-            title={focusWorkout.workout.title}
-            description={focusWorkout.workout.description}
-            coachName={ptName || 'Il tuo Coach'}
-            mode={focusWorkout.mode}
-            completedSets={progressData?.completed || 0}
-            totalSets={progressData?.total || 0}
-            onAction={startWorkout}
-          />
         ) : (
-          // ───────────────── NESSUN ALLENAMENTO ─────────────
-          <NoWorkoutState
-            onChat={() => navigate('/app/chat')}
-            onDiscover={() => navigate('/app/discover')}
-            hasCoach={!!connection}
-          />
-        )}
+          <>
+            {/* Coach card sempre visibile (gestisce: active / invito / pending / nessuno) */}
+            <CoachCard />
 
-        {/* Link secondari (solo se collegato e con/senza workout) */}
-        {isConnected && !hasPendingRequest && (
-          <div className="pt-2">
-            <button
-              onClick={() => navigate('/app/workout')}
-              className="w-full flex items-center justify-center gap-2 text-sm text-white/50 hover:text-app-accent transition-colors py-2"
-            >
-              <CalendarIcon className="h-4 w-4" />
-              Vedi tutti i miei allenamenti
-            </button>
-          </div>
+            {!isConnected && !hasPendingRequest ? (
+              // ───────────────── NON COLLEGATO ─────────────────
+              <NoConnectionState onDiscover={() => navigate('/app/discover')} />
+            ) : hasPendingRequest ? null : workoutLoading ? (
+              <FocusSkeleton />
+            ) : focusWorkout ? (
+              // ───────── ALLENAMENTO IN CORSO / DI OGGI ─────────
+              <FocusWorkoutHero
+                title={focusWorkout.workout.title}
+                description={focusWorkout.workout.description}
+                coachName={ptName || 'Il tuo Coach'}
+                mode={focusWorkout.mode}
+                completedSets={progressData?.completed || 0}
+                totalSets={progressData?.total || 0}
+                onAction={startWorkout}
+              />
+            ) : (
+              // ───────────────── NESSUN ALLENAMENTO ─────────────
+              <NoWorkoutState
+                onChat={() => navigate('/app/chat')}
+                onDiscover={() => navigate('/app/discover')}
+                hasCoach={!!connection}
+              />
+            )}
+
+            {/* Link secondari (solo se collegato) */}
+            {isConnected && !hasPendingRequest && (
+              <div className="pt-2">
+                <button
+                  onClick={() => navigate('/app/workout')}
+                  className="w-full flex items-center justify-center gap-2 text-sm text-white/50 hover:text-app-accent transition-colors py-2"
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                  Vedi tutti i miei allenamenti
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
 
