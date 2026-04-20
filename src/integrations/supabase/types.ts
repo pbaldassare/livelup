@@ -1299,7 +1299,8 @@ export type Database = {
       program_schedules: {
         Row: {
           created_at: string
-          day_of_week: number
+          day_of_week: number | null
+          day_offset: number | null
           id: string
           order_index: number
           program_id: string
@@ -1308,7 +1309,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          day_of_week: number
+          day_of_week?: number | null
+          day_offset?: number | null
           id?: string
           order_index?: number
           program_id: string
@@ -1317,7 +1319,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          day_of_week?: number
+          day_of_week?: number | null
+          day_offset?: number | null
           id?: string
           order_index?: number
           program_id?: string
@@ -2401,6 +2404,7 @@ export type Database = {
           frequency_per_week: number
           id: string
           is_archived: boolean
+          mode: string
           name: string
           notes: string | null
           pt_user_id: string
@@ -2414,6 +2418,7 @@ export type Database = {
           frequency_per_week?: number
           id?: string
           is_archived?: boolean
+          mode?: string
           name: string
           notes?: string | null
           pt_user_id: string
@@ -2427,6 +2432,7 @@ export type Database = {
           frequency_per_week?: number
           id?: string
           is_archived?: boolean
+          mode?: string
           name?: string
           notes?: string | null
           pt_user_id?: string
