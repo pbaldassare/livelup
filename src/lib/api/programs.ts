@@ -679,18 +679,17 @@ async function assignDayByDayProgram(params: {
 
   const { data: existing } = await supabase
     .from('workouts')
-    .select('scheduled_date, template_id')
+    .select('scheduled_date')
     .eq('atleta_user_id', atletaUserId)
     .eq('pt_user_id', ptUserId)
     .gte('scheduled_date', minDate.toISOString())
     .lt('scheduled_date', maxDate.toISOString());
 
-  const existingKeys = new Set(
-    (existing || []).map(
-      (w: any) =>
-        `${w.template_id ?? ''}__${
-          w.scheduled_date ? w.scheduled_date.slice(0, 10) : ''
-        }`,
+  // SKIP per data: se la data è occupata da un workout (qualunque template,
+  // qualunque status) NON sovrascrivere mai.
+  const occupiedDates = new Set(
+    (existing || []).map((w: any) =>
+      w.scheduled_date ? w.scheduled_date.slice(0, 10) : '',
     ),
   );
 
@@ -701,9 +700,8 @@ async function assignDayByDayProgram(params: {
     const sch = schedules[i];
     const targetDate = targetDates[i];
     const dateKey = targetDate.toISOString().slice(0, 10);
-    const dedupeKey = `${sch.template_id}__${dateKey}`;
 
-    if (existingKeys.has(dedupeKey)) {
+    if (occupiedDates.has(dateKey)) {
       skipped++;
       continue;
     }
