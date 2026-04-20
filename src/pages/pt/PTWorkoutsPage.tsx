@@ -679,7 +679,10 @@ export function PTWorkoutsPage() {
       {/* Assign Workout Dialog */}
       <AssignWorkoutDialog
         open={isAssignDialogOpen}
-        onOpenChange={setIsAssignDialogOpen}
+        onOpenChange={(open) => {
+          setIsAssignDialogOpen(open);
+          if (!open) setSelectedTemplateId(null);
+        }}
         preselectedTemplateId={selectedTemplateId || undefined}
       />
 
