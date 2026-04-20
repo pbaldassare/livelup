@@ -195,14 +195,17 @@ export async function duplicateProgram(programId: string, ptUserId: string) {
   const original = await getProgram(programId);
   if (!original) throw new Error('Programma non trovato');
 
+  const mode: ProgramMode = ((original as any).mode as ProgramMode) ?? 'recurring';
+
   const sortedSchedules = [...((original as any).program_schedules || [])].sort(
     (a: any, b: any) => a.order_index - b.order_index,
   );
-  const schedules: ProgramScheduleInput[] = sortedSchedules.map((s: any) => ({
+  const schedules: ProgramScheduleInput[] = sortedSchedules.map((s: any, i: number) => ({
     template_id: s.template_id,
     day_of_week: s.day_of_week,
     week_offset: s.week_offset,
-    order_index: s.order_index,
+    order_index: s.order_index ?? i,
+    day_offset: s.day_offset ?? undefined,
   }));
 
   return createProgram({
@@ -214,6 +217,7 @@ export async function duplicateProgram(programId: string, ptUserId: string) {
     activeDays: (original as any).active_days ?? [1, 3, 5],
     notes: original.notes ?? undefined,
     schedules,
+    mode,
   });
 }
 
