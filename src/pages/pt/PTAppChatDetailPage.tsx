@@ -18,29 +18,16 @@ export function PTAppChatDetailPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch or create chat with atleta
+  // Fetch or create chat with atleta (getOrCreateChat gestisce sia il lookup che la creazione)
   const { data: chatData, isLoading: chatLoading } = useQuery({
     queryKey: ['pt-chat', user?.id, atletaId],
     queryFn: async () => {
       if (!user?.id || !atletaId) return null;
-
-      // First check if chat exists
-      const { data: existingChat } = await supabase
-        .from('chats')
-        .select('id')
-        .eq('pt_user_id', user.id)
-        .eq('atleta_user_id', atletaId)
-        .single();
-
-      if (existingChat) {
-        return { chatId: existingChat.id };
-      }
-
-      // Create new chat if doesn't exist
       const chat = await getOrCreateChat(user.id, atletaId);
       return { chatId: chat.id };
     },
     enabled: !!user?.id && !!atletaId,
+    retry: false,
   });
 
   // Fetch atleta profile

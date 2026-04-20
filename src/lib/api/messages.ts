@@ -11,23 +11,23 @@ import type { Chat, Message } from '@/types/database';
 // =====================================================
 
 export async function getOrCreateChat(ptUserId: string, atletaUserId: string): Promise<Chat> {
-  // Cerca chat esistente
+  // Cerca chat esistente (maybeSingle per non lanciare errore se non esiste)
   const { data: existingChat, error: searchError } = await supabase
     .from('chats')
     .select('*')
     .eq('pt_user_id', ptUserId)
     .eq('atleta_user_id', atletaUserId)
-    .single();
+    .maybeSingle();
+
+  if (searchError) {
+    throw new Error('Errore ricerca chat: ' + searchError.message);
+  }
 
   if (existingChat) {
     return existingChat as Chat;
   }
 
-  if (searchError && searchError.code !== 'PGRST116') {
-    throw new Error('Errore ricerca chat: ' + searchError.message);
-  }
-
-  // Crea nuova chat
+  // Crea nuova chat (richiede connessione attiva PT-Atleta a livello RLS)
   const { data: newChat, error: createError } = await supabase
     .from('chats')
     .insert({
@@ -39,6 +39,14 @@ export async function getOrCreateChat(ptUserId: string, atletaUserId: string): P
     .single();
 
   if (createError) {
+    // Race condition: se due chiamate arrivano insieme, la seconda fallisce per duplicato → recupera quella esistente
+    const { data: retryChat } = await supabase
+      .from('chats')
+      .select('*')
+      .eq('pt_user_id', ptUserId)
+      .eq('atleta_user_id', atletaUserId)
+      .maybeSingle();
+    if (retryChat) return retryChat as Chat;
     throw new Error('Errore creazione chat: ' + createError.message);
   }
 
