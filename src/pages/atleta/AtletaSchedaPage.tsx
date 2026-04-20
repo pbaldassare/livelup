@@ -58,10 +58,12 @@ export function AtletaSchedaPage() {
     queryFn: async (): Promise<SchedaWorkout | null> => {
       if (!user?.id) return null;
 
-      // La "scheda" attiva = il workout attivo più recente
-      const { data, error } = await supabase
-        .from('workouts')
-        .select(`
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const selectClause = `
           id,
           title,
           description,
@@ -78,18 +80,39 @@ export function AtletaSchedaPage() {
             notes,
             exercises:exercise_id ( name, category )
           )
-        `)
+        `;
+
+      // 1. Priorità: workout attivo programmato per OGGI
+      const { data: todayData } = await supabase
+        .from('workouts')
+        .select(selectClause)
         .eq('atleta_user_id', user.id)
         .eq('status', 'attivo')
-        .order('scheduled_date', { ascending: false, nullsFirst: false })
+        .gte('scheduled_date', today.toISOString())
+        .lt('scheduled_date', tomorrow.toISOString())
+        .order('scheduled_date', { ascending: true })
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
-      if (!data) return null;
+      // 2. Fallback: ultimo attivo (prossimo o più recente)
+      let chosen = todayData;
+      if (!chosen) {
+        const { data: nextData, error } = await supabase
+          .from('workouts')
+          .select(selectClause)
+          .eq('atleta_user_id', user.id)
+          .eq('status', 'attivo')
+          .order('scheduled_date', { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        chosen = nextData;
+      }
+
+      if (!chosen) return null;
       return {
-        ...data,
-        workout_exercises: (data.workout_exercises || []).sort(
+        ...chosen,
+        workout_exercises: (chosen.workout_exercises || []).sort(
           (a, b) => a.order_index - b.order_index,
         ),
       } as SchedaWorkout;
