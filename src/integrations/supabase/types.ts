@@ -82,6 +82,36 @@ export type Database = {
         }
         Relationships: []
       }
+      app_404_logs: {
+        Row: {
+          created_at: string
+          id: string
+          path: string
+          referrer: string | null
+          role: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path: string
+          referrer?: string | null
+          role?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string
+          referrer?: string | null
+          role?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       atleta_badges: {
         Row: {
           atleta_user_id: string

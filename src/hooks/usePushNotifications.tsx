@@ -61,19 +61,13 @@ export function usePushNotifications() {
     checkSubscription();
   }, [isSupported, user]);
 
-  // Register service worker
-  const registerServiceWorker = useCallback(async () => {
+  // Riusa il SW già registrato da vite-plugin-pwa (NO doppia registrazione = no conflitto/404)
+  const getServiceWorkerRegistration = useCallback(async () => {
     if (!('serviceWorker' in navigator)) {
       throw new Error('Service Worker non supportato');
     }
-
-    const registration = await navigator.serviceWorker.register('/sw.js', {
-      scope: '/'
-    });
-
-    // Wait for the service worker to be ready
-    await navigator.serviceWorker.ready;
-
+    // Attende il SW gestito da vite-plugin-pwa
+    const registration = await navigator.serviceWorker.ready;
     return registration;
   }, []);
 
@@ -96,8 +90,8 @@ export function usePushNotifications() {
         return false;
       }
 
-      // Register service worker
-      const registration = await registerServiceWorker();
+      // Usa il SW già registrato da vite-plugin-pwa
+      const registration = await getServiceWorkerRegistration();
 
       // Subscribe to push
       const subscription = await registration.pushManager.subscribe({
@@ -132,7 +126,7 @@ export function usePushNotifications() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, registerServiceWorker]);
+  }, [user, getServiceWorkerRegistration]);
 
   // Unsubscribe from push notifications
   const unsubscribe = useCallback(async () => {

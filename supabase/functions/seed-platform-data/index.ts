@@ -725,14 +725,14 @@ Deno.serve(async (req) => {
       const now = new Date();
       const notifications = [
         // For Atleta1
-        { user_id: atleta1Id, type: 'workout', title: 'Nuovo allenamento assegnato', body: 'Il tuo PT ha preparato un nuovo workout per te!', action_url: '/app/workouts', created_at: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString() },
+        { user_id: atleta1Id, type: 'workout', title: 'Nuovo allenamento assegnato', body: 'Il tuo PT ha preparato un nuovo workout per te!', action_url: '/app/esercizi', created_at: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString() },
         { user_id: atleta1Id, type: 'message', title: 'Nuovo messaggio', body: 'Marco ti ha scritto un messaggio', action_url: '/app/chat', created_at: new Date(now.getTime() - 30 * 60 * 1000).toISOString() },
         { user_id: atleta1Id, type: 'badge', title: 'Badge sbloccato! 🎉', body: 'Hai ottenuto il badge "Primo Allenamento"', created_at: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(), is_read: true },
         // For Atleta2
         { user_id: atleta2Id, type: 'subscription', title: 'Abbonamento scaduto', body: 'Il tuo pacchetto è terminato. Rinnova per continuare!', action_url: '/app/subscription', created_at: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString() },
         // For Atleta3
         { user_id: atleta3Id, type: 'connection', title: 'Benvenuto! 🎉', body: 'Sei ora collegato con il tuo Personal Trainer', action_url: '/app', created_at: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-        { user_id: atleta3Id, type: 'workout', title: 'Primo allenamento schedulato', body: 'La tua prima sessione di valutazione è pronta', action_url: '/app/workouts', created_at: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+        { user_id: atleta3Id, type: 'workout', title: 'Primo allenamento schedulato', body: 'La tua prima sessione di valutazione è pronta', action_url: '/app/esercizi', created_at: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString() },
         // For PT1
         { user_id: pt1Id, type: 'connection', title: 'Nuovo atleta collegato', body: 'Un nuovo atleta si è unito al tuo team!', action_url: '/pt/athletes', created_at: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString() },
         { user_id: pt1Id, type: 'review', title: 'Nuova recensione ⭐', body: 'Hai ricevuto una recensione a 5 stelle!', action_url: '/pt/reviews', created_at: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString() },
