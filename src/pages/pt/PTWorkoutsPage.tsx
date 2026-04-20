@@ -775,11 +775,38 @@ export function PTWorkoutsPage() {
         preselectedTemplateId={selectedTemplateId || undefined}
       />
 
-      {/* Create Exercise Dialog */}
+      {/* Create / Edit Exercise Dialog (stessa fonte dati del builder) */}
       <CreateExerciseDialog
         open={isCreateExerciseOpen}
-        onOpenChange={setIsCreateExerciseOpen}
+        onOpenChange={(open) => {
+          setIsCreateExerciseOpen(open);
+          if (!open) setEditingExercise(null);
+        }}
+        exercise={editingExercise}
       />
+
+      {/* Conferma eliminazione esercizio */}
+      <AlertDialog open={!!deleteExerciseId} onOpenChange={(o) => !o && setDeleteExerciseId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare l'esercizio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L'esercizio sarà rimosso dalla tua libreria. Se è già usato in qualche scheda,
+              l'operazione verrà bloccata e dovrai prima rimuoverlo dalle schede.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteExerciseId && deleteExerciseMutation.mutate(deleteExerciseId)}
+              disabled={deleteExerciseMutation.isPending}
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
