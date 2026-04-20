@@ -63,6 +63,7 @@ export function AssignProgramDialog({
 
   const [athleteId, setAthleteId] = useState(preselectedAthleteId || '');
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
+  const [activeDays, setActiveDays] = useState<number[]>([1, 3, 5]);
 
   useEffect(() => {
     if (open) {
