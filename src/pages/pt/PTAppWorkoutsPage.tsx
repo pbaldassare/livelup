@@ -7,12 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
+import { ProgramsTab } from '@/components/pt/ProgramsTab';
 import { 
   Dumbbell, Search, Calendar, ChevronRight,
-  CheckCircle2, Clock, FileText, Plus
+  CheckCircle2, Clock, FileText, Plus, CalendarDays
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -87,102 +89,116 @@ export function PTAppWorkoutsPage() {
       {/* Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Schede allenamento</h1>
+          <h1 className="text-xl font-bold">Allenamenti</h1>
           <Button size="sm" onClick={() => setShowAssignDialog(true)}>
             <Plus className="h-4 w-4 mr-1" />
             Assegna
           </Button>
         </div>
-
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Cerca scheda o atleta..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
       </div>
 
-      <div className="p-4 space-y-6">
-        {/* Quick access to templates */}
-        {templates && templates.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-muted-foreground">I miei template</h2>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/pt/workouts">
-                  Gestisci
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Link>
-              </Button>
+      <div className="p-4">
+        <Tabs defaultValue="schede" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="schede" className="gap-1.5">
+              <FileText className="h-4 w-4" />
+              Schede
+            </TabsTrigger>
+            <TabsTrigger value="programmi" className="gap-1.5">
+              <CalendarDays className="h-4 w-4" />
+              Programmi
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="schede" className="space-y-6 mt-0">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cerca scheda o atleta..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {templates.slice(0, 5).map((template) => (
-                <Card key={template.id} className="flex-shrink-0 w-40">
-                  <CardContent className="p-3">
-                    <FileText className="h-5 w-5 text-primary mb-2" />
-                    <p className="font-medium text-sm truncate">{template.title}</p>
-                    <Badge variant="outline" className="text-xs mt-1 capitalize">
-                      {template.difficulty_level}
-                    </Badge>
+
+            {/* Quick access to templates */}
+            {templates && templates.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-medium text-muted-foreground">Le mie schede</h2>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to="/pt/workouts">
+                      Gestisci
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Link>
+                  </Button>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {templates.slice(0, 5).map((template) => (
+                    <Card key={template.id} className="flex-shrink-0 w-40">
+                      <CardContent className="p-3">
+                        <FileText className="h-5 w-5 text-primary mb-2" />
+                        <p className="font-medium text-sm truncate">{template.title}</p>
+                        <Badge variant="outline" className="text-xs mt-1 capitalize">
+                          {template.difficulty_level}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Active workouts */}
+            <div>
+              <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Schede attive ({activeWorkouts.length})
+              </h2>
+              
+              {isLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-20 w-full" />
+                  ))}
+                </div>
+              ) : activeWorkouts.length > 0 ? (
+                <div className="space-y-3">
+                  {activeWorkouts.map((workout) => (
+                    <WorkoutCard key={workout.id} workout={workout} />
+                  ))}
+                </div>
+              ) : (
+                <Card className="border-dashed">
+                  <CardContent className="p-6 text-center">
+                    <Dumbbell className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">Nessuna scheda attiva</p>
                   </CardContent>
                 </Card>
-              ))}
+              )}
             </div>
-          </div>
-        )}
 
-        {/* Active workouts */}
-        <div>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Schede attive ({activeWorkouts.length})
-          </h2>
-          
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full" />
-              ))}
-            </div>
-          ) : activeWorkouts.length > 0 ? (
-            <div className="space-y-3">
-              {activeWorkouts.map((workout) => (
-                <WorkoutCard key={workout.id} workout={workout} />
-              ))}
-            </div>
-          ) : (
-            <Card className="border-dashed">
-              <CardContent className="p-6 text-center">
-                <Dumbbell className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Nessuna scheda attiva</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+            {/* Completed workouts */}
+            {completedWorkouts.length > 0 && (
+              <div>
+                <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Completate recenti
+                </h2>
+                <div className="space-y-3">
+                  {completedWorkouts.slice(0, 5).map((workout) => (
+                    <WorkoutCard key={workout.id} workout={workout} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
 
-        {/* Completed workouts */}
-        {completedWorkouts.length > 0 && (
-          <div>
-            <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              Completate recenti
-            </h2>
-            <div className="space-y-3">
-              {completedWorkouts.slice(0, 5).map((workout) => (
-                <WorkoutCard key={workout.id} workout={workout} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Secondary link */}
-        <p className="text-xs text-center text-muted-foreground">
-          Per gestire template avanzati usa la{' '}
-          <Link to="/pt/workouts" className="underline text-primary">dashboard web</Link>
-        </p>
+          <TabsContent value="programmi" className="mt-0">
+            <ProgramsTab layout="list" />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Assign Workout Dialog */}
