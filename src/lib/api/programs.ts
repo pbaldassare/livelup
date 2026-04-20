@@ -160,6 +160,7 @@ export async function updateProgram(
 export async function replaceProgramSchedules(
   programId: string,
   schedules: ProgramScheduleInput[],
+  mode: ProgramMode = 'recurring',
 ) {
   if (!schedules || schedules.length === 0) {
     throw new Error('Il programma deve contenere almeno una scheda');
@@ -173,9 +174,10 @@ export async function replaceProgramSchedules(
   const rows = schedules.map((s, i) => ({
     program_id: programId,
     template_id: s.template_id,
-    day_of_week: s.day_of_week ?? 1,
+    day_of_week: mode === 'day_by_day' ? null : (s.day_of_week ?? 1),
     week_offset: s.week_offset ?? 0,
     order_index: i,
+    day_offset: mode === 'day_by_day' ? (s.day_offset ?? i) : null,
   }));
   const { error } = await supabase.from('program_schedules').insert(rows);
   if (error) throw error;
