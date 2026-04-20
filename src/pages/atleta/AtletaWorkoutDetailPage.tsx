@@ -34,9 +34,11 @@ interface WorkoutExercise {
   prescribed_sets: number;
   prescribed_reps_min?: number;
   prescribed_reps_max?: number;
+  prescribed_duration_seconds?: number | null;
   prescribed_weight?: number;
   rest_seconds?: number;
   notes?: string;
+  block_id?: string | null;
   exercises: {
     name: string;
     category: string;
@@ -44,6 +46,14 @@ interface WorkoutExercise {
     image_url?: string;
     instructions?: string;
   };
+}
+
+interface WorkoutBlock {
+  id: string;
+  order_index: number;
+  type: string;
+  name: string | null;
+  params: any;
 }
 
 const pageVariants = {
@@ -76,7 +86,7 @@ export function AtletaWorkoutDetailPage() {
   const [totalReps, setTotalReps] = useState(0);
   const [totalSetsCompleted, setTotalSetsCompleted] = useState(0);
 
-  // Fetch workout with exercises
+  // Fetch workout with exercises + blocks
   const { data: workout, isLoading } = useQuery({
     queryKey: ['workout-detail', workoutId],
     queryFn: async () => {
@@ -85,10 +95,11 @@ export function AtletaWorkoutDetailPage() {
         .from('workouts')
         .select(`
           id, title, description, status, scheduled_date, notes_pt, pt_user_id,
+          workout_blocks (id, order_index, type, name, params),
           workout_exercises (
             id, exercise_id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
-            rest_seconds, notes,
+            prescribed_duration_seconds, rest_seconds, notes, block_id,
             exercises:exercise_id (name, category, video_url, image_url, instructions)
           )
         `)
@@ -98,7 +109,10 @@ export function AtletaWorkoutDetailPage() {
       const sortedExercises = data.workout_exercises?.sort(
         (a: any, b: any) => a.order_index - b.order_index
       );
-      return { ...data, workout_exercises: sortedExercises };
+      const sortedBlocks = (data.workout_blocks || []).sort(
+        (a: any, b: any) => a.order_index - b.order_index
+      );
+      return { ...data, workout_exercises: sortedExercises, workout_blocks: sortedBlocks };
     },
     enabled: !!workoutId,
   });
