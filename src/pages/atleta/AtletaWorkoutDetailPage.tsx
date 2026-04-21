@@ -58,6 +58,7 @@ interface WorkoutExercise {
     video_url?: string;
     image_url?: string;
     instructions?: string;
+    muscle_groups?: string[];
   };
 }
 
