@@ -89,12 +89,20 @@ export function PTWorkoutsPage() {
   const [deleteExerciseId, setDeleteExerciseId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [editExercisesDialogOpen, setEditExercisesDialogOpen] = useState(false);
-  const [newTemplate, setNewTemplate] = useState({
+  const [newTemplate, setNewTemplate] = useState<{
+    title: string;
+    description: string;
+    difficulty_level: string;
+    category: string;
+    estimated_duration: number;
+    muscle_groups: string[];
+  }>({
     title: '',
     description: '',
     difficulty_level: 'intermedio',
     category: '',
     estimated_duration: 60,
+    muscle_groups: [],
   });
 
   // Fetch templates
@@ -154,19 +162,22 @@ export function PTWorkoutsPage() {
   const createTemplateMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
+      if (!newTemplate.title.trim()) throw new Error('Inserisci un titolo');
+      if (newTemplate.muscle_groups.length === 0) throw new Error('Seleziona almeno un gruppo muscolare');
 
       // 1. Crea la scheda
       const { data: created, error } = await supabase
         .from('workout_templates')
         .insert({
           pt_user_id: user.id,
-          title: newTemplate.title,
+          title: newTemplate.title.trim(),
           description: newTemplate.description || null,
           difficulty_level: newTemplate.difficulty_level as 'principiante' | 'intermedio' | 'avanzato',
           category: newTemplate.category || null,
           estimated_duration: newTemplate.estimated_duration,
+          muscle_groups: newTemplate.muscle_groups,
           is_public: false,
-        })
+        } as any)
         .select()
         .single();
 
@@ -184,7 +195,6 @@ export function PTWorkoutsPage() {
         });
 
       if (blockError) {
-        // Non bloccare se il blocco fallisce - l'utente potrà aggiungerlo manualmente
         console.warn('Errore creazione blocco default:', blockError);
       }
 
@@ -200,12 +210,12 @@ export function PTWorkoutsPage() {
         difficulty_level: 'intermedio',
         category: '',
         estimated_duration: 60,
+        muscle_groups: [],
       });
-      // Redirect immediato al builder
       navigate(`/pt/templates/${created.id}`);
     },
-    onError: () => {
-      toast.error('Errore durante la creazione della scheda');
+    onError: (e: any) => {
+      toast.error(e?.message || 'Errore durante la creazione della scheda');
     },
   });
 
