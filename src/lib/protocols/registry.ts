@@ -275,8 +275,11 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
     case 'SET':
       if (p.sets && p.reps) return `${p.sets} serie × ${p.reps} ripetizioni`;
       return 'Serie e ripetizioni';
-    case 'TOP_SET_BACKOFF':
-      return `Serie principale + ${p.back_off?.sets ?? 3} serie di supporto`;
+    case 'TOP_SET_BACKOFF': {
+      const boSets = p.backoff_sets ?? p.back_off?.sets ?? 3;
+      const enabled = p.backoff_enabled !== false;
+      return enabled ? `Serie principale + ${boSets} serie di scarico` : 'Serie principale';
+    }
     case 'RAMPING':
       if (p.sets && p.reps) return `${p.sets} serie a salire × ${p.reps}`;
       return 'Serie a salire';
