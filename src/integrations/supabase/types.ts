@@ -2255,6 +2255,8 @@ export type Database = {
           notes: string | null
           order_index: number
           prescribed_duration_seconds: number | null
+          protocol_params: Json
+          protocol_type: string
           reps_max: number | null
           reps_min: number | null
           rest_seconds: number | null
@@ -2271,6 +2273,8 @@ export type Database = {
           notes?: string | null
           order_index?: number
           prescribed_duration_seconds?: number | null
+          protocol_params?: Json
+          protocol_type?: string
           reps_max?: number | null
           reps_min?: number | null
           rest_seconds?: number | null
@@ -2287,6 +2291,8 @@ export type Database = {
           notes?: string | null
           order_index?: number
           prescribed_duration_seconds?: number | null
+          protocol_params?: Json
+          protocol_type?: string
           reps_max?: number | null
           reps_min?: number | null
           rest_seconds?: number | null
@@ -2438,6 +2444,8 @@ export type Database = {
           prescribed_reps_min: number | null
           prescribed_sets: number
           prescribed_weight: number | null
+          protocol_params: Json
+          protocol_type: string
           rest_seconds: number | null
           sets_data: Json | null
           workout_id: string
@@ -2454,6 +2462,8 @@ export type Database = {
           prescribed_reps_min?: number | null
           prescribed_sets?: number
           prescribed_weight?: number | null
+          protocol_params?: Json
+          protocol_type?: string
           rest_seconds?: number | null
           sets_data?: Json | null
           workout_id: string
@@ -2470,6 +2480,8 @@ export type Database = {
           prescribed_reps_min?: number | null
           prescribed_sets?: number
           prescribed_weight?: number | null
+          protocol_params?: Json
+          protocol_type?: string
           rest_seconds?: number | null
           sets_data?: Json | null
           workout_id?: string
