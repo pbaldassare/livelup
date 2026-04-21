@@ -501,28 +501,94 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
 
                               {/* Exercise Info */}
                               <div className="flex-1 space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="font-medium">{te.exercise?.name}</p>
-                                    <p className="text-sm text-muted-foreground">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="font-medium truncate">{te.exercise?.name}</p>
+                                    <p className="text-sm text-muted-foreground truncate">
                                       {te.exercise?.category} • {te.exercise?.muscle_groups.join(', ')}
                                     </p>
                                   </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-destructive hover:text-destructive"
-                                    onClick={() => removeExerciseMutation.mutate(te.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {/* Selettore Protocollo */}
+                                    <Select
+                                      value={(te.protocol_type as ProtocolType) || 'SET'}
+                                      onValueChange={(v) =>
+                                        updateProtocolMutation.mutate({ id: te.id, type: v as ProtocolType })
+                                      }
+                                    >
+                                      <SelectTrigger className="h-8 w-[140px] text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {PROTOCOL_LIST.map((def) => {
+                                          const Icon = def.icon;
+                                          return (
+                                            <SelectItem key={def.type} value={def.type}>
+                                              <span className="flex items-center gap-2">
+                                                <Icon className="h-3.5 w-3.5" />
+                                                {def.label}
+                                              </span>
+                                            </SelectItem>
+                                          );
+                                        })}
+                                      </SelectContent>
+                                    </Select>
+                                    <ProtocolInfoPopover type={(te.protocol_type as ProtocolType) || 'SET'} />
+                                    {/* Sposta in... */}
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" title="Sposta esercizio">
+                                          <MoveRight className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Sposta in</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          disabled={!te.block_id}
+                                          onClick={() =>
+                                            moveToCircuitMutation.mutate({ id: te.id, targetBlockId: null })
+                                          }
+                                        >
+                                          Esercizi singoli
+                                        </DropdownMenuItem>
+                                        {allCircuits.map((c: any) => (
+                                          <DropdownMenuItem
+                                            key={c.id}
+                                            disabled={te.block_id === c.id}
+                                            onClick={() =>
+                                              moveToCircuitMutation.mutate({
+                                                id: te.id,
+                                                targetBlockId: c.id,
+                                              })
+                                            }
+                                          >
+                                            {c.name || 'Circuito'}
+                                          </DropdownMenuItem>
+                                        ))}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="text-destructive hover:text-destructive"
+                                      onClick={() => removeExerciseMutation.mutate(te.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
 
-                                {/* Tabella SET orizzontale (set eterogenei) */}
-                                <SetsTable
-                                  te={te}
-                                  onChange={(sets_data) =>
-                                    updateSetsMutation.mutate({ id: te.id, sets_data })
+                                {/* Render condizionale per protocollo */}
+                                {(() => {
+                                  const ptype = ((te.protocol_type as ProtocolType) || 'SET');
+                                  const isSetBased = ptype === 'SET' || ptype === 'RAMPING' || ptype === 'TOP_SET_BACKOFF';
+                                  if (isSetBased) {
+                                    return (
+                                      <SetsTable
+                                        te={te}
+                                        onChange={(sets_data) =>
+                                          updateSetsMutation.mutate({ id: te.id, sets_data })
                                   }
                                 />
 
