@@ -15,7 +15,8 @@ import {
   Settings, 
   LogOut,
   Map,
-  Dumbbell
+  Dumbbell,
+  Library
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -69,9 +70,9 @@ const navigationItems = [
     icon: Tag 
   },
   { 
-    label: 'Esercizi', 
+    label: 'Archivio Esercizi', 
     href: '/admin/exercises', 
-    icon: Dumbbell 
+    icon: Library 
   },
   { 
     label: 'Corsi', 

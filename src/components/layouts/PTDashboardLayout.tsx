@@ -16,7 +16,8 @@ import {
   BookOpen,
   Menu,
   X,
-  Tag
+  Tag,
+  Library
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -34,6 +35,7 @@ const navigationItems = [
   { label: 'Dashboard', href: '/pt', icon: LayoutDashboard, exact: true },
   { label: 'Atleti', href: '/pt/athletes', icon: Users },
   { label: 'Allenamenti', href: '/pt/workouts', icon: Dumbbell },
+  { label: 'Archivio Esercizi', href: '/pt/exercises', icon: Library },
   { label: 'Calendario', href: '/pt/calendar', icon: Calendar },
   { label: 'Messaggi', href: '/pt/messages', icon: MessageSquare },
   { label: 'Pagamenti', href: '/pt/payments', icon: CreditCard },
