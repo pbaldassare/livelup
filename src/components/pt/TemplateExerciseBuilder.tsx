@@ -442,110 +442,70 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
                                   </Button>
                                 </div>
 
-                                {/* Configuration */}
-                                <div className="grid grid-cols-4 gap-3">
-                                  <div className="space-y-1">
-                                    <Label className="text-xs">Serie</Label>
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      value={te.sets}
-                                      onChange={(e) => updateExerciseMutation.mutate({
-                                        id: te.id,
-                                        sets: parseInt(e.target.value) || 3
-                                      })}
-                                      className="h-8"
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <Label className="text-xs">Reps Min</Label>
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      value={te.reps_min ?? ''}
-                                      onChange={(e) => updateExerciseMutation.mutate({
-                                        id: te.id,
-                                        reps_min: parseInt(e.target.value) || null
-                                      })}
-                                      className="h-8"
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <Label className="text-xs">Reps Max</Label>
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      value={te.reps_max ?? ''}
-                                      onChange={(e) => updateExerciseMutation.mutate({
-                                        id: te.id,
-                                        reps_max: parseInt(e.target.value) || null
-                                      })}
-                                      className="h-8"
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <Label className="text-xs">Recupero (s)</Label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      step={15}
-                                      value={te.rest_seconds ?? 60}
-                                      onChange={(e) => updateExerciseMutation.mutate({
-                                        id: te.id,
-                                        rest_seconds: parseInt(e.target.value) || 60
-                                      })}
-                                      className="h-8"
-                                    />
-                                  </div>
-                                </div>
+                                {/* Tabella SET orizzontale (set eterogenei) */}
+                                <SetsTable
+                                  te={te}
+                                  onChange={(sets_data) =>
+                                    updateSetsMutation.mutate({ id: te.id, sets_data })
+                                  }
+                                />
 
-                                {/* Tempo field - 4 inputs for cadence */}
-                                <div className="space-y-1">
-                                  <Label className="text-xs">Tempo (cadenza movimento)</Label>
-                                  <div className="flex items-center gap-1">
-                                    {(() => {
-                                      const tempoParts = (te.tempo || '').split('-');
-                                      const labels = ['Ecc.', 'Pausa', 'Conc.', 'Pausa'];
-                                      return labels.map((label, i) => (
-                                        <div key={i} className="flex-1">
-                                          <Input
-                                            type="number"
-                                            min={0}
-                                            max={9}
-                                            placeholder="0"
-                                            value={tempoParts[i] || ''}
-                                            onChange={(e) => {
-                                              const newParts = [...(te.tempo || '0-0-0-0').split('-')];
-                                              while (newParts.length < 4) newParts.push('0');
-                                              newParts[i] = e.target.value || '0';
-                                              updateExerciseMutation.mutate({
-                                                id: te.id,
-                                                tempo: newParts.join('-')
-                                              });
-                                            }}
-                                            className="h-8 text-center px-1"
-                                          />
-                                          <span className="text-[10px] text-muted-foreground text-center block mt-0.5">{label}</span>
-                                        </div>
-                                      ));
-                                    })()}
-                                  </div>
-                                  <p className="text-[10px] text-muted-foreground">Es: 3-1-2-0 = 3s discesa, 1s pausa, 2s risalita, 0s pausa</p>
-                                </div>
+                                {/* Avanzate: tempo + note (collassate) */}
+                                <Collapsible>
+                                  <CollapsibleTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
+                                      <ChevronDown className="h-3 w-3" />
+                                      Mostra avanzate (tempo, note)
+                                    </Button>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent className="space-y-3 pt-2">
+                                    <div className="space-y-1">
+                                      <Label className="text-xs">Tempo (cadenza movimento)</Label>
+                                      <div className="flex items-center gap-1">
+                                        {(() => {
+                                          const tempoParts = (te.tempo || '').split('-');
+                                          const labels = ['Ecc.', 'Pausa', 'Conc.', 'Pausa'];
+                                          return labels.map((label, i) => (
+                                            <div key={i} className="flex-1">
+                                              <Input
+                                                type="number"
+                                                min={0}
+                                                max={9}
+                                                placeholder="0"
+                                                value={tempoParts[i] || ''}
+                                                onChange={(e) => {
+                                                  const newParts = [...(te.tempo || '0-0-0-0').split('-')];
+                                                  while (newParts.length < 4) newParts.push('0');
+                                                  newParts[i] = e.target.value || '0';
+                                                  updateExerciseMutation.mutate({
+                                                    id: te.id,
+                                                    tempo: newParts.join('-'),
+                                                  });
+                                                }}
+                                                className="h-8 text-center px-1"
+                                              />
+                                              <span className="text-[10px] text-muted-foreground text-center block mt-0.5">{label}</span>
+                                            </div>
+                                          ));
+                                        })()}
+                                      </div>
+                                      <p className="text-[10px] text-muted-foreground">Es: 3-1-2-0 = 3s discesa, 1s pausa, 2s risalita, 0s pausa</p>
+                                    </div>
 
-                                {/* Notes field */}
-                                <div className="space-y-1">
-                                  <Label className="text-xs">Note e istruzioni</Label>
-                                  <Textarea
-                                    placeholder="Aggiungi istruzioni specifiche per l'atleta..."
-                                    value={te.notes ?? ''}
-                                    onChange={(e) => updateExerciseMutation.mutate({
-                                      id: te.id,
-                                      notes: e.target.value || null
-                                    })}
-                                    className="min-h-[60px] text-sm resize-none"
-                                  />
-                                </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-xs">Note e istruzioni</Label>
+                                      <Textarea
+                                        placeholder="Aggiungi istruzioni specifiche per l'atleta..."
+                                        value={te.notes ?? ''}
+                                        onChange={(e) => updateExerciseMutation.mutate({
+                                          id: te.id,
+                                          notes: e.target.value || null,
+                                        })}
+                                        className="min-h-[60px] text-sm resize-none"
+                                      />
+                                    </div>
+                                  </CollapsibleContent>
+                                </Collapsible>
 
                                 {/* Exercise image upload */}
                                 {user?.id && (
