@@ -589,8 +589,48 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                         te={te}
                                         onChange={(sets_data) =>
                                           updateSetsMutation.mutate({ id: te.id, sets_data })
+                                        }
+                                      />
+                                    );
                                   }
-                                />
+                                  // Protocolli non-set-based: render dei paramFields
+                                  const def = getProtocolDef(ptype);
+                                  const params = (te.protocol_params as ProtocolParams) || {};
+                                  return (
+                                    <div className="rounded-md border bg-muted/20 p-3 space-y-2">
+                                      <p className="text-xs font-medium text-muted-foreground">
+                                        Parametri {def.label}
+                                      </p>
+                                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                        {def.paramFields.map((f) => {
+                                          const val = getNested(params, f.key);
+                                          return (
+                                            <div key={f.key} className="space-y-1">
+                                              <Label className="text-xs">{f.label}</Label>
+                                              <Input
+                                                type={f.type}
+                                                min={f.min}
+                                                max={f.max}
+                                                step={f.step}
+                                                placeholder={f.placeholder}
+                                                value={val ?? ''}
+                                                onChange={(e) => {
+                                                  const num = e.target.value === '' ? null : Number(e.target.value);
+                                                  const next = setNested(params, f.key, num);
+                                                  updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                }}
+                                                className="h-8"
+                                              />
+                                              {f.hint && (
+                                                <p className="text-[10px] text-muted-foreground">{f.hint}</p>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
 
                                 {/* Avanzate: tempo + note (collassate) */}
                                 <Collapsible>
