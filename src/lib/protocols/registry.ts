@@ -19,6 +19,14 @@ export type ProtocolParams = {
   interval_seconds?: number | null;
   top_set?: { reps?: number; rpe?: number } | null;
   back_off?: { sets?: number; drop_pct?: number } | null;
+  // Top Set + Back Off (schema piatto)
+  top_sets?: number | null;
+  top_reps?: number | null;
+  top_rest?: number | null;
+  backoff_enabled?: boolean | null;
+  backoff_sets?: number | null;
+  backoff_reps?: number | null;
+  backoff_percentage?: number | null;
 };
 
 export type ParamFieldType = 'number' | 'text';
@@ -100,23 +108,57 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
   TOP_SET_BACKOFF: {
     type: 'TOP_SET_BACKOFF',
     label: 'Top Set + Back Off',
-    athleteLabel: 'Serie principale + supporto',
+    athleteLabel: 'Serie principale + scarico',
     icon: TrendingUp,
     description:
-      'Top Set + Back Off: una serie pesante "Top Set" alla massima intensità prevista, seguita da serie più leggere "Back Off" (con riduzione % del carico) per accumulare volume di qualità.',
+      'Serie principale ad alta intensità seguita da serie di scarico a carico ridotto per completare il lavoro.',
     defaultParams: {
-      rest_seconds: 120,
-      top_set: { reps: 3, rpe: 9 },
-      back_off: { sets: 3, drop_pct: 10 },
+      top_sets: 1,
+      top_reps: 5,
+      top_rest: 120,
+      backoff_enabled: true,
+      backoff_sets: 3,
+      backoff_reps: 8,
+      backoff_percentage: 20,
     },
     paramFields: [
-      { key: 'top_set.reps', label: 'Reps Top Set', type: 'number', min: 1, placeholder: '3' },
-      { key: 'top_set.rpe', label: 'RPE Top Set', type: 'number', min: 1, max: 10, placeholder: '9' },
-      { key: 'back_off.sets', label: 'Serie Back Off', type: 'number', min: 1, placeholder: '3' },
-      { key: 'back_off.drop_pct', label: 'Calo % Back Off', type: 'number', min: 1, max: 90, placeholder: '10' },
-      { key: 'rest_seconds', label: 'Recupero (s)', type: 'number', min: 0, step: 15, placeholder: '120' },
+      { key: 'top_sets', label: 'Serie Top Set', type: 'number', min: 1, placeholder: '1' },
+      { key: 'top_reps', label: 'Reps Top Set', type: 'number', min: 1, placeholder: '5' },
+      { key: 'top_rest', label: 'Recupero (s)', type: 'number', min: 0, step: 15, placeholder: '120' },
+      { key: 'backoff_sets', label: 'Serie Back Off', type: 'number', min: 1, placeholder: '3' },
+      { key: 'backoff_reps', label: 'Reps Back Off', type: 'number', min: 1, placeholder: '8' },
+      { key: 'backoff_percentage', label: '% riduzione carico', type: 'number', min: 1, max: 90, placeholder: '20' },
     ],
     executionMode: 'standard',
+    sections: {
+      coachSets: [
+        'Esercizio',
+        'Numero serie Top Set',
+        'Ripetizioni Top Set',
+        'Carico (kg)',
+        'Tempo di recupero',
+        'Attivazione Back Off (Sì / No)',
+        'Se Sì: serie, reps, % riduzione carico',
+        'Note libere (opzionali)',
+      ],
+      athleteDoes: [
+        'Inserisce kg / reps / secondi',
+        'Conferma il dato',
+        'Avvia il timer del recupero',
+        'Completa le serie Top Set previste',
+        'Esegue il Back Off con carico ridotto',
+      ],
+      systemTracks: [
+        'Carico massimo del Top Set',
+        'Dati di esecuzione (reps, kg, recupero)',
+        'Progressione nel tempo',
+      ],
+      example: [
+        'Squat',
+        'Top Set: 1 × 5 @ 100 kg',
+        'Back Off: 3 × 8 @ 80 kg (-20%)',
+      ],
+    },
   },
   RAMPING: {
     type: 'RAMPING',
@@ -205,8 +247,11 @@ export function describeExerciseProtocol(
       if (setsCount && setsCount > 0) return `${setsCount} set`;
       if (p.sets && p.reps) return `${p.sets} × ${p.reps}`;
       return 'Set';
-    case 'TOP_SET_BACKOFF':
-      return `Top set + ${p.back_off?.sets ?? 3} back off`;
+    case 'TOP_SET_BACKOFF': {
+      const boSets = p.backoff_sets ?? p.back_off?.sets ?? 3;
+      const enabled = p.backoff_enabled !== false;
+      return enabled ? `Top set + ${boSets} back off` : 'Top set';
+    }
     case 'RAMPING':
       if (p.sets && p.reps) return `${p.sets} a salire × ${p.reps}`;
       return 'Salita progressiva';
@@ -230,8 +275,11 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
     case 'SET':
       if (p.sets && p.reps) return `${p.sets} serie × ${p.reps} ripetizioni`;
       return 'Serie e ripetizioni';
-    case 'TOP_SET_BACKOFF':
-      return `Serie principale + ${p.back_off?.sets ?? 3} serie di supporto`;
+    case 'TOP_SET_BACKOFF': {
+      const boSets = p.backoff_sets ?? p.back_off?.sets ?? 3;
+      const enabled = p.backoff_enabled !== false;
+      return enabled ? `Serie principale + ${boSets} serie di scarico` : 'Serie principale';
+    }
     case 'RAMPING':
       if (p.sets && p.reps) return `${p.sets} serie a salire × ${p.reps}`;
       return 'Serie a salire';
