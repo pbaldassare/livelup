@@ -7,6 +7,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { GuidedWorkoutFlow } from '@/components/app/GuidedWorkoutFlow';
+import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   ArrowLeft, 
   Settings2, 
@@ -18,6 +29,8 @@ import {
   Timer,
   TrendingUp,
   CheckCircle2,
+  Repeat,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
