@@ -346,7 +346,95 @@ export function AtletaWorkoutDetailPage() {
     }
   };
 
-  const setsData = useMemo(() => {
+  // ===== Status helper for exercise list =====
+  const getExerciseStatus = (
+    ex: WorkoutExercise,
+    logCount: number
+  ): 'not_started' | 'in_progress' | 'completed' => {
+    if (logCount <= 0) return 'not_started';
+    if (logCount < ex.prescribed_sets) return 'in_progress';
+    return 'completed';
+  };
+
+  // ===== Start exercise from sheet =====
+  const handleStartFromSheet = async (ex: WorkoutExercise) => {
+    const idx = exercises.findIndex((e: any) => e.id === ex.id);
+    if (idx >= 0) setCurrentExerciseIndex(idx);
+
+    const completedForEx = completedSets[ex.id] || [];
+    const firstIncomplete =
+      Array.from({ length: ex.prescribed_sets }, (_, i) => i + 1).find(
+        (s) => !completedForEx.includes(s)
+      ) || 1;
+    setCurrentSet(firstIncomplete);
+
+    if (!isWorkoutStarted) {
+      setIsWorkoutStarted(true);
+      if (workoutId && workout?.status !== 'in_corso') {
+        await supabase
+          .from('workouts')
+          .update({ status: 'in_corso' as any })
+          .eq('id', workoutId)
+          .in('status', ['attivo', 'in_sospeso']);
+        queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+      }
+    }
+    setSheetOpen(false);
+  };
+
+  // ===== Mark exercise as completed (logs only missing sets) =====
+  const performMarkAllCompleted = async (ex: WorkoutExercise) => {
+    const completedForEx = completedSets[ex.id] || [];
+    const missing = Array.from({ length: ex.prescribed_sets }, (_, i) => i + 1).filter(
+      (s) => !completedForEx.includes(s)
+    );
+
+    if (missing.length === 0) {
+      setSheetOpen(false);
+      return;
+    }
+
+    const reps = ex.prescribed_reps_min ?? ex.prescribed_reps_max ?? 0;
+    const weight = ex.prescribed_weight ?? undefined;
+
+    try {
+      for (const s of missing) {
+        await logSetMutation.mutateAsync({
+          workoutExerciseId: ex.id,
+          setNumber: s,
+          repsCompleted: reps,
+          weightUsed: weight,
+        });
+      }
+
+      setCompletedSets((prev) => ({
+        ...prev,
+        [ex.id]: [...(prev[ex.id] || []), ...missing].sort((a, b) => a - b),
+      }));
+      setTotalSetsCompleted((prev) => prev + missing.length);
+      setTotalReps((prev) => prev + reps * missing.length);
+      setTotalVolume((prev) => prev + reps * (weight || 0) * missing.length);
+
+      queryClient.invalidateQueries({ queryKey: ['workout-logs', workoutId] });
+      toast.success('Esercizio completato');
+      setSheetOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Errore nel salvare i set');
+    }
+  };
+
+  const handleMarkAllCompleted = async (ex: WorkoutExercise) => {
+    const logCount = completedSets[ex.id]?.length || 0;
+    const status = getExerciseStatus(ex, logCount);
+    if (status === 'completed') return;
+    if (status === 'not_started') {
+      // Confirmation required
+      setPendingMarkExercise(ex);
+      setConfirmMarkOpen(true);
+      return;
+    }
+    await performMarkAllCompleted(ex);
+  };
     if (!currentExercise) return [];
     const exerciseCompletedSets = completedSets[currentExercise.id] || [];
     const repsDisplay = currentExercise.prescribed_reps_max
