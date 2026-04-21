@@ -125,6 +125,24 @@ export default function AdminExercisesPage() {
     onError: (err: any) => toast.error(err.message),
   });
 
+  const usageQuery = useQuery({
+    queryKey: ['exercise-usage', deleteId],
+    queryFn: async () => {
+      if (!deleteId) return { templates: 0, workouts: 0, favorites: 0 };
+      const [tpl, wko, fav] = await Promise.all([
+        supabase.from('template_exercises').select('id', { count: 'exact', head: true }).eq('exercise_id', deleteId),
+        supabase.from('workout_exercises').select('id', { count: 'exact', head: true }).eq('exercise_id', deleteId),
+        supabase.from('pt_favorite_exercises').select('id', { count: 'exact', head: true }).eq('exercise_id', deleteId),
+      ]);
+      return {
+        templates: tpl.count ?? 0,
+        workouts: wko.count ?? 0,
+        favorites: fav.count ?? 0,
+      };
+    },
+    enabled: !!deleteId,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('exercises').delete().eq('id', id);
@@ -422,9 +440,30 @@ export default function AdminExercisesPage() {
           <DialogHeader>
             <DialogTitle>Conferma eliminazione</DialogTitle>
           </DialogHeader>
-          <p className="text-muted-foreground">
-            Sei sicuro di voler eliminare questo esercizio? L'azione non è reversibile.
-          </p>
+          <div className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              Sei sicuro di voler eliminare questo esercizio? L'azione non è reversibile.
+            </p>
+            {usageQuery.data && (usageQuery.data.templates > 0 || usageQuery.data.workouts > 0 || usageQuery.data.favorites > 0) && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 space-y-1">
+                <p className="font-medium text-destructive">⚠️ Esercizio in uso</p>
+                <ul className="text-muted-foreground list-disc list-inside space-y-0.5">
+                  {usageQuery.data.templates > 0 && (
+                    <li>Usato in <strong>{usageQuery.data.templates}</strong> scheda/e</li>
+                  )}
+                  {usageQuery.data.workouts > 0 && (
+                    <li>Usato in <strong>{usageQuery.data.workouts}</strong> allenamento/i assegnato/i</li>
+                  )}
+                  {usageQuery.data.favorites > 0 && (
+                    <li>Salvato come preferito da <strong>{usageQuery.data.favorites}</strong> PT</li>
+                  )}
+                </ul>
+                <p className="text-xs text-muted-foreground pt-1">
+                  Eliminandolo verrà rimosso da preferiti e schede.
+                </p>
+              </div>
+            )}
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>Annulla</Button>
             <Button
