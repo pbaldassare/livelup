@@ -1,6 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Video as VideoIcon, Image as ImageIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ExternalLink, Video as VideoIcon, Image as ImageIcon, Star } from 'lucide-react';
+import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
+import { cn } from '@/lib/utils';
 
 interface ExerciseLite {
   id: string;
@@ -18,6 +21,8 @@ interface ExerciseDetailDialogProps {
   exercise: ExerciseLite | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Mostra il bottone preferito (solo PT). Default false. */
+  showFavoriteToggle?: boolean;
 }
 
 function getYouTubeVideoId(url: string): string | null {
@@ -40,18 +45,45 @@ const difficultyColor = (level: string) => {
   }
 };
 
-export function ExerciseDetailDialog({ exercise, open, onOpenChange }: ExerciseDetailDialogProps) {
+export function ExerciseDetailDialog({
+  exercise,
+  open,
+  onOpenChange,
+  showFavoriteToggle = false,
+}: ExerciseDetailDialogProps) {
+  const { data: favIds } = useFavoriteIds();
+  const toggleFav = useToggleFavorite();
+
   if (!exercise) return null;
   const youtubeId = exercise.video_url ? getYouTubeVideoId(exercise.video_url) : null;
+  const isFavorite = !!favIds?.has(exercise.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">{exercise.name}</DialogTitle>
+          <DialogTitle className="text-2xl pr-8">{exercise.name}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
+          {/* Favorite toggle (PT only) */}
+          {showFavoriteToggle && (
+            <Button
+              variant={isFavorite ? 'default' : 'outline'}
+              size="sm"
+              onClick={() =>
+                toggleFav.mutate({ exerciseId: exercise.id, isFavorite })
+              }
+              disabled={toggleFav.isPending}
+              className="w-full sm:w-auto"
+            >
+              <Star
+                className={cn('h-4 w-4 mr-2', isFavorite && 'fill-current')}
+              />
+              {isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+            </Button>
+          )}
+
           {/* Badges */}
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className={difficultyColor(exercise.difficulty_level)}>

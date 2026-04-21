@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -10,9 +11,11 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Search, Video, Library, Info } from 'lucide-react';
+import { Search, Video, Library, Info, Star } from 'lucide-react';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
+import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
+import { cn } from '@/lib/utils';
 
 type Exercise = {
   id: string;
@@ -53,7 +56,11 @@ export default function PTExercisesArchivePage() {
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [muscleFilter, setMuscleFilter] = useState<string>('all');
+  const [favoriteFilter, setFavoriteFilter] = useState<'all' | 'favorites'>('all');
   const [selected, setSelected] = useState<Exercise | null>(null);
+
+  const { data: favIds } = useFavoriteIds();
+  const toggleFav = useToggleFavorite();
 
   const { data: exercises = [], isLoading } = useQuery({
     queryKey: ['pt-exercises-archive'],
@@ -87,7 +94,8 @@ export default function PTExercisesArchivePage() {
     const matchesDiff = difficultyFilter === 'all' || ex.difficulty_level === difficultyFilter;
     const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
     const matchesMuscle = muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
-    return matchesSearch && matchesDiff && matchesCat && matchesMuscle;
+    const matchesFav = favoriteFilter === 'all' || (favIds?.has(ex.id) ?? false);
+    return matchesSearch && matchesDiff && matchesCat && matchesMuscle && matchesFav;
   });
 
   return (
@@ -101,9 +109,9 @@ export default function PTExercisesArchivePage() {
       <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
         <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
         <div className="text-sm">
-          <p className="font-medium text-foreground">Questa è una sezione di sola consultazione.</p>
+          <p className="font-medium text-foreground">Aggiungi ai preferiti gli esercizi che usi più spesso.</p>
           <p className="text-muted-foreground mt-0.5">
-            Per costruire le schede di allenamento usa il builder nella sezione <span className="font-medium">Allenamenti</span>.
+            Solo gli esercizi <span className="font-medium">preferiti</span> appariranno nel builder schede e nella tab Esercizi.
           </p>
         </div>
       </div>
@@ -121,6 +129,15 @@ export default function PTExercisesArchivePage() {
                 className="pl-9"
               />
             </div>
+            <Select value={favoriteFilter} onValueChange={(v: 'all' | 'favorites') => setFavoriteFilter(v)}>
+              <SelectTrigger className="w-full lg:w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutti</SelectItem>
+                <SelectItem value="favorites">⭐ Solo preferiti ({favIds?.size ?? 0})</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
               <SelectTrigger className="w-full lg:w-[180px]">
                 <SelectValue placeholder="Difficoltà" />
@@ -170,6 +187,7 @@ export default function PTExercisesArchivePage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12"></TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Difficoltà</TableHead>
                   <TableHead className="hidden md:table-cell">Categoria</TableHead>
@@ -179,43 +197,68 @@ export default function PTExercisesArchivePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(ex => (
-                  <TableRow
-                    key={ex.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelected(ex)}
-                  >
-                    <TableCell className="font-medium">{ex.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={difficultyColor(ex.difficulty_level)}>
-                        {ex.difficulty_level}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <Badge variant="secondary">{ex.category}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <div className="flex flex-wrap gap-1">
-                        {(ex.muscle_groups || []).slice(0, 3).map(mg => (
-                          <Badge key={mg} variant="outline" className="text-xs">{mg}</Badge>
-                        ))}
-                        {(ex.muscle_groups || []).length > 3 && (
-                          <Badge variant="outline" className="text-xs">+{ex.muscle_groups.length - 3}</Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm max-w-xs truncate">
-                      {ex.instructions || ex.description || '—'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {ex.video_url ? (
-                        <Video className="inline h-4 w-4 text-primary" />
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                {filtered.map(ex => {
+                  const isFav = favIds?.has(ex.id) ?? false;
+                  return (
+                    <TableRow
+                      key={ex.id}
+                      className={cn(
+                        'cursor-pointer hover:bg-muted/50',
+                        isFav && 'bg-primary/[0.03]'
                       )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      onClick={() => setSelected(ex)}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() =>
+                            toggleFav.mutate({ exerciseId: ex.id, isFavorite: isFav })
+                          }
+                          disabled={toggleFav.isPending}
+                          title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                        >
+                          <Star
+                            className={cn(
+                              'h-4 w-4 transition-colors',
+                              isFav ? 'fill-primary text-primary' : 'text-muted-foreground'
+                            )}
+                          />
+                        </Button>
+                      </TableCell>
+                      <TableCell className="font-medium">{ex.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={difficultyColor(ex.difficulty_level)}>
+                          {ex.difficulty_level}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <Badge variant="secondary">{ex.category}</Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {(ex.muscle_groups || []).slice(0, 3).map(mg => (
+                            <Badge key={mg} variant="outline" className="text-xs">{mg}</Badge>
+                          ))}
+                          {(ex.muscle_groups || []).length > 3 && (
+                            <Badge variant="outline" className="text-xs">+{ex.muscle_groups.length - 3}</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground text-sm max-w-xs truncate">
+                        {ex.instructions || ex.description || '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {ex.video_url ? (
+                          <Video className="inline h-4 w-4 text-primary" />
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -226,6 +269,7 @@ export default function PTExercisesArchivePage() {
         exercise={selected}
         open={!!selected}
         onOpenChange={(o) => !o && setSelected(null)}
+        showFavoriteToggle
       />
     </div>
   );
