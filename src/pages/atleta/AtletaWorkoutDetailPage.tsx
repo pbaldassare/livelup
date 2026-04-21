@@ -114,7 +114,7 @@ export function AtletaWorkoutDetailPage() {
             id, exercise_id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
             prescribed_duration_seconds, rest_seconds, notes, block_id,
-            exercises:exercise_id (name, category, video_url, image_url, instructions)
+            exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
           )
         `)
         .eq('id', workoutId)
