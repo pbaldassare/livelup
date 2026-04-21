@@ -19,6 +19,14 @@ export type ProtocolParams = {
   interval_seconds?: number | null;
   top_set?: { reps?: number; rpe?: number } | null;
   back_off?: { sets?: number; drop_pct?: number } | null;
+  // Top Set + Back Off (schema piatto)
+  top_sets?: number | null;
+  top_reps?: number | null;
+  top_rest?: number | null;
+  backoff_enabled?: boolean | null;
+  backoff_sets?: number | null;
+  backoff_reps?: number | null;
+  backoff_percentage?: number | null;
 };
 
 export type ParamFieldType = 'number' | 'text';
