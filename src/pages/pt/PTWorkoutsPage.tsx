@@ -153,7 +153,13 @@ export function PTWorkoutsPage() {
     enabled: !!user?.id,
   });
 
-  const myExercises = exercises.filter(e => e.created_by === user?.id);
+  const [exerciseVisibility, setExerciseVisibility] = useState<'all' | 'mine' | 'public'>('all');
+
+  const visibleExercises = exercises.filter(e => {
+    if (exerciseVisibility === 'mine') return e.created_by === user?.id;
+    if (exerciseVisibility === 'public') return !e.created_by;
+    return true;
+  });
 
   const { data: workouts = [], isLoading: workoutsLoading } = useQuery({
     queryKey: ['pt-workouts', user?.id],
