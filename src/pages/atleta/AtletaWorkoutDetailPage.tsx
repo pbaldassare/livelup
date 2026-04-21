@@ -435,6 +435,8 @@ export function AtletaWorkoutDetailPage() {
     }
     await performMarkAllCompleted(ex);
   };
+
+  const setsData = useMemo(() => {
     if (!currentExercise) return [];
     const exerciseCompletedSets = completedSets[currentExercise.id] || [];
     const repsDisplay = currentExercise.prescribed_reps_max
