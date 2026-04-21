@@ -1,112 +1,168 @@
 
 
-## Piano: attivazione protocollo "Top Set + Back Off"
+## Piano: vista esercizi atleta — implementazione + correzioni
 
-### Obiettivo
-Promuovere `TOP_SET_BACKOFF` da "In arrivo" a **disponibile**: visibile nella tab Protocolli con scheda completa, selezionabile nel builder schede con campi dedicati Top Set / Back Off, parametri salvati con lo schema richiesto. Default resta `SET`. Nessuna modifica DB.
-
----
-
-### Stato attuale (analisi)
-- ✅ `TOP_SET_BACKOFF` è già nel `PROTOCOL_REGISTRY` ma con uno schema parametri non allineato a quello richiesto (oggi: `top_set.{reps,rpe}`, `back_off.{sets,drop_pct}`).
-- ✅ Già selezionabile nel dropdown del builder (è in `PROTOCOL_LIST`).
-- ✅ Trattato come "set-based" → mostra già `SetsTable` per il dato eseguito.
-- ❌ Manca un blocco UI dedicato per i parametri **Top Set / Back Off**.
-- ❌ Manca la sezione `sections` nel registry (Coach/Atleta/Sistema/Esempio).
-- ❌ Sta in `COMING_SOON_PROTOCOLS` nella tab Protocolli.
-
-Schede esistenti che eventualmente usano già `TOP_SET_BACKOFF` con il vecchio schema sono praticamente inesistenti (era marcato "in arrivo"), ma garantiamo comunque retrocompatibilità tramite default-fallback nel render.
+### Stato di partenza
+La lista esercizi pre-workout in `AtletaWorkoutDetailPage.tsx` esiste ma le righe **non sono cliccabili** e il componente `AtletaExerciseDetailSheet.tsx` **non è ancora stato creato**. Implemento ora la versione completa con tutte le correzioni richieste in un'unica passata.
 
 ---
 
 ### Modifiche
 
-**1. `src/lib/protocols/registry.ts`** — riallineamento TOP_SET_BACKOFF
-- Estendere `ProtocolParams` con i nuovi campi piatti:
-  ```ts
-  top_sets?: number | null;
-  top_reps?: number | null;
-  top_rest?: number | null;
-  backoff_enabled?: boolean | null;
-  backoff_sets?: number | null;
-  backoff_reps?: number | null;
-  backoff_percentage?: number | null;
-  ```
-  (i vecchi `top_set` / `back_off` restano per non rompere i tipi).
-- Aggiornare la entry `TOP_SET_BACKOFF`:
-  - `description`: *"Serie principale ad alta intensità seguita da serie di scarico a carico ridotto per completare il lavoro."*
-  - `defaultParams`:
-    ```ts
-    {
-      top_sets: 1,
-      top_reps: 5,
-      top_rest: 120,
-      backoff_enabled: true,
-      backoff_sets: 3,
-      backoff_reps: 8,
-      backoff_percentage: 20,
-    }
-    ```
-  - `paramFields`: rimossi quelli vecchi; useremo un blocco UI custom nel builder (vedi punto 3), quindi `paramFields` resta come elenco minimale per fallback documentale (Top Sets, Top Reps, Recupero, Back Off attivo, Back Off Sets, Back Off Reps, % calo).
-  - Nuova `sections` (Coach / Atleta / Sistema / Esempio) come da spec.
-- Aggiornare `describeExerciseProtocol` e `describeBlockForAthlete` per leggere i nuovi campi (`backoff_sets` invece di `back_off?.sets`), con fallback ai vecchi.
+**1. Nuovo file `src/components/app/AtletaExerciseDetailSheet.tsx`**
 
-**2. `src/components/pt/ProtocolsTab.tsx`**
-- Spostare `'TOP_SET_BACKOFF'` da `COMING_SOON_PROTOCOLS` a `VISIBLE_PROTOCOLS`.
-- Nessun'altra modifica: la card sfrutta già `def.sections` (rendering automatico a 4 blocchi) e `def.paramFields` (chip parametri).
+Sheet a tutto schermo (`Sheet` shadcn, `side="bottom"`, `h-[92dvh]`).
 
-**3. `src/components/pt/TemplateExerciseBuilder.tsx`** — blocco UI dedicato Top/Back Off
-- Nel render condizionale (riga ~599), per `ptype === 'TOP_SET_BACKOFF'` aggiungere **un blocco "Parametri Top Set + Back Off"** sopra la `SetsTable` (la tabella set resta per il tracciamento esecuzione):
-  - Sezione **Top Set**: input `top_sets`, `top_reps`, `top_rest` (recupero in s).
-  - Toggle **`backoff_enabled`** (Switch).
-  - Sezione **Back Off** (visibile solo se enabled): input `backoff_sets`, `backoff_reps`, `backoff_percentage` (% calo carico).
-  - Tutti gli onChange chiamano `updateProtocolParamMutation` con il nuovo `params` (chiavi piatte, niente nested → niente `setNested`).
-- `SetsTable` continua a essere mostrata per il tracking effettivo (nessuna regressione).
-- Per `SET` e `RAMPING` nessun cambiamento.
-- Quando il PT cambia protocollo verso `TOP_SET_BACKOFF`, `updateProtocolMutation` già chiama `getDefaultParamsForProtocol` → riceve i nuovi default automaticamente.
+Struttura:
+- **Header sticky**: back, nome esercizio, bottone "Cambia" (disabled, placeholder).
+- **Tabs**: `Animazione` (default) / `Muscoli` / `Tutorial` (gli ultimi due placeholder "In arrivo").
+- **Media**:
+  - Se `video_url` YouTube → **thumbnail cliccabile** (riuso `getYouTubeVideoId` + `hqdefault.jpg`) con overlay Play. Click → apre `Dialog` shadcn con iframe embed.
+  - Else if `image_url` → immagine grande (aspect 16/10).
+  - Else → placeholder con icona Dumbbell.
+- **Riga durata o reps** (mai entrambi):
+  - `prescribed_duration_seconds > 0` → "Durata · mm:ss"
+  - altrimenti → "Reps · ×N" (range se presente).
+- **Istruzioni**: `instructions` con `whitespace-pre-line`.
+- **Area di focus**: badge per ogni `muscle_groups[]`.
+- **Sezione Set** (compatibile protocolli futuri):
+  - Funzione helper interna `buildSets(exercise)` che costruisce `Array<{n, reps, weight, rest}>` — oggi tutti i set ereditano gli stessi `prescribed_reps_min/max`, `prescribed_weight`, `rest_seconds`. Struttura preparata per leggere in futuro un eventuale `sets_data` per-set senza cambiare la UI.
+  - Render verticale: una card per Set 1..N con `Reps`, `Kg`, `Recupero` (omette i campi nulli, niente layout rigido SET-only).
+  - Set già loggato (presente in `completedSetsForEx`) → check + opacità 60%.
+- **Footer sticky** con due bottoni:
+  - **`Inizia esercizio`** → vedi punto 3.
+  - **`Segna come completato`** → vedi punto 4.
 
-**4. Verifica regressione SET**
-- Default `SET` invariato in `addExerciseMutation` (riga 216).
-- `paramFields` di SET intatti.
-- `SetsTable` intatta.
-
----
-
-### Schema dati salvato (in `template_exercises.protocol_params`)
-```json
-{
-  "top_sets": 1,
-  "top_reps": 5,
-  "top_rest": 120,
-  "backoff_enabled": true,
-  "backoff_sets": 3,
-  "backoff_reps": 8,
-  "backoff_percentage": 20
+Props:
+```ts
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  exercise: WorkoutExercise | null;
+  completedSetsForEx: number[];
+  status: 'not_started' | 'in_progress' | 'completed';
+  onStart: () => void;
+  onMarkAllCompleted: () => Promise<void>;
 }
 ```
-`protocol_type = "TOP_SET_BACKOFF"`. Colonna DB già esistente (jsonb) — nessuna migration.
 
 ---
 
-### File modificati
+**2. `src/pages/atleta/AtletaWorkoutDetailPage.tsx`**
 
-| File | Modifica |
-|---|---|
-| `src/lib/protocols/registry.ts` | Tipo `ProtocolParams` esteso, entry TOP_SET_BACKOFF riscritta (description, defaults, paramFields, sections), describe* aggiornati |
-| `src/components/pt/ProtocolsTab.tsx` | TOP_SET_BACKOFF spostato in `VISIBLE_PROTOCOLS` |
-| `src/components/pt/TemplateExerciseBuilder.tsx` | Nuovo blocco UI parametri Top/Back Off (con Switch) per `ptype === 'TOP_SET_BACKOFF'` |
+**a) Aggiunta `muscle_groups` alla select**:
+```ts
+exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
+```
+ed estensione del tipo `WorkoutExercise.exercises`.
+
+**b) Logica stato per esercizio (PARTE 1)** — helper memoizzato:
+```ts
+function getExerciseStatus(ex, logCount) {
+  if (logCount === 0) return 'not_started';
+  if (logCount < ex.prescribed_sets) return 'in_progress';
+  return 'completed';
+}
+```
+
+**c) Lista cliccabile (sostituisce `motion.div` righe 587-613)**:
+- Wrapping `<button>` su tutta la riga → `setSelectedExercise(ex)` + `setSheetOpen(true)`.
+- Layout: thumbnail 56×56 (image_url o icona) a sinistra, nome + una sola tra `Durata mm:ss` o `× reps`, indicatore stato a destra.
+- Stati visivi:
+  - `not_started` → bordo neutro `border-app-border`.
+  - `in_progress` → `border-app-accent` + dot lime pulsante.
+  - `completed` → `opacity-60` + `CheckCircle2` lime.
+- Divider sottile tra le righe.
+
+**d) FIX "Inizia esercizio" (PARTE 2)** — handler `handleStartFromSheet(ex)`:
+```ts
+const idx = exercises.findIndex(e => e.id === ex.id);
+setCurrentExerciseIndex(idx);
+const completedForEx = completedSets[ex.id] || [];
+const firstIncomplete = Array.from({length: ex.prescribed_sets}, (_, i) => i+1)
+  .find(s => !completedForEx.includes(s)) || 1;
+setCurrentSet(firstIncomplete);
+
+if (!isWorkoutStarted) {
+  setIsWorkoutStarted(true);
+  if (workout?.status !== 'in_corso') {
+    await supabase.from('workouts').update({status: 'in_corso'})
+      .eq('id', workoutId).in('status', ['attivo', 'in_sospeso']);
+    queryClient.invalidateQueries({queryKey: ['atleta-focus-workout']});
+  }
+}
+// Se già iniziato: NON tocca status né isWorkoutStarted, aggiorna solo index/set
+setSheetOpen(false);
+```
+
+**e) FIX "Segna come completato" (PARTE 3)** — handler `handleMarkAllCompleted(ex)`:
+- Se `status === 'not_started'` → mostra `AlertDialog` di conferma "Vuoi segnare questo esercizio come completato?". Solo dopo OK procede.
+- Se `status === 'in_progress'` → procede senza conferma.
+- Se `status === 'completed'` → bottone disabilitato.
+
+Implementazione (no duplicati):
+```ts
+const completedForEx = completedSets[ex.id] || [];
+const missing = Array.from({length: ex.prescribed_sets}, (_, i) => i+1)
+  .filter(s => !completedForEx.includes(s));
+
+for (const s of missing) {
+  await logSetMutation.mutateAsync({
+    workoutExerciseId: ex.id,
+    setNumber: s,
+    repsCompleted: ex.prescribed_reps_min ?? ex.prescribed_reps_max ?? 0,
+    weightUsed: ex.prescribed_weight ?? undefined,
+  });
+}
+
+setCompletedSets(prev => ({
+  ...prev,
+  [ex.id]: [...completedForEx, ...missing].sort((a,b) => a-b)
+}));
+queryClient.invalidateQueries({queryKey: ['workout-logs', workoutId]});
+toast.success('Esercizio completato');
+setSheetOpen(false);
+```
+
+`logSetMutation` esistente fa già delete-then-insert sul `(workout_exercise_id, set_number)` → idempotente, nessun rischio di duplicati anche in edge case.
+
+**f) Stato locale aggiunto**:
+```ts
+const [selectedExercise, setSelectedExercise] = useState<WorkoutExercise | null>(null);
+const [sheetOpen, setSheetOpen] = useState(false);
+const [confirmMarkOpen, setConfirmMarkOpen] = useState(false);
+```
+
+**g) Render `<AtletaExerciseDetailSheet>` + `<AlertDialog>` di conferma** in fondo al ramo pre-workout.
+
+---
+
+### Cosa NON tocchiamo
+- `GuidedWorkoutFlow.tsx`, schema DB, registry protocolli, builder PT, tab Protocolli, `AtletaEserciziPage`.
+- Logica `logSetMutation`, `completeWorkoutMutation`, summary post-workout.
+
+---
+
+### File modificati / creati
+
+| File | Tipo | Modifica |
+|---|---|---|
+| `src/components/app/AtletaExerciseDetailSheet.tsx` | **nuovo** | Sheet dettaglio: header, media (thumbnail YT cliccabile + Dialog video), tabs, durata/reps, istruzioni, badge muscoli, set verticali compatibili futuri protocolli, footer azioni |
+| `src/pages/atleta/AtletaWorkoutDetailPage.tsx` | edit | `muscle_groups` in select; lista righe cliccabili con 3 stati; handler `handleStartFromSheet` (preserva flow se già iniziato); handler `handleMarkAllCompleted` con conferma se non iniziato e solo set mancanti se in corso; AlertDialog conferma; integrazione Sheet |
 
 ---
 
 ### Checklist test
-1. `/pt/workouts` → tab **Protocolli** → vedo card **Top Set + Back Off** in "Disponibili" con descrizione, sezioni Coach/Atleta/Sistema, esempio Squat 1×5 @100kg + 3×8 @80kg.
-2. In "Prossimamente" restano solo RAMPING, EMOM, AMRAP.
-3. Apro una scheda esistente → tab Schede → tutti gli esercizi mostrano protocollo SET e funzionano come prima.
-4. Aggiungo un nuovo esercizio → default `SET`, `SetsTable` invariata.
-5. Cambio protocollo su un esercizio in "Top Set + Back Off" → compare blocco "Parametri Top Set + Back Off" con default (1×5, recupero 120, Back Off ON, 3×8, -20%) + `SetsTable` per tracking.
-6. Modifico `top_reps` a 3 → salvato in `protocol_params.top_reps`.
-7. Toggle Back Off off → i 3 input back off scompaiono; `backoff_enabled=false` salvato.
-8. Riapro la scheda → stato persistito correttamente.
-9. Torno a SET su un altro esercizio → comportamento invariato (SetsTable, niente blocco Top/Back Off).
-10. Nessun errore in console; nessuna regressione su template e workout esistenti.
+1. Lista esercizi: ogni riga mostra thumbnail + nome + (durata XOR reps) + indicatore stato.
+2. Stati corretti: 0 log = neutro; 1..N-1 log = bordo lime + dot; N log = check + opacità 60%.
+3. Click riga → si apre lo Sheet a tutto schermo.
+4. Video YouTube: thumbnail visibile, click → Dialog con iframe; senza video → immagine; senza nulla → placeholder.
+5. Set verticali: Set 1..N con reps/kg/recupero; set già loggati con check.
+6. **Inizia esercizio** quando workout NON iniziato → status DB → `in_corso`, parte guided flow su quell'esercizio dal primo set incompleto.
+7. **Inizia esercizio** quando workout GIÀ iniziato → cambia solo `currentExerciseIndex`/`currentSet`, nessun update DB, `isWorkoutStarted` resta true.
+8. **Segna come completato** su esercizio non iniziato → AlertDialog di conferma; OK → tutti i set loggati.
+9. **Segna come completato** su esercizio in corso → nessuna conferma; loggati SOLO i set mancanti, nessun duplicato.
+10. **Segna come completato** su esercizio completato → bottone disabilitato.
+11. Riapertura pagina → stati persistono coerenti con `existingLogs`.
+12. Nessuna regressione su `GuidedWorkoutFlow`, summary, builder PT, tab Protocolli.
 
