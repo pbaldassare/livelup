@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { MultiSelectSearch } from '@/components/common/MultiSelectSearch';
 
 import { InlineEditText, InlineEditSelect } from '@/components/dashboard/InlineEditCells';
 import { 
@@ -52,6 +53,19 @@ import { toast } from 'sonner';
 // PT WORKOUTS PAGE - Gestione Allenamenti
 // Solo per ruolo: pt (web dashboard)
 // =====================================================
+
+const MUSCLE_GROUP_OPTIONS = [
+  { id: 'petto', name: 'Petto' },
+  { id: 'schiena', name: 'Schiena' },
+  { id: 'gambe', name: 'Gambe' },
+  { id: 'spalle', name: 'Spalle' },
+  { id: 'braccia', name: 'Braccia' },
+  { id: 'core', name: 'Core' },
+  { id: 'glutei', name: 'Glutei' },
+  { id: 'addominali', name: 'Addominali' },
+  { id: 'cardio', name: 'Cardio' },
+  { id: 'full body', name: 'Full Body' },
+];
 
 interface WorkoutTemplate {
   id: string;
