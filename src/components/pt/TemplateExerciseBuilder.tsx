@@ -208,6 +208,37 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
     },
   });
 
+  // Mutation per aggiornare i sets_data (set eterogenei) + riassunto nei campi piatti
+  const updateSetsMutation = useMutation({
+    mutationFn: async ({ id, sets_data }: { id: string; sets_data: SetItem[] }) => {
+      const summary = summarizeSets(sets_data);
+      const { error } = await supabase
+        .from('template_exercises')
+        .update({
+          sets_data: sets_data as any,
+          sets: summary.sets,
+          reps_min: summary.reps_min,
+          reps_max: summary.reps_max,
+          rest_seconds: summary.rest_seconds,
+        } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, sets_data }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<TemplateExercise[]>(queryKey);
+      queryClient.setQueryData<TemplateExercise[]>(queryKey, (old) =>
+        (old || []).map((te) => (te.id === id ? { ...te, sets_data } : te)),
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(queryKey, ctx.prev);
+      toast.error('Errore aggiornamento set');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
   // Remove exercise mutation
   const removeExerciseMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -215,7 +246,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
         .from('template_exercises')
         .delete()
         .eq('id', id);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
