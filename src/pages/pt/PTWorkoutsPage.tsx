@@ -9,6 +9,9 @@ import { StatusBadge } from '@/components/dashboard/StatusBadge';
 import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
 import { TemplateExerciseBuilder } from '@/components/pt/TemplateExerciseBuilder';
 import { CreateExerciseDialog } from '@/components/pt/CreateExerciseDialog';
+import { useFavoriteExercises, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
+import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
+import { Star, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -137,29 +140,10 @@ export function PTWorkoutsPage() {
     enabled: !!user?.id,
   });
 
-  // Fetch PT's exercise library
-  const { data: exercises = [], isLoading: exercisesLoading } = useQuery({
-    queryKey: ['pt-exercises', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('*')
-        .or(`is_public.eq.true,created_by.eq.${user.id}`)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  const [exerciseVisibility, setExerciseVisibility] = useState<'all' | 'mine' | 'public'>('all');
-
-  const visibleExercises = exercises.filter(e => {
-    if (exerciseVisibility === 'mine') return e.created_by === user?.id;
-    if (exerciseVisibility === 'public') return !e.created_by;
-    return true;
-  });
+  // Fetch only PT's favorite exercises
+  const { data: exercises = [], isLoading: exercisesLoading } = useFavoriteExercises();
+  const toggleFav = useToggleFavorite();
+  const [previewExercise, setPreviewExercise] = useState<any | null>(null);
 
   const { data: workouts = [], isLoading: workoutsLoading } = useQuery({
     queryKey: ['pt-workouts', user?.id],
