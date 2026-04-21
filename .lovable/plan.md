@@ -1,88 +1,133 @@
 
 
-## Piano: risoluzione definitiva 404 intermittenti
+## Piano: creazione scheda guidata + protocollo SET con set eterogenei
 
-### Cause identificate (in ordine di impatto)
-
-**1. Doppio service worker in conflitto** (causa principale)
-- `public/sw.js` registrato manualmente da `usePushNotifications.tsx` per push.
-- `vite-plugin-pwa` con `registerType: "autoUpdate"` registra automaticamente il SUO sw generato.
-- Entrambi competono per lo scope `/`. Il primo che vince serve risorse vecchie → bundle JS stale → route nuove ritornano 404 dopo deploy.
-- Inoltre: nessun guard contro iframe/preview Lovable → SW attivo anche in dev preview → cache stale dopo ogni edit.
-
-**2. URL inesistenti hard-coded nell'app**
-- `vite.config.ts` shortcut PWA: `/app/workouts` ❌ (la rotta è `/app/workout`).
-- `supabase/functions/seed-platform-data/index.ts`: notifiche con `action_url: '/app/workouts'` ❌ → click notifica = 404.
-- Click su notifica push da home screen → 404 su pagina inesistente.
-
-**3. NotFound non a tema + nessun fallback intelligente**
-- `NotFound.tsx` usa `bg-muted` (tema chiaro) → su dark theme appare bianco/illeggibile.
-- Nessun redirect intelligente: se utente loggato finisce su `/admin/dashboard` (digitato a mano o da link vecchio), vede 404 invece di essere portato alla sua home.
-
-**4. Telemetria 404 assente**
-- Console solo `console.error` locale → non capiamo *quale* link genera il 404 (referrer mancante, no breadcrumb).
+### Obiettivo
+Trasformare "Crea Scheda" in un flusso guidato a 2 step (dati generali → builder con blocco SET) e introdurre la gestione di **set eterogenei** (reps/kg/recupero diversi tra loro) visualizzati in tabella orizzontale, mantenendo la **piena retro-compatibilità** con le schede esistenti.
 
 ---
 
-### Fix proposti (definitivi, niente workaround)
+### Parte 1 — Estensione dati (migration)
 
-**Fix A — Service Worker unificato e iframe-safe**
-- `vite.config.ts`: aggiungere `devOptions: { enabled: false }` e `navigateFallbackDenylist: [/^\/~oauth/, /^\/api/]`. Rimuovere lo shortcut `/app/workouts` (sostituire con `/app` neutro o `/app/esercizi` esistente).
-- `src/main.tsx`: aggiungere guard che **disinstalla TUTTI i SW** quando hostname include `id-preview--` o `lovableproject.com` o quando `window.self !== window.top` (iframe). Eseguito PRIMA di `createRoot`.
-- `usePushNotifications.tsx`: NON registrare più `/sw.js` separatamente. Riusare il SW di vite-plugin-pwa via `navigator.serviceWorker.ready` per il push subscription. Eliminare conflitto.
-- `public/sw.js`: lo manteniamo come file ma *non viene più registrato* → niente più doppio scope. (In alternativa lo eliminiamo del tutto.)
+**Tabelle modificate:**
 
-**Fix B — URL morti fixati**
-- `vite.config.ts` shortcut: `/app/workouts` → `/app/esercizi`.
-- `supabase/functions/seed-platform-data/index.ts`: tutti `/app/workouts` → `/app/esercizi`.
-- Migration una-tantum: `UPDATE notifications SET action_url = '/app/esercizi' WHERE action_url = '/app/workouts'` per ripulire dati esistenti.
+1. `workout_templates` → nuova colonna:
+   - `muscle_groups text[] not null default '{}'` (gruppi muscolari coinvolti)
 
-**Fix C — NotFound intelligente + a tema**
-- `NotFound.tsx`: 
-  - usare `bg-background text-foreground` (rispetto tema dark/light).
-  - se `isAuthenticated && role` → bottone "Vai alla tua area" che porta a `getHomeRoute(role)`.
-  - logging arricchito: `pathname`, `referrer`, `userAgent`, `userId` (se loggato), `role`, `timestamp`.
-  - posta i log su tabella `app_404_logs` (nuova) per analisi.
+2. `template_exercises` → nuova colonna:
+   - `sets_data jsonb` (nullable) — array di set eterogenei: `[{ reps: 10, weight: 60, rest_seconds: 90 }, { reps: 8, weight: 70, rest_seconds: 120 }]`
 
-**Fix D — Tabella `app_404_logs`** (telemetria)
-- Migration: `id, path, referrer, user_id (nullable), role, user_agent, created_at`.
-- RLS: solo admin può leggere; insert pubblico (logging anche utenti non loggati).
-- `NotFound.tsx` fa `supabase.from('app_404_logs').insert(...)` non bloccante.
-- Aggiungere viewer in `AdminAuditLogPage` (o dedicato) per vedere top 404 con counts.
+3. `workout_exercises` (lato esecuzione atleta) → nuova colonna:
+   - `sets_data jsonb` (nullable) — copiata dal template all'assegnazione
 
-**Fix E — Guardia route catch-all per typo comuni**
-Sopra `<Route path="*">` aggiungere redirects espliciti per pattern comuni:
-```tsx
-<Route path="/admin/dashboard" element={<Navigate to="/admin" replace />} />
-<Route path="/pt/dashboard" element={<Navigate to="/pt" replace />} />
-<Route path="/app/home" element={<Navigate to="/app" replace />} />
-<Route path="/app/workouts" element={<Navigate to="/app/esercizi" replace />} />
+**Retro-compatibilità (regola d'oro):**
+- Se `sets_data IS NULL` → la UI rigenera i set "virtuali" leggendo i campi piatti esistenti (`sets`, `reps_min`, `reps_max`, `rest_seconds`, `prescribed_duration_seconds`) come N set identici. Le schede vecchie continuano a funzionare senza migrazione di dati.
+- Quando il PT modifica un set in tabella orizzontale → al primo `update` materializziamo `sets_data` nel DB e da quel punto in poi è la sorgente di verità.
+- I campi piatti rimangono valorizzati con un riassunto (max sets, min/max reps) per le query esistenti che li usano (es. `AtletaAppHome` legge `prescribed_sets`).
+
+---
+
+### Parte 2 — Step iniziale "Crea Scheda" (dialog)
+
+File: `src/pages/pt/PTWorkoutsPage.tsx` — dialog di creazione rifatto.
+
+**Campi:**
+- **Titolo scheda** (obbligatorio)
+- **Gruppi muscolari coinvolti** (multi-select riutilizzando `MultiSelectSearch` esistente, opzioni: Petto, Schiena, Gambe, Spalle, Braccia, Core, Glutei, Addominali, Cardio, Full body)
+- **Difficoltà** (Principiante / Intermedio / Avanzato)
+- Descrizione (opzionale, collassata)
+
+**CTA:** "Continua" (validazione: titolo non vuoto + almeno 1 gruppo muscolare + difficoltà selezionata)
+
+Al submit:
+1. Insert in `workout_templates` con `muscle_groups`
+2. Insert blocco SET di default in `template_blocks` (già fatto oggi)
+3. Redirect a `/pt/templates/:id` (già fatto oggi)
+
+---
+
+### Parte 3 — Builder set orizzontali (cuore del lavoro)
+
+File: `src/components/pt/TemplateExerciseBuilder.tsx` — refactor della sezione esercizio.
+
+**Nuova UI per ogni esercizio (sostituisce i 4 input "Serie / Reps Min / Reps Max / Recupero"):**
+
+```text
+Panca Piana                                              [+ Set] [🗑]
+┌────────┬────────┬────────┬────────┬─────┐
+│        │ Set 1  │ Set 2  │ Set 3  │  +  │
+├────────┼────────┼────────┼────────┼─────┤
+│ Reps   │  [10]  │  [8]   │  [6]   │     │
+│ Kg     │  [60]  │  [70]  │  [80]  │     │
+│ Rec(s) │  [90]  │  [120] │  [120] │     │
+│        │   🗑   │   🗑   │   🗑   │     │
+└────────┴────────┴────────┴────────┴─────┘
 ```
+
+**Comportamento:**
+- Layout: tabella con header verticale (Reps/Kg/Rec) e colonne orizzontali per ciascun set, scrollabile orizzontalmente su mobile (`overflow-x-auto`).
+- "+ Set" duplica l'ultimo set (default 10/0/60 se vuoto).
+- Cestino per colonna elimina il set; warning se 0 set rimanenti.
+- Auto-derivazione: se `sets_data` nullo, al primo accesso lo generiamo on-the-fly da `sets` × `{reps: reps_min, weight: null, rest_seconds}` per la UI; salviamo solo al primo edit.
+- Debounce 400ms su update per evitare spam DB durante la digitazione.
+
+**Stato pulito:** la UI scarta i vecchi blocchi di controllo "Tempo (cadenza)" e "Note" rimangono ma collassati sotto un "Mostra avanzate" per non affollare.
+
+---
+
+### Parte 4 — Sincronizzazione blocco SET ↔ esercizi
+
+Oggi il blocco SET ha params (`sets`, `reps`, `rest_seconds`, `weight`) che vengono **ereditati all'aggiunta di ogni esercizio**. Con i set eterogenei i params del blocco SET diventano solo un **template di default**:
+- Quando aggiungo un esercizio al blocco SET → genero `sets_data` con N copie dei valori del blocco.
+- I param fields del blocco SET nel `TemplateBlockBuilder` mostrano un disclaimer: *"Valori di default per i nuovi esercizi. Personalizza ogni set nell'esercizio."*
+
+---
+
+### Parte 5 — Lato esecuzione atleta (lettura)
+
+File da aggiornare per leggere `sets_data` quando presente:
+- `src/lib/api/workouts.ts` (`createWorkout`) → copia `sets_data` da template a workout.
+- `src/lib/api/templateLoader.ts` → include `sets_data` nel select e nel mapping.
+- `src/components/app/GuidedWorkoutFlow.tsx` e `SetTracker.tsx` → se `sets_data` presente, usa quei valori per generare gli `n` set da loggare; altrimenti fallback su `prescribed_sets` come oggi (zero rischio rotture).
+
+---
+
+### Parte 6 — Validazioni
+- Scheda senza titolo → errore (già presente, esteso a muscle_groups).
+- Esercizio con 0 set → badge warning "Imposta almeno 1 set".
+- Blocco senza esercizi → badge warning "Vuoto" (già esistente).
+- Set con reps E kg vuoti → badge warning "Set incompleto".
 
 ---
 
 ### File modificati
+- **Migration nuova**: aggiunge `workout_templates.muscle_groups`, `template_exercises.sets_data`, `workout_exercises.sets_data`.
+- `src/pages/pt/PTWorkoutsPage.tsx` — dialog step 1 con muscle_groups multi-select, validazione, insert con muscle_groups.
+- `src/components/pt/TemplateExerciseBuilder.tsx` — nuova tabella set orizzontali, hook `useSetsData` con fallback retro-compat, mutation update/add/remove set.
+- `src/components/pt/TemplateBlockBuilder.tsx` — disclaimer params SET, passa `defaultSetTemplate` al child.
+- `src/components/pt/AssignWorkoutDialog.tsx` — propaga `sets_data` nell'assegnazione.
+- `src/lib/api/templateLoader.ts` — select + mapping `sets_data`.
+- `src/lib/api/workouts.ts` — `createWorkout` copia `sets_data`.
+- `src/components/app/GuidedWorkoutFlow.tsx` + `src/components/app/SetTracker.tsx` — lettura `sets_data` con fallback.
+- `src/pages/pt/PTTemplateDetailPage.tsx` — sidebar mostra muscle_groups come badge.
 
-- `vite.config.ts` — devOptions disabled, denylist, shortcut fix
-- `src/main.tsx` — iframe/preview SW unregister guard
-- `src/hooks/usePushNotifications.tsx` — usa `serviceWorker.ready`, no register manuale
-- `src/pages/NotFound.tsx` — tema, redirect smart, telemetria
-- `src/App.tsx` — 4 redirect espliciti per typo URL
-- `supabase/functions/seed-platform-data/index.ts` — `/app/workouts` → `/app/esercizi`
-- **Migration nuova**: tabella `app_404_logs` + RLS + UPDATE notifications
-- (Opzionale) `public/sw.js` — eliminato
-
-### Edge case
-- Utenti già con SW vecchio installato → dopo deploy il guard in `main.tsx` lo disinstalla automaticamente al primo caricamento.
-- Notifiche push esistenti puntate a `/app/workouts` → migration corregge i record vecchi.
-- Refresh diretto su URL valido (`/app/profile`) → SPA fallback Lovable lo gestisce già (verificato in docs).
+### Edge case gestiti
+- Schede esistenti senza `muscle_groups` → array vuoto, badge "Non specificato" nella sidebar, nessuna rottura.
+- Esercizi esistenti senza `sets_data` → UI deriva i set dai campi piatti, edit materializza `sets_data`.
+- Workout già assegnati → continuano a girare sul vecchio schema; i nuovi assegnati ereditano `sets_data` se presente.
+- Duplicazione blocco/scheda → copia anche `sets_data`.
 
 ### Checklist test
-1. Refresh su `/pt/workouts` da loggato → carica, no 404 ✓
-2. Click su notifica vecchia con `/app/workouts` → redirect a `/app/esercizi` ✓
-3. Inserimento manuale `/admin/dashboard` → redirect a `/admin` ✓
-4. URL totalmente inventato `/foo/bar` → NotFound a tema, log inserito in `app_404_logs`
-5. DevTools Application → Service Workers in preview = 0 (era 1-2)
-6. Logout → navigate `/auth` (no 404)
-7. Admin apre log 404 → vede top URL falliti con count
+1. "Crea Scheda" → step 1 chiede titolo, gruppi muscolari, difficoltà → ok
+2. Validazione: senza titolo o senza gruppi → blocco con messaggio
+3. Builder si apre con Blocco 1 (SET) → ok
+4. Aggiungo esercizio "Panca Piana" → vedo tabella set orizzontale con 4 set di default
+5. Modifico Set 1: 10×60kg×90s, Set 2: 8×70×120s, Set 3: 6×80×120s → tutti diversi, salvati
+6. Aggiungo Set 4 → duplica Set 3
+7. Elimino Set 2 → restano 3 set
+8. Apro una scheda VECCHIA → vedo tabella derivata, niente errori
+9. Atleta esegue scheda nuova → SetTracker mostra 3 set con valori diversi
+10. Atleta esegue scheda vecchia → comportamento identico a oggi
+11. Stessa lista esercizi tra tab "Esercizi" e builder → ok (già unificata)
+12. Duplicazione scheda copia anche `sets_data` → ok
 
