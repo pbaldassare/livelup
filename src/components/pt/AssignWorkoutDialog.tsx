@@ -265,6 +265,7 @@ export function AssignWorkoutDialog({
         prescribedRepsMax?: number | null;
         restSeconds?: number | null;
         notes?: string | null;
+        setsData?: any;
       }> = [];
 
       if (workoutSource === 'template') {
@@ -281,7 +282,7 @@ export function AssignWorkoutDialog({
 
         title = template.title;
         templateId = selectedTemplateId;
-        exercisesPayload = (templateExercises || []).map((te) => ({
+        exercisesPayload = (templateExercises || []).map((te: any) => ({
           exerciseId: te.exercise_id,
           orderIndex: te.order_index,
           prescribedSets: te.sets,
@@ -289,6 +290,7 @@ export function AssignWorkoutDialog({
           prescribedRepsMax: te.reps_max,
           restSeconds: te.rest_seconds,
           notes: te.notes,
+          setsData: te.sets_data ?? null,
         }));
       } else {
         if (!customTitle) throw new Error('Inserisci un titolo');

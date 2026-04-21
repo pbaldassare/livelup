@@ -122,6 +122,21 @@ export function PTTemplateDetailPage() {
               </Badge>
             </div>
 
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Gruppi muscolari</p>
+              {template.muscle_groups && template.muscle_groups.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {template.muscle_groups.map((m: string) => (
+                    <Badge key={m} variant="secondary" className="text-xs capitalize">
+                      {m}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Non specificati</p>
+              )}
+            </div>
+
             {template.category && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">Categoria</p>
