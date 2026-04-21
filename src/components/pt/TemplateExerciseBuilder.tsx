@@ -123,7 +123,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
       let q = supabase
         .from('template_exercises')
         .select(`
-          id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds,
+          id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds, sets_data,
           exercises (*)
         `)
         .eq('template_id', templateId)
