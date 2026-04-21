@@ -9,6 +9,9 @@ import { StatusBadge } from '@/components/dashboard/StatusBadge';
 import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
 import { TemplateExerciseBuilder } from '@/components/pt/TemplateExerciseBuilder';
 import { CreateExerciseDialog } from '@/components/pt/CreateExerciseDialog';
+import { useFavoriteExercises, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
+import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
+import { Star, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -137,29 +140,10 @@ export function PTWorkoutsPage() {
     enabled: !!user?.id,
   });
 
-  // Fetch PT's exercise library
-  const { data: exercises = [], isLoading: exercisesLoading } = useQuery({
-    queryKey: ['pt-exercises', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('*')
-        .or(`is_public.eq.true,created_by.eq.${user.id}`)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  const [exerciseVisibility, setExerciseVisibility] = useState<'all' | 'mine' | 'public'>('all');
-
-  const visibleExercises = exercises.filter(e => {
-    if (exerciseVisibility === 'mine') return e.created_by === user?.id;
-    if (exerciseVisibility === 'public') return !e.created_by;
-    return true;
-  });
+  // Fetch only PT's favorite exercises
+  const { data: exercises = [], isLoading: exercisesLoading } = useFavoriteExercises();
+  const toggleFav = useToggleFavorite();
+  const [previewExercise, setPreviewExercise] = useState<any | null>(null);
 
   const { data: workouts = [], isLoading: workoutsLoading } = useQuery({
     queryKey: ['pt-workouts', user?.id],
@@ -745,56 +729,43 @@ export function PTWorkoutsPage() {
             </TabsContent>
             <TabsContent value="exercises" className="mt-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    size="sm"
-                    variant={exerciseVisibility === 'all' ? 'default' : 'outline'}
-                    onClick={() => setExerciseVisibility('all')}
-                  >
-                    Tutti ({exercises.length})
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={exerciseVisibility === 'mine' ? 'default' : 'outline'}
-                    onClick={() => setExerciseVisibility('mine')}
-                  >
-                    Solo i miei ({exercises.filter(e => e.created_by === user?.id).length})
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={exerciseVisibility === 'public' ? 'default' : 'outline'}
-                    onClick={() => setExerciseVisibility('public')}
-                  >
-                    Pubblici ({exercises.filter(e => !e.created_by).length})
-                  </Button>
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    I tuoi esercizi preferiti, pronti da usare nelle schede.
+                  </p>
                 </div>
-                <Button onClick={() => { setEditingExercise(null); setIsCreateExerciseOpen(true); }} size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nuovo Esercizio
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/pt/exercises')}
+                >
+                  <Library className="h-4 w-4 mr-2" />
+                  Sfoglia Archivio
                 </Button>
               </div>
               {exercisesLoading ? (
                 <p className="text-muted-foreground text-center py-8">Caricamento...</p>
-              ) : visibleExercises.length === 0 ? (
+              ) : exercises.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p>Nessun esercizio in questa vista</p>
-                  <p className="text-xs mt-1">Cambia filtro o crea il tuo primo esercizio personalizzato</p>
-                  <Button variant="link" onClick={() => { setEditingExercise(null); setIsCreateExerciseOpen(true); }}>
-                    Crea esercizio
+                  <Star className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium text-foreground">Nessun esercizio preferito</p>
+                  <p className="text-sm mt-1 max-w-md mx-auto">
+                    Vai nell'Archivio Esercizi e aggiungi i tuoi preferiti per usarli nelle schede.
+                  </p>
+                  <Button className="mt-4" onClick={() => navigate('/pt/exercises')}>
+                    <Library className="h-4 w-4 mr-2" />
+                    Vai all'Archivio
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {visibleExercises
+                  {exercises
                     .filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                    .map(ex => {
-                      const isOwner = ex.created_by === user?.id;
-                      const isGlobal = !ex.created_by;
-                      return (
+                    .map(ex => (
                       <div
                         key={ex.id}
-                        className="flex items-start justify-between gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                        className="flex items-start justify-between gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors cursor-pointer"
+                        onClick={() => setPreviewExercise(ex)}
                       >
                         <div className="flex items-start gap-3 flex-1 min-w-0">
                           <div className="p-2 rounded-lg bg-muted shrink-0">
@@ -805,15 +776,7 @@ export function PTWorkoutsPage() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-medium truncate">{ex.name}</p>
-                              {isGlobal && (
-                                <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Globale</Badge>
-                              )}
-                              {isOwner && (
-                                <Badge className="text-[10px] uppercase tracking-wide">Mio</Badge>
-                              )}
-                            </div>
+                            <p className="font-medium truncate">{ex.name}</p>
                             {ex.description && (
                               <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                                 {ex.description}
@@ -831,30 +794,21 @@ export function PTWorkoutsPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => { setEditingExercise(ex); setIsCreateExerciseOpen(true); }}
-                            title={isOwner ? 'Modifica' : 'Solo l\'admin può modificare gli esercizi globali'}
-                            disabled={!isOwner}
+                            onClick={() =>
+                              toggleFav.mutate({ exerciseId: ex.id, isFavorite: true })
+                            }
+                            disabled={toggleFav.isPending}
+                            title="Rimuovi dai preferiti"
                           >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-destructive"
-                            onClick={() => setDeleteExerciseId(ex.id)}
-                            title={isOwner ? 'Elimina' : 'Solo l\'admin può eliminare gli esercizi globali'}
-                            disabled={!isOwner}
-                          >
-                            <Trash2 className="h-4 w-4" />
+                            <Star className="h-4 w-4 fill-primary text-primary" />
                           </Button>
                         </div>
                       </div>
-                      );
-                    })}
+                    ))}
                 </div>
               )}
             </TabsContent>

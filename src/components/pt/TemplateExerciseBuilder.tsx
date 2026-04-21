@@ -69,6 +69,8 @@ import {
   type ProtocolParams,
 } from '@/lib/protocols/registry';
 import { ProtocolInfoPopover } from '@/components/protocols/ProtocolInfoPopover';
+import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
+import { Link } from 'react-router-dom';
 
 // =====================================================
 // TEMPLATE EXERCISE BUILDER
@@ -119,19 +121,22 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   // Cache key — separato per blocco
   const queryKey = ['template-exercises', templateId, blockId ?? 'no-block'];
 
-  // Fetch all exercises
+  // Fetch only PT's favorite exercises
+  const { data: favIds } = useFavoriteIds();
   const { data: exercises = [] } = useQuery({
-    queryKey: ['exercises-library'],
+    queryKey: ['template-exercises-library', user?.id, favIds ? Array.from(favIds).sort().join(',') : ''],
     queryFn: async () => {
+      const ids = favIds ? Array.from(favIds) : [];
+      if (ids.length === 0) return [] as Exercise[];
       const { data, error } = await supabase
         .from('exercises')
         .select('*')
-        .or('is_public.eq.true,created_by.is.null')
+        .in('id', ids)
         .order('name');
-      
       if (error) throw error;
       return data as Exercise[];
     },
+    enabled: !!user?.id && !!favIds,
   });
 
   // Fetch template exercises (filtrati per block_id se presente)
@@ -423,7 +428,22 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                 onValueChange={setSearchTerm}
               />
               <CommandList>
-                <CommandEmpty>Nessun esercizio trovato</CommandEmpty>
+                {exercises.length === 0 ? (
+                  <div className="py-6 px-4 text-center space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Non hai ancora esercizi preferiti.
+                    </p>
+                    <Link
+                      to="/pt/exercises"
+                      onClick={() => setSearchOpen(false)}
+                      className="inline-block text-sm font-medium text-primary hover:underline"
+                    >
+                      Vai all'Archivio →
+                    </Link>
+                  </div>
+                ) : (
+                  <CommandEmpty>Nessun esercizio trovato</CommandEmpty>
+                )}
                 {Object.entries(groupedExercises).map(([category, exs]) => (
                   <CommandGroup key={category} heading={category}>
                     {exs.map((exercise) => (
