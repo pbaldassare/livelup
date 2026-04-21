@@ -247,8 +247,11 @@ export function describeExerciseProtocol(
       if (setsCount && setsCount > 0) return `${setsCount} set`;
       if (p.sets && p.reps) return `${p.sets} × ${p.reps}`;
       return 'Set';
-    case 'TOP_SET_BACKOFF':
-      return `Top set + ${p.back_off?.sets ?? 3} back off`;
+    case 'TOP_SET_BACKOFF': {
+      const boSets = p.backoff_sets ?? p.back_off?.sets ?? 3;
+      const enabled = p.backoff_enabled !== false;
+      return enabled ? `Top set + ${boSets} back off` : 'Top set';
+    }
     case 'RAMPING':
       if (p.sets && p.reps) return `${p.sets} a salire × ${p.reps}`;
       return 'Salita progressiva';
