@@ -8,11 +8,14 @@ interface ProtocolInfoPopoverProps {
   type: ProtocolType;
   className?: string;
   size?: 'sm' | 'md';
+  /** Forza la visualizzazione anche per il protocollo SET (di default nascosto nel builder). */
+  forceShow?: boolean;
 }
 
-export function ProtocolInfoPopover({ type, className, size = 'sm' }: ProtocolInfoPopoverProps) {
-  // Regola: il protocollo SET è il default base e NON ha introduzione/descrizione.
-  if (type === 'SET') return null;
+export function ProtocolInfoPopover({ type, className, size = 'sm', forceShow = false }: ProtocolInfoPopoverProps) {
+  // Regola: il protocollo SET è il default base e NON ha introduzione/descrizione nel builder.
+  // Con forceShow=true (es. tab Protocolli) viene comunque mostrato.
+  if (type === 'SET' && !forceShow) return null;
 
   const def = getProtocolDef(type);
   const Icon = def.icon;
