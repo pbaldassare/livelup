@@ -27,12 +27,27 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Plus,
   Trash2,
   GripVertical,
   Dumbbell,
-  AlertTriangle,
   ChevronDown,
+  MoveRight,
 } from 'lucide-react';
 import { ImageUpload } from '@/components/common/ImageUpload';
 import { toast } from 'sonner';
@@ -44,11 +59,21 @@ import {
   DEFAULT_SET,
   type SetItem,
 } from '@/lib/setsData';
+import {
+  PROTOCOL_LIST,
+  getProtocolDef,
+  getDefaultParamsForProtocol,
+  getNested,
+  setNested,
+  type ProtocolType,
+  type ProtocolParams,
+} from '@/lib/protocols/registry';
+import { ProtocolInfoPopover } from '@/components/protocols/ProtocolInfoPopover';
 
 // =====================================================
 // TEMPLATE EXERCISE BUILDER
-// Aggiunge esercizi a un template con configurazione a SET eterogenei
-// (ogni set ha reps/kg/recupero indipendenti).
+// Aggiunge esercizi a un template (singoli o dentro un circuito).
+// Ogni esercizio ha il PROPRIO protocollo (SET di default) e i propri set.
 // =====================================================
 
 interface Exercise {
@@ -73,26 +98,19 @@ interface TemplateExercise {
   tempo: string | null;
   prescribed_duration_seconds?: number | null;
   sets_data?: any;
+  protocol_type?: string | null;
+  protocol_params?: any;
+  block_id?: string | null;
   exercise?: Exercise;
 }
 
 interface TemplateExerciseBuilderProps {
   templateId: string;
-  blockId?: string | null; // se presente, scope esercizi al blocco
-  // Parametri ereditati dal blocco (per protocolli come SET dove i parametri
-  // sono definiti a livello di blocco e applicati a ciascun esercizio).
-  blockParams?: {
-    sets?: number | null;
-    reps?: number | null;
-    duration_seconds?: number | null;
-    rest_seconds?: number | null;
-    weight?: number | null;
-  } | null;
-  blockType?: string | null;
+  blockId?: string | null; // null = esercizi fuori circuito
   onSave?: () => void;
 }
 
-export function TemplateExerciseBuilder({ templateId, blockId, blockParams, blockType, onSave }: TemplateExerciseBuilderProps) {
+export function TemplateExerciseBuilder({ templateId, blockId, onSave }: TemplateExerciseBuilderProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
