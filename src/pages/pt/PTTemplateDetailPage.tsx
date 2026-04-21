@@ -110,6 +110,19 @@ export function PTTemplateDetailPage() {
         }
       />
 
+      {/* Banner: scheda vuota */}
+      {exerciseStats.total === 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4">
+          <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-medium text-warning">Questa scheda è vuota</p>
+            <p className="text-muted-foreground">
+              Aggiungi almeno un esercizio (libero o dentro un circuito) per poterla assegnare a un atleta.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-4">
         {/* Template Info Sidebar */}
         <Card className="lg:col-span-1">
