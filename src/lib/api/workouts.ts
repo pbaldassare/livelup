@@ -22,12 +22,13 @@ export async function createWorkout(params: {
     exerciseId: string;
     orderIndex: number;
     prescribedSets: number;
-    prescribedRepsMin?: number;
-    prescribedRepsMax?: number;
-    prescribedDurationSeconds?: number;
-    prescribedWeight?: number;
-    restSeconds?: number;
-    notes?: string;
+    prescribedRepsMin?: number | null;
+    prescribedRepsMax?: number | null;
+    prescribedDurationSeconds?: number | null;
+    prescribedWeight?: number | null;
+    restSeconds?: number | null;
+    notes?: string | null;
+    setsData?: any; // array set eterogenei [{ reps, weight, rest_seconds }]
     blockTempId?: string; // ref locale al blocco (vedi `blocks` sotto)
   }>;
   // Blocchi opzionali da duplicare in workout_blocks; gli esercizi possono
@@ -102,12 +103,13 @@ export async function createWorkout(params: {
       exercise_id: ex.exerciseId,
       order_index: ex.orderIndex,
       prescribed_sets: ex.prescribedSets,
-      prescribed_reps_min: ex.prescribedRepsMin,
-      prescribed_reps_max: ex.prescribedRepsMax,
-      prescribed_duration_seconds: ex.prescribedDurationSeconds,
-      prescribed_weight: ex.prescribedWeight,
+      prescribed_reps_min: ex.prescribedRepsMin ?? null,
+      prescribed_reps_max: ex.prescribedRepsMax ?? null,
+      prescribed_duration_seconds: ex.prescribedDurationSeconds ?? null,
+      prescribed_weight: ex.prescribedWeight ?? null,
       rest_seconds: ex.restSeconds ?? 60,
-      notes: ex.notes,
+      notes: ex.notes ?? null,
+      sets_data: ex.setsData ?? null,
       block_id: ex.blockTempId ? blockIdMap.get(ex.blockTempId) ?? null : null,
     }));
 
