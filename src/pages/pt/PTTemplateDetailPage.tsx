@@ -160,7 +160,10 @@ export function PTTemplateDetailPage() {
                 <BarChart3 className="h-4 w-4" />
                 Esercizi
               </p>
-              <p className="font-medium">{exerciseCount} esercizi</p>
+              <p className="font-medium">{exerciseStats.total} esercizi</p>
+              <p className="text-xs text-muted-foreground">
+                {exerciseStats.standalone} fuori circuito · {exerciseStats.inCircuits} nei circuiti
+              </p>
             </div>
 
             <Separator />
