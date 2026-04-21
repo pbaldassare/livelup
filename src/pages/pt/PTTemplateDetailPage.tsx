@@ -48,22 +48,23 @@ export function PTTemplateDetailPage() {
     enabled: !!templateId && !!user?.id,
   });
 
-  // Fetch template exercise count
-  const { data: exerciseCount = 0 } = useQuery({
-    queryKey: ['template-exercise-count', templateId],
+  // Fetch template exercise counts (totale + dentro circuiti)
+  const { data: exerciseStats = { total: 0, inCircuits: 0, standalone: 0 } } = useQuery({
+    queryKey: ['template-exercise-stats', templateId],
     queryFn: async () => {
-      if (!templateId) return 0;
-
-      const { count, error } = await supabase
+      if (!templateId) return { total: 0, inCircuits: 0, standalone: 0 };
+      const { data, error } = await supabase
         .from('template_exercises')
-        .select('*', { count: 'exact', head: true })
+        .select('block_id')
         .eq('template_id', templateId);
-
       if (error) throw error;
-      return count || 0;
+      const total = data?.length || 0;
+      const inCircuits = (data || []).filter((r: any) => r.block_id).length;
+      return { total, inCircuits, standalone: total - inCircuits };
     },
     enabled: !!templateId,
   });
+  const exerciseCount = exerciseStats.total;
 
   if (isLoading) {
     return <PageLoader text="Caricamento template..." />;
