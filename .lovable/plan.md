@@ -1,119 +1,109 @@
 
 
-## Piano: Circuiti opzionali + protocollo per esercizio
+## Piano: builder scheda con esercizi liberi + circuiti opzionali
 
 ### Obiettivo
-Cambiare la struttura logica della scheda da:
-- **Prima:** Scheda → Blocchi (con protocollo) → Esercizi
-- **Dopo:** Scheda → Esercizi (con protocollo proprio), opzionalmente raggruppati in **Circuiti**
-
-Il protocollo non vive più sul contenitore, ma sull'esercizio. Il circuito è solo un raggruppamento visivo/logico.
+Allineare completamente il builder PT alla nuova logica: esercizi liberi (fuori circuito) come default, circuiti come raggruppamenti opzionali, protocollo SET configurabile per esercizio con set orizzontali. Tutto già supportato lato dati (migration `protocol_type`/`protocol_params` + `block_id` nullable già applicata) — questo step rifinisce UI/UX e validazioni.
 
 ---
 
-### Parte 1 — Modello dati (migration)
-
-**Tabelle modificate:**
-
-1. **Nuova colonna `protocol_type`** su `template_exercises` e `workout_exercises`
-   - `protocol_type text NOT NULL DEFAULT 'SET'`
-   - Valori validi: `SET`, `TOP_SET_BACKOFF`, `RAMPING`, `EMOM`, `AMRAP`
-   - Nuova colonna `protocol_params jsonb DEFAULT '{}'::jsonb` per parametri specifici (es. `{rounds: 10, interval_seconds: 60}` per EMOM)
-
-2. **Rinominare semanticamente `template_blocks` → `template_circuits`** (e `workout_blocks` → `workout_circuits`)
-   - Approccio sicuro: **NON rinominiamo la tabella** (per non rompere migration history e RLS). Aggiungiamo invece una colonna `is_circuit boolean DEFAULT true` e usiamo solo `name` (rimuoviamo dalla UI il riferimento al "tipo protocollo" del blocco).
-   - In alternativa: creiamo una **VIEW** `template_circuits` che alias-a `template_blocks` per leggibilità. Decisione: manteniamo il nome tecnico `template_blocks` nel DB ma in tutto il codice e UI parliamo solo di "Circuito".
-   - Le colonne `type` e `params` su `template_blocks` diventano legacy (lasciate per retro-compat, ignorate dalla nuova UI).
-
-3. **`block_id` resta nullable** (già lo è) → `null` significa "esercizio fuori circuito".
-
-**Migration data (retro-compat):**
-- Per ogni `template_exercises` esistente con `block_id` valorizzato: copia `block.type` → `template_exercises.protocol_type` e `block.params` → `protocol_params`. Se l'esercizio ha già `sets_data`, mantieni i set; altrimenti restano i campi piatti.
-- Per esercizi senza `block_id`: `protocol_type = 'SET'` (default).
-- Stesso trattamento su `workout_exercises` ↔ `workout_blocks`.
-- I "blocchi" vecchi vengono trattati come circuiti (renaming solo a livello UI). Quelli che contenevano un solo esercizio possono restare come circuito mono-esercizio (l'utente può eliminarli e l'esercizio diventa "fuori circuito").
+### Stato attuale (cosa già esiste)
+- ✅ DB: colonne `protocol_type`, `protocol_params` su `template_exercises` e `workout_exercises`; `block_id` nullable.
+- ✅ `TemplateBlockBuilder.tsx`: ha la sezione "Esercizi singoli" e i circuiti.
+- ✅ `TemplateExerciseBuilder.tsx`: dropdown protocollo + tabella set orizzontale (`SetsTable`).
+- ✅ Step iniziale "Crea Scheda" (titolo, gruppi muscolari, difficoltà) già presente nel dialog di creazione.
+- ⚠️ Mancano: validazioni visive, polish UX, drag&drop cross-circuito robusto, etichette ancora residue "Blocco", warning su scheda vuota.
 
 ---
 
-### Parte 2 — Refactor componenti PT (builder)
+### Modifiche
 
-**File rinominato concettualmente:** `TemplateBlockBuilder.tsx` → `TemplateStructureBuilder.tsx` (manteniamo il file, solo la UI cambia testo).
+**1. `src/components/pt/TemplateBlockBuilder.tsx`** — polish UX e validazioni
+- Sostituire ogni residuo "Blocco" → "Circuito" nelle label/empty state/conferme.
+- Sezione "Esercizi liberi" sempre in cima con header chiaro: "Esercizi della scheda" + sottotitolo "Esercizi non raggruppati in un circuito".
+- Pulsanti top-bar coerenti: `[+ Aggiungi esercizio]` (azione primaria) e `[+ Aggiungi circuito]` (azione secondaria outline).
+- Empty state globale: se la scheda non ha né esercizi liberi né circuiti, mostrare card centrale con illustrazione + CTA "Aggiungi il primo esercizio".
+- Badge warning su circuiti vuoti (già parziale): rendere giallo con icona `AlertTriangle` + tooltip "Aggiungi almeno un esercizio o elimina il circuito".
+- Drag&drop cross-droppable: ogni circuito + la sezione "Liberi" sono droppable distinti; al drop aggiorna `block_id` (UUID o `null`) e ricalcola `order_index` per la destinazione.
+- Menu "Sposta in…" su ogni esercizio (fallback senza drag): voci = "Esercizi liberi" + lista circuiti, selezione aggiorna `block_id`.
 
-**Nuova struttura UI:**
+**2. `src/components/pt/TemplateExerciseBuilder.tsx`** — rifinitura SET
+- Per `protocol_type='SET'` mostrare sempre la `SetsTable` orizzontale (intestazioni `Set 1 | Set 2 | …`, righe Reps / Kg / Rec).
+- Pulsanti tabella: `+ Aggiungi set` (duplica ultimo), `🗑` per riga set, edit inline numerico.
+- Warning inline rosso "Imposta almeno 1 set" se `sets_data` vuoto e nessun fallback dai campi legacy.
+- Mantenere render condizionale per protocolli avanzati (EMOM/AMRAP) — invariato.
+
+**3. `src/pages/pt/PTTemplateDetailPage.tsx`** — validazioni a livello scheda
+- Banner in alto se la scheda non contiene esercizi: "Questa scheda è vuota. Aggiungi almeno un esercizio per poterla assegnare."
+- Conteggio chiaro nel sidebar: "Esercizi (X)" dove X è il totale (liberi + dentro circuiti). Sotto: "di cui in circuiti: Y".
+- Disabilitare il pulsante "Assegna ad atleta" finché la scheda è vuota (con tooltip esplicativo).
+
+**4. `src/components/pt/AssignWorkoutDialog.tsx`** (verifica già fatta) — assicurarsi che `protocol_type`, `protocol_params`, `sets_data`, `block_id` vengano copiati 1:1 da `template_exercises` a `workout_exercises` durante l'assegnazione. Patch solo se manca un campo.
+
+---
+
+### Struttura UI finale
 
 ```text
-Esercizi della scheda                          [+ Aggiungi esercizio] [+ Aggiungi circuito]
-
-┌─ Esercizi singoli (fuori circuito) ─────────┐
-│ 🏋 Panca Piana   [SET ▾]                    │
-│   Set: 4×8@60kg / 90s                       │
-│ 🏋 Squat         [RAMPING ▾]                │
-│   5 serie a salire × 3                      │
-└─────────────────────────────────────────────┘
-
-┌─ ⊙ Circuito A — "Finisher addome"  [✎][🗑] ─┐
-│ 🏋 Plank         [SET ▾]  3×60s             │
-│ 🏋 Crunch        [SET ▾]  3×15              │
-│ [+ Aggiungi esercizio al circuito]          │
-└─────────────────────────────────────────────┘
+┌─ Builder scheda ──────────────────────────────────────┐
+│  [+ Aggiungi esercizio]   [+ Aggiungi circuito]       │
+│                                                       │
+│  ▸ Esercizi della scheda                              │
+│  ┌─ Panca Piana       [SET ▾]  [⋯ Sposta] [🗑]      │
+│  │  ┌────────┬────────┬────────┐  [+ Set]          │
+│  │  │ Set 1  │ Set 2  │ Set 3  │                   │
+│  │  │ R: 10  │ R: 8   │ R: 6   │                   │
+│  │  │ Kg:60  │ Kg:70  │ Kg:80  │                   │
+│  │  │ Rec:90 │ Rec:120│ Rec:120│                   │
+│  │  └────────┴────────┴────────┘                   │
+│  └────────────────────────────────────────────────   │
+│                                                       │
+│  ▸ Circuito A — "Finisher"  [✎] [🗑]  ⚠ se vuoto   │
+│  ┌─ Plank   [SET ▾] 3×60s ……                       │
+│  └─ Crunch  [SET ▾] 3×15  ……                       │
+│  [+ Aggiungi esercizio al circuito]                  │
+└──────────────────────────────────────────────────────┘
 ```
 
-**Cambi chiave:**
-1. **Rimosso il "picker tipo protocollo" sul blocco**: cliccando "+ Aggiungi circuito" si crea direttamente un circuito (nessuna scelta protocollo).
-2. **Nuovo selettore protocollo per esercizio**: dropdown inline con icona accanto al nome (`SET`, `RAMPING`, `TOP_SET_BACKOFF`, `EMOM`, `AMRAP`). Default `SET`.
-3. **Sezione "Esercizi singoli"** sempre presente in cima: contiene gli esercizi con `block_id = null`.
-4. **Drag & drop esteso**: trascinare esercizi tra circuiti / fuori circuito (modifica `block_id` al drop).
-5. **Tabella set orizzontale** (già implementata) resta visibile per protocolli `SET`/`RAMPING`/`TOP_SET_BACKOFF`. Per `EMOM`/`AMRAP` mostra invece i campi di `protocol_params` (rounds/interval/duration).
+---
 
-**Pulsanti:**
-- `+ Aggiungi esercizio` → aggiunge fuori circuito (`block_id = null`)
-- `+ Aggiungi circuito` → crea nuovo `template_blocks` con solo `name` ("Circuito A", "Circuito B"...)
-- Su ogni circuito: rinomina inline, elimina (gli esercizi tornano fuori circuito, NON cancellati), `+ Aggiungi esercizio al circuito`.
+### Validazioni
+| Caso | Tipo | Messaggio |
+|---|---|---|
+| Scheda con 0 esercizi | Errore (blocca assegnazione) | "Aggiungi almeno un esercizio per assegnare la scheda" |
+| Esercizio SET con 0 set | Warning inline | "Imposta almeno 1 set" |
+| Circuito vuoto | Warning badge | "Circuito vuoto — aggiungi un esercizio o eliminalo" |
+| Esercizio fuori circuito | OK (default) | nessun avviso |
 
 ---
 
-### Parte 3 — File modificati
-
-| File | Modifica |
-|---|---|
-| **Nuova migration** | aggiunge `protocol_type`, `protocol_params` a `template_exercises` e `workout_exercises`; popola valori da `template_blocks.type/params` per dati esistenti. |
-| `src/lib/protocols/registry.ts` | aggiunge helper `getDefaultParamsForProtocol(type)` e `describeExerciseProtocol(type, params, sets_data)`. |
-| `src/components/pt/TemplateBlockBuilder.tsx` | rinominato concettualmente in "Structure builder": rimuove picker protocollo nell'add, rinomina UI da "Blocchi" a "Circuiti", aggiunge sezione "Esercizi fuori circuito" sopra la lista, supporta drag&drop tra circuiti via DnD esteso (cross-droppable). |
-| `src/components/pt/TemplateExerciseBuilder.tsx` | aggiunge dropdown `protocol_type` per esercizio + render condizionale dei parametri (tabella SET vs campi EMOM/AMRAP). Update mutation include `protocol_type`/`protocol_params`. |
-| `src/lib/api/templateLoader.ts` | select include `protocol_type, protocol_params`; ritorna nel mapping degli exercises. |
-| `src/lib/api/workouts.ts` | `createWorkout` copia `protocol_type` e `protocol_params` da template a workout. |
-| `src/components/pt/AssignWorkoutDialog.tsx` | propaga `protocol_type`/`protocol_params` nell'assegnazione. |
-| `src/pages/atleta/AtletaWorkoutDetailPage.tsx` | il render usa `protocol_type` dell'esercizio (non più del blocco) per scegliere come mostrarlo; raggruppamento per `block_id` resta come "circuito" (solo etichetta cambia). |
-| `src/components/app/GuidedWorkoutFlow.tsx` + `SetTracker.tsx` | leggono `protocol_type` dall'esercizio (fallback `'SET'`); `sets_data` ha priorità per i protocolli set-based. |
+### Compatibilità retro
+- Nessuna nuova migration: usiamo schema già esistente.
+- Schede vecchie con `block_id` valorizzato → continuano a vedersi come "in circuito".
+- Schede vecchie con esercizi `block_id=null` → appaiono nella sezione "Esercizi della scheda".
+- Esercizi senza `sets_data` → `SetsTable` deriva i set dai campi legacy (`sets`, `reps_min`, `weight_kg`, `rest_seconds`).
 
 ---
 
-### Parte 4 — Retro-compatibilità (regola d'oro)
-
-1. **Schede esistenti**: la migration popola `protocol_type` su ogni esercizio leggendo dal blocco padre (o `'SET'` se orfano). Zero rotture.
-2. **Blocchi con tipi avanzati esistenti** (es. `EMOM`): l'esercizio eredita `protocol_type='EMOM'` e i `protocol_params` dal blocco. La UI continua a mostrarli correttamente.
-3. **Workout già assegnati**: stessa migration applicata a `workout_exercises`.
-4. **Protocollo `SET` come default**: ogni nuovo esercizio nasce con `protocol_type='SET'` e `sets_data` generato dai default (3 set 10×_×60s).
-
----
-
-### Parte 5 — Validazioni
-- Esercizio senza `protocol_type` → fallback `'SET'` (nessun errore).
-- Circuito vuoto → badge warning "Vuoto" (già esistente, etichetta rinominata).
-- Esercizio con `protocol_type='SET'` e 0 set → warning "Imposta almeno 1 set".
-- Esercizio con protocollo non-SET e parametri obbligatori vuoti → warning.
+### File modificati
+- `src/components/pt/TemplateBlockBuilder.tsx` — polish UX, label "Circuito", drag&drop cross, menu Sposta, empty state
+- `src/components/pt/TemplateExerciseBuilder.tsx` — warning set vuoti, micro-rifiniture SetsTable
+- `src/pages/pt/PTTemplateDetailPage.tsx` — banner scheda vuota, contatori, gating assegnazione
+- `src/components/pt/AssignWorkoutDialog.tsx` — verifica copia integrale `protocol_*` + `sets_data` + `block_id`
 
 ---
 
 ### Checklist test
-1. Crea scheda → vedo sezione "Esercizi singoli" + bottoni "+ Esercizio" e "+ Circuito".
-2. Aggiungo esercizio → finisce in "Esercizi singoli", protocollo SET di default.
-3. Cambio protocollo a `RAMPING` da dropdown → tabella set si adatta.
-4. Aggiungo Circuito A → appare card vuota con nome editabile.
-5. Trascino esercizio dentro Circuito A → `block_id` aggiornato.
-6. Trascino esercizio fuori dal circuito → `block_id = null`, torna in "Esercizi singoli".
-7. Elimino Circuito A → gli esercizi al suo interno tornano fuori circuito (non cancellati).
-8. Apro scheda VECCHIA con blocchi → vedo i blocchi come circuiti, ogni esercizio ha già il suo `protocol_type` ereditato.
-9. Atleta esegue scheda nuova → vede circuiti come gruppi e ogni esercizio col suo protocollo.
-10. Atleta esegue scheda vecchia → identico a oggi.
+1. Apro scheda nuova → vedo empty state + due CTA
+2. Click "Aggiungi esercizio" → finisce in "Esercizi della scheda", protocollo SET, tabella con 3 set default
+3. Modifico Set 1 reps/kg/rec → salvati indipendenti dagli altri
+4. Click "+ Set" → si aggiunge Set 4 duplicando Set 3
+5. Elimino Set 2 → restano 3 set rinumerati
+6. Click "Aggiungi circuito" → appare card vuota con badge warning "Vuoto"
+7. Trascino esercizio dentro circuito → `block_id` aggiornato, warning sparisce
+8. Uso menu "Sposta in… → Esercizi liberi" → torna fuori circuito
+9. Elimino circuito non vuoto → conferma + esercizi tornano liberi (non cancellati)
+10. Apro scheda vecchia → tutto si vede correttamente, niente regressioni
+11. Tento di assegnare scheda vuota → bottone disabilitato + tooltip
+12. Assegno scheda nuova ad atleta → workout creato con `protocol_type`, `protocol_params`, `sets_data`, `block_id` integrali
 
