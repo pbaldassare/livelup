@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,6 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   Command,
   CommandEmpty,
@@ -21,20 +26,29 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { 
-  Plus, 
-  Trash2, 
-  GripVertical, 
+import {
+  Plus,
+  Trash2,
+  GripVertical,
   Dumbbell,
+  AlertTriangle,
+  ChevronDown,
 } from 'lucide-react';
 import { ImageUpload } from '@/components/common/ImageUpload';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import {
+  resolveSetsData,
+  summarizeSets,
+  DEFAULT_SET,
+  type SetItem,
+} from '@/lib/setsData';
 
 // =====================================================
 // TEMPLATE EXERCISE BUILDER
-// Aggiunge esercizi a un template con configurazione
+// Aggiunge esercizi a un template con configurazione a SET eterogenei
+// (ogni set ha reps/kg/recupero indipendenti).
 // =====================================================
 
 interface Exercise {
@@ -58,6 +72,7 @@ interface TemplateExercise {
   notes: string | null;
   tempo: string | null;
   prescribed_duration_seconds?: number | null;
+  sets_data?: any;
   exercise?: Exercise;
 }
 
