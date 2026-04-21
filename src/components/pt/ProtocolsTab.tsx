@@ -10,9 +10,8 @@ import { PROTOCOL_REGISTRY, type ProtocolType } from '@/lib/protocols/registry';
 // Nessun CRUD: non modificabile / duplicabile / eliminabile.
 // =====================================================
 
-const VISIBLE_PROTOCOLS: ProtocolType[] = ['SET'];
+const VISIBLE_PROTOCOLS: ProtocolType[] = ['SET', 'TOP_SET_BACKOFF'];
 const COMING_SOON_PROTOCOLS: ProtocolType[] = [
-  'TOP_SET_BACKOFF',
   'RAMPING',
   'EMOM',
   'AMRAP',
