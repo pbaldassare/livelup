@@ -555,3 +555,134 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
 }
 
 export default TemplateExerciseBuilder;
+
+// =====================================================
+// SetsTable: tabella orizzontale per set eterogenei
+// =====================================================
+interface SetsTableProps {
+  te: TemplateExercise;
+  onChange: (sets_data: SetItem[]) => void;
+}
+
+function SetsTable({ te, onChange }: SetsTableProps) {
+  const sets = useMemo<SetItem[]>(
+    () =>
+      resolveSetsData(te.sets_data, {
+        sets: te.sets,
+        reps_min: te.reps_min,
+        reps_max: te.reps_max,
+        rest_seconds: te.rest_seconds,
+        prescribed_duration_seconds: te.prescribed_duration_seconds,
+      }),
+    [te.sets_data, te.sets, te.reps_min, te.reps_max, te.rest_seconds, te.prescribed_duration_seconds],
+  );
+
+  const updateSet = (idx: number, patch: Partial<SetItem>) => {
+    const next = sets.map((s, i) => (i === idx ? { ...s, ...patch } : s));
+    onChange(next);
+  };
+
+  const addSet = () => {
+    const last = sets[sets.length - 1] ?? DEFAULT_SET;
+    onChange([...sets, { ...last }]);
+  };
+
+  const removeSet = (idx: number) => {
+    if (sets.length <= 1) {
+      toast.warning('Deve esserci almeno 1 set');
+      return;
+    }
+    onChange(sets.filter((_, i) => i !== idx));
+  };
+
+  const parseNum = (v: string): number | null => {
+    if (v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  return (
+    <div className="rounded-md border bg-muted/20 p-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground">Set</span>
+        <Button variant="outline" size="sm" className="h-7 gap-1" onClick={addSet}>
+          <Plus className="h-3 w-3" /> Set
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr>
+              <th className="text-left font-medium text-muted-foreground pr-2 py-1 sticky left-0 bg-muted/20"></th>
+              {sets.map((_, i) => (
+                <th key={i} className="px-1 py-1 text-center font-medium text-muted-foreground min-w-[64px]">
+                  Set {i + 1}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Reps</td>
+              {sets.map((s, i) => (
+                <td key={i} className="px-1 py-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    value={s.reps ?? ''}
+                    onChange={(e) => updateSet(i, { reps: parseNum(e.target.value) })}
+                    className="h-8 text-center px-1"
+                  />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Kg</td>
+              {sets.map((s, i) => (
+                <td key={i} className="px-1 py-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={s.weight ?? ''}
+                    onChange={(e) => updateSet(i, { weight: parseNum(e.target.value) })}
+                    className="h-8 text-center px-1"
+                  />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Rec (s)</td>
+              {sets.map((s, i) => (
+                <td key={i} className="px-1 py-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    value={s.rest_seconds ?? ''}
+                    onChange={(e) => updateSet(i, { rest_seconds: parseNum(e.target.value) })}
+                    className="h-8 text-center px-1"
+                  />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="sticky left-0 bg-muted/20"></td>
+              {sets.map((_, i) => (
+                <td key={i} className="px-1 py-1 text-center">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-destructive hover:text-destructive"
+                    onClick={() => removeSet(i)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
