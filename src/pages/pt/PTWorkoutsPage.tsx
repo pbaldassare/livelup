@@ -150,12 +150,13 @@ export function PTWorkoutsPage() {
     enabled: !!user?.id,
   });
 
-  // Create template mutation
+  // Create template mutation - crea scheda + blocco SET di default + redirect al builder
   const createTemplateMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      // 1. Crea la scheda
+      const { data: created, error } = await supabase
         .from('workout_templates')
         .insert({
           pt_user_id: user.id,
@@ -165,13 +166,33 @@ export function PTWorkoutsPage() {
           category: newTemplate.category || null,
           estimated_duration: newTemplate.estimated_duration,
           is_public: false,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // 2. Crea automaticamente il primo blocco SET (default)
+      const { error: blockError } = await supabase
+        .from('template_blocks')
+        .insert({
+          template_id: created.id,
+          order_index: 0,
+          type: 'SET',
+          name: 'Blocco 1',
+          params: { sets: 4, reps: 10, rest_seconds: 90 } as any,
+        });
+
+      if (blockError) {
+        // Non bloccare se il blocco fallisce - l'utente potrà aggiungerlo manualmente
+        console.warn('Errore creazione blocco default:', blockError);
+      }
+
+      return created;
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
-      toast.success('Scheda creata con successo');
+      toast.success('Scheda creata · Inizia ad aggiungere esercizi');
       setIsCreateDialogOpen(false);
       setNewTemplate({
         title: '',
@@ -180,6 +201,8 @@ export function PTWorkoutsPage() {
         category: '',
         estimated_duration: 60,
       });
+      // Redirect immediato al builder
+      navigate(`/pt/templates/${created.id}`);
     },
     onError: () => {
       toast.error('Errore durante la creazione della scheda');
@@ -487,87 +510,57 @@ export function PTWorkoutsPage() {
         <DialogTrigger asChild>
           <Button>
             <Plus className="h-4 w-4 mr-2" />
-            Nuova Scheda
+            Crea Scheda
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-xl w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Crea Nuova Scheda</DialogTitle>
+            <DialogTitle>Step 1 — Informazioni base</DialogTitle>
             <DialogDescription>
-              Una scheda è un singolo allenamento composto da blocchi (protocolli) ed esercizi.
+              Dai un nome alla scheda. Subito dopo entrerai nel builder con un blocco SET già pronto.
             </DialogDescription>
           </DialogHeader>
-        <div className="flex-1 min-h-0 overflow-y-auto pr-4">
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Titolo *</Label>
-              <Input
-                id="title"
-                value={newTemplate.title}
-                onChange={(e) => setNewTemplate({ ...newTemplate, title: e.target.value })}
-                placeholder="Es: Full Body Principiante"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Descrizione</Label>
-              <Textarea
-                id="description"
-                value={newTemplate.description}
-                onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
-                placeholder="Descrivi l'allenamento..."
-                className="min-h-[80px]"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+            <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Difficoltà</Label>
-                <Select
-                  value={newTemplate.difficulty_level}
-                  onValueChange={(value) => setNewTemplate({ ...newTemplate, difficulty_level: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="principiante">Principiante</SelectItem>
-                    <SelectItem value="intermedio">Intermedio</SelectItem>
-                    <SelectItem value="avanzato">Avanzato</SelectItem>
-                    <SelectItem value="agonista">Agonista</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="duration">Durata (min)</Label>
+                <Label htmlFor="title">Nome scheda *</Label>
                 <Input
-                  id="duration"
-                  type="number"
-                  min={5}
-                  max={180}
-                  value={newTemplate.estimated_duration}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, estimated_duration: parseInt(e.target.value) || 60 })}
+                  id="title"
+                  autoFocus
+                  value={newTemplate.title}
+                  onChange={(e) => setNewTemplate({ ...newTemplate, title: e.target.value })}
+                  placeholder="Es: Full Body Principiante"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newTemplate.title && !createTemplateMutation.isPending) {
+                      createTemplateMutation.mutate();
+                    }
+                  }}
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">Categoria</Label>
-              <Input
-                id="category"
-                value={newTemplate.category}
-                onChange={(e) => setNewTemplate({ ...newTemplate, category: e.target.value })}
-                placeholder="Es: Forza, Cardio, HIIT, Mobilità"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="description">Descrizione (opzionale)</Label>
+                <Textarea
+                  id="description"
+                  value={newTemplate.description}
+                  onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
+                  placeholder="Breve descrizione dell'allenamento..."
+                  className="min-h-[80px]"
+                />
+              </div>
+              <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+                💡 I dettagli avanzati (difficoltà, durata, categoria) si possono modificare in qualsiasi momento dalla scheda.
+              </div>
             </div>
           </div>
-        </div>
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
               Annulla
             </Button>
-            <Button 
+            <Button
               onClick={() => createTemplateMutation.mutate()}
               disabled={!newTemplate.title || createTemplateMutation.isPending}
             >
-              Crea Scheda
+              Inizia a costruire la scheda
             </Button>
           </div>
         </DialogContent>
