@@ -719,7 +719,7 @@ export function PTWorkoutsPage() {
               </TabsTrigger>
               <TabsTrigger value="exercises" className="gap-2">
                 <BookOpen className="h-4 w-4" />
-                Esercizi ({myExercises.length})
+                Esercizi ({exercises.length})
               </TabsTrigger>
             </TabsList>
             <TabsContent value="templates" className="mt-4">
