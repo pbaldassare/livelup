@@ -153,6 +153,42 @@ export function setNested<T extends Record<string, any>>(obj: T, path: string, v
   return next as T;
 }
 
+// Restituisce i defaultParams per un dato protocollo (clonati)
+export function getDefaultParamsForProtocol(type: ProtocolType): ProtocolParams {
+  const def = getProtocolDef(type);
+  return JSON.parse(JSON.stringify(def.defaultParams || {}));
+}
+
+// Riassunto compatto del protocollo a livello esercizio (per builder PT e atleta)
+export function describeExerciseProtocol(
+  type: ProtocolType,
+  params: ProtocolParams | null | undefined,
+  setsCount?: number | null,
+): string {
+  const p = params || {};
+  switch (type) {
+    case 'SET':
+      if (setsCount && setsCount > 0) return `${setsCount} set`;
+      if (p.sets && p.reps) return `${p.sets} × ${p.reps}`;
+      return 'Set';
+    case 'TOP_SET_BACKOFF':
+      return `Top set + ${p.back_off?.sets ?? 3} back off`;
+    case 'RAMPING':
+      if (p.sets && p.reps) return `${p.sets} a salire × ${p.reps}`;
+      return 'Salita progressiva';
+    case 'EMOM':
+      if (p.rounds && p.interval_seconds) return `EMOM ${p.rounds}×${p.interval_seconds}s`;
+      return 'EMOM';
+    case 'AMRAP':
+      if (p.duration_seconds) {
+        const m = Math.floor(p.duration_seconds / 60);
+        const s = p.duration_seconds % 60;
+        return `AMRAP ${m}:${s.toString().padStart(2, '0')}`;
+      }
+      return 'AMRAP';
+  }
+}
+
 // Soft summary mostrato all'atleta (non espone il "tipo tecnico")
 export function describeBlockForAthlete(type: ProtocolType, params: ProtocolParams | null | undefined): string {
   const p = params || {};
