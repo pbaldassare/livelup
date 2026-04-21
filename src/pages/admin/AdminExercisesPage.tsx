@@ -437,6 +437,13 @@ export default function AdminExercisesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Preview Dialog */}
+      <ExerciseDetailDialog
+        exercise={previewExercise}
+        open={!!previewExercise}
+        onOpenChange={(o) => !o && setPreviewExercise(null)}
+      />
     </div>
   );
 }
