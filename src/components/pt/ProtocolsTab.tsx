@@ -55,9 +55,13 @@ function ProtocolCard({ type, comingSoon = false }: ProtocolCardProps) {
             <Badge variant="outline" className="shrink-0">
               In arrivo
             </Badge>
-          ) : (
+          ) : type === 'SET' ? (
             <Badge variant="default" className="shrink-0">
               Default
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="shrink-0">
+              Disponibile
             </Badge>
           )}
         </div>
