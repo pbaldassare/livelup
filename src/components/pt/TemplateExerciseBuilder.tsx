@@ -27,12 +27,27 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Plus,
   Trash2,
   GripVertical,
   Dumbbell,
-  AlertTriangle,
   ChevronDown,
+  MoveRight,
 } from 'lucide-react';
 import { ImageUpload } from '@/components/common/ImageUpload';
 import { toast } from 'sonner';
@@ -44,11 +59,21 @@ import {
   DEFAULT_SET,
   type SetItem,
 } from '@/lib/setsData';
+import {
+  PROTOCOL_LIST,
+  getProtocolDef,
+  getDefaultParamsForProtocol,
+  getNested,
+  setNested,
+  type ProtocolType,
+  type ProtocolParams,
+} from '@/lib/protocols/registry';
+import { ProtocolInfoPopover } from '@/components/protocols/ProtocolInfoPopover';
 
 // =====================================================
 // TEMPLATE EXERCISE BUILDER
-// Aggiunge esercizi a un template con configurazione a SET eterogenei
-// (ogni set ha reps/kg/recupero indipendenti).
+// Aggiunge esercizi a un template (singoli o dentro un circuito).
+// Ogni esercizio ha il PROPRIO protocollo (SET di default) e i propri set.
 // =====================================================
 
 interface Exercise {
@@ -73,26 +98,19 @@ interface TemplateExercise {
   tempo: string | null;
   prescribed_duration_seconds?: number | null;
   sets_data?: any;
+  protocol_type?: string | null;
+  protocol_params?: any;
+  block_id?: string | null;
   exercise?: Exercise;
 }
 
 interface TemplateExerciseBuilderProps {
   templateId: string;
-  blockId?: string | null; // se presente, scope esercizi al blocco
-  // Parametri ereditati dal blocco (per protocolli come SET dove i parametri
-  // sono definiti a livello di blocco e applicati a ciascun esercizio).
-  blockParams?: {
-    sets?: number | null;
-    reps?: number | null;
-    duration_seconds?: number | null;
-    rest_seconds?: number | null;
-    weight?: number | null;
-  } | null;
-  blockType?: string | null;
+  blockId?: string | null; // null = esercizi fuori circuito
   onSave?: () => void;
 }
 
-export function TemplateExerciseBuilder({ templateId, blockId, blockParams, blockType, onSave }: TemplateExerciseBuilderProps) {
+export function TemplateExerciseBuilder({ templateId, blockId, onSave }: TemplateExerciseBuilderProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -123,7 +141,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
       let q = supabase
         .from('template_exercises')
         .select(`
-          id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds, sets_data,
+          id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params,
           exercises (*)
         `)
         .eq('template_id', templateId)
@@ -145,23 +163,35 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
     enabled: !!templateId,
   });
 
-  // Add exercise mutation — eredita params dal blocco e materializza sets_data
+  // Lista circuiti del template (per il menu "Sposta in...")
+  const { data: allCircuits = [] } = useQuery({
+    queryKey: ['template-blocks', templateId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('template_blocks')
+        .select('id, name, order_index')
+        .eq('template_id', templateId)
+        .order('order_index');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!templateId,
+  });
+
+  // Add exercise mutation — default SET, 3 set generici
   const addExerciseMutation = useMutation({
     mutationFn: async (exercise: Exercise) => {
       const maxOrder = templateExercises.length > 0
         ? Math.max(...templateExercises.map((te) => te.order_index)) + 1
         : 0;
 
-      const sets = blockParams?.sets ?? 3;
-      const repsVal = blockParams?.reps ?? null;
-      const dur = blockParams?.duration_seconds ?? null;
-      const rest = blockParams?.rest_seconds ?? 60;
-      const weight = blockParams?.weight ?? null;
+      const sets = 3;
+      const repsVal = 10;
+      const rest = 60;
 
-      // Genera sets_data con N copie dai default del blocco
-      const sets_data: SetItem[] = Array.from({ length: Math.max(1, sets) }).map(() => ({
-        reps: dur != null ? null : (repsVal ?? 10),
-        weight: weight ?? null,
+      const sets_data: SetItem[] = Array.from({ length: sets }).map(() => ({
+        reps: repsVal,
+        weight: null,
         rest_seconds: rest,
       }));
 
@@ -172,12 +202,14 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
           exercise_id: exercise.id,
           order_index: maxOrder,
           sets,
-          reps_min: dur != null ? null : (repsVal ?? 10),
-          reps_max: dur != null ? null : (repsVal ? null : 12),
+          reps_min: repsVal,
+          reps_max: null,
           rest_seconds: rest,
-          prescribed_duration_seconds: dur,
+          prescribed_duration_seconds: null,
           sets_data: sets_data as any,
           block_id: blockId ?? null,
+          protocol_type: 'SET',
+          protocol_params: {},
         } as any);
 
       if (error) throw error;
@@ -185,12 +217,56 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['template-blocks', templateId] });
+      queryClient.invalidateQueries({ queryKey: ['template-blocks-counts', templateId] });
       toast.success('Esercizio aggiunto');
       setSearchOpen(false);
     },
     onError: () => {
       toast.error("Errore durante l'aggiunta");
     },
+  });
+
+  // Cambio protocollo per esercizio: aggiorna protocol_type e azzera/riprenseta protocol_params
+  const updateProtocolMutation = useMutation({
+    mutationFn: async ({ id, type }: { id: string; type: ProtocolType }) => {
+      const params = getDefaultParamsForProtocol(type);
+      const { error } = await supabase
+        .from('template_exercises')
+        .update({ protocol_type: type, protocol_params: params as any } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onError: () => toast.error('Errore aggiornamento protocollo'),
+  });
+
+  // Aggiorna un parametro del protocol_params (per protocolli non-SET)
+  const updateProtocolParamMutation = useMutation({
+    mutationFn: async ({ id, params }: { id: string; params: any }) => {
+      const { error } = await supabase
+        .from('template_exercises')
+        .update({ protocol_params: params } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  // Sposta esercizio in un altro circuito (o fuori circuito)
+  const moveToCircuitMutation = useMutation({
+    mutationFn: async ({ id, targetBlockId }: { id: string; targetBlockId: string | null }) => {
+      const { error } = await supabase
+        .from('template_exercises')
+        .update({ block_id: targetBlockId } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['template-exercises', templateId] });
+      queryClient.invalidateQueries({ queryKey: ['template-blocks-counts', templateId] });
+      toast.success('Esercizio spostato');
+    },
+    onError: () => toast.error('Errore spostamento'),
   });
 
   // Update exercise (campi piatti / note / tempo)
@@ -425,30 +501,136 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
 
                               {/* Exercise Info */}
                               <div className="flex-1 space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="font-medium">{te.exercise?.name}</p>
-                                    <p className="text-sm text-muted-foreground">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="font-medium truncate">{te.exercise?.name}</p>
+                                    <p className="text-sm text-muted-foreground truncate">
                                       {te.exercise?.category} • {te.exercise?.muscle_groups.join(', ')}
                                     </p>
                                   </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-destructive hover:text-destructive"
-                                    onClick={() => removeExerciseMutation.mutate(te.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {/* Selettore Protocollo */}
+                                    <Select
+                                      value={(te.protocol_type as ProtocolType) || 'SET'}
+                                      onValueChange={(v) =>
+                                        updateProtocolMutation.mutate({ id: te.id, type: v as ProtocolType })
+                                      }
+                                    >
+                                      <SelectTrigger className="h-8 w-[140px] text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {PROTOCOL_LIST.map((def) => {
+                                          const Icon = def.icon;
+                                          return (
+                                            <SelectItem key={def.type} value={def.type}>
+                                              <span className="flex items-center gap-2">
+                                                <Icon className="h-3.5 w-3.5" />
+                                                {def.label}
+                                              </span>
+                                            </SelectItem>
+                                          );
+                                        })}
+                                      </SelectContent>
+                                    </Select>
+                                    <ProtocolInfoPopover type={(te.protocol_type as ProtocolType) || 'SET'} />
+                                    {/* Sposta in... */}
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" title="Sposta esercizio">
+                                          <MoveRight className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Sposta in</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          disabled={!te.block_id}
+                                          onClick={() =>
+                                            moveToCircuitMutation.mutate({ id: te.id, targetBlockId: null })
+                                          }
+                                        >
+                                          Esercizi singoli
+                                        </DropdownMenuItem>
+                                        {allCircuits.map((c: any) => (
+                                          <DropdownMenuItem
+                                            key={c.id}
+                                            disabled={te.block_id === c.id}
+                                            onClick={() =>
+                                              moveToCircuitMutation.mutate({
+                                                id: te.id,
+                                                targetBlockId: c.id,
+                                              })
+                                            }
+                                          >
+                                            {c.name || 'Circuito'}
+                                          </DropdownMenuItem>
+                                        ))}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="text-destructive hover:text-destructive"
+                                      onClick={() => removeExerciseMutation.mutate(te.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
 
-                                {/* Tabella SET orizzontale (set eterogenei) */}
-                                <SetsTable
-                                  te={te}
-                                  onChange={(sets_data) =>
-                                    updateSetsMutation.mutate({ id: te.id, sets_data })
+                                {/* Render condizionale per protocollo */}
+                                {(() => {
+                                  const ptype = ((te.protocol_type as ProtocolType) || 'SET');
+                                  const isSetBased = ptype === 'SET' || ptype === 'RAMPING' || ptype === 'TOP_SET_BACKOFF';
+                                  if (isSetBased) {
+                                    return (
+                                      <SetsTable
+                                        te={te}
+                                        onChange={(sets_data) =>
+                                          updateSetsMutation.mutate({ id: te.id, sets_data })
+                                        }
+                                      />
+                                    );
                                   }
-                                />
+                                  // Protocolli non-set-based: render dei paramFields
+                                  const def = getProtocolDef(ptype);
+                                  const params = (te.protocol_params as ProtocolParams) || {};
+                                  return (
+                                    <div className="rounded-md border bg-muted/20 p-3 space-y-2">
+                                      <p className="text-xs font-medium text-muted-foreground">
+                                        Parametri {def.label}
+                                      </p>
+                                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                        {def.paramFields.map((f) => {
+                                          const val = getNested(params, f.key);
+                                          return (
+                                            <div key={f.key} className="space-y-1">
+                                              <Label className="text-xs">{f.label}</Label>
+                                              <Input
+                                                type={f.type}
+                                                min={f.min}
+                                                max={f.max}
+                                                step={f.step}
+                                                placeholder={f.placeholder}
+                                                value={val ?? ''}
+                                                onChange={(e) => {
+                                                  const num = e.target.value === '' ? null : Number(e.target.value);
+                                                  const next = setNested(params, f.key, num);
+                                                  updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                }}
+                                                className="h-8"
+                                              />
+                                              {f.hint && (
+                                                <p className="text-[10px] text-muted-foreground">{f.hint}</p>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
 
                                 {/* Avanzate: tempo + note (collassate) */}
                                 <Collapsible>

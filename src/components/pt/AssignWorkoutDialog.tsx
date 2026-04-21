@@ -266,6 +266,8 @@ export function AssignWorkoutDialog({
         restSeconds?: number | null;
         notes?: string | null;
         setsData?: any;
+        protocolType?: string;
+        protocolParams?: any;
       }> = [];
 
       if (workoutSource === 'template') {
@@ -291,6 +293,8 @@ export function AssignWorkoutDialog({
           restSeconds: te.rest_seconds,
           notes: te.notes,
           setsData: te.sets_data ?? null,
+          protocolType: te.protocol_type ?? 'SET',
+          protocolParams: te.protocol_params ?? {},
         }));
       } else {
         if (!customTitle) throw new Error('Inserisci un titolo');

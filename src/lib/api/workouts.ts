@@ -29,10 +29,12 @@ export async function createWorkout(params: {
     restSeconds?: number | null;
     notes?: string | null;
     setsData?: any; // array set eterogenei [{ reps, weight, rest_seconds }]
-    blockTempId?: string; // ref locale al blocco (vedi `blocks` sotto)
+    blockTempId?: string; // ref locale al circuito (vedi `blocks` sotto)
+    protocolType?: string; // 'SET' | 'RAMPING' | ... default 'SET'
+    protocolParams?: any;
   }>;
-  // Blocchi opzionali da duplicare in workout_blocks; gli esercizi possono
-  // referenziarli via `blockTempId` per essere associati al blocco corretto.
+  // Circuiti opzionali da duplicare in workout_blocks (puro raggruppamento);
+  // gli esercizi possono referenziarli via `blockTempId`.
   blocks?: Array<{
     tempId: string;
     orderIndex: number;
@@ -111,6 +113,8 @@ export async function createWorkout(params: {
       notes: ex.notes ?? null,
       sets_data: ex.setsData ?? null,
       block_id: ex.blockTempId ? blockIdMap.get(ex.blockTempId) ?? null : null,
+      protocol_type: ex.protocolType ?? 'SET',
+      protocol_params: ex.protocolParams ?? {},
     }));
 
     const { error: exercisesError } = await supabase
