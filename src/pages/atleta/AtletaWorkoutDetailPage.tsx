@@ -100,6 +100,12 @@ export function AtletaWorkoutDetailPage() {
   const [totalReps, setTotalReps] = useState(0);
   const [totalSetsCompleted, setTotalSetsCompleted] = useState(0);
 
+  // Detail sheet state
+  const [selectedExercise, setSelectedExercise] = useState<WorkoutExercise | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [confirmMarkOpen, setConfirmMarkOpen] = useState(false);
+  const [pendingMarkExercise, setPendingMarkExercise] = useState<WorkoutExercise | null>(null);
+
   // Fetch workout with exercises + blocks
   const { data: workout, isLoading } = useQuery({
     queryKey: ['workout-detail', workoutId],
