@@ -300,8 +300,11 @@ export function TemplateBlockBuilder({ templateId }: TemplateBlockBuilderProps) 
         <Card>
           <CardContent className="py-12 text-center">
             <Layers className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">
-              Nessun blocco. Aggiungi un protocollo per iniziare a costruire la scheda.
+            <p className="text-muted-foreground font-medium">
+              Nessun blocco nella scheda
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Aggiungi un blocco SET per iniziare: serie, reps, kg e recupero.
             </p>
           </CardContent>
         </Card>
