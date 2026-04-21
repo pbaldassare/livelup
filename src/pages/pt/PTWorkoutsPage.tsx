@@ -153,7 +153,13 @@ export function PTWorkoutsPage() {
     enabled: !!user?.id,
   });
 
-  const myExercises = exercises.filter(e => e.created_by === user?.id);
+  const [exerciseVisibility, setExerciseVisibility] = useState<'all' | 'mine' | 'public'>('all');
+
+  const visibleExercises = exercises.filter(e => {
+    if (exerciseVisibility === 'mine') return e.created_by === user?.id;
+    if (exerciseVisibility === 'public') return !e.created_by;
+    return true;
+  });
 
   const { data: workouts = [], isLoading: workoutsLoading } = useQuery({
     queryKey: ['pt-workouts', user?.id],
@@ -713,7 +719,7 @@ export function PTWorkoutsPage() {
               </TabsTrigger>
               <TabsTrigger value="exercises" className="gap-2">
                 <BookOpen className="h-4 w-4" />
-                Esercizi ({myExercises.length})
+                Esercizi ({exercises.length})
               </TabsTrigger>
             </TabsList>
             <TabsContent value="templates" className="mt-4">
@@ -738,10 +744,30 @@ export function PTWorkoutsPage() {
               />
             </TabsContent>
             <TabsContent value="exercises" className="mt-4">
-              <div className="flex items-center justify-between mb-4 gap-3">
-                <p className="text-sm text-muted-foreground">
-                  Gli esercizi qui sono gli stessi disponibili nel builder delle schede.
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant={exerciseVisibility === 'all' ? 'default' : 'outline'}
+                    onClick={() => setExerciseVisibility('all')}
+                  >
+                    Tutti ({exercises.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={exerciseVisibility === 'mine' ? 'default' : 'outline'}
+                    onClick={() => setExerciseVisibility('mine')}
+                  >
+                    Solo i miei ({exercises.filter(e => e.created_by === user?.id).length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={exerciseVisibility === 'public' ? 'default' : 'outline'}
+                    onClick={() => setExerciseVisibility('public')}
+                  >
+                    Pubblici ({exercises.filter(e => !e.created_by).length})
+                  </Button>
+                </div>
                 <Button onClick={() => { setEditingExercise(null); setIsCreateExerciseOpen(true); }} size="sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Nuovo Esercizio
@@ -749,20 +775,23 @@ export function PTWorkoutsPage() {
               </div>
               {exercisesLoading ? (
                 <p className="text-muted-foreground text-center py-8">Caricamento...</p>
-              ) : myExercises.length === 0 ? (
+              ) : visibleExercises.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p>Nessun esercizio personalizzato</p>
-                  <p className="text-xs mt-1">Crea esercizi riutilizzabili in tutte le tue schede</p>
+                  <p>Nessun esercizio in questa vista</p>
+                  <p className="text-xs mt-1">Cambia filtro o crea il tuo primo esercizio personalizzato</p>
                   <Button variant="link" onClick={() => { setEditingExercise(null); setIsCreateExerciseOpen(true); }}>
-                    Crea il tuo primo esercizio
+                    Crea esercizio
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {myExercises
+                  {visibleExercises
                     .filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                    .map(ex => (
+                    .map(ex => {
+                      const isOwner = ex.created_by === user?.id;
+                      const isGlobal = !ex.created_by;
+                      return (
                       <div
                         key={ex.id}
                         className="flex items-start justify-between gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
@@ -776,7 +805,15 @@ export function PTWorkoutsPage() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{ex.name}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium truncate">{ex.name}</p>
+                              {isGlobal && (
+                                <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Globale</Badge>
+                              )}
+                              {isOwner && (
+                                <Badge className="text-[10px] uppercase tracking-wide">Mio</Badge>
+                              )}
+                            </div>
                             {ex.description && (
                               <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                                 {ex.description}
@@ -799,7 +836,8 @@ export function PTWorkoutsPage() {
                             size="icon"
                             variant="ghost"
                             onClick={() => { setEditingExercise(ex); setIsCreateExerciseOpen(true); }}
-                            title="Modifica"
+                            title={isOwner ? 'Modifica' : 'Solo l\'admin può modificare gli esercizi globali'}
+                            disabled={!isOwner}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -808,13 +846,15 @@ export function PTWorkoutsPage() {
                             variant="ghost"
                             className="text-destructive"
                             onClick={() => setDeleteExerciseId(ex.id)}
-                            title="Elimina"
+                            title={isOwner ? 'Elimina' : 'Solo l\'admin può eliminare gli esercizi globali'}
+                            disabled={!isOwner}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                 </div>
               )}
             </TabsContent>
