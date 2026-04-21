@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Layers,
   Repeat,
+  Dumbbell,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -169,34 +170,54 @@ export function TemplateBlockBuilder({ templateId }: TemplateBlockBuilderProps) 
     reorderMutation.mutate(updates);
   };
 
+  const totalExercises = exerciseCounts.standalone + Object.values(exerciseCounts.byCircuit).reduce((a, b) => a + b, 0);
+  const isSchedaEmpty = totalExercises === 0 && circuits.length === 0;
+
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header con azioni */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h4 className="font-medium">Esercizi della scheda</h4>
+          <h4 className="font-medium">Struttura della scheda</h4>
           <p className="text-sm text-muted-foreground">
-            {exerciseCounts.standalone} esercizi singoli · {circuits.length} circuiti
+            {totalExercises} esercizi totali · {circuits.length} circuiti
           </p>
         </div>
-        <Button onClick={() => addCircuitMutation.mutate()} variant="outline">
-          <Plus className="h-4 w-4 mr-2" />
-          Aggiungi circuito
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => addCircuitMutation.mutate()} variant="outline">
+            <Plus className="h-4 w-4 mr-2" />
+            Aggiungi circuito
+          </Button>
+        </div>
       </div>
+
+      {/* Empty state globale: scheda completamente vuota */}
+      {isSchedaEmpty && (
+        <Card className="border-dashed">
+          <CardContent className="py-10 text-center space-y-3">
+            <Dumbbell className="h-12 w-12 mx-auto text-muted-foreground/50" />
+            <div>
+              <p className="font-medium">Scheda vuota</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Inizia aggiungendo un esercizio o creando un circuito.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Sezione: Esercizi singoli (fuori circuito) */}
       <Card>
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary" />
-            <h5 className="font-medium">Esercizi singoli</h5>
+            <h5 className="font-medium">Esercizi della scheda</h5>
             <Badge variant="outline" className="text-xs">
               fuori circuito
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground -mt-1">
-            Esercizi eseguiti uno alla volta in sequenza. Ognuno ha il proprio protocollo.
+            Esercizi non raggruppati in un circuito. Ognuno ha il proprio protocollo.
           </p>
           <div className="rounded-md border bg-muted/20 p-3">
             <TemplateExerciseBuilder templateId={templateId} blockId={null} />
@@ -205,7 +226,7 @@ export function TemplateBlockBuilder({ templateId }: TemplateBlockBuilderProps) 
       </Card>
 
       {/* Empty state circuiti */}
-      {!isLoading && circuits.length === 0 && (
+      {!isLoading && circuits.length === 0 && !isSchedaEmpty && (
         <Card className="border-dashed">
           <CardContent className="py-8 text-center">
             <Repeat className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />

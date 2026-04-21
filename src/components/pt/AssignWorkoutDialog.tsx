@@ -254,7 +254,7 @@ export function AssignWorkoutDialog({
       const athleteConn = athletes.find((a) => a.atleta_user_id === selectedAthleteId);
       if (!athleteConn) throw new Error('Atleta non trovato');
 
-      // Resolve title + exercises payload once
+      // Resolve title + exercises payload + circuiti
       let title: string;
       let templateId: string | undefined;
       let exercisesPayload: Array<{
@@ -268,19 +268,40 @@ export function AssignWorkoutDialog({
         setsData?: any;
         protocolType?: string;
         protocolParams?: any;
+        blockTempId?: string;
       }> = [];
+      let blocksPayload:
+        | Array<{ tempId: string; orderIndex: number; type: string; name?: string | null; params?: any }>
+        | undefined;
 
       if (workoutSource === 'template') {
         if (!selectedTemplateId) throw new Error('Seleziona un template');
         const template = templates.find((t) => t.id === selectedTemplateId);
         if (!template) throw new Error('Template non trovato');
 
-        const { data: templateExercises, error } = await supabase
-          .from('template_exercises')
-          .select('*')
-          .eq('template_id', selectedTemplateId)
-          .order('order_index');
+        const [{ data: templateExercises, error }, { data: templateBlocks, error: blocksErr }] = await Promise.all([
+          supabase
+            .from('template_exercises')
+            .select('*')
+            .eq('template_id', selectedTemplateId)
+            .order('order_index'),
+          supabase
+            .from('template_blocks')
+            .select('id, order_index, type, name, params')
+            .eq('template_id', selectedTemplateId)
+            .order('order_index'),
+        ]);
         if (error) throw error;
+        if (blocksErr) throw blocksErr;
+
+        // Mappa block_id originale → tempId riusabile dall'API workouts
+        blocksPayload = (templateBlocks || []).map((b: any) => ({
+          tempId: b.id, // riuso l'id template come tempId — è solo un alias locale
+          orderIndex: b.order_index,
+          type: (b.type as any) || 'SET',
+          name: b.name ?? null,
+          params: b.params ?? {},
+        }));
 
         title = template.title;
         templateId = selectedTemplateId;
@@ -295,6 +316,7 @@ export function AssignWorkoutDialog({
           setsData: te.sets_data ?? null,
           protocolType: te.protocol_type ?? 'SET',
           protocolParams: te.protocol_params ?? {},
+          blockTempId: te.block_id ?? undefined,
         }));
       } else {
         if (!customTitle) throw new Error('Inserisci un titolo');
@@ -337,6 +359,7 @@ export function AssignWorkoutDialog({
           templateId,
           scheduledDate: date.toISOString(),
           exercises: exercisesPayload,
+          blocks: blocksPayload,
         });
         created++;
       }

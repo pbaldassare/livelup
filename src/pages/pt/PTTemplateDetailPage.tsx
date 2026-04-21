@@ -14,7 +14,8 @@ import {
   ArrowLeft,
   Clock,
   BarChart3,
-  Tag
+  Tag,
+  AlertTriangle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -48,22 +49,23 @@ export function PTTemplateDetailPage() {
     enabled: !!templateId && !!user?.id,
   });
 
-  // Fetch template exercise count
-  const { data: exerciseCount = 0 } = useQuery({
-    queryKey: ['template-exercise-count', templateId],
+  // Fetch template exercise counts (totale + dentro circuiti)
+  const { data: exerciseStats = { total: 0, inCircuits: 0, standalone: 0 } } = useQuery({
+    queryKey: ['template-exercise-stats', templateId],
     queryFn: async () => {
-      if (!templateId) return 0;
-
-      const { count, error } = await supabase
+      if (!templateId) return { total: 0, inCircuits: 0, standalone: 0 };
+      const { data, error } = await supabase
         .from('template_exercises')
-        .select('*', { count: 'exact', head: true })
+        .select('block_id')
         .eq('template_id', templateId);
-
       if (error) throw error;
-      return count || 0;
+      const total = data?.length || 0;
+      const inCircuits = (data || []).filter((r: any) => r.block_id).length;
+      return { total, inCircuits, standalone: total - inCircuits };
     },
     enabled: !!templateId,
   });
+  const exerciseCount = exerciseStats.total;
 
   if (isLoading) {
     return <PageLoader text="Caricamento template..." />;
@@ -107,6 +109,19 @@ export function PTTemplateDetailPage() {
           </Button>
         }
       />
+
+      {/* Banner: scheda vuota */}
+      {exerciseStats.total === 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4">
+          <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-medium text-warning">Questa scheda è vuota</p>
+            <p className="text-muted-foreground">
+              Aggiungi almeno un esercizio (libero o dentro un circuito) per poterla assegnare a un atleta.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-4">
         {/* Template Info Sidebar */}
@@ -159,7 +174,10 @@ export function PTTemplateDetailPage() {
                 <BarChart3 className="h-4 w-4" />
                 Esercizi
               </p>
-              <p className="font-medium">{exerciseCount} esercizi</p>
+              <p className="font-medium">{exerciseStats.total} esercizi</p>
+              <p className="text-xs text-muted-foreground">
+                {exerciseStats.standalone} fuori circuito · {exerciseStats.inCircuits} nei circuiti
+              </p>
             </div>
 
             <Separator />

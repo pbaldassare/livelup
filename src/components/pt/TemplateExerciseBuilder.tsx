@@ -402,18 +402,17 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   return (
     <div className="space-y-4">
       {/* Add Exercise Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <h4 className="font-medium">Esercizi nel Template</h4>
           <p className="text-sm text-muted-foreground">
-            {templateExercises.length} esercizi configurati • Trascina per riordinare
+            {templateExercises.length} esercizi {blockId ? 'nel circuito' : 'liberi'} • Trascina per riordinare
           </p>
         </div>
         <Popover open={searchOpen} onOpenChange={setSearchOpen}>
           <PopoverTrigger asChild>
-            <Button>
+            <Button size={blockId ? 'sm' : 'default'}>
               <Plus className="h-4 w-4 mr-2" />
-              Aggiungi Esercizio
+              {blockId ? 'Aggiungi al circuito' : 'Aggiungi esercizio'}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[400px] p-0" align="end">
@@ -455,14 +454,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
 
       {/* Exercise List with Drag and Drop */}
       {templateExercises.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Dumbbell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">
-              Nessun esercizio nel template. Inizia aggiungendo il primo!
-            </p>
-          </CardContent>
-        </Card>
+        <div className="py-6 text-center text-sm text-muted-foreground">
+          {blockId
+            ? 'Circuito vuoto. Aggiungi il primo esercizio.'
+            : 'Nessun esercizio libero. Aggiungi il primo o crea un circuito.'}
+        </div>
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="template-exercises">
