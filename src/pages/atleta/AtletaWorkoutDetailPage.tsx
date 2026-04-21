@@ -688,40 +688,91 @@ export function AtletaWorkoutDetailPage() {
                         <p className="text-xs text-app-muted-foreground">{summaryParts.join(' · ')}</p>
                       )}
                     </div>
-                    {g.items.map((ex: WorkoutExercise) => {
-                      const idx = globalIdx++;
-                      const logCount = existingLogs?.filter(l => l.workout_exercise_id === ex.id && l.is_completed).length || 0;
-                      const repsLabel = ex.prescribed_duration_seconds
-                        ? `${ex.prescribed_duration_seconds}s`
-                        : `${ex.prescribed_reps_min || 10}${ex.prescribed_reps_max ? `-${ex.prescribed_reps_max}` : ''} rep`;
-                      return (
-                        <motion.div
-                          key={ex.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.15 + idx * 0.05 }}
-                          className="flex items-center gap-3 p-3 bg-app-card border border-app-border rounded-xl"
-                        >
-                          <div className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center",
-                            logCount >= ex.prescribed_sets ? "bg-app-accent/20" : "bg-app-accent/10"
-                          )}>
-                            {logCount >= ex.prescribed_sets ? (
-                              <CheckCircle2 className="h-4 w-4 text-app-accent" />
-                            ) : (
-                              <span className="text-sm font-bold text-app-accent">{idx + 1}</span>
+                    <div className="divide-y divide-app-border rounded-xl border border-app-border bg-app-card overflow-hidden">
+                      {g.items.map((ex: WorkoutExercise) => {
+                        const idx = globalIdx++;
+                        const logCount = completedSets[ex.id]?.length
+                          ?? (existingLogs?.filter(l => l.workout_exercise_id === ex.id && l.is_completed).length || 0);
+                        const status = getExerciseStatus(ex, logCount);
+                        const isDuration = !!ex.prescribed_duration_seconds && ex.prescribed_duration_seconds > 0;
+                        const durationLabel = isDuration
+                          ? `${Math.floor(ex.prescribed_duration_seconds! / 60).toString().padStart(2, '0')}:${(ex.prescribed_duration_seconds! % 60).toString().padStart(2, '0')}`
+                          : null;
+                        const repsCount = ex.prescribed_reps_max
+                          ? `${ex.prescribed_reps_min ?? ex.prescribed_reps_max}-${ex.prescribed_reps_max}`
+                          : `${ex.prescribed_reps_min ?? 0}`;
+                        return (
+                          <motion.button
+                            key={ex.id}
+                            type="button"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.1 + idx * 0.04 }}
+                            onClick={() => {
+                              setSelectedExercise(ex);
+                              setSheetOpen(true);
+                            }}
+                            className={cn(
+                              "w-full flex items-center gap-3 p-3 text-left hover:bg-app-muted/40 transition-colors",
+                              status === 'in_progress' && "bg-app-accent/5",
+                              status === 'completed' && "opacity-60"
                             )}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-app-foreground">{ex.exercises?.name}</p>
-                            <p className="text-sm text-app-muted-foreground">
-                              {ex.prescribed_sets} set × {repsLabel}
-                              {logCount > 0 && ` • ${logCount}/${ex.prescribed_sets} completati`}
-                            </p>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
+                          >
+                            {/* Thumbnail */}
+                            <div className={cn(
+                              "w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-app-muted border-2",
+                              status === 'in_progress' ? "border-app-accent" : "border-transparent"
+                            )}>
+                              {ex.exercises?.image_url ? (
+                                <img
+                                  src={ex.exercises.image_url}
+                                  alt={ex.exercises.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Dumbbell className="h-6 w-6 text-app-muted-foreground/60" />
+                              )}
+                            </div>
+
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-app-foreground truncate">
+                                {ex.exercises?.name}
+                              </p>
+                              <div className="flex items-center gap-1.5 text-sm text-app-muted-foreground mt-0.5">
+                                {isDuration ? (
+                                  <>
+                                    <Clock className="h-3.5 w-3.5" />
+                                    <span className="tabular-nums">{durationLabel}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Repeat className="h-3.5 w-3.5" />
+                                    <span className="tabular-nums">×{repsCount}</span>
+                                  </>
+                                )}
+                                {status === 'in_progress' && (
+                                  <span className="ml-1 text-xs text-app-accent font-medium">
+                                    · {logCount}/{ex.prescribed_sets}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Status indicator */}
+                            <div className="flex-shrink-0 flex items-center gap-1">
+                              {status === 'completed' ? (
+                                <CheckCircle2 className="h-5 w-5 text-app-accent" />
+                              ) : status === 'in_progress' ? (
+                                <span className="h-2.5 w-2.5 rounded-full bg-app-accent animate-pulse" />
+                              ) : (
+                                <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+                              )}
+                            </div>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               });
