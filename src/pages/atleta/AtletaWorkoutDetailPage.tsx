@@ -7,6 +7,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { GuidedWorkoutFlow } from '@/components/app/GuidedWorkoutFlow';
+import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   ArrowLeft, 
   Settings2, 
@@ -18,6 +29,8 @@ import {
   Timer,
   TrendingUp,
   CheckCircle2,
+  Repeat,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -45,6 +58,7 @@ interface WorkoutExercise {
     video_url?: string;
     image_url?: string;
     instructions?: string;
+    muscle_groups?: string[];
   };
 }
 
@@ -86,6 +100,12 @@ export function AtletaWorkoutDetailPage() {
   const [totalReps, setTotalReps] = useState(0);
   const [totalSetsCompleted, setTotalSetsCompleted] = useState(0);
 
+  // Detail sheet state
+  const [selectedExercise, setSelectedExercise] = useState<WorkoutExercise | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [confirmMarkOpen, setConfirmMarkOpen] = useState(false);
+  const [pendingMarkExercise, setPendingMarkExercise] = useState<WorkoutExercise | null>(null);
+
   // Fetch workout with exercises + blocks
   const { data: workout, isLoading } = useQuery({
     queryKey: ['workout-detail', workoutId],
@@ -100,7 +120,7 @@ export function AtletaWorkoutDetailPage() {
             id, exercise_id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
             prescribed_duration_seconds, rest_seconds, notes, block_id,
-            exercises:exercise_id (name, category, video_url, image_url, instructions)
+            exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
           )
         `)
         .eq('id', workoutId)
@@ -324,6 +344,96 @@ export function AtletaWorkoutDetailPage() {
       setCurrentExerciseIndex(prev => prev - 1);
       setCurrentSet(1);
     }
+  };
+
+  // ===== Status helper for exercise list =====
+  const getExerciseStatus = (
+    ex: WorkoutExercise,
+    logCount: number
+  ): 'not_started' | 'in_progress' | 'completed' => {
+    if (logCount <= 0) return 'not_started';
+    if (logCount < ex.prescribed_sets) return 'in_progress';
+    return 'completed';
+  };
+
+  // ===== Start exercise from sheet =====
+  const handleStartFromSheet = async (ex: WorkoutExercise) => {
+    const idx = exercises.findIndex((e: any) => e.id === ex.id);
+    if (idx >= 0) setCurrentExerciseIndex(idx);
+
+    const completedForEx = completedSets[ex.id] || [];
+    const firstIncomplete =
+      Array.from({ length: ex.prescribed_sets }, (_, i) => i + 1).find(
+        (s) => !completedForEx.includes(s)
+      ) || 1;
+    setCurrentSet(firstIncomplete);
+
+    if (!isWorkoutStarted) {
+      setIsWorkoutStarted(true);
+      if (workoutId && workout?.status !== 'in_corso') {
+        await supabase
+          .from('workouts')
+          .update({ status: 'in_corso' as any })
+          .eq('id', workoutId)
+          .in('status', ['attivo', 'in_sospeso']);
+        queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+      }
+    }
+    setSheetOpen(false);
+  };
+
+  // ===== Mark exercise as completed (logs only missing sets) =====
+  const performMarkAllCompleted = async (ex: WorkoutExercise) => {
+    const completedForEx = completedSets[ex.id] || [];
+    const missing = Array.from({ length: ex.prescribed_sets }, (_, i) => i + 1).filter(
+      (s) => !completedForEx.includes(s)
+    );
+
+    if (missing.length === 0) {
+      setSheetOpen(false);
+      return;
+    }
+
+    const reps = ex.prescribed_reps_min ?? ex.prescribed_reps_max ?? 0;
+    const weight = ex.prescribed_weight ?? undefined;
+
+    try {
+      for (const s of missing) {
+        await logSetMutation.mutateAsync({
+          workoutExerciseId: ex.id,
+          setNumber: s,
+          repsCompleted: reps,
+          weightUsed: weight,
+        });
+      }
+
+      setCompletedSets((prev) => ({
+        ...prev,
+        [ex.id]: [...(prev[ex.id] || []), ...missing].sort((a, b) => a - b),
+      }));
+      setTotalSetsCompleted((prev) => prev + missing.length);
+      setTotalReps((prev) => prev + reps * missing.length);
+      setTotalVolume((prev) => prev + reps * (weight || 0) * missing.length);
+
+      queryClient.invalidateQueries({ queryKey: ['workout-logs', workoutId] });
+      toast.success('Esercizio completato');
+      setSheetOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Errore nel salvare i set');
+    }
+  };
+
+  const handleMarkAllCompleted = async (ex: WorkoutExercise) => {
+    const logCount = completedSets[ex.id]?.length || 0;
+    const status = getExerciseStatus(ex, logCount);
+    if (status === 'completed') return;
+    if (status === 'not_started') {
+      // Confirmation required
+      setPendingMarkExercise(ex);
+      setConfirmMarkOpen(true);
+      return;
+    }
+    await performMarkAllCompleted(ex);
   };
 
   const setsData = useMemo(() => {
@@ -578,40 +688,91 @@ export function AtletaWorkoutDetailPage() {
                         <p className="text-xs text-app-muted-foreground">{summaryParts.join(' · ')}</p>
                       )}
                     </div>
-                    {g.items.map((ex: WorkoutExercise) => {
-                      const idx = globalIdx++;
-                      const logCount = existingLogs?.filter(l => l.workout_exercise_id === ex.id && l.is_completed).length || 0;
-                      const repsLabel = ex.prescribed_duration_seconds
-                        ? `${ex.prescribed_duration_seconds}s`
-                        : `${ex.prescribed_reps_min || 10}${ex.prescribed_reps_max ? `-${ex.prescribed_reps_max}` : ''} rep`;
-                      return (
-                        <motion.div
-                          key={ex.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.15 + idx * 0.05 }}
-                          className="flex items-center gap-3 p-3 bg-app-card border border-app-border rounded-xl"
-                        >
-                          <div className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center",
-                            logCount >= ex.prescribed_sets ? "bg-app-accent/20" : "bg-app-accent/10"
-                          )}>
-                            {logCount >= ex.prescribed_sets ? (
-                              <CheckCircle2 className="h-4 w-4 text-app-accent" />
-                            ) : (
-                              <span className="text-sm font-bold text-app-accent">{idx + 1}</span>
+                    <div className="divide-y divide-app-border rounded-xl border border-app-border bg-app-card overflow-hidden">
+                      {g.items.map((ex: WorkoutExercise) => {
+                        const idx = globalIdx++;
+                        const logCount = completedSets[ex.id]?.length
+                          ?? (existingLogs?.filter(l => l.workout_exercise_id === ex.id && l.is_completed).length || 0);
+                        const status = getExerciseStatus(ex, logCount);
+                        const isDuration = !!ex.prescribed_duration_seconds && ex.prescribed_duration_seconds > 0;
+                        const durationLabel = isDuration
+                          ? `${Math.floor(ex.prescribed_duration_seconds! / 60).toString().padStart(2, '0')}:${(ex.prescribed_duration_seconds! % 60).toString().padStart(2, '0')}`
+                          : null;
+                        const repsCount = ex.prescribed_reps_max
+                          ? `${ex.prescribed_reps_min ?? ex.prescribed_reps_max}-${ex.prescribed_reps_max}`
+                          : `${ex.prescribed_reps_min ?? 0}`;
+                        return (
+                          <motion.button
+                            key={ex.id}
+                            type="button"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.1 + idx * 0.04 }}
+                            onClick={() => {
+                              setSelectedExercise(ex);
+                              setSheetOpen(true);
+                            }}
+                            className={cn(
+                              "w-full flex items-center gap-3 p-3 text-left hover:bg-app-muted/40 transition-colors",
+                              status === 'in_progress' && "bg-app-accent/5",
+                              status === 'completed' && "opacity-60"
                             )}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-app-foreground">{ex.exercises?.name}</p>
-                            <p className="text-sm text-app-muted-foreground">
-                              {ex.prescribed_sets} set × {repsLabel}
-                              {logCount > 0 && ` • ${logCount}/${ex.prescribed_sets} completati`}
-                            </p>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
+                          >
+                            {/* Thumbnail */}
+                            <div className={cn(
+                              "w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-app-muted border-2",
+                              status === 'in_progress' ? "border-app-accent" : "border-transparent"
+                            )}>
+                              {ex.exercises?.image_url ? (
+                                <img
+                                  src={ex.exercises.image_url}
+                                  alt={ex.exercises.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Dumbbell className="h-6 w-6 text-app-muted-foreground/60" />
+                              )}
+                            </div>
+
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-app-foreground truncate">
+                                {ex.exercises?.name}
+                              </p>
+                              <div className="flex items-center gap-1.5 text-sm text-app-muted-foreground mt-0.5">
+                                {isDuration ? (
+                                  <>
+                                    <Clock className="h-3.5 w-3.5" />
+                                    <span className="tabular-nums">{durationLabel}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Repeat className="h-3.5 w-3.5" />
+                                    <span className="tabular-nums">×{repsCount}</span>
+                                  </>
+                                )}
+                                {status === 'in_progress' && (
+                                  <span className="ml-1 text-xs text-app-accent font-medium">
+                                    · {logCount}/{ex.prescribed_sets}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Status indicator */}
+                            <div className="flex-shrink-0 flex items-center gap-1">
+                              {status === 'completed' ? (
+                                <CheckCircle2 className="h-5 w-5 text-app-accent" />
+                              ) : status === 'in_progress' ? (
+                                <span className="h-2.5 w-2.5 rounded-full bg-app-accent animate-pulse" />
+                              ) : (
+                                <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+                              )}
+                            </div>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               });
@@ -646,6 +807,57 @@ export function AtletaWorkoutDetailPage() {
             </Button>
           </motion.div>
         </div>
+
+        {/* Exercise detail sheet */}
+        <AtletaExerciseDetailSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          exercise={selectedExercise as any}
+          completedSetsForEx={selectedExercise ? completedSets[selectedExercise.id] || [] : []}
+          status={
+            selectedExercise
+              ? getExerciseStatus(
+                  selectedExercise,
+                  completedSets[selectedExercise.id]?.length || 0
+                )
+              : 'not_started'
+          }
+          onStart={() => selectedExercise && handleStartFromSheet(selectedExercise)}
+          onMarkAllCompleted={() =>
+            selectedExercise ? handleMarkAllCompleted(selectedExercise) : Promise.resolve()
+          }
+        />
+
+        {/* Confirm mark-as-completed dialog */}
+        <AlertDialog open={confirmMarkOpen} onOpenChange={setConfirmMarkOpen}>
+          <AlertDialogContent className="bg-app-card border-app-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-app-foreground">
+                Segnare come completato?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-app-muted-foreground">
+                Vuoi segnare questo esercizio come completato? Tutti i set verranno
+                registrati con i valori prescritti.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-app-muted text-app-foreground border-app-border">
+                Annulla
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (pendingMarkExercise) {
+                    await performMarkAllCompleted(pendingMarkExercise);
+                    setPendingMarkExercise(null);
+                  }
+                }}
+                className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+              >
+                Conferma
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </motion.div>
     );
   }
