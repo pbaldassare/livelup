@@ -34,15 +34,23 @@ export type ParamField = {
   hint?: string;
 };
 
+export type ProtocolSection = {
+  coachSets: string[];
+  athleteDoes: string[];
+  systemTracks: string[];
+  example: string[];
+};
+
 export type ProtocolDefinition = {
   type: ProtocolType;
   label: string; // PT-facing technical label
   athleteLabel: string; // soft label shown to atleta
   icon: LucideIcon;
-  description: string; // for ⓘ popover
+  description: string; // for ⓘ popover (descrizione base, breve)
   defaultParams: ProtocolParams;
   paramFields: ParamField[];
   executionMode: 'standard' | 'rounds' | 'amrap'; // hint for atleta UI
+  sections?: ProtocolSection; // dettaglio esteso per tab Protocolli
 };
 
 export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
@@ -52,7 +60,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     athleteLabel: 'Serie e ripetizioni',
     icon: Layers,
     description:
-      'Esercizio standard con serie e ripetizioni (o secondi) fisse. Ogni serie ha il proprio tempo di recupero. Usa "Ripetizioni" oppure "Tempo (s)", non entrambi.',
+      'Esercizio singolo con serie e ripetizioni (o secondi) fisse. Ogni serie ha il proprio tempo di recupero.',
     defaultParams: { sets: 3, reps: 10, duration_seconds: null, rest_seconds: 60, weight: null },
     paramFields: [
       { key: 'sets', label: 'Serie', type: 'number', min: 1, placeholder: '3' },
@@ -62,6 +70,32 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       { key: 'rest_seconds', label: 'Recupero (s)', type: 'number', min: 0, step: 15, placeholder: '60' },
     ],
     executionMode: 'standard',
+    sections: {
+      coachSets: [
+        'Esercizio',
+        'Numero di serie',
+        'Ripetizioni o secondi di tenuta',
+        'Carico (kg) se applicabile',
+        'Tempo di recupero tra le serie',
+        'Note libere',
+      ],
+      athleteDoes: [
+        'Inserisce il dato tracciato (kg / reps / secondi)',
+        'Avvia il timer del recupero al termine di ogni serie',
+        'Prosegue fino al completamento delle serie previste',
+      ],
+      systemTracks: [
+        'Carico, reps e recupero per ogni serie',
+        'Storico delle progressioni nel tempo',
+      ],
+      example: [
+        'Panca piana',
+        '4 serie',
+        '10 ripetizioni',
+        '60 kg',
+        '90 secondi recupero',
+      ],
+    },
   },
   TOP_SET_BACKOFF: {
     type: 'TOP_SET_BACKOFF',
