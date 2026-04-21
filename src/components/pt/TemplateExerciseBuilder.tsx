@@ -50,6 +50,7 @@ import {
   MoveRight,
 } from 'lucide-react';
 import { ImageUpload } from '@/components/common/ImageUpload';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
