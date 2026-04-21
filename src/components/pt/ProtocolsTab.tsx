@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Info, Sparkles } from 'lucide-react';
+import { Info, Sparkles, ClipboardList, User, Database, Lightbulb, Check } from 'lucide-react';
 import { PROTOCOL_REGISTRY, type ProtocolType } from '@/lib/protocols/registry';
 
 // =====================================================
@@ -63,8 +63,37 @@ function ProtocolCard({ type, comingSoon = false }: ProtocolCardProps) {
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         <p className="text-sm text-muted-foreground leading-relaxed">{def.description}</p>
+
+        {!comingSoon && def.sections && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SectionBlock
+              icon={ClipboardList}
+              title="Cosa imposta il Coach"
+              items={def.sections.coachSets}
+              tone="primary"
+            />
+            <SectionBlock
+              icon={User}
+              title="Cosa fa l'atleta"
+              items={def.sections.athleteDoes}
+              tone="accent"
+            />
+            <SectionBlock
+              icon={Database}
+              title="Cosa traccia il sistema"
+              items={def.sections.systemTracks}
+              tone="muted"
+            />
+            <SectionBlock
+              icon={Lightbulb}
+              title="Esempio pratico"
+              items={def.sections.example}
+              tone="example"
+            />
+          </div>
+        )}
 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
@@ -80,6 +109,48 @@ function ProtocolCard({ type, comingSoon = false }: ProtocolCardProps) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+interface SectionBlockProps {
+  icon: typeof ClipboardList;
+  title: string;
+  items: string[];
+  tone: 'primary' | 'accent' | 'muted' | 'example';
+}
+
+function SectionBlock({ icon: Icon, title, items, tone }: SectionBlockProps) {
+  const toneClasses = {
+    primary: 'bg-primary/5 border-primary/20 text-primary',
+    accent: 'bg-accent/40 border-border text-foreground',
+    muted: 'bg-muted/50 border-border text-foreground',
+    example: 'bg-secondary/40 border-border text-foreground',
+  }[tone];
+
+  const iconBg = {
+    primary: 'bg-primary/10 text-primary',
+    accent: 'bg-foreground/10 text-foreground',
+    muted: 'bg-foreground/10 text-foreground',
+    example: 'bg-foreground/10 text-foreground',
+  }[tone];
+
+  return (
+    <div className={`rounded-lg border p-3 ${toneClasses}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className={`flex h-6 w-6 items-center justify-center rounded ${iconBg}`}>
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">{title}</h4>
+      </div>
+      <ul className="space-y-1.5">
+        {items.map((it, i) => (
+          <li key={i} className="flex items-start gap-2 text-sm text-foreground/80">
+            <Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+            <span className="leading-snug">{it}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
