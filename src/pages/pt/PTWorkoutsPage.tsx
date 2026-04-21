@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { MultiSelectSearch } from '@/components/common/MultiSelectSearch';
 
 import { InlineEditText, InlineEditSelect } from '@/components/dashboard/InlineEditCells';
 import { 
@@ -52,6 +53,19 @@ import { toast } from 'sonner';
 // PT WORKOUTS PAGE - Gestione Allenamenti
 // Solo per ruolo: pt (web dashboard)
 // =====================================================
+
+const MUSCLE_GROUP_OPTIONS = [
+  { id: 'petto', name: 'Petto' },
+  { id: 'schiena', name: 'Schiena' },
+  { id: 'gambe', name: 'Gambe' },
+  { id: 'spalle', name: 'Spalle' },
+  { id: 'braccia', name: 'Braccia' },
+  { id: 'core', name: 'Core' },
+  { id: 'glutei', name: 'Glutei' },
+  { id: 'addominali', name: 'Addominali' },
+  { id: 'cardio', name: 'Cardio' },
+  { id: 'full body', name: 'Full Body' },
+];
 
 interface WorkoutTemplate {
   id: string;
@@ -89,12 +103,20 @@ export function PTWorkoutsPage() {
   const [deleteExerciseId, setDeleteExerciseId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [editExercisesDialogOpen, setEditExercisesDialogOpen] = useState(false);
-  const [newTemplate, setNewTemplate] = useState({
+  const [newTemplate, setNewTemplate] = useState<{
+    title: string;
+    description: string;
+    difficulty_level: string;
+    category: string;
+    estimated_duration: number;
+    muscle_groups: string[];
+  }>({
     title: '',
     description: '',
     difficulty_level: 'intermedio',
     category: '',
     estimated_duration: 60,
+    muscle_groups: [],
   });
 
   // Fetch templates
@@ -154,19 +176,22 @@ export function PTWorkoutsPage() {
   const createTemplateMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
+      if (!newTemplate.title.trim()) throw new Error('Inserisci un titolo');
+      if (newTemplate.muscle_groups.length === 0) throw new Error('Seleziona almeno un gruppo muscolare');
 
       // 1. Crea la scheda
       const { data: created, error } = await supabase
         .from('workout_templates')
         .insert({
           pt_user_id: user.id,
-          title: newTemplate.title,
+          title: newTemplate.title.trim(),
           description: newTemplate.description || null,
           difficulty_level: newTemplate.difficulty_level as 'principiante' | 'intermedio' | 'avanzato',
           category: newTemplate.category || null,
           estimated_duration: newTemplate.estimated_duration,
+          muscle_groups: newTemplate.muscle_groups,
           is_public: false,
-        })
+        } as any)
         .select()
         .single();
 
@@ -184,7 +209,6 @@ export function PTWorkoutsPage() {
         });
 
       if (blockError) {
-        // Non bloccare se il blocco fallisce - l'utente potrà aggiungerlo manualmente
         console.warn('Errore creazione blocco default:', blockError);
       }
 
@@ -200,12 +224,12 @@ export function PTWorkoutsPage() {
         difficulty_level: 'intermedio',
         category: '',
         estimated_duration: 60,
+        muscle_groups: [],
       });
-      // Redirect immediato al builder
       navigate(`/pt/templates/${created.id}`);
     },
-    onError: () => {
-      toast.error('Errore durante la creazione della scheda');
+    onError: (e: any) => {
+      toast.error(e?.message || 'Errore durante la creazione della scheda');
     },
   });
 
@@ -517,26 +541,49 @@ export function PTWorkoutsPage() {
           <DialogHeader>
             <DialogTitle>Step 1 — Informazioni base</DialogTitle>
             <DialogDescription>
-              Dai un nome alla scheda. Subito dopo entrerai nel builder con un blocco SET già pronto.
+              Definisci i dati generali della scheda. Subito dopo entrerai nel builder con un blocco SET già pronto.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label htmlFor="title">Nome scheda *</Label>
+                <Label htmlFor="title">Titolo scheda <span className="text-destructive">*</span></Label>
                 <Input
                   id="title"
                   autoFocus
                   value={newTemplate.title}
                   onChange={(e) => setNewTemplate({ ...newTemplate, title: e.target.value })}
                   placeholder="Es: Full Body Principiante"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newTemplate.title && !createTemplateMutation.isPending) {
-                      createTemplateMutation.mutate();
-                    }
-                  }}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>Gruppi muscolari coinvolti <span className="text-destructive">*</span></Label>
+                <MultiSelectSearch
+                  options={MUSCLE_GROUP_OPTIONS}
+                  selected={newTemplate.muscle_groups}
+                  onChange={(v) => setNewTemplate({ ...newTemplate, muscle_groups: v })}
+                  placeholder="Seleziona gruppi muscolari..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="difficulty">Difficoltà <span className="text-destructive">*</span></Label>
+                <Select
+                  value={newTemplate.difficulty_level}
+                  onValueChange={(v) => setNewTemplate({ ...newTemplate, difficulty_level: v })}
+                >
+                  <SelectTrigger id="difficulty">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="principiante">Principiante</SelectItem>
+                    <SelectItem value="intermedio">Intermedio</SelectItem>
+                    <SelectItem value="avanzato">Avanzato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="description">Descrizione (opzionale)</Label>
                 <Textarea
@@ -544,11 +591,12 @@ export function PTWorkoutsPage() {
                   value={newTemplate.description}
                   onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
                   placeholder="Breve descrizione dell'allenamento..."
-                  className="min-h-[80px]"
+                  className="min-h-[70px]"
                 />
               </div>
+
               <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
-                💡 I dettagli avanzati (difficoltà, durata, categoria) si possono modificare in qualsiasi momento dalla scheda.
+                💡 Categoria e durata sono modificabili in qualsiasi momento dalla scheda.
               </div>
             </div>
           </div>
@@ -558,9 +606,13 @@ export function PTWorkoutsPage() {
             </Button>
             <Button
               onClick={() => createTemplateMutation.mutate()}
-              disabled={!newTemplate.title || createTemplateMutation.isPending}
+              disabled={
+                !newTemplate.title.trim() ||
+                newTemplate.muscle_groups.length === 0 ||
+                createTemplateMutation.isPending
+              }
             >
-              Inizia a costruire la scheda
+              Continua
             </Button>
           </div>
         </DialogContent>
