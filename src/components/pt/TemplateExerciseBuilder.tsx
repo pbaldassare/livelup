@@ -145,17 +145,25 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
     enabled: !!templateId,
   });
 
-  // Add exercise mutation — eredita params dal blocco se presenti (es. SET)
+  // Add exercise mutation — eredita params dal blocco e materializza sets_data
   const addExerciseMutation = useMutation({
     mutationFn: async (exercise: Exercise) => {
-      const maxOrder = templateExercises.length > 0 
-        ? Math.max(...templateExercises.map(te => te.order_index)) + 1 
+      const maxOrder = templateExercises.length > 0
+        ? Math.max(...templateExercises.map((te) => te.order_index)) + 1
         : 0;
 
       const sets = blockParams?.sets ?? 3;
       const repsVal = blockParams?.reps ?? null;
       const dur = blockParams?.duration_seconds ?? null;
       const rest = blockParams?.rest_seconds ?? 60;
+      const weight = blockParams?.weight ?? null;
+
+      // Genera sets_data con N copie dai default del blocco
+      const sets_data: SetItem[] = Array.from({ length: Math.max(1, sets) }).map(() => ({
+        reps: dur != null ? null : (repsVal ?? 10),
+        weight: weight ?? null,
+        rest_seconds: rest,
+      }));
 
       const { error } = await supabase
         .from('template_exercises')
@@ -164,14 +172,14 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
           exercise_id: exercise.id,
           order_index: maxOrder,
           sets,
-          // se il blocco usa tempo, lascia reps a null e viceversa
           reps_min: dur != null ? null : (repsVal ?? 10),
           reps_max: dur != null ? null : (repsVal ? null : 12),
           rest_seconds: rest,
           prescribed_duration_seconds: dur,
+          sets_data: sets_data as any,
           block_id: blockId ?? null,
-        });
-      
+        } as any);
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -181,18 +189,18 @@ export function TemplateExerciseBuilder({ templateId, blockId, blockParams, bloc
       setSearchOpen(false);
     },
     onError: () => {
-      toast.error('Errore durante l\'aggiunta');
+      toast.error("Errore durante l'aggiunta");
     },
   });
 
-  // Update exercise mutation
+  // Update exercise (campi piatti / note / tempo)
   const updateExerciseMutation = useMutation({
     mutationFn: async ({ id, ...data }: { id: string; sets?: number; reps_min?: number; reps_max?: number; rest_seconds?: number; notes?: string | null; tempo?: string | null }) => {
       const { error } = await supabase
         .from('template_exercises')
         .update(data)
         .eq('id', id);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
