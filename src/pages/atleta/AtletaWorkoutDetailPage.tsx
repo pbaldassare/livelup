@@ -807,6 +807,57 @@ export function AtletaWorkoutDetailPage() {
             </Button>
           </motion.div>
         </div>
+
+        {/* Exercise detail sheet */}
+        <AtletaExerciseDetailSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          exercise={selectedExercise as any}
+          completedSetsForEx={selectedExercise ? completedSets[selectedExercise.id] || [] : []}
+          status={
+            selectedExercise
+              ? getExerciseStatus(
+                  selectedExercise,
+                  completedSets[selectedExercise.id]?.length || 0
+                )
+              : 'not_started'
+          }
+          onStart={() => selectedExercise && handleStartFromSheet(selectedExercise)}
+          onMarkAllCompleted={() =>
+            selectedExercise ? handleMarkAllCompleted(selectedExercise) : Promise.resolve()
+          }
+        />
+
+        {/* Confirm mark-as-completed dialog */}
+        <AlertDialog open={confirmMarkOpen} onOpenChange={setConfirmMarkOpen}>
+          <AlertDialogContent className="bg-app-card border-app-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-app-foreground">
+                Segnare come completato?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-app-muted-foreground">
+                Vuoi segnare questo esercizio come completato? Tutti i set verranno
+                registrati con i valori prescritti.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-app-muted text-app-foreground border-app-border">
+                Annulla
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (pendingMarkExercise) {
+                    await performMarkAllCompleted(pendingMarkExercise);
+                    setPendingMarkExercise(null);
+                  }
+                }}
+                className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+              >
+                Conferma
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </motion.div>
     );
   }
