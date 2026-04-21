@@ -63,6 +63,7 @@ import PTPaymentsPage from "./pages/pt/PTPaymentsPage";
 import PTSettingsPage from "./pages/pt/PTSettingsPage";
 import PTBlogPage from "./pages/pt/PTBlogPage";
 import PTCouponsPage from "./pages/pt/PTCouponsPage";
+import PTExercisesArchivePage from "./pages/pt/PTExercisesArchivePage";
 
 // PT App pages (Mobile/PWA)
 import PTAppHome from "./pages/pt/PTAppHome";
@@ -318,6 +319,13 @@ const App = () => {
                 <PTDashboardRoute>
                   <PTDashboardLayout>
                     <PTCouponsPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/exercises" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTExercisesArchivePage />
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />

@@ -17,8 +17,9 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Search, Video, Dumbbell, ExternalLink } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Video, Library, ExternalLink, Eye } from 'lucide-react';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
+import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
 
 type Exercise = {
   id: string;
@@ -71,6 +72,7 @@ export default function AdminExercisesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [previewExercise, setPreviewExercise] = useState<Exercise | null>(null);
 
   const { data: exercises = [], isLoading } = useQuery({
     queryKey: ['admin-exercises'],
@@ -88,15 +90,16 @@ export default function AdminExercisesPage() {
   const upsertMutation = useMutation({
     mutationFn: async (values: typeof form & { id?: string }) => {
       const payload = {
-        name: values.name,
-        description: values.description || null,
+        name: values.name.trim(),
+        description: values.description.trim() || null,
         category: values.category,
         muscle_groups: values.muscle_groups,
-        difficulty_level: values.difficulty_level as 'principiante' | 'intermedio' | 'avanzato' | 'agonista',
-        video_url: values.video_url || null,
-        image_url: values.image_url || null,
-        instructions: values.instructions || null,
+        difficulty_level: values.difficulty_level as 'principiante' | 'intermedio' | 'avanzato',
+        video_url: values.video_url.trim() || null,
+        image_url: values.image_url.trim() || null,
+        instructions: values.instructions.trim(),
         is_public: true,
+        created_by: null as string | null,
       };
 
       if (values.id) {
@@ -157,8 +160,37 @@ export default function AdminExercisesPage() {
   };
 
   const handleSubmit = () => {
-    if (!form.name.trim()) {
+    const name = form.name.trim();
+    const instructions = form.instructions.trim();
+    const description = form.description.trim();
+    const videoUrl = form.video_url.trim();
+
+    if (!name) {
       toast.error('Il nome è obbligatorio');
+      return;
+    }
+    if (name.length > 120) {
+      toast.error('Il nome non può superare 120 caratteri');
+      return;
+    }
+    if (!instructions) {
+      toast.error('Le istruzioni di esecuzione sono obbligatorie');
+      return;
+    }
+    if (instructions.length > 4000) {
+      toast.error('Le istruzioni non possono superare 4000 caratteri');
+      return;
+    }
+    if (description.length > 2000) {
+      toast.error('I consigli non possono superare 2000 caratteri');
+      return;
+    }
+    if (!['principiante', 'intermedio', 'avanzato'].includes(form.difficulty_level)) {
+      toast.error('Seleziona un livello di difficoltà valido');
+      return;
+    }
+    if (videoUrl && !/^https?:\/\//i.test(videoUrl)) {
+      toast.error('Il video deve iniziare con http:// o https://');
       return;
     }
     upsertMutation.mutate(editingId ? { ...form, id: editingId } : form);
@@ -182,8 +214,8 @@ export default function AdminExercisesPage() {
   return (
     <div className="space-y-6">
       <DashboardPageHeader
-        title="Libreria Esercizi"
-        subtitle="Gestisci gli esercizi disponibili per tutti i Personal Trainer"
+        title="Archivio Esercizi"
+        subtitle="Catalogo ufficiale della piattaforma — gestione esercizi"
       />
 
       {/* Filters + Add */}
@@ -221,7 +253,7 @@ export default function AdminExercisesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Dumbbell className="h-5 w-5" />
+            <Library className="h-5 w-5" />
             Esercizi ({filtered.length})
           </CardTitle>
         </CardHeader>
@@ -279,10 +311,13 @@ export default function AdminExercisesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => openEdit(ex)}>
+                        <Button size="icon" variant="ghost" onClick={() => setPreviewExercise(ex)} title="Anteprima">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(ex)} title="Modifica">
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setDeleteId(ex.id)}>
+                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setDeleteId(ex.id)} title="Elimina">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -304,11 +339,11 @@ export default function AdminExercisesPage() {
           <div className="space-y-4">
             <div>
               <Label>Nome *</Label>
-              <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+              <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} maxLength={120} />
             </div>
             <div>
-              <Label>Descrizione</Label>
-              <Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={2} />
+              <Label>Consigli aggiuntivi (opzionale)</Label>
+              <Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={2} maxLength={2000} placeholder="Suggerimenti, note..." />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -362,12 +397,13 @@ export default function AdminExercisesPage() {
               />
             </div>
             <div>
-              <Label>Istruzioni</Label>
+              <Label>Esecuzione *</Label>
               <Textarea
                 value={form.instructions}
                 onChange={e => setForm(p => ({ ...p, instructions: e.target.value }))}
-                rows={3}
-                placeholder="Descrivi l'esecuzione corretta..."
+                rows={4}
+                maxLength={4000}
+                placeholder="Descrivi l'esecuzione corretta dell'esercizio..."
               />
             </div>
           </div>
@@ -401,6 +437,13 @@ export default function AdminExercisesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Preview Dialog */}
+      <ExerciseDetailDialog
+        exercise={previewExercise}
+        open={!!previewExercise}
+        onOpenChange={(o) => !o && setPreviewExercise(null)}
+      />
     </div>
   );
 }
