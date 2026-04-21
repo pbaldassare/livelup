@@ -2259,6 +2259,7 @@ export type Database = {
           reps_min: number | null
           rest_seconds: number | null
           sets: number
+          sets_data: Json | null
           template_id: string
           tempo: string | null
         }
@@ -2274,6 +2275,7 @@ export type Database = {
           reps_min?: number | null
           rest_seconds?: number | null
           sets?: number
+          sets_data?: Json | null
           template_id: string
           tempo?: string | null
         }
@@ -2289,6 +2291,7 @@ export type Database = {
           reps_min?: number | null
           rest_seconds?: number | null
           sets?: number
+          sets_data?: Json | null
           template_id?: string
           tempo?: string | null
         }
@@ -2436,6 +2439,7 @@ export type Database = {
           prescribed_sets: number
           prescribed_weight: number | null
           rest_seconds: number | null
+          sets_data: Json | null
           workout_id: string
         }
         Insert: {
@@ -2451,6 +2455,7 @@ export type Database = {
           prescribed_sets?: number
           prescribed_weight?: number | null
           rest_seconds?: number | null
+          sets_data?: Json | null
           workout_id: string
         }
         Update: {
@@ -2466,6 +2471,7 @@ export type Database = {
           prescribed_sets?: number
           prescribed_weight?: number | null
           rest_seconds?: number | null
+          sets_data?: Json | null
           workout_id?: string
         }
         Relationships: [
@@ -2593,6 +2599,7 @@ export type Database = {
           estimated_duration: number | null
           id: string
           is_public: boolean
+          muscle_groups: string[]
           pt_user_id: string
           tags: string[] | null
           title: string
@@ -2606,6 +2613,7 @@ export type Database = {
           estimated_duration?: number | null
           id?: string
           is_public?: boolean
+          muscle_groups?: string[]
           pt_user_id: string
           tags?: string[] | null
           title: string
@@ -2619,6 +2627,7 @@ export type Database = {
           estimated_duration?: number | null
           id?: string
           is_public?: boolean
+          muscle_groups?: string[]
           pt_user_id?: string
           tags?: string[] | null
           title?: string
