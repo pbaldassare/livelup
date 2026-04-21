@@ -602,12 +602,119 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                   const isSetBased = ptype === 'SET' || ptype === 'RAMPING' || ptype === 'TOP_SET_BACKOFF';
                                   if (isSetBased) {
                                     return (
-                                      <SetsTable
-                                        te={te}
-                                        onChange={(sets_data) =>
-                                          updateSetsMutation.mutate({ id: te.id, sets_data })
-                                        }
-                                      />
+                                      <>
+                                        {ptype === 'TOP_SET_BACKOFF' && (() => {
+                                          const params = (te.protocol_params as ProtocolParams) || {};
+                                          const backoffEnabled = params.backoff_enabled !== false;
+                                          const updateParam = (key: keyof ProtocolParams, value: number | boolean | null) => {
+                                            const next = { ...params, [key]: value } as ProtocolParams;
+                                            updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                          };
+                                          return (
+                                            <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+                                              <p className="text-xs font-medium text-muted-foreground">
+                                                Parametri Top Set + Back Off
+                                              </p>
+                                              {/* Top Set */}
+                                              <div className="space-y-2">
+                                                <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/80">Top Set</p>
+                                                <div className="grid grid-cols-3 gap-3">
+                                                  <div className="space-y-1">
+                                                    <Label className="text-xs">Serie</Label>
+                                                    <Input
+                                                      type="number"
+                                                      min={1}
+                                                      placeholder="1"
+                                                      value={params.top_sets ?? ''}
+                                                      onChange={(e) => updateParam('top_sets', e.target.value === '' ? null : Number(e.target.value))}
+                                                      className="h-8"
+                                                    />
+                                                  </div>
+                                                  <div className="space-y-1">
+                                                    <Label className="text-xs">Reps</Label>
+                                                    <Input
+                                                      type="number"
+                                                      min={1}
+                                                      placeholder="5"
+                                                      value={params.top_reps ?? ''}
+                                                      onChange={(e) => updateParam('top_reps', e.target.value === '' ? null : Number(e.target.value))}
+                                                      className="h-8"
+                                                    />
+                                                  </div>
+                                                  <div className="space-y-1">
+                                                    <Label className="text-xs">Recupero (s)</Label>
+                                                    <Input
+                                                      type="number"
+                                                      min={0}
+                                                      step={15}
+                                                      placeholder="120"
+                                                      value={params.top_rest ?? ''}
+                                                      onChange={(e) => updateParam('top_rest', e.target.value === '' ? null : Number(e.target.value))}
+                                                      className="h-8"
+                                                    />
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              {/* Back Off toggle */}
+                                              <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/50 px-3 py-2">
+                                                <div>
+                                                  <p className="text-xs font-semibold">Back Off</p>
+                                                  <p className="text-[10px] text-muted-foreground">Serie di scarico a carico ridotto</p>
+                                                </div>
+                                                <Switch
+                                                  checked={backoffEnabled}
+                                                  onCheckedChange={(checked) => updateParam('backoff_enabled', checked)}
+                                                />
+                                              </div>
+                                              {/* Back Off params */}
+                                              {backoffEnabled && (
+                                                <div className="grid grid-cols-3 gap-3">
+                                                  <div className="space-y-1">
+                                                    <Label className="text-xs">Serie</Label>
+                                                    <Input
+                                                      type="number"
+                                                      min={1}
+                                                      placeholder="3"
+                                                      value={params.backoff_sets ?? ''}
+                                                      onChange={(e) => updateParam('backoff_sets', e.target.value === '' ? null : Number(e.target.value))}
+                                                      className="h-8"
+                                                    />
+                                                  </div>
+                                                  <div className="space-y-1">
+                                                    <Label className="text-xs">Reps</Label>
+                                                    <Input
+                                                      type="number"
+                                                      min={1}
+                                                      placeholder="8"
+                                                      value={params.backoff_reps ?? ''}
+                                                      onChange={(e) => updateParam('backoff_reps', e.target.value === '' ? null : Number(e.target.value))}
+                                                      className="h-8"
+                                                    />
+                                                  </div>
+                                                  <div className="space-y-1">
+                                                    <Label className="text-xs">% riduzione</Label>
+                                                    <Input
+                                                      type="number"
+                                                      min={1}
+                                                      max={90}
+                                                      placeholder="20"
+                                                      value={params.backoff_percentage ?? ''}
+                                                      onChange={(e) => updateParam('backoff_percentage', e.target.value === '' ? null : Number(e.target.value))}
+                                                      className="h-8"
+                                                    />
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+                                        <SetsTable
+                                          te={te}
+                                          onChange={(sets_data) =>
+                                            updateSetsMutation.mutate({ id: te.id, sets_data })
+                                          }
+                                        />
+                                      </>
                                     );
                                   }
                                   // Protocolli non-set-based: render dei paramFields
