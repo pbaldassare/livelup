@@ -359,6 +359,7 @@ export function AssignWorkoutDialog({
           templateId,
           scheduledDate: date.toISOString(),
           exercises: exercisesPayload,
+          blocks: blocksPayload,
         });
         created++;
       }
