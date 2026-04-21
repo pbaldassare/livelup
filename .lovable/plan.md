@@ -1,109 +1,109 @@
 
 
-## Piano: builder scheda con esercizi liberi + circuiti opzionali
+## Piano: nuova sezione "Archivio Esercizi" (Admin CRUD + PT read-only)
 
 ### Obiettivo
-Allineare completamente il builder PT alla nuova logica: esercizi liberi (fuori circuito) come default, circuiti come raggruppamenti opzionali, protocollo SET configurabile per esercizio con set orizzontali. Tutto già supportato lato dati (migration `protocol_type`/`protocol_params` + `block_id` nullable già applicata) — questo step rifinisce UI/UX e validazioni.
+Introdurre una sezione globale **Archivio Esercizi** accessibile sia ad Admin (full CRUD) che a PT (sola lettura/consultazione). L'archivio è il catalogo unico ufficiale, separato logicamente dal builder schede: il PT può consultarlo per ispirazione, ma per costruire schede continua a usare la libreria esistente nel builder (regola: l'archivio NON è un picker per le schede).
 
 ---
 
-### Stato attuale (cosa già esiste)
-- ✅ DB: colonne `protocol_type`, `protocol_params` su `template_exercises` e `workout_exercises`; `block_id` nullable.
-- ✅ `TemplateBlockBuilder.tsx`: ha la sezione "Esercizi singoli" e i circuiti.
-- ✅ `TemplateExerciseBuilder.tsx`: dropdown protocollo + tabella set orizzontale (`SetsTable`).
-- ✅ Step iniziale "Crea Scheda" (titolo, gruppi muscolari, difficoltà) già presente nel dialog di creazione.
-- ⚠️ Mancano: validazioni visive, polish UX, drag&drop cross-circuito robusto, etichette ancora residue "Blocco", warning su scheda vuota.
+### Stato attuale (riuso)
+- ✅ Tabella `exercises` (DB) con tutti i campi necessari: `name`, `description`, `instructions`, `video_url`, `image_url`, `difficulty_level`, `is_public`, `created_by`.
+- ✅ RLS già corrette: PT può SELECT su esercizi pubblici, solo admin può INSERT/UPDATE/DELETE quelli globali.
+- ✅ `AdminExercisesPage` esiste già con CRUD completo → la rinominiamo "Archivio Esercizi" e la rendiamo sorgente unica anche per il PT.
+- ❌ Manca: voce sidebar PT, route `/pt/exercises`, pagina PT read-only, componente di dettaglio esercizio condiviso.
 
 ---
 
 ### Modifiche
 
-**1. `src/components/pt/TemplateBlockBuilder.tsx`** — polish UX e validazioni
-- Sostituire ogni residuo "Blocco" → "Circuito" nelle label/empty state/conferme.
-- Sezione "Esercizi liberi" sempre in cima con header chiaro: "Esercizi della scheda" + sottotitolo "Esercizi non raggruppati in un circuito".
-- Pulsanti top-bar coerenti: `[+ Aggiungi esercizio]` (azione primaria) e `[+ Aggiungi circuito]` (azione secondaria outline).
-- Empty state globale: se la scheda non ha né esercizi liberi né circuiti, mostrare card centrale con illustrazione + CTA "Aggiungi il primo esercizio".
-- Badge warning su circuiti vuoti (già parziale): rendere giallo con icona `AlertTriangle` + tooltip "Aggiungi almeno un esercizio o elimina il circuito".
-- Drag&drop cross-droppable: ogni circuito + la sezione "Liberi" sono droppable distinti; al drop aggiorna `block_id` (UUID o `null`) e ricalcola `order_index` per la destinazione.
-- Menu "Sposta in…" su ogni esercizio (fallback senza drag): voci = "Esercizi liberi" + lista circuiti, selezione aggiorna `block_id`.
+**1. Nuovo file `src/pages/pt/PTExercisesArchivePage.tsx`** (read-only per PT)
+- Stesso layout della pagina admin ma senza CTA "Aggiungi" / azioni "Modifica" / "Elimina".
+- Header: titolo "Archivio Esercizi", sottotitolo "Catalogo ufficiale della piattaforma — consultazione".
+- Filtri: ricerca testo, filtro **Difficoltà** (Principiante/Intermedio/Avanzato/tutte), filtro **Categoria**, filtro **Gruppo muscolare**.
+- Lista a card/tabella: nome, badge difficoltà colorato, badge categoria, preview muscoli, icona 🎬 se ha video, click → apre dettaglio.
+- Banner informativo in cima (sfumatura tenue): "L'archivio è solo consultazione. Per costruire schede usa il builder Allenamenti."
+- Query: legge da `exercises` con `is_public=true OR created_by IS NULL` (libreria globale ufficiale).
 
-**2. `src/components/pt/TemplateExerciseBuilder.tsx`** — rifinitura SET
-- Per `protocol_type='SET'` mostrare sempre la `SetsTable` orizzontale (intestazioni `Set 1 | Set 2 | …`, righe Reps / Kg / Rec).
-- Pulsanti tabella: `+ Aggiungi set` (duplica ultimo), `🗑` per riga set, edit inline numerico.
-- Warning inline rosso "Imposta almeno 1 set" se `sets_data` vuoto e nessun fallback dai campi legacy.
-- Mantenere render condizionale per protocolli avanzati (EMOM/AMRAP) — invariato.
+**2. Nuovo componente `src/components/exercises/ExerciseDetailDialog.tsx`** (riuso Admin + PT)
+- Dialog read-only che mostra: nome grande, badge difficoltà + categoria, gruppi muscolari, **descrizione esecuzione** (campo `instructions` — obbligatorio), **descrizione/consigli aggiuntivi** (campo `description` — opzionale), player video (se `video_url` presente, riusa `ExerciseVideoPlayer` con thumbnail YouTube + iframe), eventuale immagine.
+- Usato sia dalla pagina admin (link "Anteprima" accanto a "Modifica") sia dalla pagina PT (click su riga).
 
-**3. `src/pages/pt/PTTemplateDetailPage.tsx`** — validazioni a livello scheda
-- Banner in alto se la scheda non contiene esercizi: "Questa scheda è vuota. Aggiungi almeno un esercizio per poterla assegnare."
-- Conteggio chiaro nel sidebar: "Esercizi (X)" dove X è il totale (liberi + dentro circuiti). Sotto: "di cui in circuiti: Y".
-- Disabilitare il pulsante "Assegna ad atleta" finché la scheda è vuota (con tooltip esplicativo).
+**3. `src/pages/admin/AdminExercisesPage.tsx`** (refactor leggero)
+- Rinominare titolo: "Libreria Esercizi" → **"Archivio Esercizi"**.
+- Rendere campo **Istruzioni** obbligatorio nel form (validazione client + label con `*`).
+- Aggiungere validazione zod-like inline: nome (1–120 char), istruzioni (1–4000 char), `difficulty_level` ∈ `['principiante','intermedio','avanzato']`, `video_url` opzionale ma se presente deve iniziare per `http`.
+- Aggiungere bottone "Anteprima" (icona `Eye`) sulla riga, apre `ExerciseDetailDialog`.
+- Rimuovere `'agonista'` dalle opzioni difficoltà (non richiesto dalla nuova spec; lasciato in DB enum per retro-compat ma non selezionabile).
+- Quando admin crea/aggiorna, forzare `is_public=true` e `created_by=null` (esercizio ufficiale di archivio).
 
-**4. `src/components/pt/AssignWorkoutDialog.tsx`** (verifica già fatta) — assicurarsi che `protocol_type`, `protocol_params`, `sets_data`, `block_id` vengano copiati 1:1 da `template_exercises` a `workout_exercises` durante l'assegnazione. Patch solo se manca un campo.
+**4. `src/components/layouts/PTDashboardLayout.tsx`** — sidebar PT
+- Aggiungere nuova voce dopo "Allenamenti":
+  ```ts
+  { label: 'Archivio Esercizi', href: '/pt/exercises', icon: Library }
+  ```
+  (icona `Library` da `lucide-react`).
 
----
+**5. `src/components/layouts/AdminLayout.tsx`** — sidebar Admin
+- Rinominare voce esistente `'Esercizi'` → **`'Archivio Esercizi'`** (stessa route `/admin/exercises`, icona `Library`).
 
-### Struttura UI finale
-
-```text
-┌─ Builder scheda ──────────────────────────────────────┐
-│  [+ Aggiungi esercizio]   [+ Aggiungi circuito]       │
-│                                                       │
-│  ▸ Esercizi della scheda                              │
-│  ┌─ Panca Piana       [SET ▾]  [⋯ Sposta] [🗑]      │
-│  │  ┌────────┬────────┬────────┐  [+ Set]          │
-│  │  │ Set 1  │ Set 2  │ Set 3  │                   │
-│  │  │ R: 10  │ R: 8   │ R: 6   │                   │
-│  │  │ Kg:60  │ Kg:70  │ Kg:80  │                   │
-│  │  │ Rec:90 │ Rec:120│ Rec:120│                   │
-│  │  └────────┴────────┴────────┘                   │
-│  └────────────────────────────────────────────────   │
-│                                                       │
-│  ▸ Circuito A — "Finisher"  [✎] [🗑]  ⚠ se vuoto   │
-│  ┌─ Plank   [SET ▾] 3×60s ……                       │
-│  └─ Crunch  [SET ▾] 3×15  ……                       │
-│  [+ Aggiungi esercizio al circuito]                  │
-└──────────────────────────────────────────────────────┘
-```
+**6. `src/App.tsx`** — routing
+- Aggiungere import `PTExercisesArchivePage` e route protetta:
+  ```tsx
+  <Route path="/pt/exercises" element={
+    <PTDashboardRoute>
+      <PTDashboardLayout>
+        <PTExercisesArchivePage />
+      </PTDashboardLayout>
+    </PTDashboardRoute>
+  } />
+  ```
 
 ---
 
-### Validazioni
-| Caso | Tipo | Messaggio |
-|---|---|---|
-| Scheda con 0 esercizi | Errore (blocca assegnazione) | "Aggiungi almeno un esercizio per assegnare la scheda" |
-| Esercizio SET con 0 set | Warning inline | "Imposta almeno 1 set" |
-| Circuito vuoto | Warning badge | "Circuito vuoto — aggiungi un esercizio o eliminalo" |
-| Esercizio fuori circuito | OK (default) | nessun avviso |
+### Regole confermate (regola fondamentale)
+- L'**archivio NON è un picker** per le schede. Nel builder schede (`TemplateExerciseBuilder`) resta il selettore esistente che pesca da `exercises` (globali + privati del PT). L'archivio è solo lettura/consultazione.
+- Nessun concetto di "preferiti" introdotto in questo step (deferito): se il PT vuole "salvare" un esercizio dell'archivio, lo aggiunge dal builder come fa oggi. Il punto della separazione richiesta è chiarezza concettuale tra **catalogo ufficiale** (qui) e **uso operativo nel builder**.
 
 ---
 
-### Compatibilità retro
-- Nessuna nuova migration: usiamo schema già esistente.
-- Schede vecchie con `block_id` valorizzato → continuano a vedersi come "in circuito".
-- Schede vecchie con esercizi `block_id=null` → appaiono nella sezione "Esercizi della scheda".
-- Esercizi senza `sets_data` → `SetsTable` deriva i set dai campi legacy (`sets`, `reps_min`, `weight_kg`, `rest_seconds`).
+### Validazioni form (Admin)
+| Campo | Regola |
+|---|---|
+| `name` | obbligatorio, 1–120 char |
+| `instructions` (descrizione esecuzione) | **obbligatorio**, 1–4000 char |
+| `difficulty_level` | obbligatorio, uno di principiante/intermedio/avanzato |
+| `description` (consigli) | opzionale, max 2000 char |
+| `video_url` | opzionale, se presente deve iniziare per `http://` o `https://` |
+
+Errori mostrati come `toast.error` con messaggio localizzato.
 
 ---
 
-### File modificati
-- `src/components/pt/TemplateBlockBuilder.tsx` — polish UX, label "Circuito", drag&drop cross, menu Sposta, empty state
-- `src/components/pt/TemplateExerciseBuilder.tsx` — warning set vuoti, micro-rifiniture SetsTable
-- `src/pages/pt/PTTemplateDetailPage.tsx` — banner scheda vuota, contatori, gating assegnazione
-- `src/components/pt/AssignWorkoutDialog.tsx` — verifica copia integrale `protocol_*` + `sets_data` + `block_id`
+### File modificati / creati
+| File | Tipo |
+|---|---|
+| `src/pages/pt/PTExercisesArchivePage.tsx` | **nuovo** — pagina read-only PT |
+| `src/components/exercises/ExerciseDetailDialog.tsx` | **nuovo** — dialog dettaglio condiviso |
+| `src/pages/admin/AdminExercisesPage.tsx` | refactor: titolo, validazioni, bottone Anteprima, `is_public=true` forzato |
+| `src/components/layouts/PTDashboardLayout.tsx` | aggiunta voce sidebar |
+| `src/components/layouts/AdminLayout.tsx` | rename voce sidebar |
+| `src/App.tsx` | nuova route `/pt/exercises` |
 
 ---
 
 ### Checklist test
-1. Apro scheda nuova → vedo empty state + due CTA
-2. Click "Aggiungi esercizio" → finisce in "Esercizi della scheda", protocollo SET, tabella con 3 set default
-3. Modifico Set 1 reps/kg/rec → salvati indipendenti dagli altri
-4. Click "+ Set" → si aggiunge Set 4 duplicando Set 3
-5. Elimino Set 2 → restano 3 set rinumerati
-6. Click "Aggiungi circuito" → appare card vuota con badge warning "Vuoto"
-7. Trascino esercizio dentro circuito → `block_id` aggiornato, warning sparisce
-8. Uso menu "Sposta in… → Esercizi liberi" → torna fuori circuito
-9. Elimino circuito non vuoto → conferma + esercizi tornano liberi (non cancellati)
-10. Apro scheda vecchia → tutto si vede correttamente, niente regressioni
-11. Tento di assegnare scheda vuota → bottone disabilitato + tooltip
-12. Assegno scheda nuova ad atleta → workout creato con `protocol_type`, `protocol_params`, `sets_data`, `block_id` integrali
+1. Login Admin → sidebar mostra "Archivio Esercizi" → apro pagina, vedo CRUD completo.
+2. Creo esercizio senza istruzioni → toast errore "Le istruzioni sono obbligatorie".
+3. Creo esercizio valido → appare in lista, `is_public=true`, `created_by=null` (verificato via DB).
+4. Click "Anteprima" → si apre `ExerciseDetailDialog` con video YouTube embed funzionante.
+5. Modifico esercizio → salvataggio ok, lista aggiornata.
+6. Elimino esercizio → conferma + rimosso.
+7. Login PT → sidebar mostra nuova voce "Archivio Esercizi" → apro `/pt/exercises`.
+8. PT vede tutti gli 83 esercizi globali, NON vede bottoni Aggiungi/Modifica/Elimina.
+9. PT filtra per difficoltà = Avanzato → lista filtrata correttamente.
+10. PT cerca "panca" → match per nome.
+11. PT clicca riga → si apre dettaglio con video, istruzioni, consigli.
+12. PT va su `/pt/workouts` → builder schede continua a funzionare come prima (nessuna regressione).
+13. Tentativo PT di chiamare direttamente API update su esercizio globale → bloccato da RLS (verificato).
 
