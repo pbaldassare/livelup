@@ -40,6 +40,8 @@ import {
   Video,
 } from 'lucide-react';
 import { ProgramsTab } from '@/components/pt/ProgramsTab';
+import { ProtocolsTab } from '@/components/pt/ProtocolsTab';
+import { Sliders } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -705,6 +707,10 @@ export function PTWorkoutsPage() {
                 <BookOpen className="h-4 w-4" />
                 Esercizi ({exercises.length})
               </TabsTrigger>
+              <TabsTrigger value="protocols" className="gap-2">
+                <Sliders className="h-4 w-4" />
+                Protocolli
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="templates" className="mt-4">
               <DataTable
@@ -811,6 +817,9 @@ export function PTWorkoutsPage() {
                     ))}
                 </div>
               )}
+            </TabsContent>
+            <TabsContent value="protocols" className="mt-4">
+              <ProtocolsTab />
             </TabsContent>
           </Tabs>
         </CardContent>
