@@ -39,9 +39,13 @@ export type ProtocolParams = {
   paired_exercise_id?: string | null;
   internal_rest_seconds?: number | null;
   external_rest_seconds?: number | null;
+  // LADDER
+  ladder_steps?: number[] | null;
+  step_rest_seconds?: number | null;
+  set_rest_seconds?: number | null;
 };
 
-export type ParamFieldType = 'number' | 'text' | 'select' | 'exercise_select';
+export type ParamFieldType = 'number' | 'text' | 'select' | 'exercise_select' | 'number_list';
 
 export type ParamField = {
   key: string; // dot-path inside params, es. "sets" or "top_set.reps"
