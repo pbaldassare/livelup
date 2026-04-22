@@ -271,16 +271,41 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
   },
   AMRAP: {
     type: 'AMRAP',
-    label: 'AMRAP (As Many Rounds As Possible)',
-    athleteLabel: 'Più giri possibili',
+    label: 'AMRAP',
+    athleteLabel: 'Round a tempo',
     icon: InfinityIcon,
     description:
-      'AMRAP: completa più giri/ripetizioni possibili nel tempo a disposizione. Lavoro continuo, intensità auto-regolata. Ottimo per metcon e capacità di lavoro.',
-    defaultParams: { duration_seconds: 600 },
+      'Completa il maggior numero di round possibile entro il tempo stabilito. Conta ogni round completato.',
+    defaultParams: { duration_minutes: 10, reps: 10, note: '' },
     paramFields: [
-      { key: 'duration_seconds', label: 'Durata totale (s)', type: 'number', min: 30, step: 30, placeholder: '600' },
+      { key: 'duration_minutes', label: 'Durata (minuti)', type: 'number', min: 1, placeholder: '10' },
+      { key: 'reps', label: 'Ripetizioni per esercizio', type: 'number', min: 1, placeholder: '10' },
+      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. 10 squat + 10 push-up + 10 sit-up', hint: 'Indicazioni libere o lista esercizi del round' },
     ],
     executionMode: 'amrap',
+    sections: {
+      coachSets: [
+        'Tempo totale (in minuti)',
+        'Lista esercizi del round con relative ripetizioni',
+        'Note libere (opzionali)',
+      ],
+      athleteDoes: [
+        'Esegue il circuito di esercizi del round',
+        'Ripete il ciclo continuamente',
+        'Tocca "Round completato" al termine di ogni giro',
+        'Si ferma quando il tempo finisce',
+      ],
+      systemTracks: [
+        'Numero totale di round completati',
+        'Reps totali eseguite',
+        'Durata effettiva dell\'allenamento',
+      ],
+      example: [
+        'AMRAP 10 minuti',
+        '10 squat + 10 push-up + 10 sit-up',
+        '→ obiettivo: completare più round possibile',
+      ],
+    },
   },
 };
 
@@ -340,6 +365,7 @@ export function describeExerciseProtocol(
       if (p.rounds && p.interval_seconds) return `EMOM ${p.rounds}×${p.interval_seconds}s`;
       return 'EMOM';
     case 'AMRAP':
+      if (p.duration_minutes) return `AMRAP ${p.duration_minutes}'`;
       if (p.duration_seconds) {
         const m = Math.floor(p.duration_seconds / 60);
         const s = p.duration_seconds % 60;
@@ -372,6 +398,8 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
         return `${p.rounds} round, ogni ${p.interval_seconds}s`;
       return 'Round a tempo';
     case 'AMRAP':
+      if (p.duration_minutes)
+        return `Più round possibili in ${p.duration_minutes} minuti`;
       if (p.duration_seconds) {
         const m = Math.floor(p.duration_seconds / 60);
         const s = p.duration_seconds % 60;
