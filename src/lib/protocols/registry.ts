@@ -488,6 +488,12 @@ export function describeExerciseProtocol(
     case 'SUPERSET':
       if (p.sets && p.reps) return `Superset ${p.sets} × ${p.reps}`;
       return 'Superset';
+    case 'LADDER': {
+      const steps = Array.isArray(p.ladder_steps) ? p.ladder_steps : [];
+      const stepsStr = steps.length ? steps.join('-') : '—';
+      const sets = p.sets ?? 1;
+      return `Ladder ${sets}× (${stepsStr})`;
+    }
   }
 }
 
@@ -526,6 +532,12 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
       if (p.sets && p.reps)
         return `${p.sets} superset × ${p.reps} ripetizioni`;
       return 'Esercizi accoppiati';
+    case 'LADDER': {
+      const steps = Array.isArray(p.ladder_steps) ? p.ladder_steps : [];
+      const sets = p.sets ?? 1;
+      if (steps.length) return `${sets} scale di ${steps.join('-')} ripetizioni`;
+      return 'Scala progressiva';
+    }
     default:
       return '';
   }
