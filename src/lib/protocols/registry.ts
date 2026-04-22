@@ -478,6 +478,63 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       ],
     },
   },
+  TABATA: {
+    type: 'TABATA',
+    label: 'Tabata',
+    athleteLabel: 'Intervalli a tempo',
+    icon: Zap,
+    description:
+      'Circuito a tempo con alternanza fissa lavoro / riposo. Round ripetuti con intervalli di lavoro e recupero gestiti automaticamente.',
+    defaultParams: {
+      work_seconds: 20,
+      rest_seconds: 20,
+      rounds: 8,
+      mode: 'single',
+      note: '',
+    },
+    paramFields: [
+      { key: 'work_seconds', label: 'Lavoro (s)', type: 'number', min: 1, step: 5, placeholder: '20' },
+      { key: 'rest_seconds', label: 'Riposo (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
+      { key: 'rounds', label: 'Round totali', type: 'number', min: 1, placeholder: '8' },
+      {
+        key: 'mode',
+        label: 'Modalità',
+        type: 'select',
+        options: [
+          { value: 'single', label: 'Singolo (stesso esercizio)' },
+          { value: 'alternating', label: 'Alternato (esercizi alternati)' },
+        ],
+      },
+      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o variazione', hint: 'Indicazioni libere per l\'atleta' },
+    ],
+    executionMode: 'rounds',
+    sections: {
+      coachSets: [
+        'Numero di esercizi (1 o più)',
+        'Secondi di lavoro',
+        'Secondi di riposo',
+        'Numero totale di round',
+        'Modalità: esercizio singolo o alternato',
+        'Note libere (opzionali)',
+      ],
+      athleteDoes: [
+        'Esegue l\'esercizio durante la fase di lavoro',
+        'Recupera durante la fase di riposo',
+        'Segue automaticamente i round',
+        'Non deve interagire manualmente',
+      ],
+      systemTracks: [
+        'Round completati',
+        'Round non completati',
+        'Eventuali note finali',
+      ],
+      example: [
+        'Tabata 8 round',
+        '20" lavoro / 20" riposo',
+        'Esercizio: Squat',
+      ],
+    },
+  },
 };
 
 export const PROTOCOL_LIST: ProtocolDefinition[] = Object.values(PROTOCOL_REGISTRY);
