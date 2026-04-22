@@ -129,9 +129,12 @@ export function AtletaExerciseDetailSheet({
               >
                 <ArrowLeft className="h-5 w-5 text-app-foreground" />
               </button>
-              <h2 className="font-semibold text-app-foreground text-base truncate max-w-[60%] text-center">
+              <SheetTitle className="font-semibold text-app-foreground text-base truncate max-w-[60%] text-center">
                 {ex.name}
-              </h2>
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Dettaglio esercizio: nome, istruzioni e set.
+              </SheetDescription>
               <Button
                 variant="ghost"
                 size="sm"
