@@ -779,6 +779,26 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                                     ))}
                                                   </SelectContent>
                                                 </Select>
+                                              ) : f.type === 'number_list' ? (
+                                                <Input
+                                                  type="text"
+                                                  inputMode="numeric"
+                                                  placeholder={f.placeholder || 'Es. 1,2,3'}
+                                                  value={Array.isArray(val) ? (val as number[]).join(',') : ''}
+                                                  onChange={(e) => {
+                                                    const raw = e.target.value;
+                                                    // Mantieni la digitazione ma salva solo i numeri parsabili
+                                                    const parsed = raw
+                                                      .split(/[,\s]+/)
+                                                      .map((s) => s.trim())
+                                                      .filter((s) => s !== '')
+                                                      .map((s) => Number(s))
+                                                      .filter((n) => Number.isFinite(n) && n > 0);
+                                                    const next = setNested(params, f.key, parsed);
+                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                  }}
+                                                  className="h-8"
+                                                />
                                               ) : (
                                                 <Input
                                                   type={f.type}
