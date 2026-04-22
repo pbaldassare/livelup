@@ -5,9 +5,9 @@
 // =====================================================
 
 import type { LucideIcon } from 'lucide-react';
-import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2 } from 'lucide-react';
+import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2, BarChart3 } from 'lucide-react';
 
-export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET';
+export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET' | 'LADDER';
 
 export type EmomMode = 'single' | 'alternating' | 'ladder';
 
