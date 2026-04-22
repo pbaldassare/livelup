@@ -368,6 +368,58 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       ],
     },
   },
+  LADDER: {
+    type: 'LADDER',
+    label: 'Ladder',
+    athleteLabel: 'Scala progressiva',
+    icon: BarChart3,
+    description:
+      'Esegui le ripetizioni seguendo la scala indicata (es. 1, 2, 3), riposando pochi secondi tra uno scalino e l\'altro. Una "serie" = completare l\'intera scala una volta.',
+    defaultParams: {
+      ladder_steps: [1, 2, 3],
+      sets: 3,
+      step_rest_seconds: 20,
+      set_rest_seconds: 90,
+      note: '',
+    },
+    paramFields: [
+      { key: 'ladder_steps', label: 'Scala ripetizioni', type: 'number_list', placeholder: 'Es. 1,2,3 oppure 2,4,6,8', hint: 'Inserisci i valori separati da virgola. Ogni numero è uno scalino.' },
+      { key: 'sets', label: 'Serie (scale complete)', type: 'number', min: 1, placeholder: '3' },
+      { key: 'step_rest_seconds', label: 'Recupero tra scalini (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
+      { key: 'set_rest_seconds', label: 'Recupero tra serie (s)', type: 'number', min: 0, step: 15, placeholder: '90' },
+      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o variazione carico', hint: 'Indicazioni libere per l\'atleta' },
+    ],
+    executionMode: 'standard',
+    sections: {
+      coachSets: [
+        'Esercizio',
+        'Scala di ripetizioni (es. 1-2-3 oppure 2-4-6-8)',
+        'Numero di serie (scale complete)',
+        'Recupero tra scalini',
+        'Recupero tra serie',
+        'Note libere (opzionali)',
+      ],
+      athleteDoes: [
+        'Esegue lo scalino corrente con le reps indicate',
+        'Recupera brevemente (recupero tra scalini)',
+        'Passa allo scalino successivo',
+        'Completa tutta la scala = 1 serie',
+        'Recupero completo tra le serie',
+        'Ripete per il numero di serie previste',
+      ],
+      systemTracks: [
+        'Scalini completati per serie',
+        'Numero di serie completate',
+        'Eventuale carico utilizzato',
+      ],
+      example: [
+        'Ladder 3 serie',
+        'Scala: 1-2-3 pull-up',
+        '→ (1 + 2 + 3) reps = 1 serie',
+        '→ ripetere 3 volte',
+      ],
+    },
+  },
 };
 
 export const PROTOCOL_LIST: ProtocolDefinition[] = Object.values(PROTOCOL_REGISTRY);
