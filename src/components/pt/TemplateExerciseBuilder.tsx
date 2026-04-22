@@ -730,11 +730,37 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           .filter((f) => !f.showWhen || f.showWhen(params))
                                           .map((f) => {
                                           const val = getNested(params, f.key);
-                                          const isWide = f.type === 'text' || f.type === 'select';
+                                          const isWide = f.type === 'text' || f.type === 'select' || f.type === 'exercise_select';
                                           return (
                                             <div key={f.key} className={cn('space-y-1', isWide && 'col-span-2 md:col-span-3')}>
                                               <Label className="text-xs">{f.label}</Label>
-                                              {f.type === 'select' ? (
+                                              {f.type === 'exercise_select' ? (
+                                                <Select
+                                                  value={(val as string) ?? ''}
+                                                  onValueChange={(newVal) => {
+                                                    const next = setNested(params, f.key, newVal);
+                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                  }}
+                                                >
+                                                  <SelectTrigger className="h-8">
+                                                    <SelectValue placeholder={f.placeholder || 'Seleziona esercizio…'} />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                    {exercises
+                                                      .filter((ex) => ex.id !== te.exercise_id)
+                                                      .map((ex) => (
+                                                        <SelectItem key={ex.id} value={ex.id}>
+                                                          {ex.name}
+                                                        </SelectItem>
+                                                      ))}
+                                                    {exercises.filter((ex) => ex.id !== te.exercise_id).length === 0 && (
+                                                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                                        Nessun esercizio disponibile.
+                                                      </div>
+                                                    )}
+                                                  </SelectContent>
+                                                </Select>
+                                              ) : f.type === 'select' ? (
                                                 <Select
                                                   value={(val as string) ?? ''}
                                                   onValueChange={(newVal) => {
@@ -797,6 +823,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                         <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
                                           <p className="text-[11px] text-foreground/80 leading-relaxed">
                                             <span className="font-semibold">Nota:</span> questo protocollo si basa su round continui. L'atleta completerà il maggior numero di giri nel tempo stabilito.
+                                          </p>
+                                        </div>
+                                      )}
+                                      {ptype === 'SUPERSET' && (
+                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
+                                            <span className="font-semibold">Nota:</span> questo esercizio è accoppiato con un altro. L'atleta eseguirà A → pausa breve → B → recupero completo, ripetendo per il numero di superset previsti.
                                           </p>
                                         </div>
                                       )}
