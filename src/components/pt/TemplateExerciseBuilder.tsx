@@ -726,28 +726,52 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                         Parametri {def.label}
                                       </p>
                                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                        {def.paramFields.map((f) => {
+                                        {def.paramFields
+                                          .filter((f) => !f.showWhen || f.showWhen(params))
+                                          .map((f) => {
                                           const val = getNested(params, f.key);
+                                          const isWide = f.type === 'text' || f.type === 'select';
                                           return (
-                                            <div key={f.key} className={cn('space-y-1', f.type === 'text' && 'col-span-2 md:col-span-3')}>
+                                            <div key={f.key} className={cn('space-y-1', isWide && 'col-span-2 md:col-span-3')}>
                                               <Label className="text-xs">{f.label}</Label>
-                                              <Input
-                                                type={f.type}
-                                                min={f.min}
-                                                max={f.max}
-                                                step={f.step}
-                                                placeholder={f.placeholder}
-                                                value={val ?? ''}
-                                                onChange={(e) => {
-                                                  const raw = e.target.value;
-                                                  const newVal = f.type === 'text'
-                                                    ? raw
-                                                    : (raw === '' ? null : Number(raw));
-                                                  const next = setNested(params, f.key, newVal);
-                                                  updateProtocolParamMutation.mutate({ id: te.id, params: next });
-                                                }}
-                                                className="h-8"
-                                              />
+                                              {f.type === 'select' ? (
+                                                <Select
+                                                  value={(val as string) ?? ''}
+                                                  onValueChange={(newVal) => {
+                                                    const next = setNested(params, f.key, newVal);
+                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                  }}
+                                                >
+                                                  <SelectTrigger className="h-8">
+                                                    <SelectValue placeholder={f.placeholder || 'Seleziona...'} />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                    {(f.options || []).map((opt) => (
+                                                      <SelectItem key={opt.value} value={opt.value}>
+                                                        {opt.label}
+                                                      </SelectItem>
+                                                    ))}
+                                                  </SelectContent>
+                                                </Select>
+                                              ) : (
+                                                <Input
+                                                  type={f.type}
+                                                  min={f.min}
+                                                  max={f.max}
+                                                  step={f.step}
+                                                  placeholder={f.placeholder}
+                                                  value={val ?? ''}
+                                                  onChange={(e) => {
+                                                    const raw = e.target.value;
+                                                    const newVal = f.type === 'text'
+                                                      ? raw
+                                                      : (raw === '' ? null : Number(raw));
+                                                    const next = setNested(params, f.key, newVal);
+                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                  }}
+                                                  className="h-8"
+                                                />
+                                              )}
                                               {f.hint && (
                                                 <p className="text-[10px] text-muted-foreground">{f.hint}</p>
                                               )}
@@ -759,6 +783,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                         <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
                                           <p className="text-[11px] text-foreground/80 leading-relaxed">
                                             <span className="font-semibold">Nota:</span> le serie verranno generate dall'atleta durante l'allenamento aumentando il carico set dopo set, fino al KO.
+                                          </p>
+                                        </div>
+                                      )}
+                                      {ptype === 'EMOM' && (
+                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
+                                            <span className="font-semibold">Nota:</span> questo protocollo si basa su intervalli di tempo. Le serie verranno gestite automaticamente durante l'allenamento.
                                           </p>
                                         </div>
                                       )}
