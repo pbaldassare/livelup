@@ -860,6 +860,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </p>
                                         </div>
                                       )}
+                                      {ptype === 'DEAD_LADDER' && (
+                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
+                                            <span className="font-semibold">Nota:</span> l'atleta aumenterà le ripetizioni progressivamente fino al cedimento. Il massimo raggiunto rappresenta il risultato della serie. Tasti "Continua" e "KO" verranno mostrati durante l'allenamento.
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })()}
