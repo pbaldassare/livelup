@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -129,9 +129,12 @@ export function AtletaExerciseDetailSheet({
               >
                 <ArrowLeft className="h-5 w-5 text-app-foreground" />
               </button>
-              <h2 className="font-semibold text-app-foreground text-base truncate max-w-[60%] text-center">
+              <SheetTitle className="font-semibold text-app-foreground text-base truncate max-w-[60%] text-center">
                 {ex.name}
-              </h2>
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Dettaglio esercizio: nome, istruzioni e set.
+              </SheetDescription>
               <Button
                 variant="ghost"
                 size="sm"
@@ -349,6 +352,10 @@ export function AtletaExerciseDetailSheet({
       {youtubeId && (
         <Dialog open={videoOpen} onOpenChange={setVideoOpen}>
           <DialogContent className="max-w-3xl p-0 bg-black border-app-border overflow-hidden">
+            <DialogTitle className="sr-only">{ex.name} – Video</DialogTitle>
+            <DialogDescription className="sr-only">
+              Video tutorial dell'esercizio
+            </DialogDescription>
             <div className="aspect-video w-full">
               <iframe
                 src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
