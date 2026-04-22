@@ -352,6 +352,10 @@ export function AtletaExerciseDetailSheet({
       {youtubeId && (
         <Dialog open={videoOpen} onOpenChange={setVideoOpen}>
           <DialogContent className="max-w-3xl p-0 bg-black border-app-border overflow-hidden">
+            <DialogTitle className="sr-only">{ex.name} – Video</DialogTitle>
+            <DialogDescription className="sr-only">
+              Video tutorial dell'esercizio
+            </DialogDescription>
             <div className="aspect-video w-full">
               <iframe
                 src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
