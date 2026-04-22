@@ -9,6 +9,8 @@ import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon } from 'lu
 
 export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP';
 
+export type EmomMode = 'single' | 'alternating' | 'ladder';
+
 export type ProtocolParams = {
   sets?: number | null;
   reps?: number | null;
@@ -29,9 +31,13 @@ export type ProtocolParams = {
   backoff_percentage?: number | null;
   // Ramping
   note?: string | null;
+  // EMOM
+  duration_minutes?: number | null;
+  mode?: EmomMode | null;
+  ladder?: string | null;
 };
 
-export type ParamFieldType = 'number' | 'text';
+export type ParamFieldType = 'number' | 'text' | 'select';
 
 export type ParamField = {
   key: string; // dot-path inside params, es. "sets" or "top_set.reps"
@@ -42,6 +48,8 @@ export type ParamField = {
   max?: number;
   step?: number;
   hint?: string;
+  options?: { value: string; label: string }[]; // per type: 'select'
+  showWhen?: (params: ProtocolParams) => boolean; // visibilità condizionale
 };
 
 export type ProtocolSection = {
@@ -206,18 +214,60 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
   },
   EMOM: {
     type: 'EMOM',
-    label: 'EMOM (Every Minute On the Minute)',
-    athleteLabel: 'Ogni minuto al minuto',
+    label: 'EMOM',
+    athleteLabel: 'Allenamento a tempo',
     icon: Timer,
     description:
-      'EMOM: a ogni minuto esegui il numero di ripetizioni previste; il tempo che avanza è il tuo recupero. Si ripete per N round totali. Ottimo per condizionamento e densità di lavoro.',
-    defaultParams: { rounds: 10, interval_seconds: 60, reps: 5 },
+      'Ogni minuto esegui il blocco di esercizi indicato. Il tempo che avanza nel minuto è il tuo recupero, prima che inizi il minuto successivo.',
+    defaultParams: { duration_minutes: 10, reps: 10, mode: 'single', ladder: null },
     paramFields: [
-      { key: 'rounds', label: 'Round totali', type: 'number', min: 1, placeholder: '10' },
-      { key: 'interval_seconds', label: 'Durata intervallo (s)', type: 'number', min: 10, step: 5, placeholder: '60' },
-      { key: 'reps', label: 'Reps per round', type: 'number', min: 1, placeholder: '5' },
+      { key: 'duration_minutes', label: 'Durata (minuti)', type: 'number', min: 1, placeholder: '10' },
+      { key: 'reps', label: 'Ripetizioni per minuto', type: 'number', min: 1, placeholder: '10' },
+      {
+        key: 'mode',
+        label: 'Modalità',
+        type: 'select',
+        options: [
+          { value: 'single', label: 'Singolo (stesso esercizio)' },
+          { value: 'alternating', label: 'Alternato (blocchi alternati)' },
+          { value: 'ladder', label: 'Ladder (variazione reps)' },
+        ],
+      },
+      {
+        key: 'ladder',
+        label: 'Schema ladder',
+        type: 'text',
+        placeholder: 'Es. 5-7-9-11 oppure +1 rep per minuto',
+        hint: 'Variazione reps per minuto',
+        showWhen: (p) => p.mode === 'ladder',
+      },
     ],
     executionMode: 'rounds',
+    sections: {
+      coachSets: [
+        'Esercizio (o blocco di esercizi)',
+        'Durata totale in minuti',
+        'Ripetizioni per minuto',
+        'Modalità: round singolo, blocchi alternati o ladder',
+        'Schema ladder (opzionale, se modalità = ladder)',
+      ],
+      athleteDoes: [
+        'Esegue le ripetizioni nel minuto corrente',
+        'Usa il tempo restante del minuto per recuperare',
+        'Passa automaticamente al minuto successivo allo scadere',
+        'Continua fino al termine della durata totale',
+      ],
+      systemTracks: [
+        'Numero di round completati',
+        'Reps eseguite per round',
+        'Durata totale della sessione',
+      ],
+      example: [
+        'EMOM 10 minuti',
+        '10 squat ogni minuto',
+        '→ 10 round totali',
+      ],
+    },
   },
   AMRAP: {
     type: 'AMRAP',
@@ -285,6 +335,8 @@ export function describeExerciseProtocol(
       if (p.reps) return `Ramping × ${p.reps} reps`;
       return 'Ramping';
     case 'EMOM':
+      if (p.duration_minutes && p.reps) return `EMOM ${p.duration_minutes}'×${p.reps} reps`;
+      if (p.duration_minutes) return `EMOM ${p.duration_minutes}'`;
       if (p.rounds && p.interval_seconds) return `EMOM ${p.rounds}×${p.interval_seconds}s`;
       return 'EMOM';
     case 'AMRAP':
@@ -313,6 +365,9 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
       if (p.reps) return `Carico progressivo × ${p.reps} ripetizioni`;
       return 'Carico progressivo';
     case 'EMOM':
+      if (p.duration_minutes && p.reps)
+        return `${p.duration_minutes} minuti, ${p.reps} ripetizioni al minuto`;
+      if (p.duration_minutes) return `${p.duration_minutes} minuti a tempo`;
       if (p.rounds && p.interval_seconds)
         return `${p.rounds} round, ogni ${p.interval_seconds}s`;
       return 'Round a tempo';
