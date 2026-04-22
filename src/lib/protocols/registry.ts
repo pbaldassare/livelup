@@ -311,6 +311,59 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       ],
     },
   },
+  SUPERSET: {
+    type: 'SUPERSET',
+    label: 'Superset',
+    athleteLabel: 'Esercizi accoppiati',
+    icon: Repeat2,
+    description:
+      'Accoppia due esercizi (idealmente antagonisti) per ottimizzare i tempi senza ridurre la performance. Alterna A e B con recupero breve interno e recupero completo tra i superset.',
+    defaultParams: {
+      paired_exercise_id: null,
+      sets: 4,
+      reps: 10,
+      internal_rest_seconds: 30,
+      external_rest_seconds: 90,
+      note: '',
+    },
+    paramFields: [
+      { key: 'paired_exercise_id', label: 'Esercizio B (accoppiato)', type: 'exercise_select', placeholder: 'Seleziona un esercizio…', hint: 'L\'esercizio corrente è A. Scegli B tra i tuoi esercizi.' },
+      { key: 'sets', label: 'Serie (superset)', type: 'number', min: 1, placeholder: '4' },
+      { key: 'reps', label: 'Ripetizioni per esercizio', type: 'number', min: 1, placeholder: '10' },
+      { key: 'internal_rest_seconds', label: 'Recupero A → B (s)', type: 'number', min: 0, step: 5, placeholder: '30' },
+      { key: 'external_rest_seconds', label: 'Recupero tra superset (s)', type: 'number', min: 0, step: 15, placeholder: '90' },
+      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. tecnica, focus o tempo di esecuzione', hint: 'Indicazioni libere per l\'atleta' },
+    ],
+    executionMode: 'standard',
+    sections: {
+      coachSets: [
+        'Esercizio A (corrente) e Esercizio B (antagonista)',
+        'Numero di superset (serie)',
+        'Ripetizioni per ciascun esercizio',
+        'Recupero interno (tra A e B)',
+        'Recupero esterno (tra i superset)',
+        'Note libere',
+      ],
+      athleteDoes: [
+        'Esegue l\'esercizio A',
+        'Pausa breve (recupero interno)',
+        'Esegue l\'esercizio B',
+        'Recupero completo (recupero esterno)',
+        'Ripete il ciclo per il numero di superset previsti',
+      ],
+      systemTracks: [
+        'Reps e carico per l\'esercizio A',
+        'Reps e carico per l\'esercizio B',
+        'Numero di superset completati',
+      ],
+      example: [
+        'Superset 4×',
+        'A: Panca piana — 10 reps',
+        'B: Rematore — 10 reps',
+        '30s tra A e B • 90s tra i superset',
+      ],
+    },
+  },
 };
 
 export const PROTOCOL_LIST: ProtocolDefinition[] = Object.values(PROTOCOL_REGISTRY);
@@ -376,6 +429,9 @@ export function describeExerciseProtocol(
         return `AMRAP ${m}:${s.toString().padStart(2, '0')}`;
       }
       return 'AMRAP';
+    case 'SUPERSET':
+      if (p.sets && p.reps) return `Superset ${p.sets} × ${p.reps}`;
+      return 'Superset';
   }
 }
 
@@ -410,6 +466,10 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
         return `Più giri possibili in ${m}:${s.toString().padStart(2, '0')}`;
       }
       return 'Più giri possibili';
+    case 'SUPERSET':
+      if (p.sets && p.reps)
+        return `${p.sets} superset × ${p.reps} ripetizioni`;
+      return 'Esercizi accoppiati';
     default:
       return '';
   }
