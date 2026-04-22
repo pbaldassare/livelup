@@ -27,6 +27,8 @@ export type ProtocolParams = {
   backoff_sets?: number | null;
   backoff_reps?: number | null;
   backoff_percentage?: number | null;
+  // Ramping
+  note?: string | null;
 };
 
 export type ParamFieldType = 'number' | 'text';
@@ -163,17 +165,44 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
   RAMPING: {
     type: 'RAMPING',
     label: 'Ramping',
-    athleteLabel: 'Salita progressiva',
+    athleteLabel: 'Carico progressivo',
     icon: ArrowUp,
     description:
-      'Ramping: serie a salire, aumentando il carico (o l\'intensità) di serie in serie fino a raggiungere la serie più impegnativa pianificata. Ottimo per attivare e arrivare pronti al carico target.',
-    defaultParams: { sets: 5, reps: 3, rest_seconds: 90 },
+      'Trova il peso più alto con cui riesci ad eseguire le ripetizioni indicate. Ad ogni serie aumenta il carico mantenendo le stesse ripetizioni.',
+    defaultParams: { reps: 5, rest_seconds: 120, note: '' },
     paramFields: [
-      { key: 'sets', label: 'Serie totali', type: 'number', min: 2, placeholder: '5' },
-      { key: 'reps', label: 'Ripetizioni per serie', type: 'number', min: 1, placeholder: '3' },
-      { key: 'rest_seconds', label: 'Recupero (s)', type: 'number', min: 0, step: 15, placeholder: '90' },
+      { key: 'reps', label: 'Ripetizioni per serie', type: 'number', min: 1, placeholder: '5' },
+      { key: 'rest_seconds', label: 'Recupero (s)', type: 'number', min: 0, step: 15, placeholder: '120' },
+      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. parti da 40 kg, sali di 5 kg', hint: 'Indicazioni libere per l\'atleta' },
     ],
     executionMode: 'standard',
+    sections: {
+      coachSets: [
+        'Esercizio',
+        'Numero di ripetizioni per serie',
+        'Tempo di recupero',
+        'Note libere (es. "parti da 40 kg, sali di 5 kg, max 5 scalini")',
+      ],
+      athleteDoes: [
+        'Inserisce il carico del set',
+        'Tocca "RAMP" per aggiungere una nuova serie con carico maggiore',
+        'Avvia il recupero e ripete',
+        'Quando non riesce a completare tocca "KO" e termina il ramping',
+      ],
+      systemTracks: [
+        'Ultimo set completato prima del KO',
+        'Carico massimo raggiunto nella sessione',
+        'Progressione del massimale nel tempo',
+      ],
+      example: [
+        'Panca piana — 5 reps per serie',
+        'Set 1: 5 × 40 kg',
+        'Set 2: 5 × 45 kg',
+        'Set 3: 5 × 50 kg',
+        'Set 4: 5 × 55 kg → KO',
+        'Record sessione = 55 kg',
+      ],
+    },
   },
   EMOM: {
     type: 'EMOM',
@@ -253,8 +282,8 @@ export function describeExerciseProtocol(
       return enabled ? `Top set + ${boSets} back off` : 'Top set';
     }
     case 'RAMPING':
-      if (p.sets && p.reps) return `${p.sets} a salire × ${p.reps}`;
-      return 'Salita progressiva';
+      if (p.reps) return `Ramping × ${p.reps} reps`;
+      return 'Ramping';
     case 'EMOM':
       if (p.rounds && p.interval_seconds) return `EMOM ${p.rounds}×${p.interval_seconds}s`;
       return 'EMOM';
@@ -281,8 +310,8 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
       return enabled ? `Serie principale + ${boSets} serie di scarico` : 'Serie principale';
     }
     case 'RAMPING':
-      if (p.sets && p.reps) return `${p.sets} serie a salire × ${p.reps}`;
-      return 'Serie a salire';
+      if (p.reps) return `Carico progressivo × ${p.reps} ripetizioni`;
+      return 'Carico progressivo';
     case 'EMOM':
       if (p.rounds && p.interval_seconds)
         return `${p.rounds} round, ogni ${p.interval_seconds}s`;
