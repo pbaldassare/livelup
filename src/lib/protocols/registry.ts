@@ -32,9 +32,9 @@ export type ProtocolParams = {
   backoff_percentage?: number | null;
   // Ramping
   note?: string | null;
-  // EMOM
+  // EMOM / TABATA (mode è condiviso ma con valori diversi a runtime)
   duration_minutes?: number | null;
-  mode?: EmomMode | null;
+  mode?: EmomMode | TabataMode | null;
   ladder?: string | null;
   // SUPERSET
   paired_exercise_id?: string | null;
