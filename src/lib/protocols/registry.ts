@@ -5,11 +5,12 @@
 // =====================================================
 
 import type { LucideIcon } from 'lucide-react';
-import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2, BarChart3, Skull } from 'lucide-react';
+import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2, BarChart3, Skull, Zap } from 'lucide-react';
 
-export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET' | 'LADDER' | 'DEAD_LADDER';
+export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET' | 'LADDER' | 'DEAD_LADDER' | 'TABATA';
 
 export type EmomMode = 'single' | 'alternating' | 'ladder';
+export type TabataMode = 'single' | 'alternating';
 
 export type ProtocolParams = {
   sets?: number | null;
@@ -31,9 +32,9 @@ export type ProtocolParams = {
   backoff_percentage?: number | null;
   // Ramping
   note?: string | null;
-  // EMOM
+  // EMOM / TABATA (mode è condiviso ma con valori diversi a runtime)
   duration_minutes?: number | null;
-  mode?: EmomMode | null;
+  mode?: EmomMode | TabataMode | null;
   ladder?: string | null;
   // SUPERSET
   paired_exercise_id?: string | null;
@@ -45,6 +46,9 @@ export type ProtocolParams = {
   set_rest_seconds?: number | null;
   // DEAD_LADDER
   start_reps?: number | null;
+  // TABATA
+  work_seconds?: number | null;
+  // (rest_seconds, rounds, mode, note già presenti sopra — TABATA li riusa)
 };
 
 export type ParamFieldType = 'number' | 'text' | 'select' | 'exercise_select' | 'number_list';
@@ -474,6 +478,63 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       ],
     },
   },
+  TABATA: {
+    type: 'TABATA',
+    label: 'Tabata',
+    athleteLabel: 'Intervalli a tempo',
+    icon: Zap,
+    description:
+      'Circuito a tempo con alternanza fissa lavoro / riposo. Round ripetuti con intervalli di lavoro e recupero gestiti automaticamente.',
+    defaultParams: {
+      work_seconds: 20,
+      rest_seconds: 20,
+      rounds: 8,
+      mode: 'single',
+      note: '',
+    },
+    paramFields: [
+      { key: 'work_seconds', label: 'Lavoro (s)', type: 'number', min: 1, step: 5, placeholder: '20' },
+      { key: 'rest_seconds', label: 'Riposo (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
+      { key: 'rounds', label: 'Round totali', type: 'number', min: 1, placeholder: '8' },
+      {
+        key: 'mode',
+        label: 'Modalità',
+        type: 'select',
+        options: [
+          { value: 'single', label: 'Singolo (stesso esercizio)' },
+          { value: 'alternating', label: 'Alternato (esercizi alternati)' },
+        ],
+      },
+      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o variazione', hint: 'Indicazioni libere per l\'atleta' },
+    ],
+    executionMode: 'rounds',
+    sections: {
+      coachSets: [
+        'Numero di esercizi (1 o più)',
+        'Secondi di lavoro',
+        'Secondi di riposo',
+        'Numero totale di round',
+        'Modalità: esercizio singolo o alternato',
+        'Note libere (opzionali)',
+      ],
+      athleteDoes: [
+        'Esegue l\'esercizio durante la fase di lavoro',
+        'Recupera durante la fase di riposo',
+        'Segue automaticamente i round',
+        'Non deve interagire manualmente',
+      ],
+      systemTracks: [
+        'Round completati',
+        'Round non completati',
+        'Eventuali note finali',
+      ],
+      example: [
+        'Tabata 8 round',
+        '20" lavoro / 20" riposo',
+        'Esercizio: Squat',
+      ],
+    },
+  },
 };
 
 export const PROTOCOL_LIST: ProtocolDefinition[] = Object.values(PROTOCOL_REGISTRY);
@@ -553,6 +614,12 @@ export function describeExerciseProtocol(
       const start = p.start_reps ?? 1;
       return `Dead Ladder ${sets}× (start ${start})`;
     }
+    case 'TABATA': {
+      const rounds = p.rounds ?? 8;
+      const work = p.work_seconds ?? 20;
+      const rest = p.rest_seconds ?? 20;
+      return `Tabata ${rounds}× (${work}"/${rest}")`;
+    }
   }
 }
 
@@ -600,6 +667,12 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
     case 'DEAD_LADDER': {
       const sets = p.sets ?? 1;
       return `${sets} scale a cedimento`;
+    }
+    case 'TABATA': {
+      const rounds = p.rounds ?? 8;
+      const work = p.work_seconds ?? 20;
+      const rest = p.rest_seconds ?? 20;
+      return `${rounds} round a intervalli ${work}" lavoro / ${rest}" riposo`;
     }
     default:
       return '';

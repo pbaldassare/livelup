@@ -867,6 +867,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </p>
                                         </div>
                                       )}
+                                      {ptype === 'TABATA' && (
+                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
+                                            <span className="font-semibold">Nota:</span> l'esercizio verrà eseguito a intervalli di lavoro e recupero, ripetuti automaticamente. Lo stato (LAVORO / RIPOSO), il contatore round e il nome dell'esercizio corrente verranno mostrati all'atleta durante l'allenamento.
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })()}
