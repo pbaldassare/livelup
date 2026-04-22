@@ -422,6 +422,58 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       ],
     },
   },
+  DEAD_LADDER: {
+    type: 'DEAD_LADDER',
+    label: 'Dead Ladder',
+    athleteLabel: 'Scala a cedimento',
+    icon: Skull,
+    description:
+      'Come il Ladder ma senza scala predefinita: continua ad aumentare le ripetizioni finché non riesci a chiudere lo scalino. Il punto di cedimento rappresenta il risultato della serie.',
+    defaultParams: {
+      start_reps: 1,
+      sets: 3,
+      step_rest_seconds: 20,
+      set_rest_seconds: 90,
+      note: '',
+    },
+    paramFields: [
+      { key: 'sets', label: 'Serie', type: 'number', min: 1, placeholder: '3' },
+      { key: 'start_reps', label: 'Scalino iniziale (reps)', type: 'number', min: 1, placeholder: '1', hint: 'Numero di reps del primo scalino' },
+      { key: 'step_rest_seconds', label: 'Recupero tra scalini (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
+      { key: 'set_rest_seconds', label: 'Recupero tra serie (s)', type: 'number', min: 0, step: 15, placeholder: '90' },
+      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o stop a un tetto', hint: 'Indicazioni libere per l\'atleta' },
+    ],
+    executionMode: 'standard',
+    sections: {
+      coachSets: [
+        'Esercizio',
+        'Numero di serie',
+        'Scalino iniziale (default: 1 rep)',
+        'Recupero tra scalini',
+        'Recupero tra serie',
+        'Note libere (opzionali)',
+      ],
+      athleteDoes: [
+        'Esegue lo scalino corrente',
+        'Aumenta le reps di +1 ad ogni step successivo',
+        'Recupera brevemente tra gli scalini',
+        'Continua finché riesce a completare lo scalino',
+        'Quando non riesce tocca "KO" e termina la serie',
+        'Recupero completo prima della serie successiva',
+      ],
+      systemTracks: [
+        'Scalino massimo raggiunto per ogni serie',
+        'Reps totali eseguite nella serie',
+        'Progressione nel tempo (confronto sessioni)',
+      ],
+      example: [
+        'Serie 1: 1 → 2 → 3 → 4 → KO a 5',
+        '→ massimo raggiunto: 4 reps',
+        'Serie 2: 1 → 2 → 3 → KO a 4',
+        '→ massimo raggiunto: 3 reps',
+      ],
+    },
+  },
 };
 
 export const PROTOCOL_LIST: ProtocolDefinition[] = Object.values(PROTOCOL_REGISTRY);
