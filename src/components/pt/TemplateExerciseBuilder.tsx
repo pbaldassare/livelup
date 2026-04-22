@@ -730,7 +730,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           .filter((f) => !f.showWhen || f.showWhen(params))
                                           .map((f) => {
                                           const val = getNested(params, f.key);
-                                          const isWide = f.type === 'text' || f.type === 'select' || f.type === 'exercise_select';
+                                          const isWide = f.type === 'text' || f.type === 'select' || f.type === 'exercise_select' || f.type === 'number_list';
                                           return (
                                             <div key={f.key} className={cn('space-y-1', isWide && 'col-span-2 md:col-span-3')}>
                                               <Label className="text-xs">{f.label}</Label>
@@ -850,6 +850,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                         <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
                                           <p className="text-[11px] text-foreground/80 leading-relaxed">
                                             <span className="font-semibold">Nota:</span> questo esercizio è accoppiato con un altro. L'atleta eseguirà A → pausa breve → B → recupero completo, ripetendo per il numero di superset previsti.
+                                          </p>
+                                        </div>
+                                      )}
+                                      {ptype === 'LADDER' && (
+                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
+                                            <span className="font-semibold">Nota:</span> completa tutta la scala per formare una serie. Ripeti per il numero di serie impostato. Lo stato avanzamento (scalino X/totale, serie X/totale) verrà mostrato all'atleta durante l'allenamento.
                                           </p>
                                         </div>
                                       )}
