@@ -548,6 +548,11 @@ export function describeExerciseProtocol(
       const sets = p.sets ?? 1;
       return `Ladder ${sets}× (${stepsStr})`;
     }
+    case 'DEAD_LADDER': {
+      const sets = p.sets ?? 1;
+      const start = p.start_reps ?? 1;
+      return `Dead Ladder ${sets}× (start ${start})`;
+    }
   }
 }
 
@@ -591,6 +596,10 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
       const sets = p.sets ?? 1;
       if (steps.length) return `${sets} scale di ${steps.join('-')} ripetizioni`;
       return 'Scala progressiva';
+    }
+    case 'DEAD_LADDER': {
+      const sets = p.sets ?? 1;
+      return `${sets} scale a cedimento`;
     }
     default:
       return '';
