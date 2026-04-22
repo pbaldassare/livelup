@@ -614,6 +614,12 @@ export function describeExerciseProtocol(
       const start = p.start_reps ?? 1;
       return `Dead Ladder ${sets}× (start ${start})`;
     }
+    case 'TABATA': {
+      const rounds = p.rounds ?? 8;
+      const work = p.work_seconds ?? 20;
+      const rest = p.rest_seconds ?? 20;
+      return `Tabata ${rounds}× (${work}"/${rest}")`;
+    }
   }
 }
 
@@ -661,6 +667,12 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
     case 'DEAD_LADDER': {
       const sets = p.sets ?? 1;
       return `${sets} scale a cedimento`;
+    }
+    case 'TABATA': {
+      const rounds = p.rounds ?? 8;
+      const work = p.work_seconds ?? 20;
+      const rest = p.rest_seconds ?? 20;
+      return `${rounds} round a intervalli ${work}" lavoro / ${rest}" riposo`;
     }
     default:
       return '';
