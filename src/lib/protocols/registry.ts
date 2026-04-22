@@ -5,9 +5,9 @@
 // =====================================================
 
 import type { LucideIcon } from 'lucide-react';
-import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon } from 'lucide-react';
+import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2 } from 'lucide-react';
 
-export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP';
+export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET';
 
 export type EmomMode = 'single' | 'alternating' | 'ladder';
 
@@ -35,9 +35,13 @@ export type ProtocolParams = {
   duration_minutes?: number | null;
   mode?: EmomMode | null;
   ladder?: string | null;
+  // SUPERSET
+  paired_exercise_id?: string | null;
+  internal_rest_seconds?: number | null;
+  external_rest_seconds?: number | null;
 };
 
-export type ParamFieldType = 'number' | 'text' | 'select';
+export type ParamFieldType = 'number' | 'text' | 'select' | 'exercise_select';
 
 export type ParamField = {
   key: string; // dot-path inside params, es. "sets" or "top_set.reps"
