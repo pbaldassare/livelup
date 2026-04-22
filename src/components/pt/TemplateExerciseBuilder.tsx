@@ -599,7 +599,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                 {/* Render condizionale per protocollo */}
                                 {(() => {
                                   const ptype = ((te.protocol_type as ProtocolType) || 'SET');
-                                  const isSetBased = ptype === 'SET' || ptype === 'RAMPING' || ptype === 'TOP_SET_BACKOFF';
+                                  const isSetBased = ptype === 'SET' || ptype === 'TOP_SET_BACKOFF';
                                   if (isSetBased) {
                                     return (
                                       <>
@@ -721,7 +721,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                   const def = getProtocolDef(ptype);
                                   const params = (te.protocol_params as ProtocolParams) || {};
                                   return (
-                                    <div className="rounded-md border bg-muted/20 p-3 space-y-2">
+                                    <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
                                         Parametri {def.label}
                                       </p>
@@ -729,7 +729,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                         {def.paramFields.map((f) => {
                                           const val = getNested(params, f.key);
                                           return (
-                                            <div key={f.key} className="space-y-1">
+                                            <div key={f.key} className={cn('space-y-1', f.type === 'text' && 'col-span-2 md:col-span-3')}>
                                               <Label className="text-xs">{f.label}</Label>
                                               <Input
                                                 type={f.type}
@@ -739,8 +739,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                                 placeholder={f.placeholder}
                                                 value={val ?? ''}
                                                 onChange={(e) => {
-                                                  const num = e.target.value === '' ? null : Number(e.target.value);
-                                                  const next = setNested(params, f.key, num);
+                                                  const raw = e.target.value;
+                                                  const newVal = f.type === 'text'
+                                                    ? raw
+                                                    : (raw === '' ? null : Number(raw));
+                                                  const next = setNested(params, f.key, newVal);
                                                   updateProtocolParamMutation.mutate({ id: te.id, params: next });
                                                 }}
                                                 className="h-8"
@@ -752,6 +755,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           );
                                         })}
                                       </div>
+                                      {ptype === 'RAMPING' && (
+                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
+                                            <span className="font-semibold">Nota:</span> le serie verranno generate dall'atleta durante l'allenamento aumentando il carico set dopo set, fino al KO.
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })()}
