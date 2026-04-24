@@ -774,11 +774,18 @@ export function PTWorkoutsPage() {
                         onClick={() => setPreviewExercise(ex)}
                       >
                         <div className="flex items-start gap-3 flex-1 min-w-0">
-                          <div className="p-2 rounded-lg bg-muted shrink-0">
-                            {ex.video_url ? (
-                              <Video className="h-4 w-4 text-primary" />
+                          <div className="relative h-14 w-14 overflow-hidden rounded-lg border bg-muted shrink-0 flex items-center justify-center">
+                            {ex.image_url ? (
+                              <img src={ex.image_url} alt={ex.name} className="h-full w-full object-cover" loading="lazy" />
+                            ) : ex.video_url ? (
+                              <Video className="h-5 w-5 text-primary" />
                             ) : (
-                              <Dumbbell className="h-4 w-4" />
+                              <Dumbbell className="h-5 w-5 text-muted-foreground" />
+                            )}
+                            {ex.video_url && ex.image_url && (
+                              <span className="absolute bottom-1 right-1 rounded-full bg-background/90 p-1 shadow-sm">
+                                <Video className="h-3 w-3 text-primary" />
+                              </span>
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
