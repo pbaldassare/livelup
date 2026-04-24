@@ -62,6 +62,11 @@ function getYouTubeVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+function getVimeoVideoId(url: string): string | null {
+  const match = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  return match ? match[1] : null;
+}
+
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
@@ -102,6 +107,8 @@ export function AtletaExerciseDetailSheet({
 
   const ex = exercise.exercises;
   const youtubeId = ex.video_url ? getYouTubeVideoId(ex.video_url) : null;
+  const vimeoId = ex.video_url ? getVimeoVideoId(ex.video_url) : null;
+  const hasVideo = !!ex.video_url;
   const sets = buildSets(exercise);
   const muscleGroups = ex.muscle_groups || [];
 
@@ -345,9 +352,52 @@ export function AtletaExerciseDetailSheet({
               </TabsContent>
 
               <TabsContent value="tutorial" className="mt-4 px-4 pb-6">
-                <div className="rounded-2xl bg-app-card/60 border border-app-border/70 p-8 text-center">
-                  <p className="text-sm text-app-muted-foreground">In arrivo</p>
-                </div>
+                {hasVideo ? (
+                  <div className="space-y-4">
+                    <div className="overflow-hidden rounded-2xl border border-app-border/70 bg-black">
+                      <div className="aspect-video w-full">
+                        {youtubeId ? (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${youtubeId}?modestbranding=1&rel=0`}
+                            title={ex.name}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="h-full w-full"
+                          />
+                        ) : vimeoId ? (
+                          <iframe
+                            src={`https://player.vimeo.com/video/${vimeoId}`}
+                            title={ex.name}
+                            allow="autoplay; fullscreen; picture-in-picture"
+                            allowFullScreen
+                            className="h-full w-full"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center p-6 text-center">
+                            <Button asChild className="rounded-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90">
+                              <a href={ex.video_url} target="_blank" rel="noopener noreferrer">
+                                <Play className="mr-2 h-4 w-4" fill="currentColor" />
+                                Apri video tutorial
+                              </a>
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {ex.instructions && (
+                      <div className="rounded-2xl border border-app-border/70 bg-app-card/60 p-4">
+                        <h3 className="mb-2 text-base font-bold text-app-foreground">Punti chiave</h3>
+                        <p className="whitespace-pre-line text-sm leading-relaxed text-app-muted-foreground">
+                          {ex.instructions}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl bg-app-card/60 border border-app-border/70 p-8 text-center">
+                    <p className="text-sm text-app-muted-foreground">Nessun video tutorial disponibile</p>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
@@ -380,7 +430,7 @@ export function AtletaExerciseDetailSheet({
       </Sheet>
 
       {/* Video modal */}
-      {youtubeId && (
+      {(youtubeId || vimeoId) && (
         <Dialog open={videoOpen} onOpenChange={setVideoOpen}>
           <DialogContent className="max-w-3xl p-0 bg-black border-app-border overflow-hidden">
             <DialogTitle className="sr-only">{ex.name} – Video</DialogTitle>
@@ -388,13 +438,23 @@ export function AtletaExerciseDetailSheet({
               Video tutorial dell'esercizio
             </DialogDescription>
             <div className="aspect-video w-full">
-              <iframe
-                src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
-                title={ex.name}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="w-full h-full"
-              />
+              {youtubeId ? (
+                <iframe
+                  src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
+                  title={ex.name}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                />
+              ) : (
+                <iframe
+                  src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1`}
+                  title={ex.name}
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                />
+              )}
             </div>
           </DialogContent>
         </Dialog>

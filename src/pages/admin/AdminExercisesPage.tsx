@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -152,7 +152,7 @@ function VideoPreview({ url, title }: { url: string; title: string }) {
   );
 }
 
-function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
+function FormSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-xl border bg-card p-4 shadow-sm sm:p-5">
       <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
