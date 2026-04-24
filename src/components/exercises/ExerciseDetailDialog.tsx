@@ -108,7 +108,7 @@ export function ExerciseDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto p-0">
+      <DialogContent className="!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 max-h-[90vh] w-[calc(100vw-2rem)] max-w-3xl overflow-y-auto p-0">
         <DialogHeader className="border-b px-5 py-5 sm:px-6">
           <DialogTitle className="pr-8 text-2xl font-bold">{exercise.name}</DialogTitle>
         </DialogHeader>
