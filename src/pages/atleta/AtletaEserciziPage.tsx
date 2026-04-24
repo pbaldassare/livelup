@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,15 +26,12 @@ import { toast } from '@/hooks/use-toast';
 import {
   Dumbbell,
   Lock,
-  Check,
-  Plus,
-  Minus,
   Timer,
   Repeat,
   CheckCircle2,
-  Circle,
   SkipForward,
   Loader2,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -51,7 +49,19 @@ interface DayExercise {
   prescribed_reps_max: number | null;
   rest_seconds: number | null;
   notes: string | null;
-  exercises: { name: string; category: string | null } | null;
+  prescribed_duration_seconds?: number | null;
+  prescribed_weight?: number | null;
+  sets_data?: unknown;
+  protocol_type?: string | null;
+  protocol_params?: Record<string, unknown> | null;
+  exercises: {
+    name: string;
+    category: string | null;
+    video_url?: string | null;
+    image_url?: string | null;
+    instructions?: string | null;
+    muscle_groups?: string[] | null;
+  } | null;
 }
 
 type WorkoutContext = 'in_corso' | 'in_sospeso' | 'oggi' | 'prossimo';
@@ -78,9 +88,14 @@ const SELECT_CLAUSE = `
     prescribed_sets,
     prescribed_reps_min,
     prescribed_reps_max,
+    prescribed_weight,
+    prescribed_duration_seconds,
     rest_seconds,
     notes,
-    exercises:exercise_id ( name, category )
+    sets_data,
+    protocol_type,
+    protocol_params,
+    exercises:exercise_id ( name, category, video_url, image_url, instructions, muscle_groups )
   )
 `;
 
@@ -152,12 +167,15 @@ function wrap(raw: any, context: WorkoutContext): DayWorkout {
 
 export function AtletaEserciziPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { canAccessWorkouts, isLoading: statusLoading } = useAtletaStatus();
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<'complete' | 'skip' | null>(
     null,
   );
+  const [selectedExercise, setSelectedExercise] = useState<DayExercise | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const { data: workout, isLoading } = useQuery({
     queryKey: ['atleta-esercizi-priority', user?.id],
@@ -203,21 +221,19 @@ export function AtletaEserciziPage() {
   );
   const progressPct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
 
-  const incrementSet = (exId: string, max: number) => {
-    setCompletedSets((prev) => {
-      const cur = prev[exId] || 0;
-      return { ...prev, [exId]: Math.min(cur + 1, max) };
-    });
-  };
-
-  const decrementSet = (exId: string) => {
-    setCompletedSets((prev) => {
-      const cur = prev[exId] || 0;
-      return { ...prev, [exId]: Math.max(cur - 1, 0) };
-    });
-  };
-
   const resetTracking = () => setCompletedSets({});
+
+  const getExerciseStatus = (ex: DayExercise): 'not_started' | 'in_progress' | 'completed' => {
+    const done = completedSets[ex.id] || 0;
+    if (done <= 0) return 'not_started';
+    if (done < ex.prescribed_sets) return 'in_progress';
+    return 'completed';
+  };
+
+  const openExercise = (ex: DayExercise) => {
+    setSelectedExercise(ex);
+    setDetailOpen(true);
+  };
 
   const completeWorkout = async () => {
     if (!workout) return;
@@ -405,112 +421,85 @@ export function AtletaEserciziPage() {
           </Card>
 
           {/* Exercise list */}
-          <div className="space-y-2">
+          <div className="overflow-hidden rounded-2xl border border-app-border bg-app-card divide-y divide-app-border">
             {workout.workout_exercises.map((ex, idx) => {
               const done = completedSets[ex.id] || 0;
               const total = ex.prescribed_sets;
-              const isComplete = done >= total && total > 0;
+              const status = getExerciseStatus(ex);
+              const isDuration = !!ex.prescribed_duration_seconds && ex.prescribed_duration_seconds > 0;
+              const durationLabel = isDuration
+                ? formatDuration(ex.prescribed_duration_seconds!)
+                : null;
+              const repsCount = formatReps(ex.prescribed_reps_min, ex.prescribed_reps_max);
               return (
-                <Card
+                <button
                   key={ex.id}
+                  type="button"
+                  onClick={() => openExercise(ex)}
                   className={cn(
-                    'bg-app-card border-app-border transition-colors',
-                    isComplete && 'border-success/40 bg-success/5',
+                    'w-full flex items-center gap-3 p-3 text-left transition-colors hover:bg-app-muted/35',
+                    status === 'in_progress' && 'bg-app-accent/5',
+                    status === 'completed' && 'opacity-65',
                   )}
                 >
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
-                          isComplete ? 'bg-success/20' : 'bg-app-accent/20',
-                        )}
-                      >
-                        {isComplete ? (
-                          <CheckCircle2 className="h-5 w-5 text-success" />
-                        ) : (
-                          <span className="text-sm font-bold text-app-accent">
-                            {idx + 1}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-app-foreground">
-                          {ex.exercises?.name || 'Esercizio'}
-                        </h3>
-                        <div className="flex items-center gap-3 text-xs text-app-muted-foreground mt-0.5">
-                          <span className="flex items-center gap-1">
-                            <Repeat className="h-3 w-3" />
-                            {formatReps(
-                              ex.prescribed_reps_min,
-                              ex.prescribed_reps_max,
-                            )}{' '}
-                            reps
-                          </span>
-                          {ex.rest_seconds ? (
-                            <span className="flex items-center gap-1">
-                              <Timer className="h-3 w-3" />
-                              {ex.rest_seconds}s
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
+                  <div
+                    className={cn(
+                      'h-16 w-16 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-app-muted border-2',
+                      status === 'in_progress' ? 'border-app-accent' : 'border-transparent',
+                    )}
+                  >
+                    {ex.exercises?.image_url ? (
+                      <img
+                        src={ex.exercises.image_url}
+                        alt={ex.exercises.name}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <Dumbbell className="h-7 w-7 text-app-muted-foreground/60" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h3 className="truncate text-lg font-bold text-app-foreground">
+                        {ex.exercises?.name || 'Esercizio'}
+                      </h3>
+                      <span className="text-[10px] text-app-muted-foreground tabular-nums">
+                        #{idx + 1}
+                      </span>
                     </div>
-
-                    {/* Set tracker */}
-                    <div className="pl-11 space-y-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {Array.from({ length: total }).map((_, i) => (
-                          <div
-                            key={i}
-                            className={cn(
-                              'h-6 w-6 rounded-full flex items-center justify-center border transition-colors',
-                              i < done
-                                ? 'bg-success border-success'
-                                : 'border-app-border bg-app-muted/30',
-                            )}
-                          >
-                            {i < done ? (
-                              <Check className="h-3.5 w-3.5 text-success-foreground" />
-                            ) : (
-                              <Circle className="h-2 w-2 text-app-muted-foreground" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-app-muted-foreground">
-                          Serie completate{' '}
-                          <span className="font-semibold text-app-foreground">
-                            {done}/{total}
-                          </span>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-app-muted-foreground">
+                      {isDuration ? (
+                        <>
+                          <Timer className="h-3.5 w-3.5" />
+                          <span className="tabular-nums">{durationLabel}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Repeat className="h-3.5 w-3.5" />
+                          <span className="tabular-nums">×{repsCount}</span>
+                        </>
+                      )}
+                      {status === 'in_progress' && (
+                        <span className="text-xs font-medium text-app-accent">
+                          · {done}/{total} set
                         </span>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            className="h-8 w-8 border-app-border bg-app-muted/30 hover:bg-app-muted text-app-foreground"
-                            onClick={() => decrementSet(ex.id)}
-                            disabled={done === 0}
-                            aria-label="Rimuovi serie"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            className="h-8 w-8 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
-                            onClick={() => incrementSet(ex.id, total)}
-                            disabled={done >= total}
-                            aria-label="Aggiungi serie"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    {status === 'completed' ? (
+                      <CheckCircle2 className="h-5 w-5 text-app-accent" />
+                    ) : status === 'in_progress' ? (
+                      <span className="h-2.5 w-2.5 rounded-full bg-app-accent animate-pulse" />
+                    ) : (
+                      <span className="h-2.5 w-2.5 rounded-full border border-app-muted-foreground/40" />
+                    )}
+                    <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+                  </div>
+                </button>
               );
             })}
           </div>
@@ -554,6 +543,28 @@ export function AtletaEserciziPage() {
               Completa
             </Button>
           </div>
+
+          <AtletaExerciseDetailSheet
+            open={detailOpen}
+            onOpenChange={setDetailOpen}
+            exercise={selectedExercise as any}
+            completedSetsForEx={
+              selectedExercise
+                ? Array.from({ length: completedSets[selectedExercise.id] || 0 }, (_, i) => i + 1)
+                : []
+            }
+            status={selectedExercise ? getExerciseStatus(selectedExercise) : 'not_started'}
+            onStart={() => workout && navigate(`/app/workout/${workout.id}`)}
+            onMarkAllCompleted={() => {
+              if (!selectedExercise) return;
+              setCompletedSets((prev) => ({
+                ...prev,
+                [selectedExercise.id]: selectedExercise.prescribed_sets,
+              }));
+              toast({ title: 'Esercizio completato' });
+              setDetailOpen(false);
+            }}
+          />
         </div>
       )}
 
@@ -616,6 +627,12 @@ function formatReps(min: number | null, max: number | null): string {
   if (min) return String(min);
   if (max) return String(max);
   return '—';
+}
+
+function formatDuration(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
 export default AtletaEserciziPage;
