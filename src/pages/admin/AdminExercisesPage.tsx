@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -32,6 +34,8 @@ import {
   Link2,
   Loader2,
   Dumbbell,
+  UploadCloud,
+  Film,
 } from 'lucide-react';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
@@ -99,6 +103,20 @@ function isValidUrl(value: string): boolean {
   }
 }
 
+function isSupportedExternalVideoUrl(value: string): boolean {
+  return !!getYouTubeVideoId(value) || !!getVimeoVideoId(value);
+}
+
+function isVideoFileUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const cleanPath = url.pathname.toLowerCase();
+    return cleanPath.includes('/exercise-videos/') || /\.(mp4|mov|webm)$/.test(cleanPath);
+  } catch {
+    return false;
+  }
+}
+
 function VideoPreview({ url, title }: { url: string; title: string }) {
   if (!url) return null;
   const youtubeId = getYouTubeVideoId(url);
@@ -136,6 +154,14 @@ function VideoPreview({ url, title }: { url: string; title: string }) {
     );
   }
 
+  if (isVideoFileUrl(url)) {
+    return (
+      <div className="overflow-hidden rounded-lg border bg-muted">
+        <video src={url} title={title} controls className="aspect-video w-full bg-black object-contain" />
+      </div>
+    );
+  }
+
   return (
     <a
       href={url}
@@ -164,6 +190,7 @@ function FormSection({ title, children }: { title: string; children: ReactNode }
 export default function AdminExercisesPage() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -172,6 +199,9 @@ export default function AdminExercisesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [previewExercise, setPreviewExercise] = useState<Exercise | null>(null);
   const [imageUploadPending, setImageUploadPending] = useState(false);
+  const [videoUploadPending, setVideoUploadPending] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+  const [videoDragActive, setVideoDragActive] = useState(false);
 
   const { data: exercises = [], isLoading } = useQuery({
     queryKey: ['admin-exercises'],
@@ -312,6 +342,50 @@ export default function AdminExercisesPage() {
     }
   };
 
+  const handleVideoUpload = async (file: File) => {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const validType = file.type === 'video/mp4' || file.type === 'video/quicktime' || ['mp4', 'mov'].includes(ext);
+    if (!validType) {
+      toast.error('Carica un video MP4 o MOV');
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('Il video deve essere inferiore a 100MB');
+      return;
+    }
+
+    setVideoUploadPending(true);
+    setVideoUploadProgress(5);
+    try {
+      const safeId = editingId || crypto.randomUUID();
+      const path = `admin/${safeId}/${Date.now()}.${ext || 'mp4'}`;
+      const progressTimer = window.setInterval(() => {
+        setVideoUploadProgress(prev => (prev < 88 ? prev + 6 : prev));
+      }, 350);
+
+      const { error } = await supabase.storage
+        .from('exercise-videos')
+        .upload(path, file, { upsert: true, contentType: file.type || 'video/mp4' });
+      window.clearInterval(progressTimer);
+      if (error) throw error;
+
+      const { data } = supabase.storage
+        .from('exercise-videos')
+        .getPublicUrl(path);
+
+      setVideoUploadProgress(100);
+      setForm(prev => ({ ...prev, video_url: `${data.publicUrl}?t=${Date.now()}` }));
+      toast.success('Video tutorial caricato');
+    } catch (err: any) {
+      toast.error(err?.message || 'Errore durante upload video');
+    } finally {
+      window.setTimeout(() => setVideoUploadProgress(0), 500);
+      setVideoUploadPending(false);
+      setVideoDragActive(false);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = () => {
     const name = form.name.trim();
     const instructions = form.instructions.trim();
@@ -343,8 +417,8 @@ export default function AdminExercisesPage() {
       toast.error('Seleziona un livello di difficoltà valido');
       return;
     }
-    if (videoUrl && !isValidUrl(videoUrl)) {
-      toast.error('Inserisci un URL video valido');
+    if (videoUrl && (!isValidUrl(videoUrl) || (!isSupportedExternalVideoUrl(videoUrl) && !isVideoFileUrl(videoUrl)))) {
+      toast.error('Inserisci un video YouTube/Vimeo oppure carica un file video');
       return;
     }
     if (imageUrl && !isValidUrl(imageUrl)) {
@@ -582,97 +656,90 @@ export default function AdminExercisesPage() {
             </FormSection>
 
             <FormSection title="Media esercizio">
-              <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-                <div className="space-y-2">
-                  <Label>Immagine esercizio</Label>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-xl border bg-muted/20 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <Label className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Immagine esercizio</Label>
+                    {form.image_url && <Badge variant="secondary">Preview</Badge>}
+                  </div>
                   <div className="overflow-hidden rounded-xl border bg-muted">
-                    <div className="flex aspect-[4/3] items-center justify-center">
+                    <div className="flex aspect-video items-center justify-center">
                       {form.image_url ? (
                         <img src={form.image_url} alt="Preview esercizio" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                          <ImageIcon className="h-9 w-9" />
-                          <span className="text-xs font-medium">Immagine consigliata</span>
+                          <ImageIcon className="h-10 w-10" />
+                          <span className="text-sm font-medium">Nessuna immagine</span>
                         </div>
                       )}
                     </div>
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImageUpload(file);
-                    }}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={imageUploadPending}
-                    >
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); }} />
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={imageUploadPending}>
                       {imageUploadPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                       {form.image_url ? 'Sostituisci' : 'Carica'}
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setForm(p => ({ ...p, image_url: '' }))}
-                      disabled={!form.image_url || imageUploadPending}
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      Rimuovi
+                    <Button type="button" variant="outline" onClick={() => setForm(p => ({ ...p, image_url: '' }))} disabled={!form.image_url || imageUploadPending}>
+                      <X className="mr-2 h-4 w-4" /> Rimuovi
                     </Button>
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    <Label className="flex items-center gap-2 text-xs text-muted-foreground"><Link2 className="h-3.5 w-3.5" /> URL immagine fallback</Label>
+                    <Input value={form.image_url} onChange={e => setForm(p => ({ ...p, image_url: e.target.value }))} placeholder="https://..." />
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="flex items-center gap-2">
-                      <Link2 className="h-4 w-4" />
-                      Image URL fallback
-                    </Label>
-                    <Input
-                      value={form.image_url}
-                      onChange={e => setForm(p => ({ ...p, image_url: e.target.value }))}
-                      placeholder="https://..."
-                    />
+                <div className="rounded-xl border bg-muted/20 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <Label className="flex items-center gap-2"><Film className="h-4 w-4" /> Video tutorial</Label>
+                    {form.video_url && <Badge variant="secondary">Collegato</Badge>}
                   </div>
-
-                  <div className="space-y-2">
-                    <Label>Video tutorial</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={form.video_url}
-                        onChange={e => setForm(p => ({ ...p, video_url: e.target.value }))}
-                        placeholder="YouTube o Vimeo URL"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setForm(p => ({ ...p, video_url: '' }))}
-                        disabled={!form.video_url}
-                        title="Rimuovi video"
+                  <Tabs defaultValue={isVideoFileUrl(form.video_url) ? 'upload' : 'link'} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="upload">Carica video</TabsTrigger>
+                      <TabsTrigger value="link">Link YouTube/Vimeo</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="upload" className="space-y-3">
+                      <input ref={videoInputRef} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) handleVideoUpload(file); }} />
+                      <div
+                        onDragOver={e => { e.preventDefault(); setVideoDragActive(true); }}
+                        onDragLeave={() => setVideoDragActive(false)}
+                        onDrop={e => { e.preventDefault(); setVideoDragActive(false); const file = e.dataTransfer.files?.[0]; if (file) handleVideoUpload(file); }}
+                        className={cn('flex min-h-[170px] flex-col items-center justify-center rounded-xl border border-dashed bg-background/60 p-4 text-center transition-colors', videoDragActive && 'border-primary bg-primary/5')}
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+                        <UploadCloud className="mb-2 h-10 w-10 text-muted-foreground" />
+                        <p className="text-sm font-medium">Trascina qui un MP4/MOV</p>
+                        <p className="text-xs text-muted-foreground">Max 100MB</p>
+                        <Button type="button" variant="outline" className="mt-3" onClick={() => videoInputRef.current?.click()} disabled={videoUploadPending}>
+                          {videoUploadPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                          {form.video_url ? 'Sostituisci video' : 'Carica video'}
+                        </Button>
+                      </div>
+                      {videoUploadPending && <Progress value={videoUploadProgress} className="h-2" />}
+                    </TabsContent>
+                    <TabsContent value="link" className="space-y-3">
+                      <div className="flex gap-2">
+                        <Input value={form.video_url} onChange={e => setForm(p => ({ ...p, video_url: e.target.value }))} placeholder="YouTube o Vimeo URL" />
+                        <Button type="button" variant="outline" size="icon" onClick={() => setForm(p => ({ ...p, video_url: '' }))} disabled={!form.video_url} title="Rimuovi video">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                  <div className="mt-3">
                     {form.video_url && isValidUrl(form.video_url) ? (
                       <VideoPreview url={form.video_url} title={form.name || 'Video tutorial'} />
                     ) : (
-                      <div className={cn(
-                        'flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground',
-                        form.video_url && 'border-destructive/40 text-destructive'
-                      )}>
+                      <div className={cn('flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground', form.video_url && 'border-destructive/40 text-destructive')}>
                         <Video className="h-4 w-4" />
-                        {form.video_url ? 'URL video non valido' : 'Aggiungi un link YouTube o Vimeo per mostrare la preview.'}
+                        {form.video_url ? 'Video non valido' : 'Nessun video tutorial collegato'}
                       </div>
                     )}
                   </div>
+                  <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => setForm(p => ({ ...p, video_url: '' }))} disabled={!form.video_url || videoUploadPending}>
+                    <X className="mr-2 h-4 w-4" /> Rimuovi video
+                  </Button>
                 </div>
               </div>
             </FormSection>
@@ -680,7 +747,7 @@ export default function AdminExercisesPage() {
 
           <DialogFooter className="border-t px-5 py-4 sm:px-6">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-            <Button onClick={handleSubmit} disabled={upsertMutation.isPending || imageUploadPending}>
+            <Button onClick={handleSubmit} disabled={upsertMutation.isPending || imageUploadPending || videoUploadPending}>
               {upsertMutation.isPending ? 'Salvataggio...' : editingId ? 'Salva modifiche' : 'Crea esercizio'}
             </Button>
           </DialogFooter>

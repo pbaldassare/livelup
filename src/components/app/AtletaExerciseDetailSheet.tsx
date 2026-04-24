@@ -67,6 +67,16 @@ function getVimeoVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+function isVideoFileUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.toLowerCase();
+    return path.includes('/exercise-videos/') || /\.(mp4|mov|webm)$/.test(path);
+  } catch {
+    return false;
+  }
+}
+
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
@@ -108,6 +118,7 @@ export function AtletaExerciseDetailSheet({
   const ex = exercise.exercises;
   const youtubeId = ex.video_url ? getYouTubeVideoId(ex.video_url) : null;
   const vimeoId = ex.video_url ? getVimeoVideoId(ex.video_url) : null;
+  const isUploadedVideo = ex.video_url ? isVideoFileUrl(ex.video_url) : false;
   const hasVideo = !!ex.video_url;
   const sets = buildSets(exercise);
   const muscleGroups = ex.muscle_groups || [];
@@ -197,6 +208,8 @@ export function AtletaExerciseDetailSheet({
                         </div>
                       </div>
                     </button>
+                  ) : isUploadedVideo && ex.video_url ? (
+                    <video src={ex.video_url} controls poster={ex.image_url || undefined} className="h-full w-full bg-black object-contain" />
                   ) : ex.image_url ? (
                     <img
                       src={ex.image_url}
@@ -372,6 +385,8 @@ export function AtletaExerciseDetailSheet({
                             allowFullScreen
                             className="h-full w-full"
                           />
+                        ) : isUploadedVideo ? (
+                          <video src={ex.video_url} controls poster={ex.image_url || undefined} className="h-full w-full bg-black object-contain" />
                         ) : (
                           <div className="flex h-full items-center justify-center p-6 text-center">
                             <Button asChild className="rounded-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90">
