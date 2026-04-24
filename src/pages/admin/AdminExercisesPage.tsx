@@ -190,6 +190,7 @@ function FormSection({ title, children }: { title: string; children: ReactNode }
 export default function AdminExercisesPage() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -198,6 +199,9 @@ export default function AdminExercisesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [previewExercise, setPreviewExercise] = useState<Exercise | null>(null);
   const [imageUploadPending, setImageUploadPending] = useState(false);
+  const [videoUploadPending, setVideoUploadPending] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+  const [videoDragActive, setVideoDragActive] = useState(false);
 
   const { data: exercises = [], isLoading } = useQuery({
     queryKey: ['admin-exercises'],
@@ -338,6 +342,50 @@ export default function AdminExercisesPage() {
     }
   };
 
+  const handleVideoUpload = async (file: File) => {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const validType = file.type === 'video/mp4' || file.type === 'video/quicktime' || ['mp4', 'mov'].includes(ext);
+    if (!validType) {
+      toast.error('Carica un video MP4 o MOV');
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('Il video deve essere inferiore a 100MB');
+      return;
+    }
+
+    setVideoUploadPending(true);
+    setVideoUploadProgress(5);
+    try {
+      const safeId = editingId || crypto.randomUUID();
+      const path = `admin/${safeId}/${Date.now()}.${ext || 'mp4'}`;
+      const progressTimer = window.setInterval(() => {
+        setVideoUploadProgress(prev => (prev < 88 ? prev + 6 : prev));
+      }, 350);
+
+      const { error } = await supabase.storage
+        .from('exercise-videos')
+        .upload(path, file, { upsert: true, contentType: file.type || 'video/mp4' });
+      window.clearInterval(progressTimer);
+      if (error) throw error;
+
+      const { data } = supabase.storage
+        .from('exercise-videos')
+        .getPublicUrl(path);
+
+      setVideoUploadProgress(100);
+      setForm(prev => ({ ...prev, video_url: `${data.publicUrl}?t=${Date.now()}` }));
+      toast.success('Video tutorial caricato');
+    } catch (err: any) {
+      toast.error(err?.message || 'Errore durante upload video');
+    } finally {
+      window.setTimeout(() => setVideoUploadProgress(0), 500);
+      setVideoUploadPending(false);
+      setVideoDragActive(false);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = () => {
     const name = form.name.trim();
     const instructions = form.instructions.trim();
@@ -369,8 +417,8 @@ export default function AdminExercisesPage() {
       toast.error('Seleziona un livello di difficoltà valido');
       return;
     }
-    if (videoUrl && !isValidUrl(videoUrl)) {
-      toast.error('Inserisci un URL video valido');
+    if (videoUrl && (!isValidUrl(videoUrl) || (!isSupportedExternalVideoUrl(videoUrl) && !isVideoFileUrl(videoUrl)))) {
+      toast.error('Inserisci un video YouTube/Vimeo oppure carica un file video');
       return;
     }
     if (imageUrl && !isValidUrl(imageUrl)) {
