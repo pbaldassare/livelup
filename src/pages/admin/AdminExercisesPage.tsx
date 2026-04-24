@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -32,6 +34,8 @@ import {
   Link2,
   Loader2,
   Dumbbell,
+  UploadCloud,
+  Film,
 } from 'lucide-react';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
@@ -99,6 +103,20 @@ function isValidUrl(value: string): boolean {
   }
 }
 
+function isSupportedExternalVideoUrl(value: string): boolean {
+  return !!getYouTubeVideoId(value) || !!getVimeoVideoId(value);
+}
+
+function isVideoFileUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const cleanPath = url.pathname.toLowerCase();
+    return cleanPath.includes('/exercise-videos/') || /\.(mp4|mov|webm)$/.test(cleanPath);
+  } catch {
+    return false;
+  }
+}
+
 function VideoPreview({ url, title }: { url: string; title: string }) {
   if (!url) return null;
   const youtubeId = getYouTubeVideoId(url);
@@ -132,6 +150,14 @@ function VideoPreview({ url, title }: { url: string; title: string }) {
             allowFullScreen
           />
         </div>
+      </div>
+    );
+  }
+
+  if (isVideoFileUrl(url)) {
+    return (
+      <div className="overflow-hidden rounded-lg border bg-muted">
+        <video src={url} title={title} controls className="aspect-video w-full bg-black object-contain" />
       </div>
     );
   }
