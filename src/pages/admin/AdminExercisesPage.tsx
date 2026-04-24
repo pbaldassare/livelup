@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -17,9 +17,25 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Search, Video, Library, ExternalLink, Eye } from 'lucide-react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Video,
+  Library,
+  ExternalLink,
+  Eye,
+  Image as ImageIcon,
+  Upload,
+  X,
+  Link2,
+  Loader2,
+  Dumbbell,
+} from 'lucide-react';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
+import { cn } from '@/lib/utils';
 
 type Exercise = {
   id: string;
@@ -64,8 +80,90 @@ const emptyForm = {
   instructions: '',
 };
 
+function getYouTubeVideoId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&?/\s]+)/);
+  return match ? match[1] : null;
+}
+
+function getVimeoVideoId(url: string): string | null {
+  const match = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  return match ? match[1] : null;
+}
+
+function isValidUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function VideoPreview({ url, title }: { url: string; title: string }) {
+  if (!url) return null;
+  const youtubeId = getYouTubeVideoId(url);
+  const vimeoId = getVimeoVideoId(url);
+
+  if (youtubeId) {
+    return (
+      <div className="overflow-hidden rounded-lg border bg-muted">
+        <div className="aspect-video">
+          <iframe
+            src={`https://www.youtube.com/embed/${youtubeId}?modestbranding=1&rel=0`}
+            title={title}
+            className="h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (vimeoId) {
+    return (
+      <div className="overflow-hidden rounded-lg border bg-muted">
+        <div className="aspect-video">
+          <iframe
+            src={`https://player.vimeo.com/video/${vimeoId}`}
+            title={title}
+            className="h-full w-full"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center justify-between gap-3 rounded-lg border bg-muted/40 p-3 text-sm text-primary hover:underline"
+    >
+      <span className="inline-flex min-w-0 items-center gap-2 truncate">
+        <Video className="h-4 w-4 shrink-0" />
+        <span className="truncate">Apri video tutorial</span>
+      </span>
+      <ExternalLink className="h-4 w-4 shrink-0" />
+    </a>
+  );
+}
+
+function FormSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-xl border bg-card p-4 shadow-sm sm:p-5">
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
 export default function AdminExercisesPage() {
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,6 +171,7 @@ export default function AdminExercisesPage() {
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [previewExercise, setPreviewExercise] = useState<Exercise | null>(null);
+  const [imageUploadPending, setImageUploadPending] = useState(false);
 
   const { data: exercises = [], isLoading } = useQuery({
     queryKey: ['admin-exercises'],
@@ -117,6 +216,8 @@ export default function AdminExercisesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-exercises'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-exercises-archive'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-favorite-exercises'] });
       setDialogOpen(false);
       setEditingId(null);
       setForm(emptyForm);
@@ -177,11 +278,46 @@ export default function AdminExercisesPage() {
     setDialogOpen(true);
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error("Seleziona un'immagine valida");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("L'immagine deve essere inferiore a 5MB");
+      return;
+    }
+
+    setImageUploadPending(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const safeId = editingId || crypto.randomUUID();
+      const path = `admin/${safeId}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from('exercise-images')
+        .upload(path, file, { upsert: true });
+      if (error) throw error;
+
+      const { data } = supabase.storage
+        .from('exercise-images')
+        .getPublicUrl(path);
+
+      setForm(prev => ({ ...prev, image_url: `${data.publicUrl}?t=${Date.now()}` }));
+      toast.success('Immagine caricata');
+    } catch (err: any) {
+      toast.error(err?.message || "Errore durante l'upload immagine");
+    } finally {
+      setImageUploadPending(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = () => {
     const name = form.name.trim();
     const instructions = form.instructions.trim();
     const description = form.description.trim();
     const videoUrl = form.video_url.trim();
+    const imageUrl = form.image_url.trim();
 
     if (!name) {
       toast.error('Il nome è obbligatorio');
@@ -207,8 +343,12 @@ export default function AdminExercisesPage() {
       toast.error('Seleziona un livello di difficoltà valido');
       return;
     }
-    if (videoUrl && !/^https?:\/\//i.test(videoUrl)) {
-      toast.error('Il video deve iniziare con http:// o https://');
+    if (videoUrl && !isValidUrl(videoUrl)) {
+      toast.error('Inserisci un URL video valido');
+      return;
+    }
+    if (imageUrl && !isValidUrl(imageUrl)) {
+      toast.error('Inserisci un URL immagine valido');
       return;
     }
     upsertMutation.mutate(editingId ? { ...form, id: editingId } : form);
@@ -236,12 +376,11 @@ export default function AdminExercisesPage() {
         subtitle="Catalogo ufficiale della piattaforma — gestione esercizi"
       />
 
-      {/* Filters + Add */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Cerca esercizio..."
                 value={search}
@@ -250,7 +389,7 @@ export default function AdminExercisesPage() {
               />
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
               <SelectContent>
@@ -267,7 +406,6 @@ export default function AdminExercisesPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -277,13 +415,14 @@ export default function AdminExercisesPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-muted-foreground text-center py-8">Caricamento...</p>
+            <p className="py-8 text-center text-muted-foreground">Caricamento...</p>
           ) : filtered.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">Nessun esercizio trovato</p>
+            <p className="py-8 text-center text-muted-foreground">Nessun esercizio trovato</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[76px]">Media</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead className="hidden md:table-cell">Muscoli</TableHead>
@@ -295,6 +434,20 @@ export default function AdminExercisesPage() {
               <TableBody>
                 {filtered.map(ex => (
                   <TableRow key={ex.id}>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewExercise(ex)}
+                        className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-muted transition-opacity hover:opacity-85"
+                        title="Apri anteprima"
+                      >
+                        {ex.image_url ? (
+                          <img src={ex.image_url} alt={ex.name} className="h-full w-full object-cover" loading="lazy" />
+                        ) : (
+                          <Dumbbell className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </button>
+                    </TableCell>
                     <TableCell className="font-medium">{ex.name}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{ex.category}</Badge>
@@ -314,17 +467,16 @@ export default function AdminExercisesPage() {
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       {ex.video_url ? (
-                        <a
-                          href={ex.video_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-primary hover:underline text-xs"
+                        <button
+                          type="button"
+                          onClick={() => setPreviewExercise(ex)}
+                          className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-primary transition-colors hover:bg-primary/5"
                         >
-                          <Video className="h-3 w-3" />
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
+                          <Video className="h-3.5 w-3.5" />
+                          Tutorial
+                        </button>
                       ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -348,93 +500,193 @@ export default function AdminExercisesPage() {
         </CardContent>
       </Card>
 
-      {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingId ? 'Modifica Esercizio' : 'Nuovo Esercizio'}</DialogTitle>
+        <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-2rem)] max-w-[820px] flex-col overflow-hidden p-0">
+          <DialogHeader className="border-b px-5 py-5 sm:px-6">
+            <DialogTitle className="text-2xl font-bold">{editingId ? 'Modifica Esercizio' : 'Nuovo Esercizio'}</DialogTitle>
+            <DialogDescription>
+              Editor esercizio con dati condivisi automaticamente tra Admin, PT e atleta.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Nome *</Label>
-              <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} maxLength={120} />
-            </div>
-            <div>
-              <Label>Consigli aggiuntivi (opzionale)</Label>
-              <Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={2} maxLength={2000} placeholder="Suggerimenti, note..." />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Categoria</Label>
-                <Select value={form.category} onValueChange={v => setForm(p => ({ ...p, category: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+
+          <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+            <FormSection title="Informazioni base">
+              <div className="space-y-1.5">
+                <Label>Nome *</Label>
+                <Input
+                  value={form.name}
+                  onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                  maxLength={120}
+                  placeholder="Es. Push up"
+                />
               </div>
-              <div>
-                <Label>Livello</Label>
-                <Select value={form.difficulty_level} onValueChange={v => setForm(p => ({ ...p, difficulty_level: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DIFFICULTY_LEVELS.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-1.5">
+                <Label>Istruzioni esecuzione *</Label>
+                <Textarea
+                  value={form.instructions}
+                  onChange={e => setForm(p => ({ ...p, instructions: e.target.value }))}
+                  rows={6}
+                  maxLength={4000}
+                  placeholder="Descrivi setup, movimento, respirazione e punti tecnici principali..."
+                  className="min-h-[150px]"
+                />
               </div>
-            </div>
-            <div>
-              <Label>Gruppi Muscolari</Label>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {MUSCLE_GROUPS.map(mg => (
-                  <Badge
-                    key={mg}
-                    variant={form.muscle_groups.includes(mg) ? 'default' : 'outline'}
-                    className="cursor-pointer select-none"
-                    onClick={() => toggleMuscleGroup(mg)}
-                  >
-                    {mg}
-                  </Badge>
-                ))}
+              <div className="space-y-1.5">
+                <Label>Consigli aggiuntivi</Label>
+                <Textarea
+                  value={form.description}
+                  onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="Note opzionali, errori comuni, regressioni o progressioni..."
+                />
               </div>
-            </div>
-            <div>
-              <Label>Video URL (YouTube)</Label>
-              <Input
-                value={form.video_url}
-                onChange={e => setForm(p => ({ ...p, video_url: e.target.value }))}
-                placeholder="https://youtube.com/watch?v=..."
-              />
-            </div>
-            <div>
-              <Label>Immagine URL</Label>
-              <Input
-                value={form.image_url}
-                onChange={e => setForm(p => ({ ...p, image_url: e.target.value }))}
-                placeholder="https://..."
-              />
-            </div>
-            <div>
-              <Label>Esecuzione *</Label>
-              <Textarea
-                value={form.instructions}
-                onChange={e => setForm(p => ({ ...p, instructions: e.target.value }))}
-                rows={4}
-                maxLength={4000}
-                placeholder="Descrivi l'esecuzione corretta dell'esercizio..."
-              />
-            </div>
+            </FormSection>
+
+            <FormSection title="Classificazione">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Categoria</Label>
+                  <Select value={form.category} onValueChange={v => setForm(p => ({ ...p, category: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Livello</Label>
+                  <Select value={form.difficulty_level} onValueChange={v => setForm(p => ({ ...p, difficulty_level: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {DIFFICULTY_LEVELS.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Gruppi muscolari</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {MUSCLE_GROUPS.map(mg => (
+                    <Badge
+                      key={mg}
+                      variant={form.muscle_groups.includes(mg) ? 'default' : 'outline'}
+                      className="cursor-pointer select-none px-3 py-1"
+                      onClick={() => toggleMuscleGroup(mg)}
+                    >
+                      {mg}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title="Media esercizio">
+              <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+                <div className="space-y-2">
+                  <Label>Immagine esercizio</Label>
+                  <div className="overflow-hidden rounded-xl border bg-muted">
+                    <div className="flex aspect-[4/3] items-center justify-center">
+                      {form.image_url ? (
+                        <img src={form.image_url} alt="Preview esercizio" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                          <ImageIcon className="h-9 w-9" />
+                          <span className="text-xs font-medium">Immagine consigliata</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                    }}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={imageUploadPending}
+                    >
+                      {imageUploadPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                      {form.image_url ? 'Sostituisci' : 'Carica'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setForm(p => ({ ...p, image_url: '' }))}
+                      disabled={!form.image_url || imageUploadPending}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Rimuovi
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4" />
+                      Image URL fallback
+                    </Label>
+                    <Input
+                      value={form.image_url}
+                      onChange={e => setForm(p => ({ ...p, image_url: e.target.value }))}
+                      placeholder="https://..."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Video tutorial</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={form.video_url}
+                        onChange={e => setForm(p => ({ ...p, video_url: e.target.value }))}
+                        placeholder="YouTube o Vimeo URL"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setForm(p => ({ ...p, video_url: '' }))}
+                        disabled={!form.video_url}
+                        title="Rimuovi video"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {form.video_url && isValidUrl(form.video_url) ? (
+                      <VideoPreview url={form.video_url} title={form.name || 'Video tutorial'} />
+                    ) : (
+                      <div className={cn(
+                        'flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground',
+                        form.video_url && 'border-destructive/40 text-destructive'
+                      )}>
+                        <Video className="h-4 w-4" />
+                        {form.video_url ? 'URL video non valido' : 'Aggiungi un link YouTube o Vimeo per mostrare la preview.'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </FormSection>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="border-t px-5 py-4 sm:px-6">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-            <Button onClick={handleSubmit} disabled={upsertMutation.isPending}>
-              {editingId ? 'Salva' : 'Crea'}
+            <Button onClick={handleSubmit} disabled={upsertMutation.isPending || imageUploadPending}>
+              {upsertMutation.isPending ? 'Salvataggio...' : editingId ? 'Salva modifiche' : 'Crea esercizio'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm */}
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <DialogContent>
           <DialogHeader>
@@ -445,9 +697,9 @@ export default function AdminExercisesPage() {
               Sei sicuro di voler eliminare questo esercizio? L'azione non è reversibile.
             </p>
             {usageQuery.data && (usageQuery.data.templates > 0 || usageQuery.data.workouts > 0 || usageQuery.data.favorites > 0) && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 space-y-1">
+              <div className="space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-3">
                 <p className="font-medium text-destructive">⚠️ Esercizio in uso</p>
-                <ul className="text-muted-foreground list-disc list-inside space-y-0.5">
+                <ul className="list-inside list-disc space-y-0.5 text-muted-foreground">
                   {usageQuery.data.templates > 0 && (
                     <li>Usato in <strong>{usageQuery.data.templates}</strong> scheda/e</li>
                   )}
@@ -458,7 +710,7 @@ export default function AdminExercisesPage() {
                     <li>Salvato come preferito da <strong>{usageQuery.data.favorites}</strong> PT</li>
                   )}
                 </ul>
-                <p className="text-xs text-muted-foreground pt-1">
+                <p className="pt-1 text-xs text-muted-foreground">
                   Eliminandolo verrà rimosso da preferiti e schede.
                 </p>
               </div>
@@ -477,7 +729,6 @@ export default function AdminExercisesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog */}
       <ExerciseDetailDialog
         exercise={previewExercise}
         open={!!previewExercise}

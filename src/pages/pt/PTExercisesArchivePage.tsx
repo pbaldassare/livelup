@@ -11,7 +11,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Search, Video, Library, Info, Star } from 'lucide-react';
+import { Search, Video, Library, Info, Star, Dumbbell } from 'lucide-react';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
@@ -188,6 +188,7 @@ export default function PTExercisesArchivePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-[76px]">Media</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Difficoltà</TableHead>
                   <TableHead className="hidden md:table-cell">Categoria</TableHead>
@@ -226,6 +227,15 @@ export default function PTExercisesArchivePage() {
                             )}
                           />
                         </Button>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                          {ex.image_url ? (
+                            <img src={ex.image_url} alt={ex.name} className="h-full w-full object-cover" loading="lazy" />
+                          ) : (
+                            <Dumbbell className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="font-medium">{ex.name}</TableCell>
                       <TableCell>

@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Video as VideoIcon, Image as ImageIcon, Star } from 'lucide-react';
+import { ExternalLink, Video as VideoIcon, Image as ImageIcon, Star, Dumbbell } from 'lucide-react';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
 import { cn } from '@/lib/utils';
 
@@ -27,8 +27,13 @@ interface ExerciseDetailDialogProps {
 
 function getYouTubeVideoId(url: string): string | null {
   const match = url.match(
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&?\/\s]+)/
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&?/\s]+)/
   );
+  return match ? match[1] : null;
+}
+
+function getVimeoVideoId(url: string): string | null {
+  const match = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   return match ? match[1] : null;
 }
 
@@ -45,6 +50,50 @@ const difficultyColor = (level: string) => {
   }
 };
 
+function VideoEmbed({ url, title }: { url: string; title: string }) {
+  const youtubeId = getYouTubeVideoId(url);
+  const vimeoId = getVimeoVideoId(url);
+
+  if (youtubeId) {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+        <iframe
+          src={`https://www.youtube.com/embed/${youtubeId}?modestbranding=1&rel=0`}
+          title={title}
+          className="absolute inset-0 h-full w-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  if (vimeoId) {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+        <iframe
+          src={`https://player.vimeo.com/video/${vimeoId}`}
+          title={title}
+          className="absolute inset-0 h-full w-full"
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm text-primary hover:underline"
+    >
+      <VideoIcon className="h-4 w-4" /> Apri video <ExternalLink className="h-3 w-3" />
+    </a>
+  );
+}
+
 export function ExerciseDetailDialog({
   exercise,
   open,
@@ -55,18 +104,16 @@ export function ExerciseDetailDialog({
   const toggleFav = useToggleFavorite();
 
   if (!exercise) return null;
-  const youtubeId = exercise.video_url ? getYouTubeVideoId(exercise.video_url) : null;
   const isFavorite = !!favIds?.has(exercise.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl pr-8">{exercise.name}</DialogTitle>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto p-0">
+        <DialogHeader className="border-b px-5 py-5 sm:px-6">
+          <DialogTitle className="pr-8 text-2xl font-bold">{exercise.name}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5">
-          {/* Favorite toggle (PT only) */}
+        <div className="space-y-5 px-5 py-5 sm:px-6">
           {showFavoriteToggle && (
             <Button
               variant={isFavorite ? 'default' : 'outline'}
@@ -78,24 +125,59 @@ export function ExerciseDetailDialog({
               className="w-full sm:w-auto"
             >
               <Star
-                className={cn('h-4 w-4 mr-2', isFavorite && 'fill-current')}
+                className={cn('mr-2 h-4 w-4', isFavorite && 'fill-current')}
               />
               {isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
             </Button>
           )}
 
-          {/* Badges */}
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className={difficultyColor(exercise.difficulty_level)}>
               {exercise.difficulty_level.charAt(0).toUpperCase() + exercise.difficulty_level.slice(1)}
             </Badge>
             <Badge variant="secondary">{exercise.category}</Badge>
+            {exercise.video_url && (
+              <Badge variant="outline" className="gap-1.5">
+                <VideoIcon className="h-3 w-3" /> Video
+              </Badge>
+            )}
           </div>
 
-          {/* Muscle groups */}
+          <div>
+            <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+              <ImageIcon className="h-3.5 w-3.5" /> Immagine esercizio
+            </p>
+            <div className="overflow-hidden rounded-xl border bg-muted">
+              <div className="flex aspect-[16/9] items-center justify-center">
+                {exercise.image_url ? (
+                  <img
+                    src={exercise.image_url}
+                    alt={exercise.name}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Dumbbell className="h-12 w-12" />
+                    <span className="text-sm">Nessuna immagine disponibile</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {exercise.video_url && (
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+                <VideoIcon className="h-3.5 w-3.5" /> Video tutorial
+              </p>
+              <VideoEmbed url={exercise.video_url} title={exercise.name} />
+            </div>
+          )}
+
           {exercise.muscle_groups?.length > 0 && (
             <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Gruppi muscolari</p>
+              <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Gruppi muscolari</p>
               <div className="flex flex-wrap gap-1.5">
                 {exercise.muscle_groups.map(mg => (
                   <Badge key={mg} variant="outline" className="text-xs">{mg}</Badge>
@@ -104,62 +186,19 @@ export function ExerciseDetailDialog({
             </div>
           )}
 
-          {/* Video */}
-          {youtubeId ? (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                <VideoIcon className="h-3.5 w-3.5" /> Video dimostrativo
-              </p>
-              <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
-                <iframe
-                  src={`https://www.youtube.com/embed/${youtubeId}?modestbranding=1&rel=0`}
-                  title={exercise.name}
-                  className="absolute inset-0 h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            </div>
-          ) : exercise.video_url ? (
-            <a
-              href={exercise.video_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-            >
-              <VideoIcon className="h-4 w-4" /> Apri video <ExternalLink className="h-3 w-3" />
-            </a>
-          ) : null}
-
-          {/* Image (if no video) */}
-          {!youtubeId && exercise.image_url && (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                <ImageIcon className="h-3.5 w-3.5" /> Immagine
-              </p>
-              <img
-                src={exercise.image_url}
-                alt={exercise.name}
-                className="w-full max-h-80 object-contain rounded-lg border border-border bg-muted"
-              />
-            </div>
-          )}
-
-          {/* Instructions (mandatory) */}
           {exercise.instructions && (
             <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Esecuzione</p>
-              <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
+              <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Esecuzione</p>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-foreground">
                 {exercise.instructions}
               </p>
             </div>
           )}
 
-          {/* Description / tips (optional) */}
           {exercise.description && (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Consigli</p>
-              <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+            <div className="rounded-xl border bg-muted/30 p-4">
+              <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Consigli</p>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                 {exercise.description}
               </p>
             </div>
