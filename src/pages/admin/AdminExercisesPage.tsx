@@ -747,7 +747,7 @@ export default function AdminExercisesPage() {
 
           <DialogFooter className="border-t px-5 py-4 sm:px-6">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-            <Button onClick={handleSubmit} disabled={upsertMutation.isPending || imageUploadPending}>
+            <Button onClick={handleSubmit} disabled={upsertMutation.isPending || imageUploadPending || videoUploadPending}>
               {upsertMutation.isPending ? 'Salvataggio...' : editingId ? 'Salva modifiche' : 'Crea esercizio'}
             </Button>
           </DialogFooter>
