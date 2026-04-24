@@ -26,9 +26,6 @@ import { toast } from '@/hooks/use-toast';
 import {
   Dumbbell,
   Lock,
-  Check,
-  Plus,
-  Minus,
   Timer,
   Repeat,
   CheckCircle2,
@@ -222,20 +219,6 @@ export function AtletaEserciziPage() {
     [completedSets],
   );
   const progressPct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
-
-  const incrementSet = (exId: string, max: number) => {
-    setCompletedSets((prev) => {
-      const cur = prev[exId] || 0;
-      return { ...prev, [exId]: Math.min(cur + 1, max) };
-    });
-  };
-
-  const decrementSet = (exId: string) => {
-    setCompletedSets((prev) => {
-      const cur = prev[exId] || 0;
-      return { ...prev, [exId]: Math.max(cur - 1, 0) };
-    });
-  };
 
   const resetTracking = () => setCompletedSets({});
 
