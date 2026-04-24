@@ -208,6 +208,8 @@ export function AtletaExerciseDetailSheet({
                         </div>
                       </div>
                     </button>
+                  ) : isUploadedVideo && ex.video_url ? (
+                    <video src={ex.video_url} controls poster={ex.image_url || undefined} className="h-full w-full bg-black object-contain" />
                   ) : ex.image_url ? (
                     <img
                       src={ex.image_url}
@@ -383,6 +385,8 @@ export function AtletaExerciseDetailSheet({
                             allowFullScreen
                             className="h-full w-full"
                           />
+                        ) : isUploadedVideo ? (
+                          <video src={ex.video_url} controls poster={ex.image_url || undefined} className="h-full w-full bg-black object-contain" />
                         ) : (
                           <div className="flex h-full items-center justify-center p-6 text-center">
                             <Button asChild className="rounded-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90">
