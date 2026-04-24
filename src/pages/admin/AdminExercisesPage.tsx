@@ -501,7 +501,7 @@ export default function AdminExercisesPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-2rem)] max-w-[820px] flex-col overflow-hidden p-0">
+        <DialogContent className="!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 flex max-h-[92dvh] w-[calc(100vw-2rem)] max-w-[820px] flex-col overflow-hidden p-0">
           <DialogHeader className="border-b px-5 py-5 sm:px-6">
             <DialogTitle className="text-2xl font-bold">{editingId ? 'Modifica Esercizio' : 'Nuovo Esercizio'}</DialogTitle>
             <DialogDescription>
