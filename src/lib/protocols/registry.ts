@@ -5,9 +5,9 @@
 // =====================================================
 
 import type { LucideIcon } from 'lucide-react';
-import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2, BarChart3, Skull, Zap, Flame, Trophy } from 'lucide-react';
+import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2, BarChart3, Skull, Zap, Flame, Trophy, Blocks } from 'lucide-react';
 
-export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET' | 'LADDER' | 'DEAD_LADDER' | 'TABATA' | 'HIIT' | 'RXT';
+export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET' | 'LADDER' | 'DEAD_LADDER' | 'TABATA' | 'HIIT' | 'RXT' | 'RUNNING_TOTAL';
 
 export type EmomMode = 'single' | 'alternating' | 'ladder';
 export type TabataMode = 'single' | 'alternating';
@@ -52,7 +52,9 @@ export type ProtocolParams = {
   intervals_total?: number | null;
   // RxT
   max_rest_seconds?: number | null;
-  // (rest_seconds, rounds, mode, note già presenti sopra — TABATA/HIIT/RXT li riusano)
+  // RUNNING_TOTAL
+  target_reps?: number | null;
+  // (rest_seconds, rounds, mode, note già presenti sopra — TABATA/HIIT/RXT/RUNNING_TOTAL li riusano)
 };
 
 export type ParamFieldType = 'number' | 'text' | 'select' | 'exercise_select' | 'number_list';
