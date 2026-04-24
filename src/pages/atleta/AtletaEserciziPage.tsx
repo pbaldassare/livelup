@@ -606,4 +606,10 @@ function formatReps(min: number | null, max: number | null): string {
   return '—';
 }
 
+function formatDuration(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
 export default AtletaEserciziPage;
