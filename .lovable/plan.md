@@ -1,129 +1,158 @@
-
-
-## Piano: Aggiungere protocollo HIIT e fix visibilità
+## Piano: nuova sezione Esercizi atleta mobile-first
 
 ### Obiettivo
-Aggiungere il protocollo **HIIT** (intervalli flessibili, distinto da Tabata) e correggere il testo obsoleto nella tab Protocolli che ancora dice che solo SET è disponibile.
+Trasformare `/app/esercizi` da vista operativa dell’allenamento a **libreria visuale consultabile**, mantenendo però tutte le logiche già presenti: recupero workout prioritario, tracking localStorage, apertura dettaglio, ingresso all’esecuzione guidata, completa/salta workout.
+
+Il riferimento principale è il mockup allegato: titolo semplice, lista verticale, thumbnail a sinistra, nome grande e una sola metrica sotto.
 
 ---
 
-### File da modificare
+### 1. Lista esercizi atleta
+File: `src/pages/atleta/AtletaEserciziPage.tsx`
 
-#### 1. `src/lib/protocols/registry.ts`
+Sostituirò la resa attuale della lista con un layout più simile a mobile native fitness app:
 
-**Aggiungere a `ProtocolType`** (riga 10):
-```typescript
-export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET' | 'LADDER' | 'DEAD_LADDER' | 'TABATA' | 'HIIT';
-```
+- header minimale “Esercizi” con sottotitolo contestuale leggero
+- riepilogo workout più discreto, non dominante da dashboard
+- lista verticale full-width con righe alte e ariose
+- thumbnail grande a sinistra, rounded e `object-cover`
+- nome esercizio grande e leggibile
+- sotto una sola metrica:
+  - `00:20` se `prescribed_duration_seconds` è valorizzato
+  - `x12` oppure `x10–12` se reps-based
+- divider sottili tra righe
+- indicatore stato piccolo ma visibile:
+  - non iniziato: dot outline
+  - in corso: dot lime/pulse o micro badge
+  - completato: check lime
+- click sulla riga mantiene `openExercise(ex)` e apre il dettaglio già esistente
 
-**Aggiungere import** (riga 8):
-```typescript
-import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2, BarChart3, Skull, Zap, Flame } from 'lucide-react';
-```
-
-**Aggiungere definizione HIIT a `PROTOCOL_REGISTRY`** (dopo TABATA, prima della chiusura `};`):
-```typescript
-HIIT: {
-  type: 'HIIT',
-  label: 'HIIT',
-  athleteLabel: 'Intervalli flessibili',
-  icon: Flame,
-  description:
-    'Circuito a tempo con numero preciso di intervalli totali e tempi lavoro/pausa configurabili. Gli esercizi vengono eseguiti a rotazione per il numero totale di intervalli indicato. A differenza della Tabata canonica (20"/20" × 8 round), HIIT offre intervalli liberi e durata personalizzabile.',
-  defaultParams: {
-    work_seconds: 40,
-    rest_seconds: 20,
-    intervals_total: 12,
-    note: '',
-  },
-  paramFields: [
-    { key: 'work_seconds', label: 'Lavoro (s)', type: 'number', min: 1, step: 5, placeholder: '40' },
-    { key: 'rest_seconds', label: 'Riposo (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
-    { key: 'intervals_total', label: 'Intervalli totali', type: 'number', min: 1, placeholder: '12' },
-    { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o rotazione esercizi', hint: 'Indicazioni libere per l\'atleta' },
-  ],
-  executionMode: 'rounds',
-  sections: {
-    coachSets: [
-      'Lista esercizi in rotazione',
-      'Secondi di lavoro',
-      'Secondi di pausa',
-      'Numero totale intervalli',
-      'Note libere (opzionali)',
-    ],
-    athleteDoes: [
-      'Esegue l\'esercizio corrente durante la fase di lavoro',
-      'Recupera durante la fase di riposo',
-      'Segue la rotazione automatica degli esercizi',
-      'Completa tutti gli intervalli previsti',
-    ],
-    systemTracks: [
-      'Intervalli completati',
-      'Intervalli totali eseguiti',
-      'Eventuali note finali',
-    ],
-    example: [
-      'HIIT 12 intervalli',
-      '40" lavoro / 20" pausa',
-      'Rotazione: Sit-up → Push-up → Squat',
-    ],
-  },
-},
-```
-
-**Aggiungere case HIIT in `describeExerciseProtocol`** (dopo TABATA, prima del default):
-```typescript
-case 'HIIT': {
-  const intervals = p.intervals_total ?? 12;
-  const work = p.work_seconds ?? 40;
-  const rest = p.rest_seconds ?? 20;
-  return `HIIT ${intervals}× (${work}"W/${rest}"R)`;
-}
-```
-
-**Aggiungere case HIIT in `describeBlockForAthlete`** (dopo TABATA, prima del default):
-```typescript
-case 'HIIT': {
-  const intervals = p.intervals_total ?? 12;
-  const work = p.work_seconds ?? 40;
-  const rest = p.rest_seconds ?? 20;
-  return `${intervals} intervalli ${work}" lavoro / ${rest}" riposo`;
-}
-```
+Non verranno mostrate metriche tecniche extra nella lista.
 
 ---
 
-#### 2. `src/components/pt/ProtocolsTab.tsx`
+### 2. Immagini esercizi
+Userò il campo già presente `exercises.image_url`, già incluso nelle query.
 
-**Aggiornare il testo del banner informativo** (righe 164-171):
-```typescript
-<p className="text-sm text-muted-foreground">
-  SET resta il default, ma il Coach può selezionare protocolli avanzati come
-  Top Set + Back Off, Ramping, EMOM, AMRAP, Superset, Ladder, Dead Ladder, Tabata e HIIT.
-</p>
-```
+Comportamento:
 
-**Aggiungere HIIT a `VISIBLE_PROTOCOLS`** (riga 13):
-```typescript
-const VISIBLE_PROTOCOLS: ProtocolType[] = ['SET', 'TOP_SET_BACKOFF', 'RAMPING', 'EMOM', 'AMRAP', 'SUPERSET', 'LADDER', 'DEAD_LADDER', 'TABATA', 'HIIT'];
-```
+- nella lista: thumbnail grande a sinistra
+- nel dettaglio: hero image ampia
+- fallback se manca immagine:
+  - box rounded
+  - sfondo muted/dark
+  - icona `Dumbbell`
+  - aspetto premium coerente LivellApp
+- `loading="lazy"` sulle thumbnail
+- `object-cover` e proporzioni stabili per evitare salti di layout
 
----
-
-### Comportamento atteso
-
-1. **Registry**: HIIT è definito con parametri `work_seconds`, `rest_seconds`, `intervals_total`, `note`
-2. **ProtocolsTab**: HIIT visibile nella lista protocolli disponibili, banner informativo aggiornato
-3. **TemplateExerciseBuilder**: HIIT automaticamente disponibile nel dropdown protocollo tramite `PROTOCOL_LIST`, parametri renderizzati dinamicamente, nessuna `SetsTable` (time-based), banner informativo mostrato
+Non sono necessarie modifiche database.
 
 ---
 
-### Controlli
+### 3. Dettaglio esercizio
+File: `src/components/app/AtletaExerciseDetailSheet.tsx`
 
-- HIIT visibile in `/pt/workouts` tab Protocolli
-- HIIT selezionabile nel builder esercizi
-- Parametri corretti: lavoro (s), riposo (s), intervalli totali
-- Dati salvati correttamente in `protocol_type` e `protocol_params`
-- Nessuna regressione su altri protocolli
-- Distinzione chiara da Tabata (intervalli liberi vs round canonici)
+Rafforzerò la coerenza con la nuova lista mantenendo il componente esistente:
 
+- header con nome grande e bottone “Cambia” placeholder
+- hero media più evidente, con `image_url` o thumbnail YouTube se video presente
+- tab:
+  - Animazione attiva
+  - Muscoli placeholder
+  - Tutorial placeholder
+- info chiare:
+  - durata oppure reps, mai entrambe
+  - istruzioni dal database
+  - badge gruppi muscolari
+- footer sticky con ingresso al workout flow esistente
+
+Il bottone “Inizia/Riprendi esercizio” continuerà a usare `navigate('/app/workout/:id')`, senza reinventare l’esecuzione guidata.
+
+---
+
+### 4. Set verticali per protocollo SET
+Nel dettaglio esercizio confermerò e rifinirò la resa verticale già impostata:
+
+```text
+Set 1
+Reps: 10
+Kg: 20
+Recupero: 60s
+
+Set 2
+Reps: 10
+Kg: 20
+Recupero: 60s
+```
+
+Regole:
+
+- niente tabella
+- niente layout orizzontale tecnico
+- ogni set come blocco separato e leggibile durante l’allenamento
+- uso di `resolveSetsData` per mantenere compatibilità con `sets_data` e fallback legacy
+
+---
+
+### 5. Mantenimento logica attuale
+Non cambierò:
+
+- query di priorità workout (`in_corso`, `in_sospeso`, oggi, prossimo)
+- tracking localStorage per set completati
+- azioni completa/salta workout
+- routing verso esecuzione guidata
+- protocolli
+- schema dati
+
+Il lavoro è UI/UX atleta, non logica workout.
+
+---
+
+### 6. Regole immagini PT/Admin
+Confermerò la separazione richiesta:
+
+Immagini visibili solo in:
+
+- PT: Archivio Esercizi
+- PT: Tab Esercizi
+- Atleta: nuova sezione Esercizi
+- Atleta: dettaglio esercizio
+
+Immagini non aggiunte a:
+
+- builder schede
+- circuiti
+- protocolli
+- blocchi scheda
+
+Il builder resterà pulito e focalizzato su parametri, set, protocolli e note.
+
+---
+
+### 7. File coinvolti
+Modifiche previste:
+
+- `src/pages/atleta/AtletaEserciziPage.tsx`
+- `src/components/app/AtletaExerciseDetailSheet.tsx`
+
+Verifica/nessuna modifica salvo necessità:
+
+- `src/components/pt/TemplateExerciseBuilder.tsx` per assicurare che non vengano reintrodotte immagini nel builder
+- eventuali componenti PT già esistenti solo per confermare la visibilità immagine nelle aree consentite
+
+---
+
+### 8. Controlli finali
+Dopo l’implementazione verificherò:
+
+1. lista vicina al mockup allegato
+2. feeling mobile native, non dashboard
+3. immagine + nome + una sola metrica
+4. click su esercizio apre dettaglio
+5. hero image e fallback funzionano
+6. set SET verticali e leggibili
+7. “Inizia/Riprendi esercizio” entra nel flow esistente
+8. stato esercizio visibile ma discreto
+9. immagini non presenti nel builder/circuiti/protocolli/blocchi scheda
+10. coerenza con tema LivellApp dark + lime accent

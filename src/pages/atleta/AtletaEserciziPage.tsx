@@ -6,7 +6,6 @@ import { it } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
 import {
   AlertDialog,
@@ -26,8 +25,6 @@ import { toast } from '@/hooks/use-toast';
 import {
   Dumbbell,
   Lock,
-  Timer,
-  Repeat,
   CheckCircle2,
   SkipForward,
   Loader2,
@@ -328,22 +325,19 @@ export function AtletaEserciziPage() {
   const ctxBadge = workout ? contextBadge(workout) : null;
 
   return (
-    <div className="pb-4 bg-app-background min-h-screen">
+    <div className="min-h-screen bg-app-background pb-6">
       {/* Header */}
-      <div className="p-4 space-y-1">
-        <div className="flex items-center gap-2">
-          <Dumbbell className="h-6 w-6 text-app-accent" />
-          <h1 className="text-2xl font-bold text-app-foreground">Esercizi</h1>
-        </div>
-        <p className="text-sm text-app-muted-foreground">Allenamento del giorno</p>
+      <div className="mx-auto max-w-lg px-5 pb-3 pt-5">
+        <h1 className="text-[2rem] font-black leading-none text-app-foreground">Esercizi</h1>
+        <p className="mt-2 text-sm text-app-muted-foreground">Libreria del tuo allenamento</p>
       </div>
 
       {isLoading ? (
-        <div className="px-4">
+        <div className="mx-auto max-w-lg px-5">
           <ListSkeleton count={3} type="workout" />
         </div>
       ) : !workout ? (
-        <div className="px-4">
+        <div className="mx-auto max-w-lg px-5">
           <Card className="border-dashed bg-app-card border-app-border">
             <CardContent className="p-8 text-center">
               <Dumbbell className="h-10 w-10 mx-auto text-app-muted-foreground mb-3" />
@@ -369,83 +363,74 @@ export function AtletaEserciziPage() {
           </Card>
         </div>
       ) : (
-        <div className="px-4 space-y-4">
-          {/* Context badge */}
-          {ctxBadge && (
-            <Badge
-              variant="outline"
-              className={cn(
-                'text-[11px] font-semibold gap-1.5 px-2.5 py-1',
-                ctxBadge.cls,
-              )}
-            >
-              {ctxBadge.label}
-            </Badge>
-          )}
-
-          {/* Progress summary */}
-          <Card className="bg-app-card border-app-border">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <h2 className="font-bold text-app-foreground truncate">
-                    {workout.title}
-                  </h2>
-                  <p className="text-xs text-app-muted-foreground">
-                    {doneSets} di {totalSets} serie completate
-                  </p>
-                </div>
-                <Badge
-                  className={cn(
-                    'border-0',
-                    progressPct === 100
-                      ? 'bg-success/20 text-success'
-                      : 'bg-app-accent/20 text-app-accent',
+        <div className="mx-auto max-w-lg space-y-5 px-5">
+          <div className="space-y-3 rounded-2xl border border-app-border/70 bg-app-card/55 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  {ctxBadge && (
+                    <Badge
+                      variant="outline"
+                      className={cn('px-2 py-0.5 text-[10px] font-bold', ctxBadge.cls)}
+                    >
+                      {ctxBadge.label}
+                    </Badge>
                   )}
-                >
-                  {progressPct}%
-                </Badge>
+                  <span className="text-xs font-semibold text-app-muted-foreground tabular-nums">
+                    {progressPct}%
+                  </span>
+                </div>
+                <h2 className="mt-2 truncate text-base font-bold text-app-foreground">
+                  {workout.title}
+                </h2>
+                <p className="mt-1 text-xs text-app-muted-foreground">
+                  {doneSets} di {totalSets} serie completate
+                </p>
               </div>
-              <Progress value={progressPct} className="h-2" />
               {doneSets > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={resetTracking}
-                  className="text-xs text-app-muted-foreground hover:text-app-foreground h-7 px-2"
+                  className="h-8 shrink-0 px-2 text-xs text-app-muted-foreground hover:text-app-foreground"
                 >
-                  Azzera tracking
+                  Azzera
                 </Button>
               )}
-            </CardContent>
-          </Card>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-app-muted">
+              <div
+                className="h-full rounded-full bg-app-accent transition-all"
+                style={{ width: `${Math.min(progressPct, 100)}%` }}
+              />
+            </div>
+          </div>
 
           {/* Exercise list */}
-          <div className="overflow-hidden rounded-2xl border border-app-border bg-app-card divide-y divide-app-border">
+          <div className="overflow-hidden rounded-[1.35rem] border border-app-border/70 bg-app-card/35 divide-y divide-app-border/70">
             {workout.workout_exercises.map((ex, idx) => {
-              const done = completedSets[ex.id] || 0;
-              const total = ex.prescribed_sets;
               const status = getExerciseStatus(ex);
               const isDuration = !!ex.prescribed_duration_seconds && ex.prescribed_duration_seconds > 0;
               const durationLabel = isDuration
                 ? formatDuration(ex.prescribed_duration_seconds!)
                 : null;
               const repsCount = formatReps(ex.prescribed_reps_min, ex.prescribed_reps_max);
+              const statusInfo = exerciseStatusInfo(status);
               return (
                 <button
                   key={ex.id}
                   type="button"
                   onClick={() => openExercise(ex)}
                   className={cn(
-                    'w-full flex items-center gap-3 p-3 text-left transition-colors hover:bg-app-muted/35',
-                    status === 'in_progress' && 'bg-app-accent/5',
-                    status === 'completed' && 'opacity-65',
+                    'group flex w-full items-center gap-4 px-3 py-4 text-left transition-colors hover:bg-app-muted/25 active:bg-app-muted/40',
+                    status === 'in_progress' && 'bg-app-accent/[0.04]',
+                    status === 'completed' && 'opacity-75',
                   )}
                 >
                   <div
                     className={cn(
-                      'h-16 w-16 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-app-muted border-2',
-                      status === 'in_progress' ? 'border-app-accent' : 'border-transparent',
+                      'h-[5.75rem] w-[5.75rem] flex-shrink-0 overflow-hidden rounded-[1.15rem] bg-app-muted flex items-center justify-center ring-1 ring-app-border/70',
+                      status === 'in_progress' && 'ring-2 ring-app-accent/80',
                     )}
                   >
                     {ex.exercises?.image_url ? (
@@ -456,48 +441,39 @@ export function AtletaEserciziPage() {
                         loading="lazy"
                       />
                     ) : (
-                      <Dumbbell className="h-7 w-7 text-app-muted-foreground/60" />
+                      <div className="flex h-full w-full items-center justify-center bg-app-muted">
+                        <Dumbbell className="h-8 w-8 text-app-muted-foreground/55" />
+                      </div>
                     )}
                   </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <h3 className="truncate text-lg font-bold text-app-foreground">
+                  <div className="min-w-0 flex-1 py-1">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <h3 className="min-w-0 truncate text-xl font-extrabold leading-tight text-app-foreground">
                         {ex.exercises?.name || 'Esercizio'}
                       </h3>
-                      <span className="text-[10px] text-app-muted-foreground tabular-nums">
-                        #{idx + 1}
+                      <span className="shrink-0 text-[10px] font-semibold text-app-muted-foreground tabular-nums">
+                        {String(idx + 1).padStart(2, '0')}
                       </span>
                     </div>
-                    <div className="mt-1 flex items-center gap-2 text-sm text-app-muted-foreground">
-                      {isDuration ? (
-                        <>
-                          <Timer className="h-3.5 w-3.5" />
-                          <span className="tabular-nums">{durationLabel}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Repeat className="h-3.5 w-3.5" />
-                          <span className="tabular-nums">×{repsCount}</span>
-                        </>
-                      )}
-                      {status === 'in_progress' && (
-                        <span className="text-xs font-medium text-app-accent">
-                          · {done}/{total} set
-                        </span>
-                      )}
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-base font-bold text-app-muted-foreground tabular-nums">
+                        {isDuration ? durationLabel : `x${repsCount}`}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className={cn('h-2 w-2 rounded-full', statusInfo.dotClass)} />
+                      <span className={cn('text-[11px] font-semibold uppercase', statusInfo.textClass)}>
+                        {statusInfo.label}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex flex-shrink-0 items-center gap-2">
+                  <div className="flex flex-shrink-0 items-center">
                     {status === 'completed' ? (
-                      <CheckCircle2 className="h-5 w-5 text-app-accent" />
-                    ) : status === 'in_progress' ? (
-                      <span className="h-2.5 w-2.5 rounded-full bg-app-accent animate-pulse" />
-                    ) : (
-                      <span className="h-2.5 w-2.5 rounded-full border border-app-muted-foreground/40" />
+                      <CheckCircle2 className="mr-1 h-5 w-5 text-app-accent" />
                     )}
-                    <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+                    <ChevronRight className="h-5 w-5 text-app-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </div>
                 </button>
               );
@@ -633,6 +609,29 @@ function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function exerciseStatusInfo(status: 'not_started' | 'in_progress' | 'completed') {
+  switch (status) {
+    case 'completed':
+      return {
+        label: 'Completato',
+        dotClass: 'bg-app-accent',
+        textClass: 'text-app-accent',
+      };
+    case 'in_progress':
+      return {
+        label: 'In corso',
+        dotClass: 'bg-app-accent animate-pulse',
+        textClass: 'text-app-accent',
+      };
+    default:
+      return {
+        label: 'Non iniziato',
+        dotClass: 'border border-app-muted-foreground/60',
+        textClass: 'text-app-muted-foreground',
+      };
+  }
 }
 
 export default AtletaEserciziPage;
