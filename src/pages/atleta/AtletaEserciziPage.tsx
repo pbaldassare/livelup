@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,9 +32,9 @@ import {
   Timer,
   Repeat,
   CheckCircle2,
-  Circle,
   SkipForward,
   Loader2,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -51,7 +52,19 @@ interface DayExercise {
   prescribed_reps_max: number | null;
   rest_seconds: number | null;
   notes: string | null;
-  exercises: { name: string; category: string | null } | null;
+  prescribed_duration_seconds?: number | null;
+  prescribed_weight?: number | null;
+  sets_data?: unknown;
+  protocol_type?: string | null;
+  protocol_params?: Record<string, unknown> | null;
+  exercises: {
+    name: string;
+    category: string | null;
+    video_url?: string | null;
+    image_url?: string | null;
+    instructions?: string | null;
+    muscle_groups?: string[] | null;
+  } | null;
 }
 
 type WorkoutContext = 'in_corso' | 'in_sospeso' | 'oggi' | 'prossimo';
@@ -78,9 +91,14 @@ const SELECT_CLAUSE = `
     prescribed_sets,
     prescribed_reps_min,
     prescribed_reps_max,
+    prescribed_weight,
+    prescribed_duration_seconds,
     rest_seconds,
     notes,
-    exercises:exercise_id ( name, category )
+    sets_data,
+    protocol_type,
+    protocol_params,
+    exercises:exercise_id ( name, category, video_url, image_url, instructions, muscle_groups )
   )
 `;
 
