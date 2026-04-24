@@ -583,6 +583,49 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       ],
     },
   },
+  RXT: {
+    type: 'RXT',
+    label: 'RxT',
+    athleteLabel: 'Round for Time',
+    icon: Trophy,
+    description:
+      'Completa il numero di round indicato nel minor tempo possibile. Le pause devono essere minime tra un round e l’altro: l’obiettivo è migliorare il tempo ad ogni sessione. AMRAP usa un tempo fisso per fare più round possibili; RxT usa round fissi e un tempo da minimizzare.',
+    defaultParams: {
+      rounds: 5,
+      note: '',
+      max_rest_seconds: null,
+    },
+    paramFields: [
+      { key: 'rounds', label: 'Round', type: 'number', min: 1, placeholder: '5' },
+      { key: 'max_rest_seconds', label: 'Pausa max consigliata (s)', type: 'number', min: 0, step: 5, placeholder: 'Opzionale' },
+      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. mantieni ritmo costante', hint: 'Indicazioni libere per l\'atleta' },
+    ],
+    executionMode: 'rounds',
+    sections: {
+      coachSets: [
+        'Lista esercizi per round (con reps)',
+        'Numero di round',
+        'Note opzionali',
+        'Eventuale pausa massima consigliata',
+      ],
+      athleteDoes: [
+        'Completa gli esercizi del round',
+        'Conferma round completato',
+        'Passa al round successivo',
+        'Chiude quando completa tutti i round',
+      ],
+      systemTracks: [
+        'Tempo totale completion',
+        'Confronto tempi precedenti',
+        'Progressione miglioramento',
+      ],
+      example: [
+        '5 round for time',
+        '10 Burpees • 15 Air Squat • 20 Sit-up',
+        'Obiettivo: chiudere i 5 round nel minor tempo possibile',
+      ],
+    },
+  },
 };
 
 export const PROTOCOL_LIST: ProtocolDefinition[] = Object.values(PROTOCOL_REGISTRY);
@@ -674,6 +717,10 @@ export function describeExerciseProtocol(
       const rest = p.rest_seconds ?? 20;
       return `HIIT ${intervals}× (${work}"W/${rest}"R)`;
     }
+    case 'RXT': {
+      const rounds = p.rounds ?? 5;
+      return `RxT ${rounds} round for time`;
+    }
   }
 }
 
@@ -733,6 +780,10 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
       const work = p.work_seconds ?? 40;
       const rest = p.rest_seconds ?? 20;
       return `${intervals} intervalli ${work}" lavoro / ${rest}" riposo`;
+    }
+    case 'RXT': {
+      const rounds = p.rounds ?? 5;
+      return `${rounds} round nel minor tempo possibile`;
     }
     default:
       return '';
