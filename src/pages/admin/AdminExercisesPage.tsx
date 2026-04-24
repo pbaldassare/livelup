@@ -656,97 +656,90 @@ export default function AdminExercisesPage() {
             </FormSection>
 
             <FormSection title="Media esercizio">
-              <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-                <div className="space-y-2">
-                  <Label>Immagine esercizio</Label>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-xl border bg-muted/20 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <Label className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Immagine esercizio</Label>
+                    {form.image_url && <Badge variant="secondary">Preview</Badge>}
+                  </div>
                   <div className="overflow-hidden rounded-xl border bg-muted">
-                    <div className="flex aspect-[4/3] items-center justify-center">
+                    <div className="flex aspect-video items-center justify-center">
                       {form.image_url ? (
                         <img src={form.image_url} alt="Preview esercizio" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                          <ImageIcon className="h-9 w-9" />
-                          <span className="text-xs font-medium">Immagine consigliata</span>
+                          <ImageIcon className="h-10 w-10" />
+                          <span className="text-sm font-medium">Nessuna immagine</span>
                         </div>
                       )}
                     </div>
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImageUpload(file);
-                    }}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={imageUploadPending}
-                    >
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); }} />
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={imageUploadPending}>
                       {imageUploadPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                       {form.image_url ? 'Sostituisci' : 'Carica'}
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setForm(p => ({ ...p, image_url: '' }))}
-                      disabled={!form.image_url || imageUploadPending}
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      Rimuovi
+                    <Button type="button" variant="outline" onClick={() => setForm(p => ({ ...p, image_url: '' }))} disabled={!form.image_url || imageUploadPending}>
+                      <X className="mr-2 h-4 w-4" /> Rimuovi
                     </Button>
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    <Label className="flex items-center gap-2 text-xs text-muted-foreground"><Link2 className="h-3.5 w-3.5" /> URL immagine fallback</Label>
+                    <Input value={form.image_url} onChange={e => setForm(p => ({ ...p, image_url: e.target.value }))} placeholder="https://..." />
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="flex items-center gap-2">
-                      <Link2 className="h-4 w-4" />
-                      Image URL fallback
-                    </Label>
-                    <Input
-                      value={form.image_url}
-                      onChange={e => setForm(p => ({ ...p, image_url: e.target.value }))}
-                      placeholder="https://..."
-                    />
+                <div className="rounded-xl border bg-muted/20 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <Label className="flex items-center gap-2"><Film className="h-4 w-4" /> Video tutorial</Label>
+                    {form.video_url && <Badge variant="secondary">Collegato</Badge>}
                   </div>
-
-                  <div className="space-y-2">
-                    <Label>Video tutorial</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={form.video_url}
-                        onChange={e => setForm(p => ({ ...p, video_url: e.target.value }))}
-                        placeholder="YouTube o Vimeo URL"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setForm(p => ({ ...p, video_url: '' }))}
-                        disabled={!form.video_url}
-                        title="Rimuovi video"
+                  <Tabs defaultValue={isVideoFileUrl(form.video_url) ? 'upload' : 'link'} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="upload">Carica video</TabsTrigger>
+                      <TabsTrigger value="link">Link YouTube/Vimeo</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="upload" className="space-y-3">
+                      <input ref={videoInputRef} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) handleVideoUpload(file); }} />
+                      <div
+                        onDragOver={e => { e.preventDefault(); setVideoDragActive(true); }}
+                        onDragLeave={() => setVideoDragActive(false)}
+                        onDrop={e => { e.preventDefault(); setVideoDragActive(false); const file = e.dataTransfer.files?.[0]; if (file) handleVideoUpload(file); }}
+                        className={cn('flex min-h-[170px] flex-col items-center justify-center rounded-xl border border-dashed bg-background/60 p-4 text-center transition-colors', videoDragActive && 'border-primary bg-primary/5')}
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+                        <UploadCloud className="mb-2 h-10 w-10 text-muted-foreground" />
+                        <p className="text-sm font-medium">Trascina qui un MP4/MOV</p>
+                        <p className="text-xs text-muted-foreground">Max 100MB</p>
+                        <Button type="button" variant="outline" className="mt-3" onClick={() => videoInputRef.current?.click()} disabled={videoUploadPending}>
+                          {videoUploadPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                          {form.video_url ? 'Sostituisci video' : 'Carica video'}
+                        </Button>
+                      </div>
+                      {videoUploadPending && <Progress value={videoUploadProgress} className="h-2" />}
+                    </TabsContent>
+                    <TabsContent value="link" className="space-y-3">
+                      <div className="flex gap-2">
+                        <Input value={form.video_url} onChange={e => setForm(p => ({ ...p, video_url: e.target.value }))} placeholder="YouTube o Vimeo URL" />
+                        <Button type="button" variant="outline" size="icon" onClick={() => setForm(p => ({ ...p, video_url: '' }))} disabled={!form.video_url} title="Rimuovi video">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                  <div className="mt-3">
                     {form.video_url && isValidUrl(form.video_url) ? (
                       <VideoPreview url={form.video_url} title={form.name || 'Video tutorial'} />
                     ) : (
-                      <div className={cn(
-                        'flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground',
-                        form.video_url && 'border-destructive/40 text-destructive'
-                      )}>
+                      <div className={cn('flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground', form.video_url && 'border-destructive/40 text-destructive')}>
                         <Video className="h-4 w-4" />
-                        {form.video_url ? 'URL video non valido' : 'Aggiungi un link YouTube o Vimeo per mostrare la preview.'}
+                        {form.video_url ? 'Video non valido' : 'Nessun video tutorial collegato'}
                       </div>
                     )}
                   </div>
+                  <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => setForm(p => ({ ...p, video_url: '' }))} disabled={!form.video_url || videoUploadPending}>
+                    <X className="mr-2 h-4 w-4" /> Rimuovi video
+                  </Button>
                 </div>
               </div>
             </FormSection>
