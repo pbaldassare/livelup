@@ -470,7 +470,7 @@ export function AtletaEserciziPage() {
                   </div>
 
                   <div className="flex flex-shrink-0 items-center">
-                    {status === 'completed' ? (
+                    {status === 'completed' && (
                       <CheckCircle2 className="mr-1 h-5 w-5 text-app-accent" />
                     )}
                     <ChevronRight className="h-5 w-5 text-app-muted-foreground transition-transform group-hover:translate-x-0.5" />
