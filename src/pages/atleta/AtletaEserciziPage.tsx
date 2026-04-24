@@ -437,112 +437,85 @@ export function AtletaEserciziPage() {
           </Card>
 
           {/* Exercise list */}
-          <div className="space-y-2">
+          <div className="overflow-hidden rounded-2xl border border-app-border bg-app-card divide-y divide-app-border">
             {workout.workout_exercises.map((ex, idx) => {
               const done = completedSets[ex.id] || 0;
               const total = ex.prescribed_sets;
-              const isComplete = done >= total && total > 0;
+              const status = getExerciseStatus(ex);
+              const isDuration = !!ex.prescribed_duration_seconds && ex.prescribed_duration_seconds > 0;
+              const durationLabel = isDuration
+                ? formatDuration(ex.prescribed_duration_seconds!)
+                : null;
+              const repsCount = formatReps(ex.prescribed_reps_min, ex.prescribed_reps_max);
               return (
-                <Card
+                <button
                   key={ex.id}
+                  type="button"
+                  onClick={() => openExercise(ex)}
                   className={cn(
-                    'bg-app-card border-app-border transition-colors',
-                    isComplete && 'border-success/40 bg-success/5',
+                    'w-full flex items-center gap-3 p-3 text-left transition-colors hover:bg-app-muted/35',
+                    status === 'in_progress' && 'bg-app-accent/5',
+                    status === 'completed' && 'opacity-65',
                   )}
                 >
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
-                          isComplete ? 'bg-success/20' : 'bg-app-accent/20',
-                        )}
-                      >
-                        {isComplete ? (
-                          <CheckCircle2 className="h-5 w-5 text-success" />
-                        ) : (
-                          <span className="text-sm font-bold text-app-accent">
-                            {idx + 1}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-app-foreground">
-                          {ex.exercises?.name || 'Esercizio'}
-                        </h3>
-                        <div className="flex items-center gap-3 text-xs text-app-muted-foreground mt-0.5">
-                          <span className="flex items-center gap-1">
-                            <Repeat className="h-3 w-3" />
-                            {formatReps(
-                              ex.prescribed_reps_min,
-                              ex.prescribed_reps_max,
-                            )}{' '}
-                            reps
-                          </span>
-                          {ex.rest_seconds ? (
-                            <span className="flex items-center gap-1">
-                              <Timer className="h-3 w-3" />
-                              {ex.rest_seconds}s
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
+                  <div
+                    className={cn(
+                      'h-16 w-16 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-app-muted border-2',
+                      status === 'in_progress' ? 'border-app-accent' : 'border-transparent',
+                    )}
+                  >
+                    {ex.exercises?.image_url ? (
+                      <img
+                        src={ex.exercises.image_url}
+                        alt={ex.exercises.name}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <Dumbbell className="h-7 w-7 text-app-muted-foreground/60" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h3 className="truncate text-lg font-bold text-app-foreground">
+                        {ex.exercises?.name || 'Esercizio'}
+                      </h3>
+                      <span className="text-[10px] text-app-muted-foreground tabular-nums">
+                        #{idx + 1}
+                      </span>
                     </div>
-
-                    {/* Set tracker */}
-                    <div className="pl-11 space-y-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {Array.from({ length: total }).map((_, i) => (
-                          <div
-                            key={i}
-                            className={cn(
-                              'h-6 w-6 rounded-full flex items-center justify-center border transition-colors',
-                              i < done
-                                ? 'bg-success border-success'
-                                : 'border-app-border bg-app-muted/30',
-                            )}
-                          >
-                            {i < done ? (
-                              <Check className="h-3.5 w-3.5 text-success-foreground" />
-                            ) : (
-                              <Circle className="h-2 w-2 text-app-muted-foreground" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-app-muted-foreground">
-                          Serie completate{' '}
-                          <span className="font-semibold text-app-foreground">
-                            {done}/{total}
-                          </span>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-app-muted-foreground">
+                      {isDuration ? (
+                        <>
+                          <Timer className="h-3.5 w-3.5" />
+                          <span className="tabular-nums">{durationLabel}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Repeat className="h-3.5 w-3.5" />
+                          <span className="tabular-nums">×{repsCount}</span>
+                        </>
+                      )}
+                      {status === 'in_progress' && (
+                        <span className="text-xs font-medium text-app-accent">
+                          · {done}/{total} set
                         </span>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            className="h-8 w-8 border-app-border bg-app-muted/30 hover:bg-app-muted text-app-foreground"
-                            onClick={() => decrementSet(ex.id)}
-                            disabled={done === 0}
-                            aria-label="Rimuovi serie"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            className="h-8 w-8 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
-                            onClick={() => incrementSet(ex.id, total)}
-                            disabled={done >= total}
-                            aria-label="Aggiungi serie"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    {status === 'completed' ? (
+                      <CheckCircle2 className="h-5 w-5 text-app-accent" />
+                    ) : status === 'in_progress' ? (
+                      <span className="h-2.5 w-2.5 rounded-full bg-app-accent animate-pulse" />
+                    ) : (
+                      <span className="h-2.5 w-2.5 rounded-full border border-app-muted-foreground/40" />
+                    )}
+                    <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+                  </div>
+                </button>
               );
             })}
           </div>
