@@ -874,6 +874,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </p>
                                         </div>
                                       )}
+                                      {ptype === 'HIIT' && (
+                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
+                                            <span className="font-semibold">Nota:</span> Protocollo a intervalli flessibili con rotazione esercizi e tempi configurabili. La struttura atleta mostrerà stato LAVORO / PAUSA, intervallo corrente / totale, esercizio corrente e anteprima del prossimo esercizio.
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })()}

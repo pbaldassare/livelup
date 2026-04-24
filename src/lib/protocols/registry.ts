@@ -5,9 +5,9 @@
 // =====================================================
 
 import type { LucideIcon } from 'lucide-react';
-import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2, BarChart3, Skull, Zap } from 'lucide-react';
+import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2, BarChart3, Skull, Zap, Flame } from 'lucide-react';
 
-export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET' | 'LADDER' | 'DEAD_LADDER' | 'TABATA';
+export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET' | 'LADDER' | 'DEAD_LADDER' | 'TABATA' | 'HIIT';
 
 export type EmomMode = 'single' | 'alternating' | 'ladder';
 export type TabataMode = 'single' | 'alternating';
@@ -48,7 +48,9 @@ export type ProtocolParams = {
   start_reps?: number | null;
   // TABATA
   work_seconds?: number | null;
-  // (rest_seconds, rounds, mode, note già presenti sopra — TABATA li riusa)
+  // HIIT
+  intervals_total?: number | null;
+  // (rest_seconds, rounds, mode, note già presenti sopra — TABATA/HIIT li riusano)
 };
 
 export type ParamFieldType = 'number' | 'text' | 'select' | 'exercise_select' | 'number_list';
@@ -535,6 +537,50 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       ],
     },
   },
+  HIIT: {
+    type: 'HIIT',
+    label: 'HIIT',
+    athleteLabel: 'Intervalli flessibili',
+    icon: Flame,
+    description:
+      'Circuito a tempo con numero preciso di intervalli totali e tempi lavoro/pausa configurabili. Gli esercizi vengono eseguiti a rotazione per il numero totale di intervalli indicato. Tabata usa round canonici e una struttura classica; HIIT usa intervalli liberi, durata personalizzabile e rotazione esercizi più flessibile.',
+    defaultParams: {
+      work_seconds: 40,
+      rest_seconds: 20,
+      intervals_total: 12,
+      note: '',
+    },
+    paramFields: [
+      { key: 'work_seconds', label: 'Lavoro (s)', type: 'number', min: 1, step: 5, placeholder: '40' },
+      { key: 'rest_seconds', label: 'Riposo (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
+      { key: 'intervals_total', label: 'Intervalli totali', type: 'number', min: 1, placeholder: '12' },
+      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o rotazione esercizi', hint: 'Indicazioni libere per l\'atleta' },
+    ],
+    executionMode: 'rounds',
+    sections: {
+      coachSets: [
+        'Lista esercizi in rotazione',
+        'Secondi lavoro',
+        'Secondi pausa',
+        'Numero totale intervalli',
+      ],
+      athleteDoes: [
+        'Esegue l\'esercizio corrente',
+        'Recupera nella pausa',
+        'Segue la rotazione automatica',
+        'Completa tutti gli intervalli previsti',
+      ],
+      systemTracks: [
+        'Intervalli completati',
+        'Intervalli totali eseguiti',
+      ],
+      example: [
+        'HIIT: 24 intervalli',
+        '40" lavoro / 20" pausa',
+        'Rotazione: Sit-up → Push-up → Squat',
+      ],
+    },
+  },
 };
 
 export const PROTOCOL_LIST: ProtocolDefinition[] = Object.values(PROTOCOL_REGISTRY);
@@ -620,6 +666,12 @@ export function describeExerciseProtocol(
       const rest = p.rest_seconds ?? 20;
       return `Tabata ${rounds}× (${work}"/${rest}")`;
     }
+    case 'HIIT': {
+      const intervals = p.intervals_total ?? 12;
+      const work = p.work_seconds ?? 40;
+      const rest = p.rest_seconds ?? 20;
+      return `HIIT ${intervals}× (${work}"W/${rest}"R)`;
+    }
   }
 }
 
@@ -673,6 +725,12 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
       const work = p.work_seconds ?? 20;
       const rest = p.rest_seconds ?? 20;
       return `${rounds} round a intervalli ${work}" lavoro / ${rest}" riposo`;
+    }
+    case 'HIIT': {
+      const intervals = p.intervals_total ?? 12;
+      const work = p.work_seconds ?? 40;
+      const rest = p.rest_seconds ?? 20;
+      return `${intervals} intervalli ${work}" lavoro / ${rest}" riposo`;
     }
     default:
       return '';
