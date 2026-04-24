@@ -124,6 +124,22 @@ export function ExerciseDetailDialog({
 
   if (!exercise) return null;
   const isFavorite = !!favIds?.has(exercise.id);
+  const hasImage = !!exercise.image_url;
+  const hasVideo = !!exercise.video_url;
+  const imagePanel = (
+    <div className="overflow-hidden rounded-xl border bg-muted">
+      <div className="flex aspect-[16/9] items-center justify-center">
+        {hasImage ? (
+          <img src={exercise.image_url!} alt={exercise.name} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <Dumbbell className="h-12 w-12" />
+            <span className="text-sm">Nessuna immagine disponibile</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -164,35 +180,23 @@ export function ExerciseDetailDialog({
 
           <div>
             <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-              <ImageIcon className="h-3.5 w-3.5" /> Immagine esercizio
+              <ImageIcon className="h-3.5 w-3.5" /> Media esercizio
             </p>
-            <div className="overflow-hidden rounded-xl border bg-muted">
-              <div className="flex aspect-[16/9] items-center justify-center">
-                {exercise.image_url ? (
-                  <img
-                    src={exercise.image_url}
-                    alt={exercise.name}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <Dumbbell className="h-12 w-12" />
-                    <span className="text-sm">Nessuna immagine disponibile</span>
-                  </div>
-                )}
-              </div>
-            </div>
+            {hasImage && hasVideo ? (
+              <Tabs defaultValue="image" className="w-full">
+                <TabsList className="mb-2 grid w-full grid-cols-2">
+                  <TabsTrigger value="image">Immagine</TabsTrigger>
+                  <TabsTrigger value="video">Video</TabsTrigger>
+                </TabsList>
+                <TabsContent value="image" className="mt-0">{imagePanel}</TabsContent>
+                <TabsContent value="video" className="mt-0"><VideoEmbed url={exercise.video_url!} title={exercise.name} /></TabsContent>
+              </Tabs>
+            ) : hasVideo ? (
+              <VideoEmbed url={exercise.video_url!} title={exercise.name} />
+            ) : (
+              imagePanel
+            )}
           </div>
-
-          {exercise.video_url && (
-            <div>
-              <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-                <VideoIcon className="h-3.5 w-3.5" /> Video tutorial
-              </p>
-              <VideoEmbed url={exercise.video_url} title={exercise.name} />
-            </div>
-          )}
 
           {exercise.muscle_groups?.length > 0 && (
             <div>
