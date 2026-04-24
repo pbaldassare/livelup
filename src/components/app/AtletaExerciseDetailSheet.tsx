@@ -126,19 +126,19 @@ export function AtletaExerciseDetailSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="bottom"
-          className="h-[92dvh] p-0 bg-app-background border-app-border overflow-hidden flex flex-col"
+          className="h-[94dvh] p-0 bg-app-background border-app-border overflow-hidden flex flex-col rounded-t-[1.75rem]"
         >
           {/* Header sticky */}
-          <div className="sticky top-0 z-10 bg-app-background/95 backdrop-blur border-b border-app-border">
-            <div className="flex items-center justify-between p-4">
+          <div className="sticky top-0 z-10 bg-app-background/95 backdrop-blur border-b border-app-border/70">
+            <div className="flex items-center justify-between gap-3 p-4">
               <button
                 onClick={() => onOpenChange(false)}
-                className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
+                className="-ml-2 rounded-full p-2 transition-colors hover:bg-app-muted"
                 aria-label="Indietro"
               >
                 <ArrowLeft className="h-5 w-5 text-app-foreground" />
               </button>
-              <SheetTitle className="font-semibold text-app-foreground text-base truncate max-w-[60%] text-center">
+              <SheetTitle className="min-w-0 flex-1 truncate text-left text-xl font-black leading-tight text-app-foreground">
                 {ex.name}
               </SheetTitle>
               <SheetDescription className="sr-only">
@@ -148,7 +148,7 @@ export function AtletaExerciseDetailSheet({
                 variant="ghost"
                 size="sm"
                 disabled
-                className="text-app-muted-foreground opacity-60"
+                className="shrink-0 rounded-full text-app-muted-foreground opacity-60"
                 title="Prossimamente"
               >
                 Cambia
@@ -160,16 +160,16 @@ export function AtletaExerciseDetailSheet({
           <div className="flex-1 overflow-y-auto">
             <Tabs defaultValue="animazione" className="w-full">
               <div className="px-4 pt-4">
-                <TabsList className="grid w-full grid-cols-3 bg-app-muted">
-                  <TabsTrigger value="animazione">Animazione</TabsTrigger>
-                  <TabsTrigger value="muscoli">Muscoli</TabsTrigger>
-                  <TabsTrigger value="tutorial">Tutorial</TabsTrigger>
+                <TabsList className="grid h-11 w-full grid-cols-3 rounded-full bg-app-muted p-1">
+                  <TabsTrigger value="animazione" className="rounded-full text-xs">Animazione</TabsTrigger>
+                  <TabsTrigger value="muscoli" className="rounded-full text-xs">Muscoli</TabsTrigger>
+                  <TabsTrigger value="tutorial" className="rounded-full text-xs">Tutorial</TabsTrigger>
                 </TabsList>
               </div>
 
               <TabsContent value="animazione" className="mt-4 px-4 pb-6 space-y-5">
                 {/* Media */}
-                <div className="rounded-2xl overflow-hidden bg-app-muted aspect-[16/10] relative">
+                <div className="relative aspect-[4/3] overflow-hidden rounded-[1.5rem] bg-app-muted ring-1 ring-app-border/70 sm:aspect-[16/10]">
                   {youtubeId ? (
                     <button
                       onClick={() => setVideoOpen(true)}
@@ -179,6 +179,7 @@ export function AtletaExerciseDetailSheet({
                         src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
                         alt={ex.name}
                         className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                       <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                         <div className="h-16 w-16 rounded-full bg-app-accent flex items-center justify-center shadow-xl">
@@ -194,29 +195,30 @@ export function AtletaExerciseDetailSheet({
                       src={ex.image_url}
                       alt={ex.name}
                       className="w-full h-full object-cover"
+                      loading="lazy"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="flex h-full w-full items-center justify-center bg-app-muted">
                       <Dumbbell className="h-16 w-16 text-app-muted-foreground/40" />
                     </div>
                   )}
                 </div>
 
                 {/* Duration OR Reps (mai entrambi) */}
-                <div className="flex items-center gap-2 text-app-foreground">
+                <div className="flex items-center gap-3 rounded-2xl border border-app-border/70 bg-app-card/55 p-4 text-app-foreground">
                   {isDuration ? (
                     <>
-                      <Clock className="h-5 w-5 text-app-accent" />
-                      <span className="text-sm text-app-muted-foreground">Durata</span>
-                      <span className="font-bold tabular-nums">
+                      <Clock className="h-5 w-5 shrink-0 text-app-accent" />
+                      <span className="text-sm font-medium text-app-muted-foreground">Durata</span>
+                      <span className="ml-auto text-xl font-black tabular-nums">
                         {formatDuration(exercise.prescribed_duration_seconds!)}
                       </span>
                     </>
                   ) : (
                     <>
-                      <Repeat className="h-5 w-5 text-app-accent" />
-                      <span className="text-sm text-app-muted-foreground">Reps</span>
-                      <span className="font-bold tabular-nums">{repsLabel}</span>
+                      <Repeat className="h-5 w-5 shrink-0 text-app-accent" />
+                      <span className="text-sm font-medium text-app-muted-foreground">Reps</span>
+                      <span className="ml-auto text-xl font-black tabular-nums">{repsLabel}</span>
                     </>
                   )}
                 </div>
@@ -224,7 +226,7 @@ export function AtletaExerciseDetailSheet({
                 {/* Istruzioni */}
                 {ex.instructions && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-app-foreground">Esecuzione</h3>
+                    <h3 className="text-base font-bold text-app-foreground">Esecuzione</h3>
                     <p className="text-sm text-app-muted-foreground whitespace-pre-line leading-relaxed">
                       {ex.instructions}
                     </p>
@@ -234,7 +236,7 @@ export function AtletaExerciseDetailSheet({
                 {/* Area di focus */}
                 {muscleGroups.length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-app-foreground">Area di focus</h3>
+                    <h3 className="text-base font-bold text-app-foreground">Area di focus</h3>
                     <div className="flex flex-wrap gap-2">
                       {muscleGroups.map((m) => (
                         <Badge
