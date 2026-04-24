@@ -176,6 +176,8 @@ export function AtletaEserciziPage() {
   const [actionLoading, setActionLoading] = useState<'complete' | 'skip' | null>(
     null,
   );
+  const [selectedExercise, setSelectedExercise] = useState<DayExercise | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const { data: workout, isLoading } = useQuery({
     queryKey: ['atleta-esercizi-priority', user?.id],
@@ -236,6 +238,18 @@ export function AtletaEserciziPage() {
   };
 
   const resetTracking = () => setCompletedSets({});
+
+  const getExerciseStatus = (ex: DayExercise): 'not_started' | 'in_progress' | 'completed' => {
+    const done = completedSets[ex.id] || 0;
+    if (done <= 0) return 'not_started';
+    if (done < ex.prescribed_sets) return 'in_progress';
+    return 'completed';
+  };
+
+  const openExercise = (ex: DayExercise) => {
+    setSelectedExercise(ex);
+    setDetailOpen(true);
+  };
 
   const completeWorkout = async () => {
     if (!workout) return;
