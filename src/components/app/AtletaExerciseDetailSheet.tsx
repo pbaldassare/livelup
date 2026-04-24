@@ -273,51 +273,51 @@ export function AtletaExerciseDetailSheet({
 
                 {/* Set verticali */}
                 {isSetProtocol && !isDuration && sets.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-app-foreground">Set</h3>
-                    <div className="space-y-2">
+                  <div className="space-y-3">
+                    <h3 className="text-base font-bold text-app-foreground">Set</h3>
+                    <div className="space-y-3">
                       {sets.map((s) => {
                         const done = completedSetsForEx.includes(s.n);
                         return (
                           <div
                             key={s.n}
                             className={cn(
-                              'rounded-xl border border-app-border bg-app-card p-4 transition-opacity',
+                              'rounded-2xl border border-app-border/70 bg-app-card/60 p-4 transition-opacity',
                               done && 'opacity-60'
                             )}
                           >
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="font-semibold text-app-foreground">
+                            <div className="mb-3 flex items-center justify-between">
+                              <span className="text-lg font-black text-app-foreground">
                                 Set {s.n}
                               </span>
                               {done && (
                                 <CheckCircle2 className="h-5 w-5 text-app-accent" />
                               )}
                             </div>
-                            <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-app-muted-foreground">
+                            <div className="grid gap-2 text-sm text-app-muted-foreground">
                               {s.reps !== null && (
-                                <span>
-                                  Reps:{' '}
-                                  <span className="text-app-foreground font-medium">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span>Reps</span>
+                                  <span className="font-bold text-app-foreground">
                                     {s.reps}
                                   </span>
-                                </span>
+                                </div>
                               )}
                               {s.weight !== null && s.weight > 0 && (
-                                <span>
-                                  Kg:{' '}
-                                  <span className="text-app-foreground font-medium">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span>Kg</span>
+                                  <span className="font-bold text-app-foreground">
                                     {s.weight}
                                   </span>
-                                </span>
+                                </div>
                               )}
                               {s.rest !== null && s.rest > 0 && (
-                                <span>
-                                  Recupero:{' '}
-                                  <span className="text-app-foreground font-medium">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span>Recupero</span>
+                                  <span className="font-bold text-app-foreground">
                                     {s.rest}s
                                   </span>
-                                </span>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -329,7 +329,7 @@ export function AtletaExerciseDetailSheet({
 
                 {/* Notes */}
                 {exercise.notes && (
-                  <div className="rounded-xl bg-app-card border border-app-border p-4">
+                  <div className="rounded-2xl bg-app-card/60 border border-app-border/70 p-4">
                     <p className="text-xs text-app-muted-foreground mb-1">Note del coach</p>
                     <p className="text-sm text-app-foreground whitespace-pre-line">
                       {exercise.notes}
@@ -339,21 +339,21 @@ export function AtletaExerciseDetailSheet({
               </TabsContent>
 
               <TabsContent value="muscoli" className="mt-4 px-4 pb-6">
-                <div className="rounded-xl bg-app-card border border-app-border p-8 text-center">
-                  <p className="text-sm text-app-muted-foreground">In arrivo 🚧</p>
+                <div className="rounded-2xl bg-app-card/60 border border-app-border/70 p-8 text-center">
+                  <p className="text-sm text-app-muted-foreground">In arrivo</p>
                 </div>
               </TabsContent>
 
               <TabsContent value="tutorial" className="mt-4 px-4 pb-6">
-                <div className="rounded-xl bg-app-card border border-app-border p-8 text-center">
-                  <p className="text-sm text-app-muted-foreground">In arrivo 🚧</p>
+                <div className="rounded-2xl bg-app-card/60 border border-app-border/70 p-8 text-center">
+                  <p className="text-sm text-app-muted-foreground">In arrivo</p>
                 </div>
               </TabsContent>
             </Tabs>
           </div>
 
           {/* Footer sticky */}
-          <div className="sticky bottom-0 z-10 bg-app-background/95 backdrop-blur border-t border-app-border p-4 flex flex-col gap-2">
+          <div className="sticky bottom-0 z-10 flex flex-col gap-2 border-t border-app-border/70 bg-app-background/95 p-4 backdrop-blur">
             <Button
               onClick={onStart}
               disabled={status === 'completed'}
