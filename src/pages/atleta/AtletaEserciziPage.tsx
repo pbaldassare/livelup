@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
@@ -167,6 +167,7 @@ function wrap(raw: any, context: WorkoutContext): DayWorkout {
 
 export function AtletaEserciziPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { canAccessWorkouts, isLoading: statusLoading } = useAtletaStatus();
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
@@ -542,6 +543,28 @@ export function AtletaEserciziPage() {
               Completa
             </Button>
           </div>
+
+          <AtletaExerciseDetailSheet
+            open={detailOpen}
+            onOpenChange={setDetailOpen}
+            exercise={selectedExercise as any}
+            completedSetsForEx={
+              selectedExercise
+                ? Array.from({ length: completedSets[selectedExercise.id] || 0 }, (_, i) => i + 1)
+                : []
+            }
+            status={selectedExercise ? getExerciseStatus(selectedExercise) : 'not_started'}
+            onStart={() => workout && navigate(`/app/workout/${workout.id}`)}
+            onMarkAllCompleted={() => {
+              if (!selectedExercise) return;
+              setCompletedSets((prev) => ({
+                ...prev,
+                [selectedExercise.id]: selectedExercise.prescribed_sets,
+              }));
+              toast({ title: 'Esercizio completato' });
+              setDetailOpen(false);
+            }}
+          />
         </div>
       )}
 
