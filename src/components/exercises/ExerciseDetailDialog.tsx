@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExternalLink, Video as VideoIcon, Image as ImageIcon, Star, Dumbbell } from 'lucide-react';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,16 @@ function getYouTubeVideoId(url: string): string | null {
 function getVimeoVideoId(url: string): string | null {
   const match = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   return match ? match[1] : null;
+}
+
+function isVideoFileUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.toLowerCase();
+    return path.includes('/exercise-videos/') || /\.(mp4|mov|webm)$/.test(path);
+  } catch {
+    return false;
+  }
 }
 
 const difficultyColor = (level: string) => {
@@ -78,6 +89,14 @@ function VideoEmbed({ url, title }: { url: string; title: string }) {
           allow="autoplay; fullscreen; picture-in-picture"
           allowFullScreen
         />
+      </div>
+    );
+  }
+
+  if (isVideoFileUrl(url)) {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+        <video src={url} title={title} controls className="absolute inset-0 h-full w-full bg-black object-contain" />
       </div>
     );
   }
