@@ -888,6 +888,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </p>
                                         </div>
                                       )}
+                                      {ptype === 'RUNNING_TOTAL' && (
+                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
+                                            <span className="font-semibold">Nota:</span> L’atleta può spezzare liberamente il blocco in sub-serie fino a raggiungere il totale. La struttura atleta mostrerà cronometro count-up, reps cumulative, azione “+ aggiungi reps”, auto-complete blocco al target e tracking futuro su miglior tempo, distribuzione sub-serie e storico progressioni.
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })()}

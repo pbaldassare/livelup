@@ -5,9 +5,9 @@
 // =====================================================
 
 import type { LucideIcon } from 'lucide-react';
-import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2, BarChart3, Skull, Zap, Flame, Trophy } from 'lucide-react';
+import { Layers, TrendingUp, ArrowUp, Timer, Infinity as InfinityIcon, Repeat2, BarChart3, Skull, Zap, Flame, Trophy, Blocks } from 'lucide-react';
 
-export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET' | 'LADDER' | 'DEAD_LADDER' | 'TABATA' | 'HIIT' | 'RXT';
+export type ProtocolType = 'SET' | 'TOP_SET_BACKOFF' | 'RAMPING' | 'EMOM' | 'AMRAP' | 'SUPERSET' | 'LADDER' | 'DEAD_LADDER' | 'TABATA' | 'HIIT' | 'RXT' | 'RUNNING_TOTAL';
 
 export type EmomMode = 'single' | 'alternating' | 'ladder';
 export type TabataMode = 'single' | 'alternating';
@@ -52,7 +52,9 @@ export type ProtocolParams = {
   intervals_total?: number | null;
   // RxT
   max_rest_seconds?: number | null;
-  // (rest_seconds, rounds, mode, note già presenti sopra — TABATA/HIIT/RXT li riusano)
+  // RUNNING_TOTAL
+  target_reps?: number | null;
+  // (rest_seconds, rounds, mode, note già presenti sopra — TABATA/HIIT/RXT/RUNNING_TOTAL li riusano)
 };
 
 export type ParamFieldType = 'number' | 'text' | 'select' | 'exercise_select' | 'number_list';
@@ -626,6 +628,49 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       ],
     },
   },
+  RUNNING_TOTAL: {
+    type: 'RUNNING_TOTAL',
+    label: 'Running Total',
+    athleteLabel: 'Circuito a blocchi',
+    icon: Blocks,
+    description:
+      'Circuito con blocchi di reps da completare uno alla volta nel minor tempo possibile. Ogni blocco può essere spezzato in sub-serie: l’obiettivo è raggiungere il totale reps del blocco. RxT ripete lo stesso circuito per round; Running Total usa blocchi sequenziali da chiudere una volta sola.',
+    defaultParams: {
+      target_reps: 50,
+      note: '',
+    },
+    paramFields: [
+      { key: 'target_reps', label: 'Target reps blocco', type: 'number', min: 1, placeholder: '50' },
+      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. spezza in mini-serie sostenibili', hint: 'Strategia o indicazioni libere per l\'atleta' },
+    ],
+    executionMode: 'rounds',
+    sections: {
+      coachSets: [
+        'Lista blocchi con esercizio e reps target',
+        'Esempio: Blocco 1 → 50 Push-up',
+        'Esempio: Blocco 2 → 40 Squat',
+        'Esempio: Blocco 3 → 30 Sit-up',
+        'Note strategiche opzionali',
+      ],
+      athleteDoes: [
+        'Lavora su un blocco alla volta',
+        'Inserisce reps per sub-serie',
+        'Somma le sub-serie fino al target',
+        'Passa al blocco successivo solo quando il totale è completato',
+      ],
+      systemTracks: [
+        'Tempo totale completion',
+        'Sub-serie effettuate',
+        'Distribuzione sforzo',
+        'Progressione nel tempo',
+      ],
+      example: [
+        'Circuito for time',
+        '50 push-up → 40 squat → 30 sit-up',
+        '+28 +12 +10 = 50 completato',
+      ],
+    },
+  },
 };
 
 export const PROTOCOL_LIST: ProtocolDefinition[] = Object.values(PROTOCOL_REGISTRY);
@@ -721,6 +766,10 @@ export function describeExerciseProtocol(
       const rounds = p.rounds ?? 5;
       return `RxT ${rounds} round for time`;
     }
+    case 'RUNNING_TOTAL': {
+      const target = p.target_reps ?? 50;
+      return `Running Total ${target} reps`;
+    }
   }
 }
 
@@ -784,6 +833,10 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
     case 'RXT': {
       const rounds = p.rounds ?? 5;
       return `${rounds} round nel minor tempo possibile`;
+    }
+    case 'RUNNING_TOTAL': {
+      const target = p.target_reps ?? 50;
+      return `Blocco cumulativo fino a ${target} ripetizioni`;
     }
     default:
       return '';
