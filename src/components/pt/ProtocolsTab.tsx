@@ -10,7 +10,7 @@ import { PROTOCOL_REGISTRY, type ProtocolType } from '@/lib/protocols/registry';
 // Nessun CRUD: non modificabile / duplicabile / eliminabile.
 // =====================================================
 
-const VISIBLE_PROTOCOLS: ProtocolType[] = ['SET', 'TOP_SET_BACKOFF', 'RAMPING', 'EMOM', 'AMRAP', 'SUPERSET', 'LADDER', 'DEAD_LADDER', 'TABATA'];
+const VISIBLE_PROTOCOLS: ProtocolType[] = ['SET', 'TOP_SET_BACKOFF', 'RAMPING', 'EMOM', 'AMRAP', 'SUPERSET', 'LADDER', 'DEAD_LADDER', 'TABATA', 'HIIT'];
 const COMING_SOON_PROTOCOLS: ProtocolType[] = [];
 
 interface ProtocolCardProps {
@@ -165,9 +165,9 @@ export function ProtocolsTab() {
               I protocolli definiscono <em>come</em> si esegue ogni esercizio.
             </p>
             <p className="text-sm text-muted-foreground">
-              Per ora è disponibile <strong>SET</strong>, applicato di default a ogni esercizio
-              che aggiungi nelle schede. Nuovi protocolli (Top Set + Back Off, Ramping, EMOM,
-              AMRAP) saranno introdotti prossimamente.
+              <strong>SET</strong> resta il default, ma il Coach può selezionare protocolli avanzati
+              come Top Set + Back Off, Ramping, EMOM, AMRAP, Superset, Ladder, Dead Ladder,
+              Tabata e HIIT.
             </p>
           </div>
         </CardContent>
