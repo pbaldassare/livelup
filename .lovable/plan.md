@@ -1,52 +1,64 @@
-Piano di implementazione per migliorare la sezione “Media esercizio” nel modal Admin.
+Implementerò un redesign completo del popup dettaglio esercizio usato nel PT Archivio Esercizi, mantenendo la sorgente dati unica dagli esercizi Admin.
 
-1. Estendere il form Admin esercizi
-- Aggiornare `AdminExercisesPage.tsx` trasformando la sezione “Media esercizio” in un media manager a due card parallele:
-  - Card sinistra: Immagine esercizio con preview grande, upload, sostituzione, rimozione e URL fallback.
-  - Card destra: Video tutorial con tab “Carica video” e “Link YouTube/Vimeo”.
-- Aggiungere input file dedicato per video, drag & drop, pulsante “Carica video”, stato di upload e progress bar.
-- Mantenere il modal centrato già corretto.
+## Cosa verrà cambiato
 
-2. Upload video su storage esistente
-- Usare il bucket pubblico già presente `exercise-videos`.
-- Validare file video:
-  - formati: `mp4`, `mov` dove supportato dal browser;
-  - limite dimensione ragionevole, ad esempio 100 MB.
-- Salvare automaticamente l’URL pubblico del video nel campo `exercises.video_url`, così resta una sola sorgente dati.
-- Gestire replace/remove senza perdere il video già salvato se un nuovo upload fallisce.
-- Per la progress bar usare l’evento nativo `XMLHttpRequest` verso Storage, perché l’upload SDK attuale non espone una progress percentuale affidabile.
+### 1. Popup più ampio, centrato e premium
+- Mantengo il centraggio forzato già standardizzato.
+- Aumento la larghezza massima per farlo sembrare una vera scheda esercizio, non un popup database.
+- Corpo scrollabile con header più ordinato e viewport-safe.
+- Layout responsive: su desktop più ricco, su mobile in colonna.
 
-3. Supporto video link esterno
-- Mantenere il campo `video_url` per YouTube/Vimeo.
-- Rafforzare la validazione: se il valore non è un file caricato e non è YouTube/Vimeo, mostrare errore prima del salvataggio.
-- Mostrare preview embed automatica per YouTube/Vimeo.
-- Per URL video caricati dal bucket, mostrare player `<video controls>` inline.
+### 2. Hero media protagonista
+- In alto ci sarà un grande blocco media:
+  - immagine grande con rounded large e object-cover se `image_url` esiste;
+  - player video inline se `video_url` esiste, supportando YouTube, Vimeo e video caricati;
+  - tab/switch “Immagine” / “Video” quando entrambi sono disponibili;
+  - placeholder premium con icona e messaggio quando non esiste nessun media.
 
-4. Preview combinata Admin/PT/Atleta
-- Aggiornare `ExerciseDetailDialog.tsx` per mostrare una preview combinata:
-  - se esiste solo immagine: immagine;
-  - se esiste solo video: video;
-  - se esistono entrambi: tab “Immagine” / “Video”.
-- Supportare tre tipi di video nello stesso componente:
-  - YouTube embed;
-  - Vimeo embed;
-  - file caricato con player HTML5.
-- Questa preview alimenterà automaticamente Admin preview e Archivio Esercizi PT, perché condividono lo stesso dialog.
+### 3. Header esercizio migliorato
+- Nome esercizio grande e gerarchico.
+- Badge per categoria, difficoltà e gruppi muscolari principali.
+- Pulsante preferiti più evidente, con stato chiaro “Salvato” / “Aggiungi ai preferiti”.
+- Aggiungo una quick action semplice per copiare il nome esercizio, se compatibile con il contesto.
 
-5. Collegamento lato atleta
-- Aggiornare `AtletaExerciseDetailSheet.tsx` per usare `video_url` sia quando è YouTube/Vimeo sia quando è un file caricato.
-- Nel tab “Tutorial” mostrare il video corretto con priorità al valore salvato in `video_url`.
-- Nella hero/Animazione mantenere immagine come base visuale e usare il video quando disponibile senza rompere il workout flow.
+### 4. Info rapide
+- Nuova riga di mini-card/chips compatte con:
+  - difficoltà;
+  - categoria;
+  - muscoli focus;
+  - presenza immagine;
+  - presenza video tutorial.
 
-6. Nessuna modifica ai protocolli o builder
-- Non verrà cambiata la logica dei protocolli.
-- Non verrà modificato il builder schede, salvo continuare a leggere `image_url`/`video_url` già presenti dove previsto.
-- La sorgente dati rimane unica: tabella `exercises`, campi `image_url` e `video_url` già esistenti.
+### 5. Contenuto riorganizzato in sezioni
+Il contenuto verrà diviso in card chiare:
+- “Tecnica esecuzione” da `instructions`;
+- “Consigli del coach” da `description`;
+- “Muscoli coinvolti” da `muscle_groups`;
+- “Tutorial video” / “Media” quando presente;
+- blocco informativo “Disponibile per essere aggiunto alle tue schede”.
 
-Dettagli tecnici
-- Non serve migration per `image_url` e `video_url`: i campi sono già presenti nel model `exercises` e il bucket `exercise-videos` esiste già.
-- File previsti da modificare:
-  - `src/pages/admin/AdminExercisesPage.tsx`
-  - `src/components/exercises/ExerciseDetailDialog.tsx`
-  - `src/components/app/AtletaExerciseDetailSheet.tsx`
-- Verifica finale: build TypeScript e controllo che create/edit esercizio, preview Admin, Archivio PT e dettaglio atleta leggano lo stesso `video_url`.
+### 6. Coerenza dati Admin → PT
+Il popup continuerà a leggere gli stessi campi già popolati dall’Admin:
+- `image_url`
+- `video_url`
+- `instructions`
+- `description`
+- `category`
+- `difficulty_level`
+- `muscle_groups`
+
+Non verranno create duplicazioni e non sono previste migration.
+
+## File previsti
+- `src/components/exercises/ExerciseDetailDialog.tsx`
+
+Questo componente è già usato anche da Admin e dalla tab Esercizi PT nei workout. Il redesign sarà pensato per migliorare soprattutto il lato PT, senza rompere le preview Admin esistenti.
+
+## Verifica prevista
+- Hero image corretta.
+- Video YouTube/Vimeo/upload visibile e riproducibile.
+- Switch immagine/video funzionante.
+- Tutte le informazioni Admin visibili.
+- Preferiti ancora funzionanti.
+- Popup centrato e responsive.
+- Nessuna regressione sull’Archivio Esercizi PT.
