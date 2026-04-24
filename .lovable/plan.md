@@ -1,114 +1,52 @@
-## Piano: Admin Archivio Esercizi + media esercizio
+Piano di implementazione per migliorare la sezione “Media esercizio” nel modal Admin.
 
-### Obiettivo
-Trasformare il CRUD Admin degli esercizi in un editor completo e collegare `image_url` e `video_url` come sorgente unica per Admin, PT e Atleta.
+1. Estendere il form Admin esercizi
+- Aggiornare `AdminExercisesPage.tsx` trasformando la sezione “Media esercizio” in un media manager a due card parallele:
+  - Card sinistra: Immagine esercizio con preview grande, upload, sostituzione, rimozione e URL fallback.
+  - Card destra: Video tutorial con tab “Carica video” e “Link YouTube/Vimeo”.
+- Aggiungere input file dedicato per video, drag & drop, pulsante “Carica video”, stato di upload e progress bar.
+- Mantenere il modal centrato già corretto.
 
-Nota: la tabella `exercises` ha già `image_url` e `video_url`, e lo storage `exercise-images` / `exercise-videos` esiste già. Non serve migration schema.
+2. Upload video su storage esistente
+- Usare il bucket pubblico già presente `exercise-videos`.
+- Validare file video:
+  - formati: `mp4`, `mov` dove supportato dal browser;
+  - limite dimensione ragionevole, ad esempio 100 MB.
+- Salvare automaticamente l’URL pubblico del video nel campo `exercises.video_url`, così resta una sola sorgente dati.
+- Gestire replace/remove senza perdere il video già salvato se un nuovo upload fallisce.
+- Per la progress bar usare l’evento nativo `XMLHttpRequest` verso Storage, perché l’upload SDK attuale non espone una progress percentuale affidabile.
 
----
+3. Supporto video link esterno
+- Mantenere il campo `video_url` per YouTube/Vimeo.
+- Rafforzare la validazione: se il valore non è un file caricato e non è YouTube/Vimeo, mostrare errore prima del salvataggio.
+- Mostrare preview embed automatica per YouTube/Vimeo.
+- Per URL video caricati dal bucket, mostrare player `<video controls>` inline.
 
-### 1. Modal Admin “Nuovo/Modifica Esercizio”
-File: `src/pages/admin/AdminExercisesPage.tsx`
+4. Preview combinata Admin/PT/Atleta
+- Aggiornare `ExerciseDetailDialog.tsx` per mostrare una preview combinata:
+  - se esiste solo immagine: immagine;
+  - se esiste solo video: video;
+  - se esistono entrambi: tab “Immagine” / “Video”.
+- Supportare tre tipi di video nello stesso componente:
+  - YouTube embed;
+  - Vimeo embed;
+  - file caricato con player HTML5.
+- Questa preview alimenterà automaticamente Admin preview e Archivio Esercizi PT, perché condividono lo stesso dialog.
 
-- Ridisegnare il dialog con layout centrato, larghezza desktop circa `760–820px`, responsive mobile, scroll interno sicuro.
-- Riorganizzare il form in sezioni:
-  - Informazioni base: Nome, Istruzioni esecuzione obbligatorie, Consigli aggiuntivi.
-  - Classificazione: Categoria, Livello, Gruppi muscolari.
-  - Media esercizio: Immagine e Video tutorial.
-- Rafforzare validazioni:
-  - Nome obbligatorio e limite lunghezza.
-  - Istruzioni obbligatorie e limite lunghezza.
-  - Video facoltativo ma URL valido se presente.
-  - Immagine consigliata ma non obbligatoria.
+5. Collegamento lato atleta
+- Aggiornare `AtletaExerciseDetailSheet.tsx` per usare `video_url` sia quando è YouTube/Vimeo sia quando è un file caricato.
+- Nel tab “Tutorial” mostrare il video corretto con priorità al valore salvato in `video_url`.
+- Nella hero/Animazione mantenere immagine come base visuale e usare il video quando disponibile senza rompere il workout flow.
 
----
+6. Nessuna modifica ai protocolli o builder
+- Non verrà cambiata la logica dei protocolli.
+- Non verrà modificato il builder schede, salvo continuare a leggere `image_url`/`video_url` già presenti dove previsto.
+- La sorgente dati rimane unica: tabella `exercises`, campi `image_url` e `video_url` già esistenti.
 
-### 2. Upload e gestione immagine nel CRUD Admin
-File: `src/pages/admin/AdminExercisesPage.tsx`
-
-- Aggiungere upload file verso bucket `exercise-images`.
-- Salvare il public URL in `exercises.image_url`.
-- Mostrare preview immediata.
-- Consentire sostituzione immagine.
-- Consentire rimozione immagine, salvando `image_url = null`.
-- Mantenere anche campo URL immagine come fallback manuale.
-- Usare placeholder premium quando manca immagine.
-
----
-
-### 3. Video tutorial nel CRUD Admin
-File: `src/pages/admin/AdminExercisesPage.tsx`
-
-- Gestire `video_url` come campo dedicato.
-- Supportare URL YouTube e Vimeo tramite validazione semplice.
-- Mostrare preview automatica:
-  - embed YouTube quando riconosciuto;
-  - embed Vimeo quando riconosciuto;
-  - link/placeholder se provider non riconosciuto ma URL valido.
-- Consentire aggiunta, modifica e rimozione video in create/edit.
-
----
-
-### 4. Archivio Esercizi Admin: tabella e preview
-File: `src/pages/admin/AdminExercisesPage.tsx`
-
-- Aggiungere colonna thumbnail.
-- Aggiungere colonna video con icona quando `video_url` è presente.
-- Rendere l’anteprima più ricca tramite dialog dettaglio:
-  - immagine;
-  - video;
-  - istruzioni;
-  - consigli;
-  - badge categoria/livello/muscoli.
-
----
-
-### 5. Dialog dettaglio esercizio condiviso
-File: `src/components/exercises/ExerciseDetailDialog.tsx`
-
-- Migliorare il dialog esistente per visualizzare sia immagine sia video, non solo immagine quando manca YouTube.
-- Aggiungere supporto Vimeo semplice.
-- Mantenere bottone preferiti opzionale per PT.
-- Stile coerente con LivellApp e adatto sia ad Admin sia a PT.
-
----
-
-### 6. Collegamento lato PT
-File: `src/pages/pt/PTExercisesArchivePage.tsx`
-
-- Mostrare thumbnail in Archivio Esercizi PT.
-- Mostrare icona video se presente.
-- Al click, aprire il dialog dettaglio con immagine, video e istruzioni.
-
-File: `src/pages/pt/PTWorkoutsPage.tsx`
-
-- Nella tab “Esercizi” dentro Allenamenti PT, mostrare thumbnail da `image_url` per gli esercizi preferiti.
-- Mantenere invariata la logica dei preferiti e del builder.
-
-Importante: non aggiungere immagini nel builder schede, circuiti, protocolli o blocchi scheda. Il builder resta pulito e focalizzato sui parametri.
-
----
-
-### 7. Collegamento lato Atleta
-File già allineati da verificare/rafforzare:
-- `src/pages/atleta/AtletaEserciziPage.tsx`
-- `src/components/app/AtletaExerciseDetailSheet.tsx`
-
-- Confermare uso di `exercises.image_url` come thumbnail lista.
-- Confermare hero image nel dettaglio.
-- Migliorare la tab Tutorial per usare `video_url` quando presente invece di restare solo placeholder.
-- Non modificare workout flow, tracking localStorage, protocolli o logica di esecuzione.
-
----
-
-### 8. Controlli finali
-
-- Build/typecheck per verificare che non ci siano regressioni.
-- Verificare create/edit Admin con:
-  - upload immagine;
-  - URL fallback immagine;
-  - rimozione immagine;
-  - video YouTube/Vimeo;
-  - rimozione video.
-- Verificare che i dati salvati in Admin siano letti automaticamente da PT e Atleta.
-- Verificare che il builder schede non mostri immagini.
+Dettagli tecnici
+- Non serve migration per `image_url` e `video_url`: i campi sono già presenti nel model `exercises` e il bucket `exercise-videos` esiste già.
+- File previsti da modificare:
+  - `src/pages/admin/AdminExercisesPage.tsx`
+  - `src/components/exercises/ExerciseDetailDialog.tsx`
+  - `src/components/app/AtletaExerciseDetailSheet.tsx`
+- Verifica finale: build TypeScript e controllo che create/edit esercizio, preview Admin, Archivio PT e dettaglio atleta leggano lo stesso `video_url`.
