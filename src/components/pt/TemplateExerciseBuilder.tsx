@@ -881,6 +881,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </p>
                                         </div>
                                       )}
+                                      {ptype === 'RXT' && (
+                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
+                                            <span className="font-semibold">Nota:</span> L’atleta deve completare i round previsti nel minor tempo possibile. La struttura atleta mostrerà cronometro totale count-up, round corrente / totale, azione “Round completato” e benchmark futuri su miglior tempo, ultimo tempo e trend miglioramento.
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })()}
