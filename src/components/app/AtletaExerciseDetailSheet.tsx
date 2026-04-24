@@ -11,9 +11,11 @@ import {
   Clock,
   Repeat,
   CheckCircle2,
+  TimerReset,
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveSetsData } from '@/lib/setsData';
 
 // =====================================================
 // ATLETA EXERCISE DETAIL SHEET
@@ -29,6 +31,9 @@ interface SheetExercise {
   prescribed_weight?: number;
   rest_seconds?: number;
   notes?: string;
+  sets_data?: unknown;
+  protocol_type?: string | null;
+  protocol_params?: Record<string, unknown> | null;
   exercises: {
     name: string;
     category?: string;
@@ -65,16 +70,19 @@ function formatDuration(secs: number): string {
 
 // Build sets array — compatible with future per-set protocols
 function buildSets(ex: SheetExercise) {
-  const reps = ex.prescribed_reps_max
-    ? `${ex.prescribed_reps_min ?? ex.prescribed_reps_max}-${ex.prescribed_reps_max}`
-    : ex.prescribed_reps_min
-    ? `${ex.prescribed_reps_min}`
-    : null;
-  return Array.from({ length: Math.max(ex.prescribed_sets || 0, 0) }, (_, i) => ({
+  const resolved = resolveSetsData(ex.sets_data, {
+    sets: ex.prescribed_sets,
+    reps_min: ex.prescribed_reps_min,
+    reps_max: ex.prescribed_reps_max,
+    rest_seconds: ex.rest_seconds,
+    prescribed_duration_seconds: ex.prescribed_duration_seconds,
+  });
+
+  return resolved.map((set, i) => ({
     n: i + 1,
-    reps,
-    weight: ex.prescribed_weight ?? null,
-    rest: ex.rest_seconds ?? null,
+    reps: set.reps !== null ? String(set.reps) : null,
+    weight: set.weight ?? ex.prescribed_weight ?? null,
+    rest: set.rest_seconds ?? null,
   }));
 }
 
@@ -99,6 +107,7 @@ export function AtletaExerciseDetailSheet({
 
   const isDuration =
     !!exercise.prescribed_duration_seconds && exercise.prescribed_duration_seconds > 0;
+  const isSetProtocol = !exercise.protocol_type || exercise.protocol_type === 'SET';
   const repsLabel = exercise.prescribed_reps_max
     ? `×${exercise.prescribed_reps_min ?? exercise.prescribed_reps_max}-${exercise.prescribed_reps_max}`
     : `×${exercise.prescribed_reps_min ?? 0}`;
@@ -240,8 +249,28 @@ export function AtletaExerciseDetailSheet({
                   </div>
                 )}
 
+                {/* Timer placeholder time-based */}
+                {isDuration && (
+                  <div className="rounded-xl border border-app-border bg-app-card p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs text-app-muted-foreground">Timer esercizio</p>
+                        <p className="text-2xl font-bold tabular-nums text-app-foreground">
+                          {formatDuration(exercise.prescribed_duration_seconds!)}
+                        </p>
+                      </div>
+                      <div className="h-12 w-12 rounded-full bg-app-accent/15 flex items-center justify-center">
+                        <TimerReset className="h-6 w-6 text-app-accent" />
+                      </div>
+                    </div>
+                    <p className="mt-3 text-xs text-app-muted-foreground">
+                      Timer live pronto per la futura esecuzione automatica.
+                    </p>
+                  </div>
+                )}
+
                 {/* Set verticali */}
-                {sets.length > 0 && (
+                {isSetProtocol && !isDuration && sets.length > 0 && (
                   <div className="space-y-2">
                     <h3 className="text-sm font-semibold text-app-foreground">Set</h3>
                     <div className="space-y-2">
