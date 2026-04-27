@@ -125,6 +125,42 @@ export function AtletaProgrammaPage() {
       .map(([weekIdx, workouts]) => ({ weekIdx, workouts }));
   }, [data]);
 
+  // Statistiche progresso
+  const progressStats = useMemo(() => {
+    if (!data) return null;
+    const total = data.workouts.length;
+    const completed = data.workouts.filter((w) => w.status === 'completato').length;
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    // Prossima sessione = primo workout futuro non completato/saltato
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upcoming = data.workouts
+      .filter((w) => {
+        if (!w.scheduled_date) return false;
+        if (w.status === 'completato' || w.status === 'saltato') return false;
+        const d = parseISO(w.scheduled_date);
+        return d >= today;
+      })
+      .sort(
+        (a, b) =>
+          parseISO(a.scheduled_date!).getTime() - parseISO(b.scheduled_date!).getTime(),
+      )[0];
+
+    // Settimana corrente
+    const start = parseISO(data.assignment.start_date);
+    const startWeek = startOfWeek(start, { weekStartsOn: 1 });
+    const currentWeek = Math.max(
+      1,
+      Math.min(
+        data.program.duration_weeks,
+        differenceInCalendarWeeks(today, startWeek, { weekStartsOn: 1 }) + 1,
+      ),
+    );
+
+    return { total, completed, percent, upcoming, currentWeek };
+  }, [data]);
+
   // Locked
   if (!statusLoading && !canAccessWorkouts) {
     return (
