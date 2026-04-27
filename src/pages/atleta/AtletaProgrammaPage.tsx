@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { format, parseISO, startOfWeek, differenceInCalendarWeeks } from 'date-fns';
+import { format, parseISO, startOfWeek, differenceInCalendarWeeks, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { ListSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
@@ -22,6 +23,8 @@ import {
   Clock,
   Circle,
   ChevronRight,
+  Trophy,
+  Flame,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
