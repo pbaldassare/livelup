@@ -129,23 +129,36 @@ export function ProgramsTab({ layout = 'grid' }: ProgramsTabProps) {
         >
           {filtered.map((p: any) => {
             const scheduleCount = p.program_schedules?.length || 0;
+            const mode = p.mode || 'recurring';
             return (
-              <Card key={p.id} className="hover:bg-muted/30 transition-colors">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3 mb-2">
+              <Card
+                key={p.id}
+                className="overflow-hidden hover:shadow-md transition-all border-primary/10 hover:border-primary/30"
+              >
+                {/* Gradient header */}
+                <div className="bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4 pb-3 border-b">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold truncate flex items-center gap-2">
+                      <h3 className="font-bold truncate flex items-center gap-2 text-base">
                         <CalendarDays className="h-4 w-4 text-primary flex-shrink-0" />
                         {p.name}
                       </h3>
                       {p.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
                           {p.description}
                         </p>
                       )}
                     </div>
+                    <Badge
+                      variant={mode === 'day_by_day' ? 'secondary' : 'default'}
+                      className="text-[10px] flex-shrink-0"
+                    >
+                      {mode === 'day_by_day' ? 'Day by Day' : 'Ricorrente'}
+                    </Badge>
                   </div>
+                </div>
 
+                <CardContent className="p-4">
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     <Badge variant="outline" className="text-xs">
                       <Repeat className="h-3 w-3 mr-1" />
@@ -159,6 +172,24 @@ export function ProgramsTab({ layout = 'grid' }: ProgramsTabProps) {
                       {scheduleCount} schede
                     </Badge>
                   </div>
+
+                  {/* Mini timeline */}
+                  {p.duration_weeks > 0 && (
+                    <div className="flex items-center gap-1 mb-3">
+                      {Array.from({ length: Math.min(p.duration_weeks, 12) }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="h-1.5 flex-1 rounded-full bg-primary/20 first:bg-primary"
+                          title={`Settimana ${i + 1}`}
+                        />
+                      ))}
+                      {p.duration_weeks > 12 && (
+                        <span className="text-[10px] text-muted-foreground ml-1">
+                          +{p.duration_weeks - 12}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-1 flex-wrap">
                     <Button
