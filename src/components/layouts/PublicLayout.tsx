@@ -73,7 +73,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <Logo variant="icon" className="h-8 w-8" />
-                <span className="font-semibold">LIVELLAPP</span>
+                <span className="font-semibold">LIVEL APP</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 La piattaforma enterprise per Personal Trainer e Atleti.
@@ -114,7 +114,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           </div>
           <div className="mt-8 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              © 2024 LIVELLAPP. Tutti i diritti riservati.
+              © 2024 LIVEL APP. Tutti i diritti riservati.
             </p>
           </div>
         </div>

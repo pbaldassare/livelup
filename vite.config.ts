@@ -21,8 +21,8 @@ export default defineConfig(({ mode }) => ({
       devOptions: { enabled: false },
       includeAssets: ["livellapp-icon.svg", "favicon.ico", "apple-touch-icon.png"],
       manifest: {
-        name: "LIVELLAPP - Piattaforma Fitness",
-        short_name: "LIVELLAPP",
+        name: "LIVEL APP - Piattaforma Fitness",
+        short_name: "LIVEL",
         description: "La piattaforma enterprise per Personal Trainer e Atleti",
         theme_color: "#E73235",
         background_color: "#0a0a0a",

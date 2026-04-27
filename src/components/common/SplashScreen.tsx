@@ -51,7 +51,7 @@ export function SplashScreen({
         </div>
         
         <div className="flex flex-col items-center gap-2">
-          <h1 className="text-3xl font-bold text-gradient-primary">LIVELLAPP</h1>
+          <h1 className="text-3xl font-bold text-gradient-primary">LIVEL APP</h1>
           <p className="text-sm text-muted-foreground animate-pulse">Caricamento...</p>
         </div>
 

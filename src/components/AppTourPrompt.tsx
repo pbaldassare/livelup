@@ -41,7 +41,7 @@ const AppTourPrompt = () => {
               <Map className="h-7 w-7 text-primary" />
             </div>
           </div>
-          <DialogTitle className="text-center text-lg">Benvenuto su Livellapp! 🎉</DialogTitle>
+          <DialogTitle className="text-center text-lg">Benvenuto su LIVEL APP! 🎉</DialogTitle>
           <DialogDescription className="text-center text-[13px] leading-relaxed">
             Vuoi fare un tour guidato dell'app? Ti mostreremo tutte le funzionalità in pochi minuti.
           </DialogDescription>
