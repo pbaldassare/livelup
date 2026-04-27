@@ -10,7 +10,7 @@ export function Logo({ variant = 'full', className = '' }: LogoProps) {
   return (
     <img 
       src={variant === 'full' ? livellappLogo : livellappIcon} 
-      alt="LIVELLAPP"
+      alt="LIVEL APP"
       className={className}
     />
   );

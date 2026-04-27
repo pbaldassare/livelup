@@ -177,7 +177,7 @@ export function AuthPage() {
           <div className="inline-block mb-4">
             <Logo variant="icon" className="h-16 w-16 mx-auto" />
           </div>
-          <h1 className="text-2xl font-bold">LIVELLAPP</h1>
+          <h1 className="text-2xl font-bold">LIVEL APP</h1>
           <p className="text-muted-foreground">La tua piattaforma per allenarti</p>
         </div>
 

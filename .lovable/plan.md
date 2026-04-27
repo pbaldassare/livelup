@@ -1,64 +1,58 @@
-Implementerò un redesign completo del popup dettaglio esercizio usato nel PT Archivio Esercizi, mantenendo la sorgente dati unica dagli esercizi Admin.
+## Obiettivo
 
-## Cosa verrà cambiato
+Sostituire ovunque il naming visibile con il brand corretto **LIVEL APP** (con spazio, tutto maiuscolo). Solo cleanup branding: nessuna logica toccata, nessun refactor.
 
-### 1. Popup più ampio, centrato e premium
-- Mantengo il centraggio forzato già standardizzato.
-- Aumento la larghezza massima per farlo sembrare una vera scheda esercizio, non un popup database.
-- Corpo scrollabile con header più ordinato e viewport-safe.
-- Layout responsive: su desktop più ricco, su mobile in colonna.
+## Audit completato
 
-### 2. Hero media protagonista
-- In alto ci sarà un grande blocco media:
-  - immagine grande con rounded large e object-cover se `image_url` esiste;
-  - player video inline se `video_url` esiste, supportando YouTube, Vimeo e video caricati;
-  - tab/switch “Immagine” / “Video” quando entrambi sono disponibili;
-  - placeholder premium con icona e messaggio quando non esiste nessun media.
+Trovate **27 occorrenze** del nome errato `LIVELLAPP` / `Livellapp` da correggere in 17 file. Nessuna occorrenza di `Level App`, `LevelUp App`, `Livell App` o varianti separate.
 
-### 3. Header esercizio migliorato
-- Nome esercizio grande e gerarchico.
-- Badge per categoria, difficoltà e gruppi muscolari principali.
-- Pulsante preferiti più evidente, con stato chiaro “Salvato” / “Aggiungi ai preferiti”.
-- Aggiungo una quick action semplice per copiare il nome esercizio, se compatibile con il contesto.
+## Cosa NON cambierò (per non rompere niente)
 
-### 4. Info rapide
-- Nuova riga di mini-card/chips compatte con:
-  - difficoltà;
-  - categoria;
-  - muscoli focus;
-  - presenza immagine;
-  - presenza video tutorial.
+- Nomi file asset: `livellapp-logo.svg`, `livellapp-icon.svg` (rinominarli romperebbe import/cache; restano come ID tecnico interno).
+- Chiavi `localStorage`: `livellapp_tour_done`, `livellapp_tour_dismissed`, `livellapp_ref_pt` (cambiarle resetta sessioni utente esistenti).
+- Cache name service worker `livellapp-v2` (ID tecnico invisibile).
+- Email seed `@fitplatform.com` (sono utenti di test interni, non brand visibile).
+- SVG dei loghi: contengono solo grafica, nessun testo da modificare.
+- Parole italiane "livello/livelli" (significato diverso).
 
-### 5. Contenuto riorganizzato in sezioni
-Il contenuto verrà diviso in card chiare:
-- “Tecnica esecuzione” da `instructions`;
-- “Consigli del coach” da `description`;
-- “Muscoli coinvolti” da `muscle_groups`;
-- “Tutorial video” / “Media” quando presente;
-- blocco informativo “Disponibile per essere aggiunto alle tue schede”.
+## File da modificare (testo brand visibile)
 
-### 6. Coerenza dati Admin → PT
-Il popup continuerà a leggere gli stessi campi già popolati dall’Admin:
-- `image_url`
-- `video_url`
-- `instructions`
-- `description`
-- `category`
-- `difficulty_level`
-- `muscle_groups`
+**Metadata / SEO / PWA (3 file)**
+- `index.html` — title, description, author, apple-mobile-web-app-title, application-name, og:title, twitter:site (`@livelapp`), twitter:title
+- `vite.config.ts` — manifest `name: "LIVEL APP - Piattaforma Fitness"`, `short_name: "LIVEL"`
+- `public/offline.html` — title + alt logo
 
-Non verranno create duplicazioni e non sono previste migration.
+**Branding UI (8 file)**
+- `src/components/common/Logo.tsx` — alt
+- `src/components/common/SplashScreen.tsx` — testo splash
+- `src/components/layouts/AdminLayout.tsx` — sidebar
+- `src/components/layouts/PTDashboardLayout.tsx` — sidebar
+- `src/components/layouts/PublicLayout.tsx` — header + footer copyright
+- `src/components/pwa/InstallBanner.tsx` — alt + titolo "Installa LIVEL APP"
+- `src/components/pwa/PWAUpdatePrompt.tsx` — testo update
+- `src/hooks/usePWAUpdate.tsx` — descrizione toast
 
-## File previsti
-- `src/components/exercises/ExerciseDetailDialog.tsx`
+**Auth + pagine (4 file)**
+- `src/pages/auth/AuthPage.tsx` — titolo h1
+- `src/pages/public/LandingPage.tsx` — 3 occorrenze nei testi marketing
+- `src/pages/public/InstallPage.tsx` — 2 occorrenze
+- `src/pages/atleta/AtletaHelpPage.tsx` — testo FAQ
 
-Questo componente è già usato anche da Admin e dalla tab Esercizi PT nei workout. Il redesign sarà pensato per migliorare soprattutto il lato PT, senza rompere le preview Admin esistenti.
+**Tour onboarding (2 file)**
+- `src/components/AppTourContext.tsx` — 3 testi "Benvenuto su Livellapp" → "LIVEL APP"
+- `src/components/AppTourPrompt.tsx` — titolo dialog
 
-## Verifica prevista
-- Hero image corretta.
-- Video YouTube/Vimeo/upload visibile e riproducibile.
-- Switch immagine/video funzionante.
-- Tutte le informazioni Admin visibili.
-- Preferiti ancora funzionanti.
-- Popup centrato e responsive.
-- Nessuna regressione sull’Archivio Esercizi PT.
+**Tecnico (2 file)**
+- `src/main.tsx` — prefisso log `[LIVEL APP]`
+- `src/index.css` — 3 commenti CSS
+
+## Regole applicate
+
+- Brand visibile sempre: `LIVEL APP`
+- Manifest `short_name`: `LIVEL` (vincolo PWA: max 12 char senza spazio consigliato per home screen)
+- Twitter handle: `@livelapp` (gli @ non possono contenere spazi)
+- Console log prefix: `[LIVEL APP]`
+
+## Check finali
+
+Dopo l'applicazione eseguirò un grep per verificare zero occorrenze residue di `LIVELLAPP`/`Livellapp` nei testi visibili.

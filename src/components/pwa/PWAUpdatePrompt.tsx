@@ -26,7 +26,7 @@ export function PWAUpdatePrompt() {
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-foreground">Aggiornamento disponibile</h3>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Una nuova versione di LIVELLAPP è pronta per essere installata.
+              Una nuova versione di LIVEL APP è pronta per essere installata.
             </p>
 
             {/* Actions */}

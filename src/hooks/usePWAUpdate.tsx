@@ -71,7 +71,7 @@ export function usePWAUpdate() {
                 
                 toast({
                   title: "Aggiornamento disponibile",
-                  description: "Una nuova versione di LIVELLAPP è pronta. Clicca per aggiornare.",
+                  description: "Una nuova versione di LIVEL APP è pronta. Clicca per aggiornare.",
                   action: (
                     <button
                       onClick={() => {

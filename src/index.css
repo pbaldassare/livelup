@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* =====================================================
-   DESIGN SYSTEM - LIVELLAPP FITNESS PLATFORM
+   DESIGN SYSTEM - LIVEL APP FITNESS PLATFORM
    Brand: Rosso gradiente #E73235 -> #881811
    Modulare, Override-ready, Dark-mode first
    ===================================================== */
@@ -20,7 +20,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
 
-    /* Brand colors - LIVELLAPP Red Gradient */
+    /* Brand colors - LIVEL APP Red Gradient */
     --primary: 359 79% 55%;
     --primary-foreground: 0 0% 100%;
     --primary-light: 359 79% 65%;
@@ -84,7 +84,7 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 359 79% 55%;
 
-    /* Gradients - LIVELLAPP Brand */
+    /* Gradients - LIVEL APP Brand */
     --gradient-primary: linear-gradient(135deg, hsl(359 79% 55%), hsl(358 78% 31%));
     --gradient-primary-reverse: linear-gradient(135deg, hsl(358 78% 31%), hsl(359 79% 55%));
     --gradient-admin: linear-gradient(135deg, hsl(262 83% 58%), hsl(280 70% 50%));
