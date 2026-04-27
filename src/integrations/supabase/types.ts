@@ -2740,7 +2740,39 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          cover_url: string | null
+          created_at: string | null
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          cover_url?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          cover_url?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       are_connected: {
@@ -2757,6 +2789,10 @@ export type Database = {
       }
       can_pt_accept_athletes: {
         Args: { _pt_user_id: string }
+        Returns: boolean
+      }
+      can_view_profile_basic: {
+        Args: { _target_user_id: string }
         Returns: boolean
       }
       check_subscription_block: { Args: { _user_id: string }; Returns: boolean }
