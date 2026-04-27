@@ -361,16 +361,24 @@ export function AtletaProgrammaPage() {
                   <div className="space-y-2">
                     {workouts.map((w) => {
                       const variant = mapStatus(w.status, w.scheduled_date);
+                      const isWorkoutToday =
+                        w.scheduled_date && isToday(parseISO(w.scheduled_date));
                       return (
                         <Link
                           key={w.id}
                           to={`/app/workout/${w.id}`}
                           className="block"
                         >
-                          <Card className="bg-app-card border-app-border hover:border-app-accent/40 transition-colors">
+                          <Card
+                            className={cn(
+                              'bg-app-card border-app-border hover:border-app-accent/40 transition-colors',
+                              isWorkoutToday &&
+                                'border-app-accent ring-1 ring-app-accent/30 bg-app-accent/5',
+                            )}
+                          >
                             <CardContent className="p-3 flex items-center gap-3">
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs text-app-muted-foreground capitalize">
+                                <p className="text-xs text-app-muted-foreground capitalize flex items-center gap-1.5">
                                   {w.scheduled_date
                                     ? format(
                                         parseISO(w.scheduled_date),
@@ -378,6 +386,11 @@ export function AtletaProgrammaPage() {
                                         { locale: it },
                                       )
                                     : '—'}
+                                  {isWorkoutToday && (
+                                    <Badge className="bg-app-accent text-app-accent-foreground border-0 text-[9px] h-4 px-1.5">
+                                      OGGI
+                                    </Badge>
+                                  )}
                                 </p>
                                 <p className="font-semibold text-app-foreground truncate">
                                   {w.title}
