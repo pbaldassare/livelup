@@ -1,58 +1,138 @@
+# Redesign Creazione Programmi (UX) + Verifica Vista Atleta
+
 ## Obiettivo
+Trasformare la creazione di un Programma da un singolo dialog "tutto in una pagina" a un **wizard guidato a step** con planner visivo settimanale, mantenendo **invariata** la logica esistente di salvataggio, rotazione ricorrente, day-by-day, assegnazione e rolling.
 
-Sostituire ovunque il naming visibile con il brand corretto **LIVEL APP** (con spazio, tutto maiuscolo). Solo cleanup branding: nessuna logica toccata, nessun refactor.
+## Vincoli (NON toccare)
+- Logica `assignRecurringProgram` / `assignDayByDayProgram` in `src/lib/api/programs.ts`
+- Logica `rollProgramAssignment`, `generateRotationWorkouts`, `computeActiveDates`
+- Schema DB (`workout_programs`, `program_schedules`, `program_assignments`)
+- Builder schede (`workout_templates`) e protocolli
+- Assegnazioni esistenti già attive
 
-## Audit completato
+Il refactor è **puramente UX**: stesso payload finale verso `createProgram` / `updateProgram` / `replaceProgramSchedules`.
 
-Trovate **27 occorrenze** del nome errato `LIVELLAPP` / `Livellapp` da correggere in 17 file. Nessuna occorrenza di `Level App`, `LevelUp App`, `Livell App` o varianti separate.
+---
 
-## Cosa NON cambierò (per non rompere niente)
+## PARTE A — Wizard Creazione Programma
 
-- Nomi file asset: `livellapp-logo.svg`, `livellapp-icon.svg` (rinominarli romperebbe import/cache; restano come ID tecnico interno).
-- Chiavi `localStorage`: `livellapp_tour_done`, `livellapp_tour_dismissed`, `livellapp_ref_pt` (cambiarle resetta sessioni utente esistenti).
-- Cache name service worker `livellapp-v2` (ID tecnico invisibile).
-- Email seed `@fitplatform.com` (sono utenti di test interni, non brand visibile).
-- SVG dei loghi: contengono solo grafica, nessun testo da modificare.
-- Parole italiane "livello/livelli" (significato diverso).
+Refactor `src/components/pt/ProgramFormDialog.tsx` da form lineare a wizard 5-step con barra di progresso in alto, stato locale, pulsanti `Indietro / Continua`. Submit finale solo nello step ultimo.
 
-## File da modificare (testo brand visibile)
+### Step 1 — Dati Programma
+Card "premium": nome, obiettivo (descrizione), durata settimane, livello atleta (nuovo campo UI mappato su `description` o aggiunto a `notes`, senza nuove colonne DB), note coach.
+- **Frequenza settimanale**: chiesta qui solo come hint visivo; il valore reale `frequency_per_week` viene determinato in Step 3 (= `activeDays.length` per ricorrente, `dayByDayEntries.length` per day-by-day) — comportamento attuale mantenuto.
 
-**Metadata / SEO / PWA (3 file)**
-- `index.html` — title, description, author, apple-mobile-web-app-title, application-name, og:title, twitter:site (`@livelapp`), twitter:title
-- `vite.config.ts` — manifest `name: "LIVEL APP - Piattaforma Fitness"`, `short_name: "LIVEL"`
-- `public/offline.html` — title + alt logo
+### Step 2 — Modalità (UI only, logica invariata)
+Due card grandi con icona, titolo, descrizione lunga, esempio d'uso, tooltip help (`?`). Stato selezionato evidenziato con bordo primary + check. Nessun cambio a `mode: 'recurring' | 'day_by_day'`.
 
-**Branding UI (8 file)**
-- `src/components/common/Logo.tsx` — alt
-- `src/components/common/SplashScreen.tsx` — testo splash
-- `src/components/layouts/AdminLayout.tsx` — sidebar
-- `src/components/layouts/PTDashboardLayout.tsx` — sidebar
-- `src/components/layouts/PublicLayout.tsx` — header + footer copyright
-- `src/components/pwa/InstallBanner.tsx` — alt + titolo "Installa LIVEL APP"
-- `src/components/pwa/PWAUpdatePrompt.tsx` — testo update
-- `src/hooks/usePWAUpdate.tsx` — descrizione toast
+### Step 3 — Costruzione Settimane (Planner)
+**Vista calendario settimanale** invece della lista piatta attuale.
 
-**Auth + pagine (4 file)**
-- `src/pages/auth/AuthPage.tsx` — titolo h1
-- `src/pages/public/LandingPage.tsx` — 3 occorrenze nei testi marketing
-- `src/pages/public/InstallPage.tsx` — 2 occorrenze
-- `src/pages/atleta/AtletaHelpPage.tsx` — testo FAQ
+**Ricorrente**:
+- Toggle giorni settimana (Lun-Dom) come oggi
+- Lista "Schede in rotazione" mostrata come **cards orizzontali drag-and-drop** (riuso `@hello-pangea/dnd` già usato in `TemplateExerciseBuilder.tsx`) per riordinare la sequenza A→B→C
+- Selezione scheda da libreria template tramite Combobox (riuso `MultiSelectSearch` o `Command`)
+- Anteprima rotazione live (già presente, da spostare qui)
+- Bottone "Crea scheda rapida" che apre `CreateExerciseDialog` esistente o linka a `/pt/workouts` (no builder duplicato)
 
-**Tour onboarding (2 file)**
-- `src/components/AppTourContext.tsx` — 3 testi "Benvenuto su Livellapp" → "LIVEL APP"
-- `src/components/AppTourPrompt.tsx` — titolo dialog
+**Day by Day**:
+- Vista a **griglia settimane** (Settimana 1, 2, 3…) basata su `durationWeeks`
+- Ogni settimana ha 7 slot giornalieri; ogni slot accetta una scheda via drag o select
+- Mantiene `day_offset` come oggi (offset 0 = giorno 1)
+- Azione "Duplica settimana" (copia tutte le entry di una settimana incrementando `day_offset` di +7)
 
-**Tecnico (2 file)**
-- `src/main.tsx` — prefisso log `[LIVEL APP]`
-- `src/index.css` — 3 commenti CSS
+### Step 4 — Timeline Roadmap (preview)
+Visualizzazione read-only riassuntiva: timeline orizzontale con badge "Settimana 1 · Push / Pull / Legs", "Settimana 2 · …" generata leggendo gli schedules creati allo Step 3. Nessuna azione, solo conferma visiva.
 
-## Regole applicate
+### Step 5 — Riepilogo & Salva
+Riassunto compatto + CTA `Crea programma` (o `Salva modifiche` in edit). Mantiene il warning attuale per programmi con assegnazioni attive.
 
-- Brand visibile sempre: `LIVEL APP`
-- Manifest `short_name`: `LIVEL` (vincolo PWA: max 12 char senza spazio consigliato per home screen)
-- Twitter handle: `@livelapp` (gli @ non possono contenere spazi)
-- Console log prefix: `[LIVEL APP]`
+### Note implementative wizard
+- Stato locale: `currentStep: 1..5`, validazioni per step prima di abilitare `Continua`
+- Animazione step transitions con Framer Motion (già usato nel progetto)
+- In modalità `edit`, apertura diretta su Step 3 con possibilità di tornare indietro
+- Persistenza dialog: `max-w-3xl` invece di `2xl`, layout grid per planner
 
-## Check finali
+---
 
-Dopo l'applicazione eseguirò un grep per verificare zero occorrenze residue di `LIVELLAPP`/`Livellapp` nei testi visibili.
+## PARTE B — Sezione "Progressioni" (nuova, opzionale)
+
+**Decisione**: implementata come **UI placeholder** dentro lo Step 3 (tab secondaria "Progressioni") con preset selezionabili (`volume_progressivo`, `carico_progressivo`, `deload`, `personalizzato`). Per non toccare DB, il preset scelto viene salvato dentro `notes` come prefisso strutturato (es. `[progression:deload]\n…note utente`). La rotazione esistente non viene alterata.
+
+Se in futuro servirà logica reale di progressione → migrazione dedicata. Per ora è metadata visivo.
+
+---
+
+## PARTE C — UI Programmi (Tab riorganizzata)
+
+Refactor `src/components/pt/ProgramsTab.tsx` e creazione di una pagina dettaglio (riuso del Card esistente, no nuova route obbligatoria) con tab interne:
+- **Overview**: nome, obiettivo, badge durata/freq, stato assegnazioni
+- **Settimane**: timeline visiva (leggera, senza editing — l'edit avviene riaprendo il wizard)
+- **Progressioni**: lettura del preset salvato in `notes`
+- **Assegnazione**: shortcut per aprire `AssignProgramDialog` esistente
+
+Stile: card più alte, icone più grandi, gradient accent coerente con `bg-app-accent` (lime LIVEL APP), meno tabellare.
+
+---
+
+## PARTE D — Verifica & Miglioramento Vista Atleta
+
+File: `src/pages/atleta/AtletaProgrammaPage.tsx` (già esistente, già funzionante).
+
+Verifica end-to-end (read-only):
+1. `getAtletaActiveProgram` legge correttamente `program_assignments` + `workout_programs` + `workouts` → OK già implementato
+2. Settimane raggruppate via `differenceInCalendarWeeks` → OK
+3. Ordine schede e ricorrenze → garantite dalla logica server invariata
+4. Esecuzione: link a `/app/workout/:id` → OK
+
+Miglioramenti UI (additivi, no breaking):
+- **Card "Programma in corso"** in alto con: % completamento (`completati / totali`), prossima sessione, settimana corrente vs totale
+- Badge "Settimana N di M" per ogni gruppo
+- Highlight della sessione di oggi
+- Stato "Programma completato" quando 100%
+
+Nessuna modifica a `AtletaSchedaPage` (è già un redirect a `/app/programma`) né al workout flow.
+
+---
+
+## File toccati
+
+**Modifiche**:
+- `src/components/pt/ProgramFormDialog.tsx` → wizard a step (refactor profondo, stessa API output)
+- `src/components/pt/ProgramsTab.tsx` → card più visuali + tab interne overview/settimane/progressioni/assegnazione
+- `src/pages/atleta/AtletaProgrammaPage.tsx` → header con progresso programma, card "prossima sessione"
+
+**Nuovi**:
+- `src/components/pt/program-wizard/Step1Info.tsx`
+- `src/components/pt/program-wizard/Step2Mode.tsx`
+- `src/components/pt/program-wizard/Step3Planner.tsx` (con sub-componenti Recurring + DayByDay)
+- `src/components/pt/program-wizard/Step4Timeline.tsx`
+- `src/components/pt/program-wizard/Step5Review.tsx`
+- `src/components/pt/program-wizard/WizardProgress.tsx`
+- `src/components/pt/program-wizard/ScheduleSelector.tsx` (combobox riuso template)
+
+**Invariati (verificati)**:
+- `src/lib/api/programs.ts` — zero modifiche alla logica
+- DB schema, RLS, migrations — nessuna nuova migrazione
+- `AssignProgramDialog`, `rollProgramAssignment`, builder schede
+
+---
+
+## Dettagli tecnici
+
+- Wizard state gestito con `useReducer` per chiarezza (action: `NEXT`, `PREV`, `SET_FIELD`, `LOAD_EXISTING`)
+- Drag & drop con `@hello-pangea/dnd` (già installato)
+- Animazioni step con `framer-motion` (già installato)
+- `frequency_per_week` continua a essere derivato (no input diretto)
+- Salvataggio finale invariato: stessa chiamata a `createProgram` / `updateProgram` + `replaceProgramSchedules` con stesso payload
+
+---
+
+## Cosa NON viene fatto (esplicitamente)
+- Nessun nuovo builder esercizi
+- Nessuna modifica a logica rotazione / day-by-day / rolling
+- Nessuna nuova tabella DB né nuove colonne
+- Nessun cambiamento alle assegnazioni esistenti
+- Nessuna modifica al workout execution flow atleta
+
+Il piano è UX-first con verifica del flusso atleta esistente.
