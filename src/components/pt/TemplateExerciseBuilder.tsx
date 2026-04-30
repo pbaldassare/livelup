@@ -69,6 +69,8 @@ import {
   type ProtocolParams,
 } from '@/lib/protocols/registry';
 import { ProtocolInfoPopover } from '@/components/protocols/ProtocolInfoPopover';
+import { EmomBlocksEditor } from '@/components/pt/protocols/EmomBlocksEditor';
+import { normalizeEmomParams } from '@/lib/protocols/emom';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
 import { Link } from 'react-router-dom';
 
