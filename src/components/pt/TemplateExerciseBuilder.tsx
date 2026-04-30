@@ -69,6 +69,8 @@ import {
   type ProtocolParams,
 } from '@/lib/protocols/registry';
 import { ProtocolInfoPopover } from '@/components/protocols/ProtocolInfoPopover';
+import { EmomBlocksEditor } from '@/components/pt/protocols/EmomBlocksEditor';
+import { normalizeEmomParams } from '@/lib/protocols/emom';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
 import { Link } from 'react-router-dom';
 
@@ -719,6 +721,28 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                   // Protocolli non-set-based: render dei paramFields
                                   const def = getProtocolDef(ptype);
                                   const params = (te.protocol_params as ProtocolParams) || {};
+
+                                  // EMOM: editor a blocchi dedicato (override della form generica)
+                                  if (ptype === 'EMOM') {
+                                    const fallbackName =
+                                      exercises.find((e) => e.id === te.exercise_id)?.name;
+                                    const emomValue = normalizeEmomParams(
+                                      params as Record<string, unknown>,
+                                      fallbackName,
+                                    );
+                                    return (
+                                      <EmomBlocksEditor
+                                        value={emomValue}
+                                        onChange={(next) => {
+                                          updateProtocolParamMutation.mutate({
+                                            id: te.id,
+                                            params: next as unknown as ProtocolParams,
+                                          });
+                                        }}
+                                      />
+                                    );
+                                  }
+
                                   return (
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
@@ -831,13 +855,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </p>
                                         </div>
                                       )}
-                                      {ptype === 'EMOM' && (
-                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
-                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
-                                            <span className="font-semibold">Nota:</span> questo protocollo si basa su intervalli di tempo. Le serie verranno gestite automaticamente durante l'allenamento.
-                                          </p>
-                                        </div>
-                                      )}
+                                      {/* EMOM ha editor dedicato a blocchi (vedi early return sopra) */}
                                       {ptype === 'AMRAP' && (
                                         <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
                                           <p className="text-[11px] text-foreground/80 leading-relaxed">

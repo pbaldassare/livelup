@@ -1,138 +1,99 @@
-# Redesign Creazione Programmi (UX) + Verifica Vista Atleta
-
 ## Obiettivo
-Trasformare la creazione di un Programma da un singolo dialog "tutto in una pagina" a un **wizard guidato a step** con planner visivo settimanale, mantenendo **invariata** la logica esistente di salvataggio, rotazione ricorrente, day-by-day, assegnazione e rolling.
 
-## Vincoli (NON toccare)
-- Logica `assignRecurringProgram` / `assignDayByDayProgram` in `src/lib/api/programs.ts`
-- Logica `rollProgramAssignment`, `generateRotationWorkouts`, `computeActiveDates`
-- Schema DB (`workout_programs`, `program_schedules`, `program_assignments`)
-- Builder schede (`workout_templates`) e protocolli
-- Assegnazioni esistenti già attive
+Estendere il protocollo **EMOM** già esistente per supportare una struttura a **blocchi** con esercizi multipli per blocco, mantenendo la compatibilità con gli EMOM già salvati. Nessun nuovo protocollo viene creato — `protocol_type = 'EMOM'` resta invariato. Cambia solo la **forma di `protocol_params`** e l'editor mostrato al PT.
 
-Il refactor è **puramente UX**: stesso payload finale verso `createProgram` / `updateProgram` / `replaceProgramSchedules`.
+## Stato attuale (riepilogo dell'analisi)
 
----
+- Il protocollo EMOM è definito in `src/lib/protocols/registry.ts` con `paramFields` generici (durata, reps, mode, ladder).
+- L'editor PT (`src/components/pt/TemplateExerciseBuilder.tsx`, righe ~750-840) renderizza automaticamente questi campi e li salva in `protocol_params` (JSONB).
+- Il flusso atleta (`GuidedWorkoutFlow.tsx`, `SetTracker.tsx`) gestisce solo i protocolli SET; per EMOM mostra una nota informativa generica. Non c'è ancora una logica di esecuzione "minuto-per-minuto" nel player atleta — quindi l'estensione è puramente lato dati + editor PT, senza rompere alcun runtime esistente.
+- Il campo `mode = 'alternating'` esiste già nel registry ma non era mai stato implementato come UI a blocchi.
 
-## PARTE A — Wizard Creazione Programma
+## Nuova forma di `protocol_params` per EMOM
 
-Refactor `src/components/pt/ProgramFormDialog.tsx` da form lineare a wizard 5-step con barra di progresso in alto, stato locale, pulsanti `Indietro / Continua`. Submit finale solo nello step ultimo.
+```text
+{
+  duration_minutes: number,   // (già esistente — rinominabile concettualmente in "durata round")
+  rounds: number,             // NUOVO — numero totale di round (default = duration_minutes)
+  mode: 'single' | 'alternating' | 'ladder',  // invariato
+  ladder?: string,            // invariato
+  blocks: [                   // NUOVO — array di blocchi
+    {
+      id: string,             // uuid locale per il drag/key
+      label?: string,         // es. "Blocco A"
+      exercises: [
+        {
+          id: string,
+          name: string,         // nome esercizio (testo libero)
+          measure: 'reps' | 'time',  // tipo
+          value: number,             // numero reps oppure secondi
+          progression: 'fixed' | 'ladder'  // modalità (fisso / ladder)
+        }
+      ]
+    }
+  ]
+}
+```
 
-### Step 1 — Dati Programma
-Card "premium": nome, obiettivo (descrizione), durata settimane, livello atleta (nuovo campo UI mappato su `description` o aggiunto a `notes`, senza nuove colonne DB), note coach.
-- **Frequenza settimanale**: chiesta qui solo come hint visivo; il valore reale `frequency_per_week` viene determinato in Step 3 (= `activeDays.length` per ricorrente, `dayByDayEntries.length` per day-by-day) — comportamento attuale mantenuto.
+I blocchi si alternano in loop sui round: round 1 → blocco 0, round 2 → blocco 1, … round N → blocco (N-1) % blocks.length.
 
-### Step 2 — Modalità (UI only, logica invariata)
-Due card grandi con icona, titolo, descrizione lunga, esempio d'uso, tooltip help (`?`). Stato selezionato evidenziato con bordo primary + check. Nessun cambio a `mode: 'recurring' | 'day_by_day'`.
+## Compatibilità EMOM esistenti
 
-### Step 3 — Costruzione Settimane (Planner)
-**Vista calendario settimanale** invece della lista piatta attuale.
+Al caricamento, normalizzare i params in una funzione helper `normalizeEmomParams(params)`:
 
-**Ricorrente**:
-- Toggle giorni settimana (Lun-Dom) come oggi
-- Lista "Schede in rotazione" mostrata come **cards orizzontali drag-and-drop** (riuso `@hello-pangea/dnd` già usato in `TemplateExerciseBuilder.tsx`) per riordinare la sequenza A→B→C
-- Selezione scheda da libreria template tramite Combobox (riuso `MultiSelectSearch` o `Command`)
-- Anteprima rotazione live (già presente, da spostare qui)
-- Bottone "Crea scheda rapida" che apre `CreateExerciseDialog` esistente o linka a `/pt/workouts` (no builder duplicato)
+- se `blocks` esiste e non è vuoto → usa così com'è.
+- altrimenti → genera **un solo blocco** con **un solo esercizio** ricavato dai vecchi campi:
+  - `name` = nome dell'esercizio del template (oppure stringa vuota se non disponibile in quel contesto)
+  - `measure = 'reps'`, `value = params.reps ?? 10`
+  - `progression = params.mode === 'ladder' ? 'ladder' : 'fixed'`
+- se `rounds` mancante → `rounds = duration_minutes` (1 round = 1 minuto, comportamento storico).
 
-**Day by Day**:
-- Vista a **griglia settimane** (Settimana 1, 2, 3…) basata su `durationWeeks`
-- Ogni settimana ha 7 slot giornalieri; ogni slot accetta una scheda via drag o select
-- Mantiene `day_offset` come oggi (offset 0 = giorno 1)
-- Azione "Duplica settimana" (copia tutte le entry di una settimana incrementando `day_offset` di +7)
+Questo garantisce che gli EMOM già salvati funzionino e si possano riaprire/modificare senza perdita di dati.
 
-### Step 4 — Timeline Roadmap (preview)
-Visualizzazione read-only riassuntiva: timeline orizzontale con badge "Settimana 1 · Push / Pull / Legs", "Settimana 2 · …" generata leggendo gli schedules creati allo Step 3. Nessuna azione, solo conferma visiva.
+## Modifiche richieste (file)
 
-### Step 5 — Riepilogo & Salva
-Riassunto compatto + CTA `Crea programma` (o `Salva modifiche` in edit). Mantiene il warning attuale per programmi con assegnazioni attive.
+### 1. `src/lib/protocols/registry.ts`
 
-### Note implementative wizard
-- Stato locale: `currentStep: 1..5`, validazioni per step prima di abilitare `Continua`
-- Animazione step transitions con Framer Motion (già usato nel progetto)
-- In modalità `edit`, apertura diretta su Step 3 con possibilità di tornare indietro
-- Persistenza dialog: `max-w-3xl` invece di `2xl`, layout grid per planner
+- Aggiornare il tipo `ProtocolParams` aggiungendo i campi opzionali `rounds`, `blocks` (con i sotto-tipi `EmomBlock` ed `EmomBlockExercise`).
+- Aggiungere `defaultParams.blocks` con un blocco vuoto di esempio e `rounds: 10`.
+- Mantenere i `paramFields` esistenti per non rompere il render generico, ma aggiungere un nuovo tipo di field `'emom_blocks'` (oppure marcare EMOM con un flag `customEditor: true`) così che l'editor PT sappia di mostrare il componente dedicato al posto della form lineare.
+- Aggiornare le `sections` (descrizione protocollo) per riflettere la nuova logica a blocchi alternati in loop.
 
----
+### 2. Nuovo componente `src/components/pt/protocols/EmomBlocksEditor.tsx`
 
-## PARTE B — Sezione "Progressioni" (nuova, opzionale)
+Editor dedicato per la struttura a blocchi:
 
-**Decisione**: implementata come **UI placeholder** dentro lo Step 3 (tab secondaria "Progressioni") con preset selezionabili (`volume_progressivo`, `carico_progressivo`, `deload`, `personalizzato`). Per non toccare DB, il preset scelto viene salvato dentro `notes` come prefisso strutturato (es. `[progression:deload]\n…note utente`). La rotazione esistente non viene alterata.
+- Header con i parametri base: numero round, durata round (secondi/minuti), numero blocchi (calcolato da `blocks.length`, con pulsanti `+ Aggiungi blocco` / `Rimuovi`).
+- Per ogni blocco una card collassabile:
+  - label opzionale del blocco (auto: "Blocco A", "Blocco B", …)
+  - lista esercizi con: nome, select tipo (reps/tempo), input valore, select modalità (fisso/ladder), pulsante elimina
+  - pulsante `+ Aggiungi esercizio`
+- Anteprima testuale dell'alternanza: `Round 1 → Blocco A • Round 2 → Blocco B • Round 3 → Blocco A …`
+- Tutte le modifiche chiamano `onChange(nextParams)` che a sua volta usa la mutation `updateProtocolParamMutation` già esistente nel builder.
 
-Se in futuro servirà logica reale di progressione → migrazione dedicata. Per ora è metadata visivo.
+### 3. `src/components/pt/TemplateExerciseBuilder.tsx`
 
----
+- Nel blocco che renderizza i `paramFields` (~righe 750-825), aggiungere un branch: se `ptype === 'EMOM'`, montare `<EmomBlocksEditor params={normalizeEmomParams(params)} onChange={…} />` al posto della griglia di input generica.
+- Sostituire la nota informativa esistente per EMOM (riga 834) con una nota aggiornata che spiega l'alternanza dei blocchi.
+- Nessuna modifica agli altri protocolli.
 
-## PARTE C — UI Programmi (Tab riorganizzata)
+### 4. Helper `src/lib/protocols/emom.ts` (nuovo)
 
-Refactor `src/components/pt/ProgramsTab.tsx` e creazione di una pagina dettaglio (riuso del Card esistente, no nuova route obbligatoria) con tab interne:
-- **Overview**: nome, obiettivo, badge durata/freq, stato assegnazioni
-- **Settimane**: timeline visiva (leggera, senza editing — l'edit avviene riaprendo il wizard)
-- **Progressioni**: lettura del preset salvato in `notes`
-- **Assegnazione**: shortcut per aprire `AssignProgramDialog` esistente
+- `normalizeEmomParams(params, fallbackName?)` → restituisce sempre la forma nuova con `blocks[]` garantito.
+- `getBlockForRound(blocks, roundIndex)` → ritorna `blocks[roundIndex % blocks.length]` (utile in futuro per il player atleta).
+- Tipi esportati `EmomBlock`, `EmomBlockExercise`, `EmomMeasure`, `EmomProgression`.
 
-Stile: card più alte, icone più grandi, gradient accent coerente con `bg-app-accent` (lime LIVEL APP), meno tabellare.
+### 5. Player atleta
 
----
+Nessuna modifica obbligatoria in questo task. Il `GuidedWorkoutFlow` oggi non esegue EMOM minuto-per-minuto, quindi non c'è nulla da rompere. La struttura a blocchi è già pronta per essere consumata quando verrà implementato il player EMOM dedicato (basterà chiamare `normalizeEmomParams` e iterare con `getBlockForRound`).
 
-## PARTE D — Verifica & Miglioramento Vista Atleta
+## Cosa NON viene toccato
 
-File: `src/pages/atleta/AtletaProgrammaPage.tsx` (già esistente, già funzionante).
+- Nessuna modifica al DB (`protocol_params` è già JSONB, accetta la nuova forma).
+- Nessuna modifica agli altri protocolli (SET, AMRAP, SUPERSET, LADDER, …).
+- Nessuna modifica al wizard programmi, alle modalità Day by Day / Ricorrente, alle assegnazioni esistenti, all'autenticazione o alle RLS.
+- Nessuna modifica all'UI generale del builder, solo al pannello parametri quando il protocollo selezionato è EMOM.
 
-Verifica end-to-end (read-only):
-1. `getAtletaActiveProgram` legge correttamente `program_assignments` + `workout_programs` + `workouts` → OK già implementato
-2. Settimane raggruppate via `differenceInCalendarWeeks` → OK
-3. Ordine schede e ricorrenze → garantite dalla logica server invariata
-4. Esecuzione: link a `/app/workout/:id` → OK
+## Risultato atteso
 
-Miglioramenti UI (additivi, no breaking):
-- **Card "Programma in corso"** in alto con: % completamento (`completati / totali`), prossima sessione, settimana corrente vs totale
-- Badge "Settimana N di M" per ogni gruppo
-- Highlight della sessione di oggi
-- Stato "Programma completato" quando 100%
-
-Nessuna modifica a `AtletaSchedaPage` (è già un redirect a `/app/programma`) né al workout flow.
-
----
-
-## File toccati
-
-**Modifiche**:
-- `src/components/pt/ProgramFormDialog.tsx` → wizard a step (refactor profondo, stessa API output)
-- `src/components/pt/ProgramsTab.tsx` → card più visuali + tab interne overview/settimane/progressioni/assegnazione
-- `src/pages/atleta/AtletaProgrammaPage.tsx` → header con progresso programma, card "prossima sessione"
-
-**Nuovi**:
-- `src/components/pt/program-wizard/Step1Info.tsx`
-- `src/components/pt/program-wizard/Step2Mode.tsx`
-- `src/components/pt/program-wizard/Step3Planner.tsx` (con sub-componenti Recurring + DayByDay)
-- `src/components/pt/program-wizard/Step4Timeline.tsx`
-- `src/components/pt/program-wizard/Step5Review.tsx`
-- `src/components/pt/program-wizard/WizardProgress.tsx`
-- `src/components/pt/program-wizard/ScheduleSelector.tsx` (combobox riuso template)
-
-**Invariati (verificati)**:
-- `src/lib/api/programs.ts` — zero modifiche alla logica
-- DB schema, RLS, migrations — nessuna nuova migrazione
-- `AssignProgramDialog`, `rollProgramAssignment`, builder schede
-
----
-
-## Dettagli tecnici
-
-- Wizard state gestito con `useReducer` per chiarezza (action: `NEXT`, `PREV`, `SET_FIELD`, `LOAD_EXISTING`)
-- Drag & drop con `@hello-pangea/dnd` (già installato)
-- Animazioni step con `framer-motion` (già installato)
-- `frequency_per_week` continua a essere derivato (no input diretto)
-- Salvataggio finale invariato: stessa chiamata a `createProgram` / `updateProgram` + `replaceProgramSchedules` con stesso payload
-
----
-
-## Cosa NON viene fatto (esplicitamente)
-- Nessun nuovo builder esercizi
-- Nessuna modifica a logica rotazione / day-by-day / rolling
-- Nessuna nuova tabella DB né nuove colonne
-- Nessun cambiamento alle assegnazioni esistenti
-- Nessuna modifica al workout execution flow atleta
-
-Il piano è UX-first con verifica del flusso atleta esistente.
+Il PT, selezionando EMOM su un esercizio di un template, vedrà un editor dedicato che gli permette di definire round, durata round e una lista di blocchi, ciascuno con i propri esercizi (nome, reps/tempo, valore, fisso/ladder). Gli EMOM creati prima di questa modifica continueranno a funzionare e a essere modificabili (appariranno come 1 blocco / 1 esercizio precompilato dai vecchi campi).
