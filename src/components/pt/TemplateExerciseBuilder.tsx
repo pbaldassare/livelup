@@ -730,9 +730,17 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       params as Record<string, unknown>,
                                       fallbackName,
                                     );
+                                    // Suggerimenti = esercizi già presenti nel template (in questo scope)
+                                    const exerciseSuggestions = templateExercises
+                                      .map((row) => ({
+                                        id: row.exercise_id,
+                                        name: row.exercise?.name ?? '',
+                                      }))
+                                      .filter((s) => s.name.trim().length > 0);
                                     return (
                                       <EmomBlocksEditor
                                         value={emomValue}
+                                        exerciseOptions={exerciseSuggestions}
                                         onChange={(next) => {
                                           updateProtocolParamMutation.mutate({
                                             id: te.id,
