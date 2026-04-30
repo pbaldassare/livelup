@@ -4,13 +4,23 @@
 // Sostituisce la form generica nei `paramFields` quando ptype === 'EMOM'.
 // =====================================================
 
-import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, Check, ChevronsUpDown } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import {
   type EmomParams,
   type EmomBlock,
@@ -20,12 +30,22 @@ import {
   autoBlockLabel,
 } from '@/lib/protocols/emom';
 
+export interface EmomExerciseOption {
+  id: string;
+  name: string;
+}
+
 interface EmomBlocksEditorProps {
   value: EmomParams;
   onChange: (next: EmomParams) => void;
+  /**
+   * Esercizi disponibili nel template corrente (tab "Esercizi").
+   * Usati per l'autocomplete del campo "Esercizio" nei blocchi.
+   */
+  exerciseOptions?: EmomExerciseOption[];
 }
 
-export function EmomBlocksEditor({ value, onChange }: EmomBlocksEditorProps) {
+export function EmomBlocksEditor({ value, onChange, exerciseOptions = [] }: EmomBlocksEditorProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const updateBlock = (idx: number, patch: Partial<EmomBlock>) => {
