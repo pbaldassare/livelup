@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { resolveSetsData } from '@/lib/setsData';
+import { AtletaEmomSummary } from '@/components/app/AtletaEmomSummary';
 
 // =====================================================
 // ATLETA EXERCISE DETAIL SHEET
@@ -242,6 +243,14 @@ export function AtletaExerciseDetailSheet({
                     </>
                   )}
                 </div>
+
+                {/* EMOM a blocchi: vista riassuntiva (solo se EMOM con blocks[]) */}
+                {exercise.protocol_type === 'EMOM' && (
+                  <AtletaEmomSummary
+                    params={exercise.protocol_params}
+                    fallbackName={ex.name}
+                  />
+                )}
 
                 {/* Istruzioni */}
                 {ex.instructions && (
