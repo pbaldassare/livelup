@@ -244,6 +244,14 @@ export function AtletaExerciseDetailSheet({
                   )}
                 </div>
 
+                {/* EMOM a blocchi: vista riassuntiva (solo se EMOM con blocks[]) */}
+                {exercise.protocol_type === 'EMOM' && (
+                  <AtletaEmomSummary
+                    params={exercise.protocol_params}
+                    fallbackName={ex.name}
+                  />
+                )}
+
                 {/* Istruzioni */}
                 {ex.instructions && (
                   <div className="space-y-2">
