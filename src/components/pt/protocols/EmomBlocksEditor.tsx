@@ -215,13 +215,12 @@ export function EmomBlocksEditor({ value, onChange, exerciseOptions = [] }: Emom
                           <Label className="text-[10px] text-muted-foreground">
                             Esercizio
                           </Label>
-                          <Input
-                            placeholder="Es. Burpees"
+                          <ExerciseCombobox
                             value={ex.name}
-                            onChange={(e) =>
-                              updateExercise(bIdx, eIdx, { name: e.target.value })
+                            options={exerciseOptions}
+                            onChange={(name) =>
+                              updateExercise(bIdx, eIdx, { name })
                             }
-                            className="h-8"
                           />
                         </div>
                         <div className="col-span-4 md:col-span-2 space-y-1">
