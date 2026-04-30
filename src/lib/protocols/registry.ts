@@ -239,7 +239,21 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     icon: Timer,
     description:
       'Ogni minuto esegui il blocco di esercizi indicato. Il tempo che avanza nel minuto è il tuo recupero, prima che inizi il minuto successivo.',
-    defaultParams: { duration_minutes: 10, reps: 10, mode: 'single', ladder: null },
+    defaultParams: {
+      duration_minutes: 1,
+      rounds: 10,
+      mode: 'alternating',
+      ladder: null,
+      reps: 10,
+      blocks: [
+        {
+          id: 'blk_default',
+          exercises: [
+            { id: 'ex_default', name: '', measure: 'reps', value: 10, progression: 'fixed' },
+          ],
+        },
+      ],
+    } as ProtocolParams,
     paramFields: [
       { key: 'duration_minutes', label: 'Durata (minuti)', type: 'number', min: 1, placeholder: '10' },
       { key: 'reps', label: 'Ripetizioni per minuto', type: 'number', min: 1, placeholder: '10' },
