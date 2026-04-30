@@ -55,7 +55,6 @@ export type ProtocolParams = {
   // RUNNING_TOTAL
   target_reps?: number | null;
   // EMOM blocks (struttura estesa)
-  rounds?: number | null;
   blocks?: Array<{
     id: string;
     label?: string;
