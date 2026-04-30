@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { resolveSetsData } from '@/lib/setsData';
+import { AtletaEmomSummary } from '@/components/app/AtletaEmomSummary';
 
 // =====================================================
 // ATLETA EXERCISE DETAIL SHEET
