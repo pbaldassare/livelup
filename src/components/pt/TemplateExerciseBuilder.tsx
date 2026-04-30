@@ -721,6 +721,28 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                   // Protocolli non-set-based: render dei paramFields
                                   const def = getProtocolDef(ptype);
                                   const params = (te.protocol_params as ProtocolParams) || {};
+
+                                  // EMOM: editor a blocchi dedicato (override della form generica)
+                                  if (ptype === 'EMOM') {
+                                    const fallbackName =
+                                      exercises.find((e) => e.id === te.exercise_id)?.name;
+                                    const emomValue = normalizeEmomParams(
+                                      params as Record<string, unknown>,
+                                      fallbackName,
+                                    );
+                                    return (
+                                      <EmomBlocksEditor
+                                        value={emomValue}
+                                        onChange={(next) => {
+                                          updateProtocolParamMutation.mutate({
+                                            id: te.id,
+                                            params: next as unknown as ProtocolParams,
+                                          });
+                                        }}
+                                      />
+                                    );
+                                  }
+
                                   return (
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
