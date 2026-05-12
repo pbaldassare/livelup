@@ -34,7 +34,7 @@ export function AtletaEmomSummary({ params, fallbackName }: AtletaEmomSummaryPro
           <Timer className="h-5 w-5 text-app-accent" />
         </div>
         <h3 className="text-lg font-black text-app-foreground leading-tight">
-          EMOM {emom.rounds} Round da {formatRoundDuration(emom.duration_minutes)}
+          EMOM {emom.rounds} Round da {formatRoundDurationSeconds(emom.round_duration)}
         </h3>
       </div>
 
@@ -57,7 +57,7 @@ export function AtletaEmomSummary({ params, fallbackName }: AtletaEmomSummaryPro
                       </span>
                       <span className="text-app-muted-foreground">
                         {' '}
-                        {formatExerciseValue(ex.measure, ex.value)}
+                        {formatReps(ex.reps)}
                       </span>
                     </span>
                   </li>
