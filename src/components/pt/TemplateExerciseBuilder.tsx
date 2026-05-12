@@ -361,6 +361,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['template-blocks', templateId] });
+      queryClient.invalidateQueries({ queryKey: ['template-exercise-options', templateId] });
       toast.success('Esercizio rimosso');
     },
     onError: () => {
@@ -756,13 +757,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       params as Record<string, unknown>,
                                       fallbackName,
                                     );
-                                    // Suggerimenti = esercizi già presenti nel template (in questo scope)
-                                    const exerciseSuggestions = templateExercises
-                                      .map((row) => ({
-                                        id: row.exercise_id,
-                                        name: row.exercise?.name ?? '',
-                                      }))
-                                      .filter((s) => s.name.trim().length > 0);
+                                    // Opzioni dropdown = TUTTI gli esercizi del template (qualsiasi blocco)
+                                    const exerciseSuggestions = allTemplateExerciseOptions;
                                     return (
                                       <EmomBlocksEditor
                                         value={emomValue}
