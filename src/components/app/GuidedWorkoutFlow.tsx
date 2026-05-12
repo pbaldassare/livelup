@@ -34,6 +34,8 @@ export interface GWExercise {
   prescribed_weight?: number | null;
   rest_seconds?: number | null;
   notes?: string | null;
+  protocol_type?: string | null;
+  protocol_params?: Record<string, unknown> | null;
   exercises: {
     name: string;
     category?: string | null;
