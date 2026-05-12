@@ -54,16 +54,17 @@ export type ProtocolParams = {
   max_rest_seconds?: number | null;
   // RUNNING_TOTAL
   target_reps?: number | null;
-  // EMOM blocks (struttura estesa)
+  // EMOM blocks (struttura estesa v2: solo nome + reps)
+  round_duration?: number | null;
+  blocks_count?: number | null;
   blocks?: Array<{
     id: string;
     label?: string;
     exercises: Array<{
       id: string;
+      exercise_id?: string;
       name: string;
-      measure: 'reps' | 'time';
-      value: number;
-      progression: 'fixed' | 'ladder';
+      reps: number;
     }>;
   }> | null;
   // (rest_seconds, rounds, mode, note già presenti sopra — TABATA/HIIT/RXT/RUNNING_TOTAL li riusano)
