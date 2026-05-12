@@ -250,6 +250,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['template-blocks', templateId] });
       queryClient.invalidateQueries({ queryKey: ['template-blocks-counts', templateId] });
+      queryClient.invalidateQueries({ queryKey: ['template-exercise-options', templateId] });
       toast.success('Esercizio aggiunto');
       setSearchOpen(false);
     },
