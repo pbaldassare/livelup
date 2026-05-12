@@ -185,6 +185,31 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     enabled: !!templateId,
   });
 
+  // Lista COMPLETA degli esercizi del template (tutti i blocchi/circuiti).
+  // Usata per popolare il dropdown EMOM, indipendentemente dal block_id corrente.
+  const { data: allTemplateExerciseOptions = [] } = useQuery({
+    queryKey: ['template-exercise-options', templateId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('template_exercises')
+        .select('exercise_id, exercises ( id, name )')
+        .eq('template_id', templateId);
+      if (error) throw error;
+      const seen = new Set<string>();
+      const out: { id: string; name: string }[] = [];
+      for (const row of (data ?? []) as any[]) {
+        const name: string = row.exercises?.name ?? '';
+        const id: string = row.exercise_id;
+        const key = name.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push({ id, name });
+      }
+      return out;
+    },
+    enabled: !!templateId,
+  });
+
   // Add exercise mutation — default SET, 3 set generici
   const addExerciseMutation = useMutation({
     mutationFn: async (exercise: Exercise) => {
@@ -225,6 +250,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['template-blocks', templateId] });
       queryClient.invalidateQueries({ queryKey: ['template-blocks-counts', templateId] });
+      queryClient.invalidateQueries({ queryKey: ['template-exercise-options', templateId] });
       toast.success('Esercizio aggiunto');
       setSearchOpen(false);
     },
@@ -335,6 +361,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['template-blocks', templateId] });
+      queryClient.invalidateQueries({ queryKey: ['template-exercise-options', templateId] });
       toast.success('Esercizio rimosso');
     },
     onError: () => {
@@ -730,13 +757,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       params as Record<string, unknown>,
                                       fallbackName,
                                     );
-                                    // Suggerimenti = esercizi già presenti nel template (in questo scope)
-                                    const exerciseSuggestions = templateExercises
-                                      .map((row) => ({
-                                        id: row.exercise_id,
-                                        name: row.exercise?.name ?? '',
-                                      }))
-                                      .filter((s) => s.name.trim().length > 0);
+                                    // Opzioni dropdown = TUTTI gli esercizi del template (qualsiasi blocco)
+                                    const exerciseSuggestions = allTemplateExerciseOptions;
                                     return (
                                       <EmomBlocksEditor
                                         value={emomValue}

@@ -7,30 +7,15 @@
 // =====================================================
 
 import { Timer } from 'lucide-react';
-import { normalizeEmomParams } from '@/lib/protocols/emom';
+import { normalizeEmomParams, formatRoundDurationSeconds } from '@/lib/protocols/emom';
 
 interface AtletaEmomSummaryProps {
   params: Record<string, unknown> | null | undefined;
   fallbackName?: string;
 }
 
-function formatRoundDuration(durationMinutes: number): string {
-  const totalSeconds = Math.round(durationMinutes * 60);
-  if (totalSeconds < 60) return `${totalSeconds}"`;
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return s === 0 ? `${m}'` : `${m}'${s.toString().padStart(2, '0')}"`;
-}
-
-function formatExerciseValue(measure: 'reps' | 'time', value: number): string {
-  if (measure === 'time') {
-    if (value >= 60 && value % 60 === 0) {
-      const m = value / 60;
-      return m === 1 ? '1 minuto' : `${m} minuti`;
-    }
-    return `${value} secondi`;
-  }
-  return value === 1 ? '1 ripetizione' : `${value} ripetizioni`;
+function formatReps(reps: number): string {
+  return reps === 1 ? '1 ripetizione' : `${reps} ripetizioni`;
 }
 
 export function AtletaEmomSummary({ params, fallbackName }: AtletaEmomSummaryProps) {
@@ -49,7 +34,7 @@ export function AtletaEmomSummary({ params, fallbackName }: AtletaEmomSummaryPro
           <Timer className="h-5 w-5 text-app-accent" />
         </div>
         <h3 className="text-lg font-black text-app-foreground leading-tight">
-          EMOM {emom.rounds} Round da {formatRoundDuration(emom.duration_minutes)}
+          EMOM {emom.rounds} Round da {formatRoundDurationSeconds(emom.round_duration)}
         </h3>
       </div>
 
@@ -72,7 +57,7 @@ export function AtletaEmomSummary({ params, fallbackName }: AtletaEmomSummaryPro
                       </span>
                       <span className="text-app-muted-foreground">
                         {' '}
-                        {formatExerciseValue(ex.measure, ex.value)}
+                        {formatReps(ex.reps)}
                       </span>
                     </span>
                   </li>

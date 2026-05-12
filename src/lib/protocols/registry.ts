@@ -54,16 +54,17 @@ export type ProtocolParams = {
   max_rest_seconds?: number | null;
   // RUNNING_TOTAL
   target_reps?: number | null;
-  // EMOM blocks (struttura estesa)
+  // EMOM blocks (struttura estesa v2: solo nome + reps)
+  round_duration?: number | null;
+  blocks_count?: number | null;
   blocks?: Array<{
     id: string;
     label?: string;
     exercises: Array<{
       id: string;
+      exercise_id?: string;
       name: string;
-      measure: 'reps' | 'time';
-      value: number;
-      progression: 'fixed' | 'ladder';
+      reps: number;
     }>;
   }> | null;
   // (rest_seconds, rounds, mode, note già presenti sopra — TABATA/HIIT/RXT/RUNNING_TOTAL li riusano)
@@ -252,20 +253,18 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     description:
       'Ogni minuto esegui il blocco di esercizi indicato. Il tempo che avanza nel minuto è il tuo recupero, prima che inizi il minuto successivo.',
     defaultParams: {
-      duration_minutes: 1,
       rounds: 10,
-      mode: 'alternating',
-      ladder: null,
-      reps: 10,
+      round_duration: 60,
+      blocks_count: 1,
       blocks: [
         {
           id: 'blk_default',
           exercises: [
-            { id: 'ex_default', name: '', measure: 'reps', value: 10, progression: 'fixed' },
+            { id: 'ex_default', name: '', reps: 10 },
           ],
         },
       ],
-    } as ProtocolParams,
+    } as unknown as ProtocolParams,
     paramFields: [
       { key: 'duration_minutes', label: 'Durata (minuti)', type: 'number', min: 1, placeholder: '10' },
       { key: 'reps', label: 'Ripetizioni per minuto', type: 'number', min: 1, placeholder: '10' },

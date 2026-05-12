@@ -1,21 +1,24 @@
 // =====================================================
-// EMOM PROTOCOL — Block-based structure helpers
+// EMOM PROTOCOL — Block-based structure helpers (v2 simplified)
 // =====================================================
-// Estende il protocollo EMOM esistente con supporto a "blocchi".
-// I blocchi si alternano in loop sui round (round N -> blocks[(N-1) % len]).
-// Mantiene compatibilità con EMOM legacy (nessun blocks[]) normalizzandoli
-// come 1 blocco / 1 esercizio.
+// Schema:
+//   {
+//     rounds: number,
+//     round_duration: number,   // SECONDI
+//     blocks_count: number,     // sempre === blocks.length
+//     blocks: [{ id, label?, exercises: [{ id, exercise_id?, name, reps }] }]
+//   }
+//
+// `normalizeEmomParams` è una pura trasformazione in memoria:
+// non scrive mai nel DB e non causa effetti collaterali.
+// Serve solo per rendering e compat con EMOM legacy.
 // =====================================================
-
-export type EmomMeasure = 'reps' | 'time';
-export type EmomProgression = 'fixed' | 'ladder';
 
 export type EmomBlockExercise = {
   id: string;
+  exercise_id?: string;
   name: string;
-  measure: EmomMeasure;
-  value: number;
-  progression: EmomProgression;
+  reps: number;
 };
 
 export type EmomBlock = {
@@ -25,15 +28,17 @@ export type EmomBlock = {
 };
 
 export type EmomParams = {
-  duration_minutes: number; // durata round (in minuti, storico)
-  rounds: number;           // numero round totali
+  rounds: number;
+  round_duration: number; // secondi
+  blocks_count: number;
+  blocks: EmomBlock[];
+  // Legacy retro-compat (mai usati nella nuova UI):
+  duration_minutes?: number;
   mode?: 'single' | 'alternating' | 'ladder' | null;
   ladder?: string | null;
-  reps?: number | null;     // legacy
-  blocks: EmomBlock[];
+  reps?: number | null;
 };
 
-// uid locale (no crypto richiesto: serve solo come react key stabile)
 function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -42,9 +47,7 @@ export function makeEmomExercise(partial?: Partial<EmomBlockExercise>): EmomBloc
   return {
     id: uid('ex'),
     name: '',
-    measure: 'reps',
-    value: 10,
-    progression: 'fixed',
+    reps: 10,
     ...partial,
   };
 }
@@ -59,8 +62,23 @@ export function makeEmomBlock(partial?: Partial<EmomBlock>): EmomBlock {
 }
 
 /**
+ * Garantisce blocks.length === blocks_count.
+ * Aumenta → append blocchi vuoti. Diminuisce → tronca.
+ */
+export function syncBlocksCount(blocks: EmomBlock[], count: number): EmomBlock[] {
+  const target = Math.max(1, Math.floor(count));
+  if (blocks.length === target) return blocks;
+  if (blocks.length < target) {
+    const next = [...blocks];
+    while (next.length < target) next.push(makeEmomBlock());
+    return next;
+  }
+  return blocks.slice(0, target);
+}
+
+/**
  * Normalizza i params EMOM nella nuova forma a blocchi.
- * Se mancano blocks → genera 1 blocco con 1 esercizio derivato dai vecchi campi.
+ * Pura: nessun side-effect, nessuna scrittura DB.
  */
 export function normalizeEmomParams(
   params: Record<string, unknown> | null | undefined,
@@ -68,18 +86,20 @@ export function normalizeEmomParams(
 ): EmomParams {
   const p = (params ?? {}) as Record<string, unknown>;
 
-  const duration_minutes =
-    typeof p.duration_minutes === 'number' && p.duration_minutes > 0
-      ? p.duration_minutes
-      : 10;
+  // Durata round: priorità a round_duration (s); fallback su duration_minutes (legacy, *60).
+  let round_duration: number;
+  if (typeof p.round_duration === 'number' && p.round_duration > 0) {
+    round_duration = Math.round(p.round_duration);
+  } else if (typeof p.duration_minutes === 'number' && p.duration_minutes > 0) {
+    round_duration = Math.round(p.duration_minutes * 60);
+  } else {
+    round_duration = 60;
+  }
 
   const rounds =
-    typeof p.rounds === 'number' && p.rounds > 0 ? p.rounds : duration_minutes;
+    typeof p.rounds === 'number' && p.rounds > 0 ? Math.floor(p.rounds) : 10;
 
-  const mode = (p.mode as EmomParams['mode']) ?? 'single';
-  const ladder = (p.ladder as string | null | undefined) ?? null;
   const legacyReps = typeof p.reps === 'number' ? p.reps : null;
-
   const rawBlocks = Array.isArray(p.blocks) ? (p.blocks as unknown[]) : [];
 
   let blocks: EmomBlock[];
@@ -92,20 +112,23 @@ export function normalizeEmomParams(
         label: typeof blk.label === 'string' ? blk.label : undefined,
         exercises: (exs.length > 0 ? exs : [{}]).map((e) => {
           const ex = (e ?? {}) as Record<string, unknown>;
-          const measure: EmomMeasure = ex.measure === 'time' ? 'time' : 'reps';
-          const progression: EmomProgression =
-            ex.progression === 'ladder' ? 'ladder' : 'fixed';
+          // Reps: priorità a `reps`; fallback su vecchio `value` (se measure!=='time').
+          let reps = 10;
+          if (typeof ex.reps === 'number' && ex.reps > 0) {
+            reps = Math.floor(ex.reps);
+          } else if (
+            typeof ex.value === 'number' &&
+            ex.value > 0 &&
+            ex.measure !== 'time'
+          ) {
+            reps = Math.floor(ex.value);
+          }
           return {
             id: typeof ex.id === 'string' ? ex.id : uid('ex'),
+            exercise_id:
+              typeof ex.exercise_id === 'string' ? ex.exercise_id : undefined,
             name: typeof ex.name === 'string' ? ex.name : '',
-            measure,
-            value:
-              typeof ex.value === 'number' && ex.value > 0
-                ? ex.value
-                : measure === 'time'
-                  ? 30
-                  : 10,
-            progression,
+            reps,
           };
         }),
       };
@@ -120,35 +143,44 @@ export function normalizeEmomParams(
           {
             id: uid('ex'),
             name: fallbackName ?? '',
-            measure: 'reps',
-            value: legacyReps ?? 10,
-            progression: mode === 'ladder' ? 'ladder' : 'fixed',
+            reps: legacyReps ?? 10,
           },
         ],
       },
     ];
   }
 
+  const blocks_count =
+    typeof p.blocks_count === 'number' && p.blocks_count > 0
+      ? Math.max(1, Math.floor(p.blocks_count))
+      : blocks.length;
+
+  // Sincronizza in memoria (non scrive nulla)
+  const syncedBlocks = syncBlocksCount(blocks, blocks_count);
+
   return {
-    duration_minutes,
     rounds,
-    mode,
-    ladder,
+    round_duration,
+    blocks_count: syncedBlocks.length,
+    blocks: syncedBlocks,
+    // legacy passthrough (utili se servisse leggerli altrove)
+    duration_minutes: typeof p.duration_minutes === 'number' ? p.duration_minutes : undefined,
+    mode: (p.mode as EmomParams['mode']) ?? undefined,
+    ladder: (p.ladder as string | null | undefined) ?? null,
     reps: legacyReps,
-    blocks,
   };
 }
 
-/** Ritorna il blocco da eseguire in un dato round (1-indexed). */
-export function getBlockForRound(blocks: EmomBlock[], roundIndex1Based: number): EmomBlock | null {
-  if (!blocks.length) return null;
-  const idx = ((roundIndex1Based - 1) % blocks.length + blocks.length) % blocks.length;
-  return blocks[idx];
+/** Etichetta auto-generata per un blocco (Blocco 1, Blocco 2, …). */
+export function autoBlockLabel(index: number): string {
+  return `Blocco ${index + 1}`;
 }
 
-/** Etichetta auto-generata per un blocco (A, B, C, …) se non fornita. */
-export function autoBlockLabel(index: number): string {
-  // A..Z poi A1, A2…
-  if (index < 26) return `Blocco ${String.fromCharCode(65 + index)}`;
-  return `Blocco ${index + 1}`;
+/** Formatta secondi in "Ns" o "M'SS\"" / "M'". */
+export function formatRoundDurationSeconds(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s}"`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem === 0 ? `${m}'` : `${m}'${rem.toString().padStart(2, '0')}"`;
 }
