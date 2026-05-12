@@ -408,54 +408,11 @@ export function GuidedWorkoutFlow({
           <span className="text-xs text-app-muted-foreground">
             Esercizio {state.exerciseIndex + 1}/{exercises.length}
           </span>
-          {currentExercise.protocol_type !== 'EMOM' && (
-            <span className="text-xs text-app-muted-foreground">
-              Serie {Math.min(state.setNumber, totalSetsForCurrent)}/{totalSetsForCurrent}
-            </span>
-          )}
+          <span className="text-xs text-app-muted-foreground">
+            Serie {Math.min(state.setNumber, totalSetsForCurrent)}/{totalSetsForCurrent}
+          </span>
         </div>
       </div>
-
-      {/* EMOM dedicated player */}
-      {currentExercise.protocol_type === 'EMOM' ? (
-        <AtletaEmomPlayer
-          key={currentExercise.id}
-          exerciseName={currentExercise.exercises.name}
-          protocolParams={currentExercise.protocol_params ?? null}
-          onFinished={async () => {
-            try {
-              // Salva un singolo log "completato" per non riproporre l'esercizio
-              const params = (currentExercise.protocol_params ?? {}) as Record<string, unknown>;
-              const rounds =
-                typeof params.rounds === 'number' && params.rounds > 0
-                  ? Math.floor(params.rounds)
-                  : 0;
-              const roundDuration =
-                typeof params.round_duration === 'number' && params.round_duration > 0
-                  ? Math.floor(params.round_duration)
-                  : typeof params.duration_minutes === 'number'
-                    ? Math.floor(params.duration_minutes * 60)
-                    : 0;
-              await saveSet.mutateAsync({
-                workoutExerciseId: currentExercise.id,
-                setNumber: 1,
-                reps: rounds,
-                durationSeconds: rounds * roundDuration,
-                weight: 0,
-                restPlanned: 0,
-              });
-            } catch (e: any) {
-              toast.error(e?.message || 'Errore salvataggio EMOM');
-            }
-            advance(true);
-          }}
-        />
-      ) : (
-        <div /> // placeholder se EMOM (la return principale sotto non viene raggiunta)
-      )}
-      {currentExercise.protocol_type === 'EMOM' ? null : (
-        <div className="hidden" />
-      )}
 
       {/* Main dynamic area */}
       <div className="flex-1 relative">
