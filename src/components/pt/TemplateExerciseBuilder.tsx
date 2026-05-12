@@ -185,6 +185,31 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     enabled: !!templateId,
   });
 
+  // Lista COMPLETA degli esercizi del template (tutti i blocchi/circuiti).
+  // Usata per popolare il dropdown EMOM, indipendentemente dal block_id corrente.
+  const { data: allTemplateExerciseOptions = [] } = useQuery({
+    queryKey: ['template-exercise-options', templateId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('template_exercises')
+        .select('exercise_id, exercises ( id, name )')
+        .eq('template_id', templateId);
+      if (error) throw error;
+      const seen = new Set<string>();
+      const out: { id: string; name: string }[] = [];
+      for (const row of (data ?? []) as any[]) {
+        const name: string = row.exercises?.name ?? '';
+        const id: string = row.exercise_id;
+        const key = name.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push({ id, name });
+      }
+      return out;
+    },
+    enabled: !!templateId,
+  });
+
   // Add exercise mutation — default SET, 3 set generici
   const addExerciseMutation = useMutation({
     mutationFn: async (exercise: Exercise) => {
