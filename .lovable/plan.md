@@ -1,99 +1,129 @@
 ## Obiettivo
 
-Riallineare l'editor EMOM lato PT alla nuova struttura richiesta:
+Lato atleta, quando l'esercizio ha `protocol_type === 'EMOM'`, sostituire il normale flusso "Ready → Input → Rest" con un **Player EMOM** dedicato che mostra un round alla volta, alternando i blocchi in loop secondo la formula `blocks[(round - 1) % blocks.length]`.
 
-- 3 dati **globali** in alto: **Numero round**, **Durata round**, **Numero blocchi**.
-- Sotto, tanti riquadri "Blocco N" quanti `blocks_count`.
-- Dentro ogni blocco: lista esercizi con **solo** dropdown esercizio (preso dall'intero tab "Esercizi" del workout) + **ripetizioni**.
-
-Niente nuovo protocollo: si modifica solo l'EMOM esistente. Database, RLS e altri protocolli non vengono toccati.
-
-## Vincoli obbligatori (presi dal messaggio utente)
-
-1. **Parametri globali EMOM**: `rounds`, `round_duration`, `blocks_count` esistono **una sola volta** in `protocol_params` dell'esercizio EMOM (non per riga, non duplicati).
-2. **`blocks_count` = fonte di verità**: sempre `blocks.length === blocks_count`. Aumento → append blocchi vuoti; diminuzione → tronca. Nessuno stato disallineato.
-3. **Dropdown esercizi**: mostra **tutti** gli esercizi del workout/template corrente (non filtrati per `block_id`/circuito). Non usa l'archivio globale, mock o dati statici. Si aggiorna in tempo reale via React Query quando il PT aggiunge un esercizio nel tab "Esercizi".
-4. **Normalizzazione senza scrittura automatica**: `normalizeEmomParams` è usata **solo in memoria** per rendering / compat legacy. **Nessun** save automatico al mount. Persist solo su azione esplicita del PT (cambio campo, add/remove blocco, add/remove esercizio, modifica reps, selezione esercizio).
+Nessun nuovo protocollo. Nessuna modifica al builder PT, al DB, all'auth o alle RLS.
 
 ## Modifiche
 
-### 1. `src/lib/protocols/emom.ts`
+### 1. `src/pages/atleta/AtletaWorkoutDetailPage.tsx` — fetch dei params EMOM
 
-Estendere il type e la normalizzazione:
+La query `workout-detail` oggi non legge `protocol_type` / `protocol_params`. Aggiungerli al `select` di `workout_exercises`:
 
 ```text
-EmomBlockExercise = { id, exercise_id?, name, reps }
-EmomBlock        = { id, label?, exercises: EmomBlockExercise[] }
-EmomParams       = {
-  rounds: number,
-  round_duration: number,   // secondi
-  blocks_count: number,
-  blocks: EmomBlock[],
-  // legacy retro-compat (ignorati in UI):
-  duration_minutes?, mode?, ladder?, reps?
+workout_exercises (
+  id, exercise_id, order_index, prescribed_sets,
+  prescribed_reps_min, prescribed_reps_max, prescribed_weight,
+  prescribed_duration_seconds, rest_seconds, notes, block_id,
+  protocol_type, protocol_params,           // ← nuovi
+  exercises:exercise_id (...)
+)
+```
+
+Nessun'altra modifica alla pagina.
+
+### 2. `src/components/app/GuidedWorkoutFlow.tsx` — branch EMOM
+
+- Estendere `GWExercise` con `protocol_type?: string | null` e `protocol_params?: Record<string, unknown> | null`.
+- Subito sotto l'header (top progress bar), prima del blocco `<AnimatePresence>` con i flow `ready/input/rest`, aggiungere:
+
+```text
+if (currentExercise.protocol_type === 'EMOM') {
+  return <AtletaEmomPlayer
+    exercise={currentExercise}
+    onFinished={() => advance(true)}   // riusa la macchina di avanzamento esistente
+  />;
 }
 ```
 
-`normalizeEmomParams(params, fallbackName?)`:
-- Solo trasformazione **pure** in memoria. Mai chiama Supabase, mai effetti collaterali.
-- Se manca `round_duration` → derivalo da `duration_minutes * 60` (default 60s).
-- Se mancano `blocks` → genera 1 blocco con 1 esercizio `{ name: fallbackName, reps: legacy.reps ?? 10 }`.
-- Se i blocchi sono nel vecchio formato (`measure`/`value`/`progression`) → mappa a `{ name, reps: value }` (preserva nomi).
-- `blocks_count` derivato da `blocks.length` quando assente, e **forzato uguale a `blocks.length`** dopo qualsiasi mutazione (helper `syncBlocksCount`).
+- `advance(true)` è già la callback usata dal flow normale a fine esercizio: passa al prossimo esercizio o a `FINISH`. Riutilizzarla evita di rompere altro.
+- Salvataggio log: quando l'EMOM termina, scrivere **un singolo `workout_logs`** (set 1, `is_completed: true`, reps = round completati, duration = `rounds * round_duration`) tramite la stessa `saveSet` mutation già presente. Così la logica di "resume" non si rompe e l'esercizio risulta completato negli storici.
+- La top-bar progress per esercizio rimane visibile (mostra che siamo all'esercizio N/M); le metriche "Serie X/Y" vengono nascoste mentre EMOM è in corso (semplice condizione su `protocol_type`).
 
-### 2. `src/components/pt/protocols/EmomBlocksEditor.tsx` (riscrittura UI)
+### 3. Nuovo componente `src/components/app/AtletaEmomPlayer.tsx`
 
-Header con i 3 input globali (uniche fonti per `protocol_params` a livello di protocollo):
+Self-contained player a tutta area, dark theme, lime accents.
 
-- **Numero round** (number, min 1).
-- **Durata round** (in secondi, min 10, step 5; etichetta che mostra anche conversione `1' 30"` se ≥ 60s).
-- **Numero blocchi** (number, min 1, max 10): editabile.
-  - Aumenta → append `makeEmomBlock()` finché `blocks.length === blocks_count`.
-  - Diminuisce → tronca `blocks.slice(0, blocks_count)`.
-  - Ogni `onChange` mantiene l'invariante `blocks.length === blocks_count` prima di chiamare `onChange(next)`.
+Stato locale:
 
-Per ogni blocco:
+- `round` (1..N).
+- `secondsLeft` (decremento 1Hz quando `isRunning === true`).
+- `isRunning` (boolean), `hasStarted` (per mostrare il pulsante Start iniziale).
+- All'avvio: `normalizeEmomParams(exercise.protocol_params, exercise.exercises.name)`.
 
-- Header "Blocco N" con label opzionale modificabile.
-- Lista esercizi a riga compatta: `[Combobox esercizio] [Reps] [🗑]`.
-- Bottone "Aggiungi esercizio".
-- Rimosse: collapsibili, anteprima "alternanza round → blocco", select tipo (reps/time), select modalità (fixed/ladder).
+Logica:
 
-Per ogni esercizio:
-- **ExerciseCombobox** (riusato): `options = exerciseOptions` passate dal builder. Allo `onSelect` salva sia `name` sia `exercise_id`. Mantiene il fallback "Personalizzato" per non rompere righe legacy senza match.
-- **Ripetizioni**: input number, min 1.
+- `currentBlock = emom.blocks[(round - 1) % emom.blocks.length]`.
+- Tick: ogni secondo `secondsLeft -= 1`. Quando arriva a 0:
+  - Se `round < emom.rounds` → `round += 1`; `secondsLeft = emom.round_duration`; resta in `running`.
+  - Se `round === emom.rounds` → stop, chiama `onFinished()`.
+- Pulsanti:
+  - **Start** (visibile finché `!hasStarted`): avvia il timer.
+  - **Pausa / Riprendi** (toggle di `isRunning`).
+  - **Prossimo round** (skip): forza il passaggio al prossimo round (o `onFinished` se ultimo).
 
-Tutti gli `onChange` chiamano `onChange(next)` del parent (nessuna scrittura locale al DB): è il parent che persiste.
-
-### 3. `src/components/pt/TemplateExerciseBuilder.tsx`
-
-- Aggiungere una **query separata** per popolare le options EMOM con **tutti** gli esercizi del template (non filtrata per `block_id`):
+UI (dark theme atleta):
 
 ```text
-queryKey: ['template-exercise-options', templateId]
-select: id, exercise_id, exercises(name)
-where: template_id = templateId
+┌────────────────────────────────────────┐
+│ Round 1 di 9                           │
+│                                        │
+│            ┌──────────┐                │
+│            │  00 : 50 │   timer grande │
+│            └──────────┘                │
+│                                        │
+│   Blocco 1                             │
+│   • Squat 5 ripetizioni                │
+│   • Trazioni 5 ripetizioni             │
+│                                        │
+│   [Pausa]   [Prossimo round]           │
+└────────────────────────────────────────┘
 ```
 
-- Derivare `exerciseOptions = data.map(r => ({ id: r.exercise_id, name: r.exercises.name })).filter(o => o.name)` con dedup case-insensitive.
-- Passare `exerciseOptions` a `EmomBlocksEditor` solo per esercizi con `protocol_type === 'EMOM'`.
-- Invalidate di questa query quando si aggiunge/rimuove un esercizio dal template (qualsiasi blocco) → dropdown live senza refresh.
-- La persistenza usa la `updateProtocolParamMutation` esistente, invocata solo dagli `onChange` espliciti dell'editor (no auto-save al mount).
+Dettagli stilistici:
+- Card grande `rounded-3xl bg-app-card/60 border border-app-border/70 p-6`.
+- Timer in `text-7xl font-black text-app-accent` con stroke ring (cerchio progress) facoltativo.
+- Counter round: `text-sm uppercase tracking-wide text-app-muted-foreground`.
+- Lista esercizi in stile `AtletaEmomSummary` (riuso visivo): pallino lime, nome bold, "5 ripetizioni" in muted. **Mai** "reps".
+- Pulsanti full-width `rounded-full h-12`. Start/Resume = `bg-app-accent text-app-accent-foreground`. Pausa = `variant="outline"`. Prossimo round = `variant="secondary"`.
+- Nessuna possibilità di modificare valori (atleta esegue, non edita).
 
-### 4. Salvataggio
+Compatibilità EMOM legacy:
+- `normalizeEmomParams` produce sempre almeno 1 blocco con 1 esercizio (prendendo `name = exercise.exercises.name` e `reps = legacy.reps ?? 10`).
+- Se mancano `rounds` → fallback `10`. Se manca `round_duration` → fallback `60` (o `duration_minutes * 60`). Già gestito in `emom.ts`.
 
-Continuiamo a salvare in `template_exercises.protocol_params` come JSON. Cambia solo lo schema interno: chiavi `rounds`, `round_duration`, `blocks_count`, `blocks`. Nessuna migration DB.
+Accessibilità: `role="timer"` + `aria-live="polite"` per il countdown; pulsanti con `aria-label`.
+
+### 4. Persistenza log a fine EMOM
+
+Quando il player chiama `onFinished()`, prima di chiamare `advance(true)` `GuidedWorkoutFlow` esegue:
+
+```text
+saveSet.mutate({
+  workoutExerciseId: currentExercise.id,
+  setNumber: 1,
+  reps: emom.rounds,                          // round completati
+  durationSeconds: emom.rounds * emom.round_duration,
+  weight: 0,
+  restPlanned: 0,
+});
+```
+
+Questo mantiene il comportamento di `existingLogs` per il resume: l'esercizio EMOM appare come completato e non viene riproposto a una sessione successiva.
 
 ## Cosa NON viene toccato
 
-- DB, migration, RLS.
-- Altri protocolli (SET, AMRAP, ecc.).
-- Sidebar archivio esercizi globale.
-- `AtletaEmomSummary` (lato atleta) — continua a leggere `blocks`/`rounds`/`round_duration` con fallback su `duration_minutes` già previsto in `normalizeEmomParams`.
-- Esecuzione workout / timer.
+- DB / migration / RLS / auth.
+- Altri protocolli (SET, AMRAP, TABATA, ecc.).
+- Builder PT (`TemplateExerciseBuilder`, `EmomBlocksEditor`).
+- `AtletaEmomSummary` (vista riassuntiva nel detail sheet) — resta com'è.
+- Pagine PT, archivio esercizi, sidebar.
 
-## Compatibilità EMOM esistenti
+## Risultato atteso
 
-- EMOM legacy (no `blocks`) → `normalizeEmomParams` produce in memoria 1 blocco / 1 esercizio. Nessuna scrittura finché il PT non modifica qualcosa.
-- EMOM "intermedi" (con `measure`/`value`) → mappati in memoria a `{name, reps}` preservando i nomi. Salvataggio nel nuovo formato avviene solo al primo edit esplicito.
-- Nessuna perdita dati; nessuna scrittura automatica.
+1. Atleta apre l'allenamento → arriva all'esercizio EMOM.
+2. Vede subito Round 1/N, timer pronto, blocco 1 con la sua lista esercizi/reps.
+3. Tocca Start → countdown.
+4. A fine timer passa automaticamente al round successivo, mostrando il blocco corrispondente (loop sui blocchi).
+5. A fine ultimo round → log salvato → si passa al prossimo esercizio o termina l'allenamento.
+6. Tutti i testi usano "ripetizioni", non "reps".

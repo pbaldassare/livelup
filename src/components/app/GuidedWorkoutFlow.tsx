@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { AtletaEmomPlayer } from '@/components/app/AtletaEmomPlayer';
 
 // =====================================================
 // GUIDED WORKOUT FLOW
@@ -34,6 +35,8 @@ export interface GWExercise {
   prescribed_weight?: number | null;
   rest_seconds?: number | null;
   notes?: string | null;
+  protocol_type?: string | null;
+  protocol_params?: Record<string, unknown> | null;
   exercises: {
     name: string;
     category?: string | null;
@@ -376,6 +379,69 @@ export function GuidedWorkoutFlow({
   const repsLabel = formatRepsLabel(currentExercise);
   const restProgress =
     state.restTotal > 0 ? ((state.restTotal - state.restSeconds) / state.restTotal) * 100 : 0;
+
+  // Branch dedicato EMOM: player a round con timer, alternanza blocchi in loop.
+  if (currentExercise.protocol_type === 'EMOM') {
+    return (
+      <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
+        {/* Top progress bar */}
+        <div className="px-4 pt-4 pb-2">
+          <div className="flex gap-1">
+            {exercises.map((ex, idx) => {
+              const isCurrent = idx === state.exerciseIndex;
+              const isDone = idx < state.exerciseIndex || !!state.skipped[ex.id];
+              return (
+                <div
+                  key={ex.id}
+                  className={cn(
+                    'flex-1 h-1 rounded-full',
+                    isDone ? 'bg-app-accent' : isCurrent ? 'bg-app-accent/50' : 'bg-app-muted',
+                  )}
+                />
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-xs text-app-muted-foreground">
+              Esercizio {state.exerciseIndex + 1}/{exercises.length}
+            </span>
+          </div>
+        </div>
+
+        <AtletaEmomPlayer
+          key={currentExercise.id}
+          exerciseName={currentExercise.exercises.name}
+          protocolParams={currentExercise.protocol_params ?? null}
+          onFinished={async () => {
+            try {
+              const params = (currentExercise.protocol_params ?? {}) as Record<string, unknown>;
+              const rounds =
+                typeof params.rounds === 'number' && params.rounds > 0
+                  ? Math.floor(params.rounds)
+                  : 0;
+              const roundDuration =
+                typeof params.round_duration === 'number' && params.round_duration > 0
+                  ? Math.floor(params.round_duration)
+                  : typeof params.duration_minutes === 'number'
+                    ? Math.floor(params.duration_minutes * 60)
+                    : 0;
+              await saveSet.mutateAsync({
+                workoutExerciseId: currentExercise.id,
+                setNumber: 1,
+                reps: rounds,
+                durationSeconds: rounds * roundDuration,
+                weight: 0,
+                restPlanned: 0,
+              });
+            } catch (e: any) {
+              toast.error(e?.message || 'Errore salvataggio EMOM');
+            }
+            advance(true);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
