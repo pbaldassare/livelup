@@ -1,80 +1,130 @@
-# Top Set + Back Off — sincronizzazione reale
+# Ramping — campo "Valore" + note visibili lato atleta
 
-Modifiche limitate al rendering del protocollo `TOP_SET_BACKOFF` dentro `src/components/pt/TemplateExerciseBuilder.tsx`. Nessun altro protocollo, nessun cambio a database/RLS/auth.
+Modifiche limitate al protocollo `RAMPING`. Nessun cambio a DB / RLS / auth / sidebar / migration / `workout_logs` / `weight_used`. La voce **Valore è puramente cosmetica**: cambia SOLO la label mostrata a PT e atleta. Il valore inserito dall'atleta continua a salvarsi nel campo esistente (`weight_used`), indipendentemente da `value_type`.
 
-## 1. Nuovo campo "Aumento %" nel Top Set
+## 1. Nuovi parametri nel registry
 
-Quarto input nella sezione Top Set, accanto a Serie / Reps / Recupero:
+File: `src/lib/protocols/registry.ts`, blocco `RAMPING`.
 
-- Label `Aumento %`, `type="number"`, `min=0`, `max=100`, `step=0.5`, placeholder `5`
-- Salvato in `protocol_params.top_increase_percent` (numero o `null`)
-- Griglia Top Set: `grid-cols-2 md:grid-cols-4`
-
-Non tocca le tabelle.
-
-## 2. Due tabelle dedicate (Top Set + Back Off)
-
-Per `TOP_SET_BACKOFF` non si renderizza più la `SetsTable` legacy basata su `te.sets_data`. Al suo posto:
-
-- **Tabella Top Set** — sempre visibile, righe `Reps / Kg / Recupero (s)`, una colonna per ogni `top_sets`.
-- **Tabella Back Off** — visibile solo se `backoff_enabled !== false`, righe `Reps / Kg / Recupero (s)`, una colonna per ogni `backoff_sets`.
-
-Dati salvati dentro `protocol_params`:
+Estendere `defaultParams` e `paramFields` (la generic form supporta già `select` + `showWhen`):
 
 ```
-{
-  top_sets, top_reps, top_rest, top_increase_percent,
-  backoff_enabled, backoff_sets, backoff_reps, backoff_percentage,
-  top_set_data:  SetItem[],
-  backoff_data:  SetItem[]
+defaultParams: {
+  reps: 5, rest_seconds: 120, note: '',
+  value_type: 'kg',
+  custom_value_label: null,
+}
+
+paramFields: [
+  ...campi esistenti,
+  {
+    key: 'value_type',
+    label: 'Valore',
+    type: 'select',
+    options: [
+      { value: 'kg',     label: 'Kg' },
+      { value: 'time',   label: 'Tempo' },
+      { value: 'km',     label: 'Km' },
+      { value: 'custom', label: 'Altro' },
+    ],
+    placeholder: 'Kg',
+  },
+  {
+    key: 'custom_value_label',
+    label: 'Specifica valore',
+    type: 'text',
+    placeholder: 'Es: Watt, BPM, Calorie, Zone, RPM…',
+    showWhen: (p) => p?.value_type === 'custom',
+    hint: 'Unità personalizzata visibile all\'atleta',
+  },
+]
+```
+
+`showWhen` già supportato in `TemplateExerciseBuilder.tsx` (riga 834): "Specifica valore" appare solo se `value_type === 'custom'`. Nessun cambio strutturale al builder PT.
+
+## 2. Helper unico per la label
+
+Esportato da `src/lib/protocols/registry.ts`:
+
+```
+export function resolveRampingUnit(params: any): string {
+  const t = params?.value_type ?? 'kg';
+  if (t === 'kg')   return 'Kg';
+  if (t === 'time') return 'Tempo';
+  if (t === 'km')   return 'Km';
+  if (t === 'custom') {
+    const label = (params?.custom_value_label ?? '').trim();
+    return label || 'Valore';
+  }
+  return 'Kg';
 }
 ```
 
-Nuovo componente locale `TopSetBackoffTable` che riceve `sets` + `onChange` come props (riusa il markup di `SetsTable`, ma non legge da `te.sets_data`). `te.sets_data` resta intatto e ignorato per questo protocollo.
+Fallback: `value_type` mancante → `Kg`. `custom` senza label → `Valore`.
 
-## 3. Sincronizzazione parametri → tabelle
+## 3. Salvataggio coerente in `protocol_params`
 
-Helper puro `applyParamSync(prev, patch)` chiamato SOLO dagli `onChange` dei 5 input parametro:
+Stesso `updateProtocolParamMutation`. Aggiungere una sola normalizzazione **al salvataggio** dentro la generic form, limitata a Ramping:
 
-| Trigger | Effetto |
-|---|---|
-| `top_sets` cresce a N | append di `{reps: top_reps, weight: null, rest_seconds: top_rest}` fino a N |
-| `top_sets` cala a N | `top_set_data.slice(0, N)` |
-| `top_reps` cambia | `top_set_data = top_set_data.map(s => ({...s, reps: nuovo_top_reps}))` |
-| `top_rest` cambia | `top_set_data = top_set_data.map(s => ({...s, rest_seconds: nuovo_top_rest}))` |
-| `backoff_sets` cresce/cala | append/slice analogo su `backoff_data` |
-| `backoff_reps` cambia | `backoff_data = backoff_data.map(s => ({...s, reps: nuovo_backoff_reps}))` |
+- `value_type !== 'custom'` → `custom_value_label = null`.
+- `value_type === 'custom'` → testo PT preservato.
 
-`top_increase_percent`, `backoff_percentage`, `backoff_enabled` non toccano le tabelle.
+Punto: `TemplateExerciseBuilder.tsx`, dentro `onValueChange` del `select` (~riga 870) e `onChange` del `text` (~riga 914), solo se `te.protocol_type === 'RAMPING'` e `f.key ∈ {value_type, custom_value_label}`. Nessun impatto sugli altri protocolli. Nessuna scrittura automatica al mount.
 
-## 4. Edit manuale delle celle — fonte di verità
+## 4. Rendering lato PT — pill "Unità atleta"
 
-L'edit di una singola cella (Reps/Kg/Rec di Set i nella Top Set o nel Back Off):
+Ramping in PT non ha una `SetsTable` propria (cade nella generic param form). Per dare riscontro visivo:
 
-- aggiorna SOLO `top_set_data[i]` o `backoff_data[i]`
-- NON tocca `top_sets/top_reps/top_rest/backoff_sets/backoff_reps`
-- NON ri-applica `applyParamSync`
+- Pill compatta `Unità atleta: <resolveRampingUnit(params)>` accanto / sotto al banner-nota Ramping già presente (`TemplateExerciseBuilder.tsx` ~riga 932).
+- Aggiornata reattivamente al cambio del select / del campo Altro.
 
-I valori manuali sono persistenti nel JSON e diventano la verità della tabella. Restano salvati anche dopo refresh.
+Nessuna riga / colonna fissa "Kg" da modificare in PT per Ramping.
 
-## 5. Normalizzazione retro-compatibile (read-only, mai distruttiva)
+## 5. Note visibili anche lato atleta (Ramping)
 
-`normalizeTopSetBackoff(params)` è un helper PURO usato solo in lettura per il render:
+Le note Ramping vivono in `protocol_params.note` (campo `note` della registry), NON in `te.notes`. L'atleta oggi non le vede.
 
-- se `top_set_data` è assente / non array / vuoto → genera array di lunghezza `top_sets ?? 1` derivando i default da `top_reps` / `top_rest` (peso `null`)
-- se `top_set_data.length < top_sets` → estende con i default fino a `top_sets`
-- se `top_set_data.length > top_sets` → tronca a `top_sets`
-- stesse regole su `backoff_data` con `backoff_sets` / `backoff_reps`
-- **NON modifica mai i valori di celle già presenti**: `reps/weight/rest_seconds` esistenti vengono preservati così come sono. Estende solo le righe mancanti, tronca solo quelle in eccesso.
+Render condizionato su `protocol_type === 'RAMPING'` + `protocol_params.note` non vuoto, sotto il nome esercizio e prima della tabella / stats:
 
-Nessuna mutate al mount: il valore normalizzato serve solo al render. Il salvataggio parte solo dal primo `onChange` esplicito (param o cella).
+- `src/components/app/GuidedWorkoutFlow.tsx` — schermata `ready` (~riga 494): card note tra `<h2>` nome esercizio e griglia `Target / Peso / Recupero` (~riga 501).
+- `src/components/app/AtletaExerciseDetailSheet.tsx` — sezione tab principale: card analoga prima della tabella set. Le `te.notes` generiche restano gestite come ora (riga ~360) per gli altri protocolli.
 
-## 6. SetsTable legacy
+UI:
 
-Resta utilizzata solo per il protocollo `SET`. Per `TOP_SET_BACKOFF` non viene più montata e `te.sets_data` non viene più scritto.
+- `rounded-xl border border-app-border bg-app-card/60 px-4 py-3`
+- Label `Note del coach` `text-xs text-app-muted-foreground`
+- Testo `text-sm text-app-foreground whitespace-pre-line`
+- Note vuota → nessun render.
+
+Nessun cambio per gli altri protocolli.
+
+## 6. Label "Peso (kg)" durante l'esecuzione — solo cosmetica
+
+In `GuidedWorkoutFlow` lo step `input` (~riga 567) ha `label="Peso (kg)"`. Solo per Ramping sostituirla con `resolveRampingUnit(currentExercise.protocol_params)`.
+
+**Importante:**
+
+- Lo state `weight` interno resta `weight`.
+- Il salvataggio continua a scrivere `weight_used` su `workout_logs` (riga ~251), identico a oggi.
+- Anche con `value_type ∈ {time, km, custom}` il valore inserito dall'atleta finisce in `weight_used`. Nessun nuovo campo DB, nessun ramo logico nuovo nel save.
+- È puramente un cambio di etichetta UI.
+
+Stessa cosa per la pill `Peso` nello step `ready` (~riga 507): solo label, valore numerico = `prescribed_weight` come ora.
+
+## 7. Compatibilità retroattiva
+
+- Ramping esistenti senza `value_type` → `resolveRampingUnit` ritorna `Kg`.
+- `custom_value_label` mancante → `null`, render fallback "Valore".
+- Nessuna mutazione automatica al mount: il save parte solo dopo che il PT cambia esplicitamente uno dei due campi.
+- Log storici e log nuovi restano omogenei in `weight_used`.
 
 ## File toccati
 
-- `src/components/pt/TemplateExerciseBuilder.tsx` — UI Top Set + Back Off, `TopSetBackoffTable`, `applyParamSync`, `normalizeTopSetBackoff`.
+- `src/lib/protocols/registry.ts` — nuovi `paramFields` + helper `resolveRampingUnit`.
+- `src/components/pt/TemplateExerciseBuilder.tsx` — normalizzazione `custom_value_label` al save Ramping; pill `Unità atleta: …` accanto al banner Ramping.
+- `src/components/app/GuidedWorkoutFlow.tsx` — card note Ramping nello step `ready`; label dinamica unità nello step `input` (e label pill Peso nello step ready).
+- `src/components/app/AtletaExerciseDetailSheet.tsx` — card note Ramping prima della tabella set.
 
-Non modifico: `setsData.ts`, registry protocolli, altri rendering, esecuzione lato atleta, EMOM, DB.
+## File / aree NON toccate
+
+`setsData.ts`, altri protocolli (SET, TOP_SET_BACKOFF, EMOM, AMRAP, …), esecuzione di altri protocolli, schema `workout_logs`, campo `weight_used`, logica di salvataggio log, DB, migration, RLS, auth, sidebar.

@@ -32,6 +32,8 @@ export type ProtocolParams = {
   backoff_percentage?: number | null;
   // Ramping
   note?: string | null;
+  value_type?: 'kg' | 'time' | 'km' | 'custom' | null;
+  custom_value_label?: string | null;
   // EMOM / TABATA (mode è condiviso ma con valori diversi a runtime)
   duration_minutes?: number | null;
   mode?: EmomMode | TabataMode | null;
@@ -210,11 +212,31 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     icon: ArrowUp,
     description:
       'Trova il peso più alto con cui riesci ad eseguire le ripetizioni indicate. Ad ogni serie aumenta il carico mantenendo le stesse ripetizioni.',
-    defaultParams: { reps: 5, rest_seconds: 120, note: '' },
+    defaultParams: { reps: 5, rest_seconds: 120, note: '', value_type: 'kg', custom_value_label: null },
     paramFields: [
       { key: 'reps', label: 'Ripetizioni per serie', type: 'number', min: 1, placeholder: '5' },
       { key: 'rest_seconds', label: 'Recupero (s)', type: 'number', min: 0, step: 15, placeholder: '120' },
       { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. parti da 40 kg, sali di 5 kg', hint: 'Indicazioni libere per l\'atleta' },
+      {
+        key: 'value_type',
+        label: 'Valore',
+        type: 'select',
+        placeholder: 'Kg',
+        options: [
+          { value: 'kg', label: 'Kg' },
+          { value: 'time', label: 'Tempo' },
+          { value: 'km', label: 'Km' },
+          { value: 'custom', label: 'Altro' },
+        ],
+      },
+      {
+        key: 'custom_value_label',
+        label: 'Specifica valore',
+        type: 'text',
+        placeholder: 'Es: Watt, BPM, Calorie, Zone, RPM…',
+        hint: 'Unità personalizzata visibile all\'atleta',
+        showWhen: (p) => (p as any)?.value_type === 'custom',
+      },
     ],
     executionMode: 'standard',
     sections: {
@@ -866,4 +888,19 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
     default:
       return '';
   }
+}
+
+// =====================================================
+// RAMPING — risoluzione label unità (puramente cosmetica)
+// =====================================================
+export function resolveRampingUnit(params: any): string {
+  const t = params?.value_type ?? 'kg';
+  if (t === 'kg') return 'Kg';
+  if (t === 'time') return 'Tempo';
+  if (t === 'km') return 'Km';
+  if (t === 'custom') {
+    const label = (params?.custom_value_label ?? '').toString().trim();
+    return label || 'Valore';
+  }
+  return 'Kg';
 }

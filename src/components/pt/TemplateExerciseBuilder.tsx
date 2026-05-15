@@ -65,6 +65,7 @@ import {
   getDefaultParamsForProtocol,
   getNested,
   setNested,
+  resolveRampingUnit,
   type ProtocolType,
   type ProtocolParams,
 } from '@/lib/protocols/registry';
@@ -868,7 +869,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                                 <Select
                                                   value={(val as string) ?? ''}
                                                   onValueChange={(newVal) => {
-                                                    const next = setNested(params, f.key, newVal);
+                                                    let next = setNested(params, f.key, newVal);
+                                                    // Ramping: se value_type ≠ custom, azzera la label custom
+                                                    if (ptype === 'RAMPING' && f.key === 'value_type' && newVal !== 'custom') {
+                                                      next = setNested(next, 'custom_value_label', null);
+                                                    }
                                                     updateProtocolParamMutation.mutate({ id: te.id, params: next });
                                                   }}
                                                 >
@@ -930,10 +935,14 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                         })}
                                       </div>
                                       {ptype === 'RAMPING' && (
-                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 space-y-2">
                                           <p className="text-[11px] text-foreground/80 leading-relaxed">
                                             <span className="font-semibold">Nota:</span> le serie verranno generate dall'atleta durante l'allenamento aumentando il carico set dopo set, fino al KO.
                                           </p>
+                                          <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-medium text-foreground/80">
+                                            <span className="text-muted-foreground">Unità atleta:</span>
+                                            <span className="font-semibold text-foreground">{resolveRampingUnit(params)}</span>
+                                          </div>
                                         </div>
                                       )}
                                       {/* EMOM ha editor dedicato a blocchi (vedi early return sopra) */}

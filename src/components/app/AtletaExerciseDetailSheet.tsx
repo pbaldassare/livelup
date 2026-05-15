@@ -252,6 +252,16 @@ export function AtletaExerciseDetailSheet({
                   />
                 )}
 
+                {/* Ramping: note del coach (da protocol_params.note) */}
+                {exercise.protocol_type === 'RAMPING' && typeof (exercise.protocol_params as any)?.note === 'string' && (exercise.protocol_params as any).note.trim() !== '' && (
+                  <div className="rounded-xl border border-app-border bg-app-card/60 px-4 py-3">
+                    <p className="text-xs text-app-muted-foreground mb-1">Note del coach</p>
+                    <p className="text-sm text-app-foreground whitespace-pre-line">
+                      {(exercise.protocol_params as any).note}
+                    </p>
+                  </div>
+                )}
+
                 {/* Istruzioni */}
                 {ex.instructions && (
                   <div className="space-y-2">
