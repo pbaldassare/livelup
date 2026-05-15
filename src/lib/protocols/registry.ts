@@ -889,3 +889,18 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
       return '';
   }
 }
+
+// =====================================================
+// RAMPING — risoluzione label unità (puramente cosmetica)
+// =====================================================
+export function resolveRampingUnit(params: any): string {
+  const t = params?.value_type ?? 'kg';
+  if (t === 'kg') return 'Kg';
+  if (t === 'time') return 'Tempo';
+  if (t === 'km') return 'Km';
+  if (t === 'custom') {
+    const label = (params?.custom_value_label ?? '').toString().trim();
+    return label || 'Valore';
+  }
+  return 'Kg';
+}
