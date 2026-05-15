@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AtletaEmomPlayer } from '@/components/app/AtletaEmomPlayer';
+import { resolveRampingUnit } from '@/lib/protocols/registry';
 
 // =====================================================
 // GUIDED WORKOUT FLOW
