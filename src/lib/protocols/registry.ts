@@ -35,7 +35,7 @@ export type ProtocolParams = {
   value_type?: 'kg' | 'time' | 'km' | 'custom' | null;
   custom_value_label?: string | null;
   // AMRAP (struttura nuova: timer globale + lista piatta esercizi)
-  duration_seconds?: number | null;
+  // duration_seconds è già dichiarato sopra e viene riusato qui.
   exercises_count?: number | null;
   exercises?: Array<{
     id: string;
