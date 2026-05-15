@@ -1203,3 +1203,209 @@ function SetsTable({ te, onChange }: SetsTableProps) {
     </div>
   );
 }
+
+// =====================================================
+// TOP SET + BACK OFF helpers
+// =====================================================
+interface TSBOParams {
+  top_sets: number | null;
+  top_reps: number | null;
+  top_rest: number | null;
+  top_increase_percent: number | null;
+  backoff_enabled: boolean;
+  backoff_sets: number | null;
+  backoff_reps: number | null;
+  backoff_percentage: number | null;
+  top_set_data: SetItem[];
+  backoff_data: SetItem[];
+  [k: string]: any;
+}
+
+function adjustLength(
+  arr: SetItem[],
+  n: number,
+  defaults: SetItem,
+): SetItem[] {
+  const safeN = Math.max(0, Math.floor(n));
+  if (arr.length === safeN) return arr;
+  if (arr.length > safeN) return arr.slice(0, safeN);
+  const out = [...arr];
+  while (out.length < safeN) out.push({ ...defaults });
+  return out;
+}
+
+export function normalizeTopSetBackoff(raw: any): TSBOParams {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const top_sets = typeof r.top_sets === 'number' && r.top_sets > 0 ? r.top_sets : 1;
+  const top_reps = typeof r.top_reps === 'number' ? r.top_reps : null;
+  const top_rest = typeof r.top_rest === 'number' ? r.top_rest : null;
+  const backoff_enabled = r.backoff_enabled !== false;
+  const backoff_sets = typeof r.backoff_sets === 'number' && r.backoff_sets > 0 ? r.backoff_sets : (backoff_enabled ? 3 : 0);
+  const backoff_reps = typeof r.backoff_reps === 'number' ? r.backoff_reps : null;
+
+  const topDefaults: SetItem = { reps: top_reps, weight: null, rest_seconds: top_rest };
+  const backoffDefaults: SetItem = { reps: backoff_reps, weight: null, rest_seconds: top_rest };
+
+  const top_set_data = adjustLength(
+    Array.isArray(r.top_set_data) ? (r.top_set_data as SetItem[]).map((s) => ({
+      reps: s?.reps ?? null,
+      weight: s?.weight ?? null,
+      rest_seconds: s?.rest_seconds ?? null,
+    })) : [],
+    top_sets,
+    topDefaults,
+  );
+
+  const backoff_data = adjustLength(
+    Array.isArray(r.backoff_data) ? (r.backoff_data as SetItem[]).map((s) => ({
+      reps: s?.reps ?? null,
+      weight: s?.weight ?? null,
+      rest_seconds: s?.rest_seconds ?? null,
+    })) : [],
+    backoff_enabled ? backoff_sets : 0,
+    backoffDefaults,
+  );
+
+  return {
+    ...r,
+    top_sets,
+    top_reps,
+    top_rest,
+    top_increase_percent: typeof r.top_increase_percent === 'number' ? r.top_increase_percent : null,
+    backoff_enabled,
+    backoff_sets,
+    backoff_reps,
+    backoff_percentage: typeof r.backoff_percentage === 'number' ? r.backoff_percentage : null,
+    top_set_data,
+    backoff_data,
+  };
+}
+
+export function applyParamSync(
+  prev: TSBOParams,
+  key: 'top_sets' | 'top_reps' | 'top_rest' | 'top_increase_percent' | 'backoff_enabled' | 'backoff_sets' | 'backoff_reps' | 'backoff_percentage',
+  value: number | boolean | null,
+): TSBOParams {
+  const next: TSBOParams = { ...prev, [key]: value as any };
+
+  if (key === 'top_sets') {
+    const n = typeof value === 'number' && value > 0 ? value : 1;
+    next.top_set_data = adjustLength(prev.top_set_data, n, {
+      reps: prev.top_reps,
+      weight: null,
+      rest_seconds: prev.top_rest,
+    });
+  } else if (key === 'top_reps') {
+    next.top_set_data = prev.top_set_data.map((s) => ({ ...s, reps: typeof value === 'number' ? value : null }));
+  } else if (key === 'top_rest') {
+    next.top_set_data = prev.top_set_data.map((s) => ({ ...s, rest_seconds: typeof value === 'number' ? value : null }));
+  } else if (key === 'backoff_sets') {
+    const n = typeof value === 'number' && value > 0 ? value : 0;
+    next.backoff_data = adjustLength(prev.backoff_data, n, {
+      reps: prev.backoff_reps,
+      weight: null,
+      rest_seconds: prev.top_rest,
+    });
+  } else if (key === 'backoff_reps') {
+    next.backoff_data = prev.backoff_data.map((s) => ({ ...s, reps: typeof value === 'number' ? value : null }));
+  } else if (key === 'backoff_enabled' && value === true && (!prev.backoff_data || prev.backoff_data.length === 0)) {
+    const n = prev.backoff_sets ?? 3;
+    next.backoff_sets = n;
+    next.backoff_data = adjustLength([], n, {
+      reps: prev.backoff_reps,
+      weight: null,
+      rest_seconds: prev.top_rest,
+    });
+  }
+
+  return next;
+}
+
+interface TopSetBackoffTableProps {
+  title: string;
+  sets: SetItem[];
+  onCellChange: (idx: number, patch: Partial<SetItem>) => void;
+}
+
+function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTableProps) {
+  const parseNum = (v: string): number | null => {
+    if (v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  if (sets.length === 0) {
+    return (
+      <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+        {title}: imposta il numero di serie per generare la tabella.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border bg-muted/20 p-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground">{title}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr>
+              <th className="text-left font-medium text-muted-foreground pr-2 py-1 sticky left-0 bg-muted/20"></th>
+              {sets.map((_, i) => (
+                <th key={i} className="px-1 py-1 text-center font-medium text-muted-foreground min-w-[64px]">
+                  Set {i + 1}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Reps</td>
+              {sets.map((s, i) => (
+                <td key={i} className="px-1 py-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    value={s.reps ?? ''}
+                    onChange={(e) => onCellChange(i, { reps: parseNum(e.target.value) })}
+                    className="h-8 text-center px-1"
+                  />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Kg</td>
+              {sets.map((s, i) => (
+                <td key={i} className="px-1 py-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={s.weight ?? ''}
+                    onChange={(e) => onCellChange(i, { weight: parseNum(e.target.value) })}
+                    className="h-8 text-center px-1"
+                  />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Rec (s)</td>
+              {sets.map((s, i) => (
+                <td key={i} className="px-1 py-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    value={s.rest_seconds ?? ''}
+                    onChange={(e) => onCellChange(i, { rest_seconds: parseNum(e.target.value) })}
+                    className="h-8 text-center px-1"
+                  />
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
