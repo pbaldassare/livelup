@@ -212,11 +212,31 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     icon: ArrowUp,
     description:
       'Trova il peso più alto con cui riesci ad eseguire le ripetizioni indicate. Ad ogni serie aumenta il carico mantenendo le stesse ripetizioni.',
-    defaultParams: { reps: 5, rest_seconds: 120, note: '' },
+    defaultParams: { reps: 5, rest_seconds: 120, note: '', value_type: 'kg', custom_value_label: null },
     paramFields: [
       { key: 'reps', label: 'Ripetizioni per serie', type: 'number', min: 1, placeholder: '5' },
       { key: 'rest_seconds', label: 'Recupero (s)', type: 'number', min: 0, step: 15, placeholder: '120' },
       { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. parti da 40 kg, sali di 5 kg', hint: 'Indicazioni libere per l\'atleta' },
+      {
+        key: 'value_type',
+        label: 'Valore',
+        type: 'select',
+        placeholder: 'Kg',
+        options: [
+          { value: 'kg', label: 'Kg' },
+          { value: 'time', label: 'Tempo' },
+          { value: 'km', label: 'Km' },
+          { value: 'custom', label: 'Altro' },
+        ],
+      },
+      {
+        key: 'custom_value_label',
+        label: 'Specifica valore',
+        type: 'text',
+        placeholder: 'Es: Watt, BPM, Calorie, Zone, RPM…',
+        hint: 'Unità personalizzata visibile all\'atleta',
+        showWhen: (p) => (p as any)?.value_type === 'custom',
+      },
     ],
     executionMode: 'standard',
     sections: {
