@@ -65,6 +65,7 @@ import {
   getDefaultParamsForProtocol,
   getNested,
   setNested,
+  resolveRampingUnit,
   type ProtocolType,
   type ProtocolParams,
 } from '@/lib/protocols/registry';
