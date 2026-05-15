@@ -1281,7 +1281,7 @@ function normalizeTopSetBackoff(raw: any): TSBOParams {
   };
 }
 
-export function applyParamSync(
+function applyParamSync(
   prev: TSBOParams,
   key: 'top_sets' | 'top_reps' | 'top_rest' | 'top_increase_percent' | 'backoff_enabled' | 'backoff_sets' | 'backoff_reps' | 'backoff_percentage',
   value: number | boolean | null,
