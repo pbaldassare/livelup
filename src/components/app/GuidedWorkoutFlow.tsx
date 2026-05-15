@@ -575,7 +575,7 @@ export function GuidedWorkoutFlow({
                   />
                 )}
                 <NumberRow
-                  label="Peso (kg)"
+                  label={currentExercise.protocol_type === 'RAMPING' ? resolveRampingUnit(currentExercise.protocol_params) : 'Peso (kg)'}
                   value={state.weight}
                   step={2.5}
                   onChange={(v) => dispatch({ type: 'SET_WEIGHT', v })}
