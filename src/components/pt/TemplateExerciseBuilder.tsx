@@ -71,6 +71,8 @@ import {
 } from '@/lib/protocols/registry';
 import { ProtocolInfoPopover } from '@/components/protocols/ProtocolInfoPopover';
 import { EmomBlocksEditor } from '@/components/pt/protocols/EmomBlocksEditor';
+import { AmrapEditor } from '@/components/pt/protocols/AmrapEditor';
+import { normalizeAmrapParams } from '@/lib/protocols/amrap';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
 import { Link } from 'react-router-dom';
