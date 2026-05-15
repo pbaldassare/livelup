@@ -34,6 +34,16 @@ export type ProtocolParams = {
   note?: string | null;
   value_type?: 'kg' | 'time' | 'km' | 'custom' | null;
   custom_value_label?: string | null;
+  // AMRAP (struttura nuova: timer globale + lista piatta esercizi)
+  duration_seconds?: number | null;
+  exercises_count?: number | null;
+  exercises?: Array<{
+    id: string;
+    exercise_id?: string;
+    name: string;
+    reps: number;
+    weight: number | null;
+  }> | null;
   // EMOM / TABATA (mode è condiviso ma con valori diversi a runtime)
   duration_minutes?: number | null;
   mode?: EmomMode | TabataMode | null;
