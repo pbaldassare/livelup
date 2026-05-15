@@ -32,6 +32,8 @@ export type ProtocolParams = {
   backoff_percentage?: number | null;
   // Ramping
   note?: string | null;
+  value_type?: 'kg' | 'time' | 'km' | 'custom' | null;
+  custom_value_label?: string | null;
   // EMOM / TABATA (mode è condiviso ma con valori diversi a runtime)
   duration_minutes?: number | null;
   mode?: EmomMode | TabataMode | null;
