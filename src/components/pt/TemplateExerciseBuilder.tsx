@@ -1234,7 +1234,7 @@ function adjustLength(
   return out;
 }
 
-export function normalizeTopSetBackoff(raw: any): TSBOParams {
+function normalizeTopSetBackoff(raw: any): TSBOParams {
   const r = raw && typeof raw === 'object' ? raw : {};
   const top_sets = typeof r.top_sets === 'number' && r.top_sets > 0 ? r.top_sets : 1;
   const top_reps = typeof r.top_reps === 'number' ? r.top_reps : null;
