@@ -71,6 +71,8 @@ import {
 } from '@/lib/protocols/registry';
 import { ProtocolInfoPopover } from '@/components/protocols/ProtocolInfoPopover';
 import { EmomBlocksEditor } from '@/components/pt/protocols/EmomBlocksEditor';
+import { AmrapEditor } from '@/components/pt/protocols/AmrapEditor';
+import { normalizeAmrapParams } from '@/lib/protocols/amrap';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
 import { Link } from 'react-router-dom';
@@ -825,6 +827,25 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     );
                                   }
 
+                                  // AMRAP: editor dedicato (timer globale + lista piatta esercizi)
+                                  if (ptype === 'AMRAP') {
+                                    const amrapValue = normalizeAmrapParams(
+                                      params as Record<string, unknown>,
+                                    );
+                                    return (
+                                      <AmrapEditor
+                                        value={amrapValue}
+                                        exerciseOptions={allTemplateExerciseOptions}
+                                        onChange={(next) => {
+                                          updateProtocolParamMutation.mutate({
+                                            id: te.id,
+                                            params: next as unknown as ProtocolParams,
+                                          });
+                                        }}
+                                      />
+                                    );
+                                  }
+
                                   return (
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
@@ -945,14 +966,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </div>
                                         </div>
                                       )}
-                                      {/* EMOM ha editor dedicato a blocchi (vedi early return sopra) */}
-                                      {ptype === 'AMRAP' && (
-                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
-                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
-                                            <span className="font-semibold">Nota:</span> questo protocollo si basa su round continui. L'atleta completerà il maggior numero di giri nel tempo stabilito.
-                                          </p>
-                                        </div>
-                                      )}
+                                      {/* EMOM e AMRAP hanno editor dedicati (vedi early return sopra) */}
                                       {ptype === 'SUPERSET' && (
                                         <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
                                           <p className="text-[11px] text-foreground/80 leading-relaxed">

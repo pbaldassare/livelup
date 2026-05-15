@@ -1,130 +1,129 @@
-# Ramping — campo "Valore" + note visibili lato atleta
+# AMRAP — editor strutturato (PT)
 
-Modifiche limitate al protocollo `RAMPING`. Nessun cambio a DB / RLS / auth / sidebar / migration / `workout_logs` / `weight_used`. La voce **Valore è puramente cosmetica**: cambia SOLO la label mostrata a PT e atleta. Il valore inserito dall'atleta continua a salvarsi nel campo esistente (`weight_used`), indipendentemente da `value_type`.
+Trasformare AMRAP in un protocollo strutturato lato editor PT, allineato per pattern a EMOM ma con logica più semplice: un solo timer globale, nessun round/blocco, una lista piatta di esercizi che l'atleta esegue in loop.
 
-## 1. Nuovi parametri nel registry
+Modifiche limitate a editor PT + helper. **Nessun cambio** a DB / RLS / auth / sidebar / migration / altri protocolli (EMOM, SET, TOP_SET_BACKOFF, RAMPING, …) / esecuzione lato atleta.
 
-File: `src/lib/protocols/registry.ts`, blocco `RAMPING`.
+## 1. Nuovo schema `protocol_params` per AMRAP
 
-Estendere `defaultParams` e `paramFields` (la generic form supporta già `select` + `showWhen`):
-
-```
-defaultParams: {
-  reps: 5, rest_seconds: 120, note: '',
-  value_type: 'kg',
-  custom_value_label: null,
-}
-
-paramFields: [
-  ...campi esistenti,
-  {
-    key: 'value_type',
-    label: 'Valore',
-    type: 'select',
-    options: [
-      { value: 'kg',     label: 'Kg' },
-      { value: 'time',   label: 'Tempo' },
-      { value: 'km',     label: 'Km' },
-      { value: 'custom', label: 'Altro' },
-    ],
-    placeholder: 'Kg',
-  },
-  {
-    key: 'custom_value_label',
-    label: 'Specifica valore',
-    type: 'text',
-    placeholder: 'Es: Watt, BPM, Calorie, Zone, RPM…',
-    showWhen: (p) => p?.value_type === 'custom',
-    hint: 'Unità personalizzata visibile all\'atleta',
-  },
-]
-```
-
-`showWhen` già supportato in `TemplateExerciseBuilder.tsx` (riga 834): "Specifica valore" appare solo se `value_type === 'custom'`. Nessun cambio strutturale al builder PT.
-
-## 2. Helper unico per la label
-
-Esportato da `src/lib/protocols/registry.ts`:
+Solo a livello logico — usa il JSON già esistente `protocol_params`, nessun nuovo campo DB.
 
 ```
-export function resolveRampingUnit(params: any): string {
-  const t = params?.value_type ?? 'kg';
-  if (t === 'kg')   return 'Kg';
-  if (t === 'time') return 'Tempo';
-  if (t === 'km')   return 'Km';
-  if (t === 'custom') {
-    const label = (params?.custom_value_label ?? '').trim();
-    return label || 'Valore';
-  }
-  return 'Kg';
+{
+  duration_seconds: number,    // timer globale
+  exercises_count: number,     // sempre === exercises.length
+  exercises: [
+    {
+      id: string,              // uid client
+      exercise_id?: string,    // riferimento esercizio del template
+      name: string,
+      reps: number,
+      weight: number | null
+    }
+  ],
+  // legacy preservati ma non più usati: duration_minutes, reps, note
 }
 ```
 
-Fallback: `value_type` mancante → `Kg`. `custom` senza label → `Valore`.
+## 2. Invariante `exercises_count === exercises.length`
 
-## 3. Salvataggio coerente in `protocol_params`
+`exercises_count` è solo una scorciatoia di input per creare/rimuovere righe in batch. La fonte di verità operativa è `exercises[]`. Le due cose devono restare sempre allineate, gestito centralmente da `commit()` nell'editor:
 
-Stesso `updateProtocolParamMutation`. Aggiungere una sola normalizzazione **al salvataggio** dentro la generic form, limitata a Ramping:
+- patch su `exercises_count` (input header) → `exercises = syncExercisesCount(exercises, exercises_count)`.
+- patch su `exercises` (add riga, trash riga, edit cella) → forza `exercises_count = exercises.length` nello stesso `onChange`.
+- mai stato in cui `exercises_count = 4` e solo 3 righe visibili: il bottone trash decrementa il count, il bottone "+ Aggiungi" lo incrementa, sempre derivato da `length`.
+- `Math.max(1, …)` ovunque: minimo 1 riga, mai 0.
 
-- `value_type !== 'custom'` → `custom_value_label = null`.
-- `value_type === 'custom'` → testo PT preservato.
+## 3. Helper `src/lib/protocols/amrap.ts` (nuovo)
 
-Punto: `TemplateExerciseBuilder.tsx`, dentro `onValueChange` del `select` (~riga 870) e `onChange` del `text` (~riga 914), solo se `te.protocol_type === 'RAMPING'` e `f.key ∈ {value_type, custom_value_label}`. Nessun impatto sugli altri protocolli. Nessuna scrittura automatica al mount.
+Mirror minimo di `emom.ts`:
 
-## 4. Rendering lato PT — pill "Unità atleta"
+- `AmrapExercise`, `AmrapParams` types.
+- `makeAmrapExercise(partial?)`: nuovo esercizio vuoto con `uid('amrap_ex')`, `name=''`, `reps=10`, `weight=null`.
+- `syncExercisesCount(list, count)`: append vuoti se cresce, slice se cala. Min 1.
+- `normalizeAmrapParams(raw)`: pura, in memoria, mai persistita:
+  - `duration_seconds`: number > 0 oppure `duration_minutes × 60` se presente, altrimenti `600`.
+  - `exercises`: se manca / non array / vuoto → `[makeAmrapExercise({ reps: raw.reps ?? 10 })]`. Mappa ogni elemento a forma stabile (`id`, `exercise_id?`, `name`, `reps`, `weight`).
+  - `exercises_count`: se number > 0 lo applica + `syncExercisesCount`, altrimenti `exercises.length`. Sempre riallineato a `exercises.length` finale.
 
-Ramping in PT non ha una `SetsTable` propria (cade nella generic param form). Per dare riscontro visivo:
+Nessuna mutate, nessun side-effect.
 
-- Pill compatta `Unità atleta: <resolveRampingUnit(params)>` accanto / sotto al banner-nota Ramping già presente (`TemplateExerciseBuilder.tsx` ~riga 932).
-- Aggiornata reattivamente al cambio del select / del campo Altro.
+## 4. Nuovo componente `src/components/pt/protocols/AmrapEditor.tsx`
 
-Nessuna riga / colonna fissa "Kg" da modificare in PT per Ramping.
+Stesso stile visivo di `EmomBlocksEditor`, più piatto:
 
-## 5. Note visibili anche lato atleta (Ramping)
+- **Header parametri globali**:
+  - `Durata totale (secondi)` — input number, min 1, step 30.
+  - `Numero esercizi` — input number, min 1. Etichetta che chiarisce "sincronizzato con la lista sotto".
+- **Lista esercizi**: per riga `i`
+  - col 1: `ExerciseCombobox` (popover + Command identico a EMOM, popolato da `exerciseOptions`). Selezione → scrive `name` e `exercise_id`.
+  - col 2: input `Reps` (number, min 1).
+  - col 3: input `Kg` (number, min 0, step 0.5, vuoto = `null`).
+  - bottone trash a destra: rimuove la riga, `commit` riallinea `exercises_count = nuova lunghezza`.
+- Bottone `+ Aggiungi esercizio` in fondo: pusha vuoto, `commit` riallinea `exercises_count`.
 
-Le note Ramping vivono in `protocol_params.note` (campo `note` della registry), NON in `te.notes`. L'atleta oggi non le vede.
+Props:
+```
+{
+  value: AmrapParams,
+  onChange: (next: AmrapParams) => void,
+  exerciseOptions?: { id: string; name: string }[],
+}
+```
 
-Render condizionato su `protocol_type === 'RAMPING'` + `protocol_params.note` non vuoto, sotto il nome esercizio e prima della tabella / stats:
+Helper interno `commit(base, patch, onChange)` analogo a EMOM:
+- patch con `exercises_count` (e non `exercises`) → `syncExercisesCount`.
+- patch con `exercises` → forza `exercises_count = merged.exercises.length`.
 
-- `src/components/app/GuidedWorkoutFlow.tsx` — schermata `ready` (~riga 494): card note tra `<h2>` nome esercizio e griglia `Target / Peso / Recupero` (~riga 501).
-- `src/components/app/AtletaExerciseDetailSheet.tsx` — sezione tab principale: card analoga prima della tabella set. Le `te.notes` generiche restano gestite come ora (riga ~360) per gli altri protocolli.
+Tutte le scritture passano da `onChange` esplicito. Nessuna scrittura al mount.
 
-UI:
+## 5. Wiring in `TemplateExerciseBuilder.tsx`
 
-- `rounded-xl border border-app-border bg-app-card/60 px-4 py-3`
-- Label `Note del coach` `text-xs text-app-muted-foreground`
-- Testo `text-sm text-app-foreground whitespace-pre-line`
-- Note vuota → nessun render.
+Aggiungere un early-return dedicato accanto a quello EMOM (~riga 805), nel ramo "Protocolli non-set-based":
 
-Nessun cambio per gli altri protocolli.
+```tsx
+if (ptype === 'AMRAP') {
+  const amrapValue = normalizeAmrapParams(params as Record<string, unknown>);
+  return (
+    <AmrapEditor
+      value={amrapValue}
+      exerciseOptions={allTemplateExerciseOptions}
+      onChange={(next) => updateProtocolParamMutation.mutate({
+        id: te.id,
+        params: next as unknown as ProtocolParams,
+      })}
+    />
+  );
+}
+```
 
-## 6. Label "Peso (kg)" durante l'esecuzione — solo cosmetica
+Rimuovere il banner-nota AMRAP esistente (~riga 949) perché ridondante con la nuova UI dedicata. Nessun altro ramo del file viene toccato.
 
-In `GuidedWorkoutFlow` lo step `input` (~riga 567) ha `label="Peso (kg)"`. Solo per Ramping sostituirla con `resolveRampingUnit(currentExercise.protocol_params)`.
+Aggiornamento minimo a `ProtocolParams` in `registry.ts`: aggiungere campi opzionali `duration_seconds?: number | null`, `exercises_count?: number | null`, `exercises?: Array<{id; exercise_id?; name; reps; weight}> | null`. Nessuna modifica ai `defaultParams` AMRAP per non innescare save automatici — i nuovi default vengono dal `normalizeAmrapParams` a livello editor.
 
-**Importante:**
+## 6. ExerciseCombobox — fonte dati
 
-- Lo state `weight` interno resta `weight`.
-- Il salvataggio continua a scrivere `weight_used` su `workout_logs` (riga ~251), identico a oggi.
-- Anche con `value_type ∈ {time, km, custom}` il valore inserito dall'atleta finisce in `weight_used`. Nessun nuovo campo DB, nessun ramo logico nuovo nel save.
-- È puramente un cambio di etichetta UI.
+Usa **lo stesso `allTemplateExerciseOptions`** già fetchato per EMOM (riga 191 di `TemplateExerciseBuilder.tsx`): query su `template_exercises` filtrata per `template_id`, deduplicata per nome. Esattamente "tutti gli esercizi del tab Esercizi del workout corrente", indipendenti da `block_id` / circuito. Quando il PT aggiunge un esercizio nel tab, React Query lo invalida → il combobox si aggiorna senza refresh manuale.
 
-Stessa cosa per la pill `Peso` nello step `ready` (~riga 507): solo label, valore numerico = `prescribed_weight` come ora.
+Nessuna fetch all'archivio globale. Nessun mock.
 
-## 7. Compatibilità retroattiva
+## 7. Compatibilità legacy
 
-- Ramping esistenti senza `value_type` → `resolveRampingUnit` ritorna `Kg`.
-- `custom_value_label` mancante → `null`, render fallback "Valore".
-- Nessuna mutazione automatica al mount: il save parte solo dopo che il PT cambia esplicitamente uno dei due campi.
-- Log storici e log nuovi restano omogenei in `weight_used`.
+- AMRAP esistenti con solo `duration_minutes` + `reps` + `note` → `normalizeAmrapParams` produce in memoria un `duration_seconds = duration_minutes × 60`, un esercizio singolo con `reps = reps`, `name=''`. Il PT vede l'editor pieno e può completarlo.
+- Nessuna mutate al mount: i nuovi default restano in memoria finché il PT non clicca/modifica esplicitamente.
+- Campi legacy (`duration_minutes`, `reps`, `note`) NON vengono cancellati; alla prima save esplicita lo schema diventa quello nuovo, ma i campi legacy nel JSON restano innocui.
+
+## 8. Esecuzione lato atleta
+
+**Non toccata in questo task.** L'atleta continua a vedere AMRAP come ora. Il setup strutturato è funzionale alla futura UI atleta.
 
 ## File toccati
 
-- `src/lib/protocols/registry.ts` — nuovi `paramFields` + helper `resolveRampingUnit`.
-- `src/components/pt/TemplateExerciseBuilder.tsx` — normalizzazione `custom_value_label` al save Ramping; pill `Unità atleta: …` accanto al banner Ramping.
-- `src/components/app/GuidedWorkoutFlow.tsx` — card note Ramping nello step `ready`; label dinamica unità nello step `input` (e label pill Peso nello step ready).
-- `src/components/app/AtletaExerciseDetailSheet.tsx` — card note Ramping prima della tabella set.
+- `src/lib/protocols/registry.ts` — solo aggiunta tipi opzionali in `ProtocolParams` (no cambi a `defaultParams` AMRAP).
+- `src/lib/protocols/amrap.ts` — nuovo helper (`AmrapParams`, `normalizeAmrapParams`, `makeAmrapExercise`, `syncExercisesCount`).
+- `src/components/pt/protocols/AmrapEditor.tsx` — nuovo componente editor.
+- `src/components/pt/TemplateExerciseBuilder.tsx` — early-return dedicato per AMRAP nel ramo non-set-based; rimozione del banner-nota AMRAP redundante.
 
 ## File / aree NON toccate
 
-`setsData.ts`, altri protocolli (SET, TOP_SET_BACKOFF, EMOM, AMRAP, …), esecuzione di altri protocolli, schema `workout_logs`, campo `weight_used`, logica di salvataggio log, DB, migration, RLS, auth, sidebar.
+`emom.ts`, `EmomBlocksEditor.tsx`, `setsData.ts`, altri protocolli (SET, TOP_SET_BACKOFF, RAMPING, EMOM, SUPERSET, LADDER, DEAD_LADDER, TABATA, HIIT, RXT, RUNNING_TOTAL), `workout_logs`, esecuzione atleta (`GuidedWorkoutFlow`, sheet, ecc.), DB / migration / RLS / auth / sidebar / `ProtocolsTab` info popover.
