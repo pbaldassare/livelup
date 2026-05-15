@@ -499,16 +499,25 @@ export function GuidedWorkoutFlow({
                 Serie {state.setNumber} di {totalSetsForCurrent}
               </p>
 
+              {currentExercise.protocol_type === 'RAMPING' && typeof (currentExercise.protocol_params as any)?.note === 'string' && (currentExercise.protocol_params as any).note.trim() !== '' && (
+                <div className="w-full max-w-xs mb-4 rounded-xl border border-app-border bg-app-card/60 px-4 py-3 text-left">
+                  <p className="text-xs text-app-muted-foreground mb-1">Note del coach</p>
+                  <p className="text-sm text-app-foreground whitespace-pre-line">
+                    {(currentExercise.protocol_params as any).note}
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-3 w-full max-w-xs mb-6">
                 <Stat
                   label="Target"
                   value={isTimedExercise(currentExercise) ? `${currentExercise.prescribed_duration_seconds}s` : repsLabel}
                 />
                 <Stat
-                  label="Peso"
+                  label={currentExercise.protocol_type === 'RAMPING' ? resolveRampingUnit(currentExercise.protocol_params) : 'Peso'}
                   value={
                     currentExercise.prescribed_weight
-                      ? `${currentExercise.prescribed_weight}kg`
+                      ? `${currentExercise.prescribed_weight}`
                       : '—'
                   }
                 />
