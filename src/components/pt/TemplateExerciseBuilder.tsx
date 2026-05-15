@@ -627,122 +627,173 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                 {/* Render condizionale per protocollo */}
                                 {(() => {
                                   const ptype = ((te.protocol_type as ProtocolType) || 'SET');
-                                  const isSetBased = ptype === 'SET' || ptype === 'TOP_SET_BACKOFF';
-                                  if (isSetBased) {
+                                  if (ptype === 'SET') {
                                     return (
-                                      <>
-                                        {ptype === 'TOP_SET_BACKOFF' && (() => {
-                                          const params = (te.protocol_params as ProtocolParams) || {};
-                                          const backoffEnabled = params.backoff_enabled !== false;
-                                          const updateParam = (key: keyof ProtocolParams, value: number | boolean | null) => {
-                                            const next = { ...params, [key]: value } as ProtocolParams;
-                                            updateProtocolParamMutation.mutate({ id: te.id, params: next });
-                                          };
-                                          return (
-                                            <div className="rounded-md border bg-muted/20 p-3 space-y-3">
-                                              <p className="text-xs font-medium text-muted-foreground">
-                                                Parametri Top Set + Back Off
-                                              </p>
-                                              {/* Top Set */}
-                                              <div className="space-y-2">
-                                                <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/80">Top Set</p>
-                                                <div className="grid grid-cols-3 gap-3">
-                                                  <div className="space-y-1">
-                                                    <Label className="text-xs">Serie</Label>
-                                                    <Input
-                                                      type="number"
-                                                      min={1}
-                                                      placeholder="1"
-                                                      value={params.top_sets ?? ''}
-                                                      onChange={(e) => updateParam('top_sets', e.target.value === '' ? null : Number(e.target.value))}
-                                                      className="h-8"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <Label className="text-xs">Reps</Label>
-                                                    <Input
-                                                      type="number"
-                                                      min={1}
-                                                      placeholder="5"
-                                                      value={params.top_reps ?? ''}
-                                                      onChange={(e) => updateParam('top_reps', e.target.value === '' ? null : Number(e.target.value))}
-                                                      className="h-8"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <Label className="text-xs">Recupero (s)</Label>
-                                                    <Input
-                                                      type="number"
-                                                      min={0}
-                                                      step={15}
-                                                      placeholder="120"
-                                                      value={params.top_rest ?? ''}
-                                                      onChange={(e) => updateParam('top_rest', e.target.value === '' ? null : Number(e.target.value))}
-                                                      className="h-8"
-                                                    />
-                                                  </div>
-                                                </div>
-                                              </div>
-                                              {/* Back Off toggle */}
-                                              <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/50 px-3 py-2">
-                                                <div>
-                                                  <p className="text-xs font-semibold">Back Off</p>
-                                                  <p className="text-[10px] text-muted-foreground">Serie di scarico a carico ridotto</p>
-                                                </div>
-                                                <Switch
-                                                  checked={backoffEnabled}
-                                                  onCheckedChange={(checked) => updateParam('backoff_enabled', checked)}
+                                      <SetsTable
+                                        te={te}
+                                        onChange={(sets_data) =>
+                                          updateSetsMutation.mutate({ id: te.id, sets_data })
+                                        }
+                                      />
+                                    );
+                                  }
+                                  if (ptype === 'TOP_SET_BACKOFF') {
+                                    const rawParams = (te.protocol_params as any) || {};
+                                    const params = normalizeTopSetBackoff(rawParams);
+                                    const backoffEnabled = params.backoff_enabled !== false;
+
+                                    const commit = (next: any) => {
+                                      updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                    };
+
+                                    const updateParam = (
+                                      key: 'top_sets' | 'top_reps' | 'top_rest' | 'top_increase_percent' | 'backoff_enabled' | 'backoff_sets' | 'backoff_reps' | 'backoff_percentage',
+                                      value: number | boolean | null,
+                                    ) => {
+                                      const next = applyParamSync(params, key, value);
+                                      commit(next);
+                                    };
+
+                                    const updateTopSetCell = (idx: number, patch: Partial<SetItem>) => {
+                                      const top_set_data = params.top_set_data.map((s, i) =>
+                                        i === idx ? { ...s, ...patch } : s,
+                                      );
+                                      commit({ ...params, top_set_data });
+                                    };
+                                    const updateBackoffCell = (idx: number, patch: Partial<SetItem>) => {
+                                      const backoff_data = params.backoff_data.map((s, i) =>
+                                        i === idx ? { ...s, ...patch } : s,
+                                      );
+                                      commit({ ...params, backoff_data });
+                                    };
+
+                                    return (
+                                      <div className="space-y-3">
+                                        <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+                                          <p className="text-xs font-medium text-muted-foreground">
+                                            Parametri Top Set + Back Off
+                                          </p>
+                                          {/* Top Set */}
+                                          <div className="space-y-2">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/80">Top Set</p>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                              <div className="space-y-1">
+                                                <Label className="text-xs">Serie</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={1}
+                                                  placeholder="1"
+                                                  value={params.top_sets ?? ''}
+                                                  onChange={(e) => updateParam('top_sets', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
                                                 />
                                               </div>
-                                              {/* Back Off params */}
-                                              {backoffEnabled && (
-                                                <div className="grid grid-cols-3 gap-3">
-                                                  <div className="space-y-1">
-                                                    <Label className="text-xs">Serie</Label>
-                                                    <Input
-                                                      type="number"
-                                                      min={1}
-                                                      placeholder="3"
-                                                      value={params.backoff_sets ?? ''}
-                                                      onChange={(e) => updateParam('backoff_sets', e.target.value === '' ? null : Number(e.target.value))}
-                                                      className="h-8"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <Label className="text-xs">Reps</Label>
-                                                    <Input
-                                                      type="number"
-                                                      min={1}
-                                                      placeholder="8"
-                                                      value={params.backoff_reps ?? ''}
-                                                      onChange={(e) => updateParam('backoff_reps', e.target.value === '' ? null : Number(e.target.value))}
-                                                      className="h-8"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <Label className="text-xs">% riduzione</Label>
-                                                    <Input
-                                                      type="number"
-                                                      min={1}
-                                                      max={90}
-                                                      placeholder="20"
-                                                      value={params.backoff_percentage ?? ''}
-                                                      onChange={(e) => updateParam('backoff_percentage', e.target.value === '' ? null : Number(e.target.value))}
-                                                      className="h-8"
-                                                    />
-                                                  </div>
-                                                </div>
-                                              )}
+                                              <div className="space-y-1">
+                                                <Label className="text-xs">Reps</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={1}
+                                                  placeholder="5"
+                                                  value={params.top_reps ?? ''}
+                                                  onChange={(e) => updateParam('top_reps', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
+                                                />
+                                              </div>
+                                              <div className="space-y-1">
+                                                <Label className="text-xs">Recupero (s)</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={0}
+                                                  step={15}
+                                                  placeholder="120"
+                                                  value={params.top_rest ?? ''}
+                                                  onChange={(e) => updateParam('top_rest', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
+                                                />
+                                              </div>
+                                              <div className="space-y-1">
+                                                <Label className="text-xs">Aumento %</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={0}
+                                                  max={100}
+                                                  step={0.5}
+                                                  placeholder="5"
+                                                  value={params.top_increase_percent ?? ''}
+                                                  onChange={(e) => updateParam('top_increase_percent', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
+                                                />
+                                              </div>
                                             </div>
-                                          );
-                                        })()}
-                                        <SetsTable
-                                          te={te}
-                                          onChange={(sets_data) =>
-                                            updateSetsMutation.mutate({ id: te.id, sets_data })
-                                          }
+                                          </div>
+                                          {/* Back Off toggle */}
+                                          <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/50 px-3 py-2">
+                                            <div>
+                                              <p className="text-xs font-semibold">Back Off</p>
+                                              <p className="text-[10px] text-muted-foreground">Serie di scarico a carico ridotto</p>
+                                            </div>
+                                            <Switch
+                                              checked={backoffEnabled}
+                                              onCheckedChange={(checked) => updateParam('backoff_enabled', checked)}
+                                            />
+                                          </div>
+                                          {/* Back Off params */}
+                                          {backoffEnabled && (
+                                            <div className="grid grid-cols-3 gap-3">
+                                              <div className="space-y-1">
+                                                <Label className="text-xs">Serie</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={1}
+                                                  placeholder="3"
+                                                  value={params.backoff_sets ?? ''}
+                                                  onChange={(e) => updateParam('backoff_sets', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
+                                                />
+                                              </div>
+                                              <div className="space-y-1">
+                                                <Label className="text-xs">Reps</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={1}
+                                                  placeholder="8"
+                                                  value={params.backoff_reps ?? ''}
+                                                  onChange={(e) => updateParam('backoff_reps', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
+                                                />
+                                              </div>
+                                              <div className="space-y-1">
+                                                <Label className="text-xs">% riduzione</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={1}
+                                                  max={90}
+                                                  placeholder="20"
+                                                  value={params.backoff_percentage ?? ''}
+                                                  onChange={(e) => updateParam('backoff_percentage', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
+                                                />
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Tabella Top Set */}
+                                        <TopSetBackoffTable
+                                          title="Top Set"
+                                          sets={params.top_set_data}
+                                          onCellChange={updateTopSetCell}
                                         />
-                                      </>
+
+                                        {/* Tabella Back Off */}
+                                        {backoffEnabled && (
+                                          <TopSetBackoffTable
+                                            title="Back Off"
+                                            sets={params.backoff_data}
+                                            onCellChange={updateBackoffCell}
+                                          />
+                                        )}
+                                      </div>
                                     );
                                   }
                                   // Protocolli non-set-based: render dei paramFields
@@ -1143,6 +1194,212 @@ function SetsTable({ te, onChange }: SetsTableProps) {
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
+// TOP SET + BACK OFF helpers
+// =====================================================
+interface TSBOParams {
+  top_sets: number | null;
+  top_reps: number | null;
+  top_rest: number | null;
+  top_increase_percent: number | null;
+  backoff_enabled: boolean;
+  backoff_sets: number | null;
+  backoff_reps: number | null;
+  backoff_percentage: number | null;
+  top_set_data: SetItem[];
+  backoff_data: SetItem[];
+  [k: string]: any;
+}
+
+function adjustLength(
+  arr: SetItem[],
+  n: number,
+  defaults: SetItem,
+): SetItem[] {
+  const safeN = Math.max(0, Math.floor(n));
+  if (arr.length === safeN) return arr;
+  if (arr.length > safeN) return arr.slice(0, safeN);
+  const out = [...arr];
+  while (out.length < safeN) out.push({ ...defaults });
+  return out;
+}
+
+export function normalizeTopSetBackoff(raw: any): TSBOParams {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const top_sets = typeof r.top_sets === 'number' && r.top_sets > 0 ? r.top_sets : 1;
+  const top_reps = typeof r.top_reps === 'number' ? r.top_reps : null;
+  const top_rest = typeof r.top_rest === 'number' ? r.top_rest : null;
+  const backoff_enabled = r.backoff_enabled !== false;
+  const backoff_sets = typeof r.backoff_sets === 'number' && r.backoff_sets > 0 ? r.backoff_sets : (backoff_enabled ? 3 : 0);
+  const backoff_reps = typeof r.backoff_reps === 'number' ? r.backoff_reps : null;
+
+  const topDefaults: SetItem = { reps: top_reps, weight: null, rest_seconds: top_rest };
+  const backoffDefaults: SetItem = { reps: backoff_reps, weight: null, rest_seconds: top_rest };
+
+  const top_set_data = adjustLength(
+    Array.isArray(r.top_set_data) ? (r.top_set_data as SetItem[]).map((s) => ({
+      reps: s?.reps ?? null,
+      weight: s?.weight ?? null,
+      rest_seconds: s?.rest_seconds ?? null,
+    })) : [],
+    top_sets,
+    topDefaults,
+  );
+
+  const backoff_data = adjustLength(
+    Array.isArray(r.backoff_data) ? (r.backoff_data as SetItem[]).map((s) => ({
+      reps: s?.reps ?? null,
+      weight: s?.weight ?? null,
+      rest_seconds: s?.rest_seconds ?? null,
+    })) : [],
+    backoff_enabled ? backoff_sets : 0,
+    backoffDefaults,
+  );
+
+  return {
+    ...r,
+    top_sets,
+    top_reps,
+    top_rest,
+    top_increase_percent: typeof r.top_increase_percent === 'number' ? r.top_increase_percent : null,
+    backoff_enabled,
+    backoff_sets,
+    backoff_reps,
+    backoff_percentage: typeof r.backoff_percentage === 'number' ? r.backoff_percentage : null,
+    top_set_data,
+    backoff_data,
+  };
+}
+
+export function applyParamSync(
+  prev: TSBOParams,
+  key: 'top_sets' | 'top_reps' | 'top_rest' | 'top_increase_percent' | 'backoff_enabled' | 'backoff_sets' | 'backoff_reps' | 'backoff_percentage',
+  value: number | boolean | null,
+): TSBOParams {
+  const next: TSBOParams = { ...prev, [key]: value as any };
+
+  if (key === 'top_sets') {
+    const n = typeof value === 'number' && value > 0 ? value : 1;
+    next.top_set_data = adjustLength(prev.top_set_data, n, {
+      reps: prev.top_reps,
+      weight: null,
+      rest_seconds: prev.top_rest,
+    });
+  } else if (key === 'top_reps') {
+    next.top_set_data = prev.top_set_data.map((s) => ({ ...s, reps: typeof value === 'number' ? value : null }));
+  } else if (key === 'top_rest') {
+    next.top_set_data = prev.top_set_data.map((s) => ({ ...s, rest_seconds: typeof value === 'number' ? value : null }));
+  } else if (key === 'backoff_sets') {
+    const n = typeof value === 'number' && value > 0 ? value : 0;
+    next.backoff_data = adjustLength(prev.backoff_data, n, {
+      reps: prev.backoff_reps,
+      weight: null,
+      rest_seconds: prev.top_rest,
+    });
+  } else if (key === 'backoff_reps') {
+    next.backoff_data = prev.backoff_data.map((s) => ({ ...s, reps: typeof value === 'number' ? value : null }));
+  } else if (key === 'backoff_enabled' && value === true && (!prev.backoff_data || prev.backoff_data.length === 0)) {
+    const n = prev.backoff_sets ?? 3;
+    next.backoff_sets = n;
+    next.backoff_data = adjustLength([], n, {
+      reps: prev.backoff_reps,
+      weight: null,
+      rest_seconds: prev.top_rest,
+    });
+  }
+
+  return next;
+}
+
+interface TopSetBackoffTableProps {
+  title: string;
+  sets: SetItem[];
+  onCellChange: (idx: number, patch: Partial<SetItem>) => void;
+}
+
+function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTableProps) {
+  const parseNum = (v: string): number | null => {
+    if (v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  if (sets.length === 0) {
+    return (
+      <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+        {title}: imposta il numero di serie per generare la tabella.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border bg-muted/20 p-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground">{title}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr>
+              <th className="text-left font-medium text-muted-foreground pr-2 py-1 sticky left-0 bg-muted/20"></th>
+              {sets.map((_, i) => (
+                <th key={i} className="px-1 py-1 text-center font-medium text-muted-foreground min-w-[64px]">
+                  Set {i + 1}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Reps</td>
+              {sets.map((s, i) => (
+                <td key={i} className="px-1 py-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    value={s.reps ?? ''}
+                    onChange={(e) => onCellChange(i, { reps: parseNum(e.target.value) })}
+                    className="h-8 text-center px-1"
+                  />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Kg</td>
+              {sets.map((s, i) => (
+                <td key={i} className="px-1 py-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={s.weight ?? ''}
+                    onChange={(e) => onCellChange(i, { weight: parseNum(e.target.value) })}
+                    className="h-8 text-center px-1"
+                  />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Rec (s)</td>
+              {sets.map((s, i) => (
+                <td key={i} className="px-1 py-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    value={s.rest_seconds ?? ''}
+                    onChange={(e) => onCellChange(i, { rest_seconds: parseNum(e.target.value) })}
+                    className="h-8 text-center px-1"
+                  />
                 </td>
               ))}
             </tr>

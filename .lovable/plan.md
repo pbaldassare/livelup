@@ -1,129 +1,80 @@
-## Obiettivo
+# Top Set + Back Off — sincronizzazione reale
 
-Lato atleta, quando l'esercizio ha `protocol_type === 'EMOM'`, sostituire il normale flusso "Ready → Input → Rest" con un **Player EMOM** dedicato che mostra un round alla volta, alternando i blocchi in loop secondo la formula `blocks[(round - 1) % blocks.length]`.
+Modifiche limitate al rendering del protocollo `TOP_SET_BACKOFF` dentro `src/components/pt/TemplateExerciseBuilder.tsx`. Nessun altro protocollo, nessun cambio a database/RLS/auth.
 
-Nessun nuovo protocollo. Nessuna modifica al builder PT, al DB, all'auth o alle RLS.
+## 1. Nuovo campo "Aumento %" nel Top Set
 
-## Modifiche
+Quarto input nella sezione Top Set, accanto a Serie / Reps / Recupero:
 
-### 1. `src/pages/atleta/AtletaWorkoutDetailPage.tsx` — fetch dei params EMOM
+- Label `Aumento %`, `type="number"`, `min=0`, `max=100`, `step=0.5`, placeholder `5`
+- Salvato in `protocol_params.top_increase_percent` (numero o `null`)
+- Griglia Top Set: `grid-cols-2 md:grid-cols-4`
 
-La query `workout-detail` oggi non legge `protocol_type` / `protocol_params`. Aggiungerli al `select` di `workout_exercises`:
+Non tocca le tabelle.
 
-```text
-workout_exercises (
-  id, exercise_id, order_index, prescribed_sets,
-  prescribed_reps_min, prescribed_reps_max, prescribed_weight,
-  prescribed_duration_seconds, rest_seconds, notes, block_id,
-  protocol_type, protocol_params,           // ← nuovi
-  exercises:exercise_id (...)
-)
+## 2. Due tabelle dedicate (Top Set + Back Off)
+
+Per `TOP_SET_BACKOFF` non si renderizza più la `SetsTable` legacy basata su `te.sets_data`. Al suo posto:
+
+- **Tabella Top Set** — sempre visibile, righe `Reps / Kg / Recupero (s)`, una colonna per ogni `top_sets`.
+- **Tabella Back Off** — visibile solo se `backoff_enabled !== false`, righe `Reps / Kg / Recupero (s)`, una colonna per ogni `backoff_sets`.
+
+Dati salvati dentro `protocol_params`:
+
 ```
-
-Nessun'altra modifica alla pagina.
-
-### 2. `src/components/app/GuidedWorkoutFlow.tsx` — branch EMOM
-
-- Estendere `GWExercise` con `protocol_type?: string | null` e `protocol_params?: Record<string, unknown> | null`.
-- Subito sotto l'header (top progress bar), prima del blocco `<AnimatePresence>` con i flow `ready/input/rest`, aggiungere:
-
-```text
-if (currentExercise.protocol_type === 'EMOM') {
-  return <AtletaEmomPlayer
-    exercise={currentExercise}
-    onFinished={() => advance(true)}   // riusa la macchina di avanzamento esistente
-  />;
+{
+  top_sets, top_reps, top_rest, top_increase_percent,
+  backoff_enabled, backoff_sets, backoff_reps, backoff_percentage,
+  top_set_data:  SetItem[],
+  backoff_data:  SetItem[]
 }
 ```
 
-- `advance(true)` è già la callback usata dal flow normale a fine esercizio: passa al prossimo esercizio o a `FINISH`. Riutilizzarla evita di rompere altro.
-- Salvataggio log: quando l'EMOM termina, scrivere **un singolo `workout_logs`** (set 1, `is_completed: true`, reps = round completati, duration = `rounds * round_duration`) tramite la stessa `saveSet` mutation già presente. Così la logica di "resume" non si rompe e l'esercizio risulta completato negli storici.
-- La top-bar progress per esercizio rimane visibile (mostra che siamo all'esercizio N/M); le metriche "Serie X/Y" vengono nascoste mentre EMOM è in corso (semplice condizione su `protocol_type`).
+Nuovo componente locale `TopSetBackoffTable` che riceve `sets` + `onChange` come props (riusa il markup di `SetsTable`, ma non legge da `te.sets_data`). `te.sets_data` resta intatto e ignorato per questo protocollo.
 
-### 3. Nuovo componente `src/components/app/AtletaEmomPlayer.tsx`
+## 3. Sincronizzazione parametri → tabelle
 
-Self-contained player a tutta area, dark theme, lime accents.
+Helper puro `applyParamSync(prev, patch)` chiamato SOLO dagli `onChange` dei 5 input parametro:
 
-Stato locale:
+| Trigger | Effetto |
+|---|---|
+| `top_sets` cresce a N | append di `{reps: top_reps, weight: null, rest_seconds: top_rest}` fino a N |
+| `top_sets` cala a N | `top_set_data.slice(0, N)` |
+| `top_reps` cambia | `top_set_data = top_set_data.map(s => ({...s, reps: nuovo_top_reps}))` |
+| `top_rest` cambia | `top_set_data = top_set_data.map(s => ({...s, rest_seconds: nuovo_top_rest}))` |
+| `backoff_sets` cresce/cala | append/slice analogo su `backoff_data` |
+| `backoff_reps` cambia | `backoff_data = backoff_data.map(s => ({...s, reps: nuovo_backoff_reps}))` |
 
-- `round` (1..N).
-- `secondsLeft` (decremento 1Hz quando `isRunning === true`).
-- `isRunning` (boolean), `hasStarted` (per mostrare il pulsante Start iniziale).
-- All'avvio: `normalizeEmomParams(exercise.protocol_params, exercise.exercises.name)`.
+`top_increase_percent`, `backoff_percentage`, `backoff_enabled` non toccano le tabelle.
 
-Logica:
+## 4. Edit manuale delle celle — fonte di verità
 
-- `currentBlock = emom.blocks[(round - 1) % emom.blocks.length]`.
-- Tick: ogni secondo `secondsLeft -= 1`. Quando arriva a 0:
-  - Se `round < emom.rounds` → `round += 1`; `secondsLeft = emom.round_duration`; resta in `running`.
-  - Se `round === emom.rounds` → stop, chiama `onFinished()`.
-- Pulsanti:
-  - **Start** (visibile finché `!hasStarted`): avvia il timer.
-  - **Pausa / Riprendi** (toggle di `isRunning`).
-  - **Prossimo round** (skip): forza il passaggio al prossimo round (o `onFinished` se ultimo).
+L'edit di una singola cella (Reps/Kg/Rec di Set i nella Top Set o nel Back Off):
 
-UI (dark theme atleta):
+- aggiorna SOLO `top_set_data[i]` o `backoff_data[i]`
+- NON tocca `top_sets/top_reps/top_rest/backoff_sets/backoff_reps`
+- NON ri-applica `applyParamSync`
 
-```text
-┌────────────────────────────────────────┐
-│ Round 1 di 9                           │
-│                                        │
-│            ┌──────────┐                │
-│            │  00 : 50 │   timer grande │
-│            └──────────┘                │
-│                                        │
-│   Blocco 1                             │
-│   • Squat 5 ripetizioni                │
-│   • Trazioni 5 ripetizioni             │
-│                                        │
-│   [Pausa]   [Prossimo round]           │
-└────────────────────────────────────────┘
-```
+I valori manuali sono persistenti nel JSON e diventano la verità della tabella. Restano salvati anche dopo refresh.
 
-Dettagli stilistici:
-- Card grande `rounded-3xl bg-app-card/60 border border-app-border/70 p-6`.
-- Timer in `text-7xl font-black text-app-accent` con stroke ring (cerchio progress) facoltativo.
-- Counter round: `text-sm uppercase tracking-wide text-app-muted-foreground`.
-- Lista esercizi in stile `AtletaEmomSummary` (riuso visivo): pallino lime, nome bold, "5 ripetizioni" in muted. **Mai** "reps".
-- Pulsanti full-width `rounded-full h-12`. Start/Resume = `bg-app-accent text-app-accent-foreground`. Pausa = `variant="outline"`. Prossimo round = `variant="secondary"`.
-- Nessuna possibilità di modificare valori (atleta esegue, non edita).
+## 5. Normalizzazione retro-compatibile (read-only, mai distruttiva)
 
-Compatibilità EMOM legacy:
-- `normalizeEmomParams` produce sempre almeno 1 blocco con 1 esercizio (prendendo `name = exercise.exercises.name` e `reps = legacy.reps ?? 10`).
-- Se mancano `rounds` → fallback `10`. Se manca `round_duration` → fallback `60` (o `duration_minutes * 60`). Già gestito in `emom.ts`.
+`normalizeTopSetBackoff(params)` è un helper PURO usato solo in lettura per il render:
 
-Accessibilità: `role="timer"` + `aria-live="polite"` per il countdown; pulsanti con `aria-label`.
+- se `top_set_data` è assente / non array / vuoto → genera array di lunghezza `top_sets ?? 1` derivando i default da `top_reps` / `top_rest` (peso `null`)
+- se `top_set_data.length < top_sets` → estende con i default fino a `top_sets`
+- se `top_set_data.length > top_sets` → tronca a `top_sets`
+- stesse regole su `backoff_data` con `backoff_sets` / `backoff_reps`
+- **NON modifica mai i valori di celle già presenti**: `reps/weight/rest_seconds` esistenti vengono preservati così come sono. Estende solo le righe mancanti, tronca solo quelle in eccesso.
 
-### 4. Persistenza log a fine EMOM
+Nessuna mutate al mount: il valore normalizzato serve solo al render. Il salvataggio parte solo dal primo `onChange` esplicito (param o cella).
 
-Quando il player chiama `onFinished()`, prima di chiamare `advance(true)` `GuidedWorkoutFlow` esegue:
+## 6. SetsTable legacy
 
-```text
-saveSet.mutate({
-  workoutExerciseId: currentExercise.id,
-  setNumber: 1,
-  reps: emom.rounds,                          // round completati
-  durationSeconds: emom.rounds * emom.round_duration,
-  weight: 0,
-  restPlanned: 0,
-});
-```
+Resta utilizzata solo per il protocollo `SET`. Per `TOP_SET_BACKOFF` non viene più montata e `te.sets_data` non viene più scritto.
 
-Questo mantiene il comportamento di `existingLogs` per il resume: l'esercizio EMOM appare come completato e non viene riproposto a una sessione successiva.
+## File toccati
 
-## Cosa NON viene toccato
+- `src/components/pt/TemplateExerciseBuilder.tsx` — UI Top Set + Back Off, `TopSetBackoffTable`, `applyParamSync`, `normalizeTopSetBackoff`.
 
-- DB / migration / RLS / auth.
-- Altri protocolli (SET, AMRAP, TABATA, ecc.).
-- Builder PT (`TemplateExerciseBuilder`, `EmomBlocksEditor`).
-- `AtletaEmomSummary` (vista riassuntiva nel detail sheet) — resta com'è.
-- Pagine PT, archivio esercizi, sidebar.
-
-## Risultato atteso
-
-1. Atleta apre l'allenamento → arriva all'esercizio EMOM.
-2. Vede subito Round 1/N, timer pronto, blocco 1 con la sua lista esercizi/reps.
-3. Tocca Start → countdown.
-4. A fine timer passa automaticamente al round successivo, mostrando il blocco corrispondente (loop sui blocchi).
-5. A fine ultimo round → log salvato → si passa al prossimo esercizio o termina l'allenamento.
-6. Tutti i testi usano "ripetizioni", non "reps".
+Non modifico: `setsData.ts`, registry protocolli, altri rendering, esecuzione lato atleta, EMOM, DB.
