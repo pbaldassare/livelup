@@ -869,7 +869,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                                 <Select
                                                   value={(val as string) ?? ''}
                                                   onValueChange={(newVal) => {
-                                                    const next = setNested(params, f.key, newVal);
+                                                    let next = setNested(params, f.key, newVal);
+                                                    // Ramping: se value_type ≠ custom, azzera la label custom
+                                                    if (ptype === 'RAMPING' && f.key === 'value_type' && newVal !== 'custom') {
+                                                      next = setNested(next, 'custom_value_label', null);
+                                                    }
                                                     updateProtocolParamMutation.mutate({ id: te.id, params: next });
                                                   }}
                                                 >
