@@ -827,6 +827,25 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     );
                                   }
 
+                                  // AMRAP: editor dedicato (timer globale + lista piatta esercizi)
+                                  if (ptype === 'AMRAP') {
+                                    const amrapValue = normalizeAmrapParams(
+                                      params as Record<string, unknown>,
+                                    );
+                                    return (
+                                      <AmrapEditor
+                                        value={amrapValue}
+                                        exerciseOptions={allTemplateExerciseOptions}
+                                        onChange={(next) => {
+                                          updateProtocolParamMutation.mutate({
+                                            id: te.id,
+                                            params: next as unknown as ProtocolParams,
+                                          });
+                                        }}
+                                      />
+                                    );
+                                  }
+
                                   return (
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
