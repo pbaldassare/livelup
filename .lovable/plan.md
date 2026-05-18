@@ -1,92 +1,153 @@
-# AMRAP — editor strutturato (PT)
 
-Trasformare AMRAP in un protocollo strutturato lato editor PT, allineato per pattern a EMOM ma con logica più semplice: un solo timer globale, nessun round/blocco, una lista piatta di esercizi che l'atleta esegue in loop.
+# SUPERSET — editor strutturato (PT) + esecuzione atleta set-based
 
-Modifiche limitate a editor PT + helper. **Nessun cambio** a DB / RLS / auth / sidebar / migration / altri protocolli (EMOM, SET, TOP_SET_BACKOFF, RAMPING, …) / esecuzione lato atleta.
+Trasformare SUPERSET in un protocollo strutturato lato editor PT, allineato per pattern a EMOM/AMRAP ma **senza** round, **senza** circuiti, **senza** blocchi. È una **sequenza di esercizi ripetuta N superset volte**, gestita internamente come protocollo **set-based**: la tabella set è la fonte di verità dell'esecuzione atleta.
 
-## 1. Nuovo schema `protocol_params` per AMRAP
+Modifiche limitate a editor PT + helper + esecuzione atleta del solo SUPERSET. **Nessun cambio** a DB / RLS / auth / sidebar / archivio esercizi globale / migration / altri protocolli (EMOM, AMRAP, SET, TOP_SET_BACKOFF, RAMPING, LADDER, DEAD_LADDER, TABATA, HIIT, RXT, RUNNING_TOTAL).
 
-Solo a livello logico — usa il JSON già esistente `protocol_params`, nessun nuovo campo DB.
+## 1. Schema `protocol_params` SUPERSET (in memoria)
+
+Nessun nuovo campo DB — riuso del JSON `protocol_params` esistente.
 
 ```
 {
-  duration_seconds: number,    // timer globale
-  exercises_count: number,     // sempre === exercises.length
+  exercises_count: number,              // sempre === exercises.length
+  supersets_count: number,              // === set_data[*].sets.length
+  rest_between_supersets: number,       // secondi
+  rest_between_exercises_enabled: boolean,
+  rest_between_exercises: number | null, // valido solo se enabled
+
+  // CONFIG: visualizzazione lista + default editor
   exercises: [
     {
-      id: string,              // uid client
-      exercise_id?: string,    // riferimento esercizio del template
+      id: string,
+      exercise_id?: string,
       name: string,
       reps: number,
-      weight: number | null
+      weight: number | null,
+      notes: string                     // note specifiche per QUESTO esercizio nel superset
     }
   ],
-  // legacy preservati ma non più usati: duration_minutes, reps, note
+
+  // RUNTIME — fonte di verità dell'esecuzione atleta
+  set_data: [
+    {
+      exercise_id?: string,
+      exercise_name: string,
+      sets: [
+        { set_number: number, reps: number, weight: number | null, rest_seconds: number }
+      ]
+    }
+  ]
+  // legacy preservati ma non più usati:
+  //   paired_exercise_id, sets, reps, internal_rest_seconds, external_rest_seconds, note
 }
 ```
 
-## 2. Invariante `exercises_count === exercises.length`
+Mapping atleta:
+- `set_data[r]` = riga dell'esercizio `exercises[r]`.
+- `set_data[r].sets[c]` = cella usata dall'atleta al superset numero `c + 1`. Cioè **`Set 1` = `Superset 1`**, `Set 2` = `Superset 2`, ecc.
 
-`exercises_count` è solo una scorciatoia di input per creare/rimuovere righe in batch. La fonte di verità operativa è `exercises[]`. Le due cose devono restare sempre allineate, gestito centralmente da `commit()` nell'editor:
+## 2. Invarianti (mai disallineamenti)
 
-- patch su `exercises_count` (input header) → `exercises = syncExercisesCount(exercises, exercises_count)`.
-- patch su `exercises` (add riga, trash riga, edit cella) → forza `exercises_count = exercises.length` nello stesso `onChange`.
-- mai stato in cui `exercises_count = 4` e solo 3 righe visibili: il bottone trash decrementa il count, il bottone "+ Aggiungi" lo incrementa, sempre derivato da `length`.
-- `Math.max(1, …)` ovunque: minimo 1 riga, mai 0.
+Gestiti centralmente in `commit()` dell'editor:
 
-## 3. Helper `src/lib/protocols/amrap.ts` (nuovo)
+- `exercises_count === exercises.length` sempre.
+  - patch su `exercises_count` → `exercises = syncExercisesCount(exercises, count)`.
+  - patch su `exercises` (add / trash / edit) → `exercises_count = exercises.length`.
+- `set_data.length === exercises_count`, e per ogni riga `sets.length === supersets_count`.
+  - patch su `exercises` o `exercises_count` → `set_data = syncSetData(set_data, exercises, supersets_count, defaults)` (resize righe, preserva celle).
+  - patch su `supersets_count` → `syncSetData` (resize colonne).
+- Ogni `set_data[r].sets[c].set_number === c + 1` (riallineato dopo ogni resize).
+- `Math.max(1, …)` ovunque (min 1 esercizio, min 1 superset).
+- `rest_between_exercises_enabled = false` → `rest_between_exercises = null` (in memoria; alla riattivazione default 30 o ultimo valore noto).
 
-Mirror minimo di `emom.ts`:
+## 3. Helper `src/lib/protocols/superset.ts` (nuovo)
 
-- `AmrapExercise`, `AmrapParams` types.
-- `makeAmrapExercise(partial?)`: nuovo esercizio vuoto con `uid('amrap_ex')`, `name=''`, `reps=10`, `weight=null`.
-- `syncExercisesCount(list, count)`: append vuoti se cresce, slice se cala. Min 1.
-- `normalizeAmrapParams(raw)`: pura, in memoria, mai persistita:
-  - `duration_seconds`: number > 0 oppure `duration_minutes × 60` se presente, altrimenti `600`.
-  - `exercises`: se manca / non array / vuoto → `[makeAmrapExercise({ reps: raw.reps ?? 10 })]`. Mappa ogni elemento a forma stabile (`id`, `exercise_id?`, `name`, `reps`, `weight`).
-  - `exercises_count`: se number > 0 lo applica + `syncExercisesCount`, altrimenti `exercises.length`. Sempre riallineato a `exercises.length` finale.
+Mirror di `amrap.ts`:
 
-Nessuna mutate, nessun side-effect.
+- Types `SupersetExercise`, `SupersetParams`, `SupersetSetRow`, `SupersetSetCell`.
+- `makeSupersetExercise(partial?)`: `id=uid('ss_ex')`, `name=''`, `reps=10`, `weight=null`, `notes=''`.
+- `syncExercisesCount(list, count)`: append vuoti / slice. Min 1.
+- `syncSetData(set_data, exercises, supersets_count, defaults)`:
+  - Allinea **righe** a `exercises` per indice (preserva celle dell'esercizio se è ancora presente, altrimenti nuova riga vuota basata sui valori dell'esercizio).
+  - Allinea **colonne** a `supersets_count`: append celle nuove con `reps/weight` dall'esercizio sopra e `rest_seconds = rest_between_supersets`; tronca le eccedenti.
+  - Riallinea sempre `set_number = index + 1`.
+  - **Non sovrascrive** mai celle già personalizzate dal PT.
+- `propagateGeneralChange(...)` (helper interno): aggiorna in `set_data` solo le celle che combaciano col vecchio default (reps / weight / rest_seconds).
+- `normalizeSupersetParams(raw)` — pura, in memoria, mai persistita:
+  - Default base se mancano campi: `exercises_count=2`, `supersets_count=3`, `rest_between_supersets=90`, `rest_between_exercises_enabled=true`, `rest_between_exercises=30`.
+  - **Migrazione legacy**: se trova `paired_exercise_id` o `internal_rest_seconds` / `external_rest_seconds` / `sets`, costruisce in memoria 2 esercizi (corrente + B se risolvibile, altrimenti placeholder), `supersets_count = raw.sets ?? 3`, `rest_between_supersets = raw.external_rest_seconds ?? 90`, `rest_between_exercises = raw.internal_rest_seconds ?? 30`, `rest_between_exercises_enabled = true`, `reps = raw.reps ?? 10`. Costruisce inoltre `set_data` consistente.
+  - Forza sempre tutti gli invarianti §2 prima del return.
 
-## 4. Nuovo componente `src/components/pt/protocols/AmrapEditor.tsx`
+Nessuna mutate, nessun side-effect, mai persistito al mount.
 
-Stesso stile visivo di `EmomBlocksEditor`, più piatto:
+## 4. Nuovo componente `src/components/pt/protocols/SupersetEditor.tsx`
 
-- **Header parametri globali**:
-  - `Durata totale (secondi)` — input number, min 1, step 30.
-  - `Numero esercizi` — input number, min 1. Etichetta che chiarisce "sincronizzato con la lista sotto".
-- **Lista esercizi**: per riga `i`
-  - col 1: `ExerciseCombobox` (popover + Command identico a EMOM, popolato da `exerciseOptions`). Selezione → scrive `name` e `exercise_id`.
-  - col 2: input `Reps` (number, min 1).
-  - col 3: input `Kg` (number, min 0, step 0.5, vuoto = `null`).
-  - bottone trash a destra: rimuove la riga, `commit` riallinea `exercises_count = nuova lunghezza`.
-- Bottone `+ Aggiungi esercizio` in fondo: pusha vuoto, `commit` riallinea `exercises_count`.
+Pattern visivo di `AmrapEditor`. **Mai usare** le parole "round", "circuito", "blocco" nei label/hint/note.
 
-Props:
+Sezioni:
+
+### A — Dati generali (grid 2 colonne, header)
+- `Numero esercizi` (number, min 1).
+- `Numero superset` (number, min 1).
+- `Recupero tra superset (s)` (number, min 0, step 5).
+- `Recupero tra esercizi`: `Switch` (default ON).
+- `Tempo recupero tra esercizi (s)` (number, min 0, step 5) → visibile **solo** se lo switch è ON.
+
+### B — Lista esercizi del Superset
+Per riga `i` (`exercises[i]`), grid responsive simile ad AMRAP, con riga aggiuntiva sotto per le note:
+
+- `ExerciseCombobox` (popover + Command, identico a quello di AMRAP / EMOM). Popolato da `exerciseOptions` = `allTemplateExerciseOptions` (vedi §6). Selezione → scrive `name` + `exercise_id`. Fallback per esercizi legacy con solo `name`.
+- `Reps` (number, min 1).
+- `Kg` (number, min 0, step 0.5, vuoto = `null`).
+- `Note` (Input) — mappato su `exercises[i].notes`, full-width sotto la riga.
+- bottone trash a destra: rimuove la riga, `commit` riallinea `exercises_count` e `set_data`. Disabilitato se `length <= 1`.
+
+In fondo: `+ Aggiungi esercizio` → pusha vuoto, riallinea.
+
+### C — Tabella set finale (fonte di verità runtime)
+Sotto la lista, una tabella editabile (`Table`/`TableBody`/`TableHead` da `@/components/ui/table`):
+
+- Header: 1ª colonna `Esercizio`, poi `Set 1 … Set N` (N = `supersets_count`). Tooltip/hint nell'header colonna: "Set X = Superset X".
+- Per ogni esercizio in `exercises[]` una riga; cella nome esercizio read-only.
+- Ogni cella di set espone tre input compatti su una micro-grid: `reps`, `kg`, `rec (s)` mappati su `set_data[r].sets[c]`.
+- Modifiche manuali in tabella restano persistenti — nessuna ri-derivazione dai valori sopra al re-render.
+
+### D — Footer informativo (testo neutro, niente "round/circuito/blocco")
+> "Durante l'esecuzione i valori reali (reps, kg, recupero) sono quelli della tabella. La colonna Set X corrisponde al Superset X. L'atleta eseguirà la sequenza di esercizi e la ripeterà per il numero di superset impostato. Tra un esercizio e l'altro applica il recupero esercizi (se attivo); al termine della sequenza applica il recupero tra superset, tranne dopo l'ultimo."
+
+### Props
 ```
 {
-  value: AmrapParams,
-  onChange: (next: AmrapParams) => void,
+  value: SupersetParams,
+  onChange: (next: SupersetParams) => void,
   exerciseOptions?: { id: string; name: string }[],
 }
 ```
 
-Helper interno `commit(base, patch, onChange)` analogo a EMOM:
-- patch con `exercises_count` (e non `exercises`) → `syncExercisesCount`.
-- patch con `exercises` → forza `exercises_count = merged.exercises.length`.
+### `commit(base, patch, onChange)` — regole
+Applica nell'ordine:
+1. Merge `{...base, ...patch}`.
+2. Se patch contiene `exercises_count` (senza `exercises`) → `exercises = syncExercisesCount(...)`.
+3. Se patch contiene `exercises` → `exercises_count = exercises.length`.
+4. Se patch contiene uno tra `exercises`, `exercises_count`, `supersets_count` → `set_data = syncSetData(...)`.
+5. Se patch su `exercises[i].reps`/`weight`: propaga ai soli celle in `set_data[i].sets[*]` che hanno il **vecchio** valore (celle personalizzate restano intatte).
+6. Se patch su `rest_between_supersets`: propaga alle celle con `rest_seconds === oldDefault`.
+7. Se patch su `rest_between_exercises_enabled === false` → azzera `rest_between_exercises`.
 
-Tutte le scritture passano da `onChange` esplicito. Nessuna scrittura al mount.
+Tutte le scritture passano da `onChange`. Nessuna scrittura al mount.
 
 ## 5. Wiring in `TemplateExerciseBuilder.tsx`
 
-Aggiungere un early-return dedicato accanto a quello EMOM (~riga 805), nel ramo "Protocolli non-set-based":
+Subito dopo l'early-return AMRAP (~riga 847), aggiungere:
 
 ```tsx
-if (ptype === 'AMRAP') {
-  const amrapValue = normalizeAmrapParams(params as Record<string, unknown>);
+if (ptype === 'SUPERSET') {
+  const supersetValue = normalizeSupersetParams(params as Record<string, unknown>);
   return (
-    <AmrapEditor
-      value={amrapValue}
+    <SupersetEditor
+      value={supersetValue}
       exerciseOptions={allTemplateExerciseOptions}
       onChange={(next) => updateProtocolParamMutation.mutate({
         id: te.id,
@@ -97,33 +158,62 @@ if (ptype === 'AMRAP') {
 }
 ```
 
-Rimuovere il banner-nota AMRAP esistente (~riga 949) perché ridondante con la nuova UI dedicata. Nessun altro ramo del file viene toccato.
+Rimuovere il banner-nota SUPERSET esistente (righe 970–976) — ridondante con la nuova UI dedicata. Nessun altro ramo del file viene toccato.
 
-Aggiornamento minimo a `ProtocolParams` in `registry.ts`: aggiungere campi opzionali `duration_seconds?: number | null`, `exercises_count?: number | null`, `exercises?: Array<{id; exercise_id?; name; reps; weight}> | null`. Nessuna modifica ai `defaultParams` AMRAP per non innescare save automatici — i nuovi default vengono dal `normalizeAmrapParams` a livello editor.
+Aggiornamento minimo a `ProtocolParams` in `registry.ts`: aggiungere campi opzionali `supersets_count?`, `rest_between_supersets?`, `rest_between_exercises_enabled?`, `rest_between_exercises?`, `set_data?` ed estendere l'item `exercises` con `notes?: string`. **Nessun cambio a `SUPERSET.defaultParams`** per non innescare save automatici: i nuovi default vengono dal `normalizeSupersetParams` lato editor.
 
-## 6. ExerciseCombobox — fonte dati
+## 6. Fonte dati combobox esercizio
 
-Usa **lo stesso `allTemplateExerciseOptions`** già fetchato per EMOM (riga 191 di `TemplateExerciseBuilder.tsx`): query su `template_exercises` filtrata per `template_id`, deduplicata per nome. Esattamente "tutti gli esercizi del tab Esercizi del workout corrente", indipendenti da `block_id` / circuito. Quando il PT aggiunge un esercizio nel tab, React Query lo invalida → il combobox si aggiorna senza refresh manuale.
+Riusa **lo stesso `allTemplateExerciseOptions`** già fetchato per EMOM/AMRAP (`template-exercise-options` query, righe ~191 di `TemplateExerciseBuilder.tsx`): query su `template_exercises` filtrata per `template_id`, deduplicata per nome.
 
-Nessuna fetch all'archivio globale. Nessun mock.
+- **NON** archivio globale, **NON** mock, **NON** filtro per `block_id`.
+- Aggiungendo esercizi nel tab "Esercizi", l'invalidate di React Query esistente aggiorna il combobox senza refresh manuale.
 
 ## 7. Compatibilità legacy
 
-- AMRAP esistenti con solo `duration_minutes` + `reps` + `note` → `normalizeAmrapParams` produce in memoria un `duration_seconds = duration_minutes × 60`, un esercizio singolo con `reps = reps`, `name=''`. Il PT vede l'editor pieno e può completarlo.
-- Nessuna mutate al mount: i nuovi default restano in memoria finché il PT non clicca/modifica esplicitamente.
-- Campi legacy (`duration_minutes`, `reps`, `note`) NON vengono cancellati; alla prima save esplicita lo schema diventa quello nuovo, ma i campi legacy nel JSON restano innocui.
+- Superset esistenti (schema con `paired_exercise_id` + `sets` + `internal/external_rest_seconds`) → `normalizeSupersetParams` produce in memoria 2 esercizi + N superset + `set_data` consistente. Il PT vede l'editor pieno e può completarlo.
+- Nessuna mutate al mount: i nuovi default restano in memoria finché il PT non clicca / modifica.
+- Campi legacy nel JSON restano innocui dopo la prima save esplicita.
 
-## 8. Esecuzione lato atleta
+## 8. Esecuzione lato atleta — set-based
 
-**Non toccata in questo task.** L'atleta continua a vedere AMRAP come ora. Il setup strutturato è funzionale alla futura UI atleta.
+Solo per `protocol_type === 'SUPERSET'`. **`set_data` è la fonte di verità.** I valori `exercises[*].reps`/`weight` NON vengono usati a runtime se `set_data` esiste: servono solo come default editor.
 
-## File toccati
+```
+p = normalizeSupersetParams(params)  // garantisce set_data popolato
 
-- `src/lib/protocols/registry.ts` — solo aggiunta tipi opzionali in `ProtocolParams` (no cambi a `defaultParams` AMRAP).
-- `src/lib/protocols/amrap.ts` — nuovo helper (`AmrapParams`, `normalizeAmrapParams`, `makeAmrapExercise`, `syncExercisesCount`).
-- `src/components/pt/protocols/AmrapEditor.tsx` — nuovo componente editor.
-- `src/components/pt/TemplateExerciseBuilder.tsx` — early-return dedicato per AMRAP nel ramo non-set-based; rimozione del banner-nota AMRAP redundante.
+for c in 0..p.supersets_count - 1:            // colonna = superset corrente
+  for r in 0..p.exercises_count - 1:          // riga = esercizio corrente
+    cell = p.set_data[r].sets[c]              // ← FONTE DI VERITÀ
+    show exercise p.exercises[r].name
+         with reps = cell.reps,
+              weight = cell.weight,
+              notes = p.exercises[r].notes
+    if p.rest_between_exercises_enabled and r < p.exercises_count - 1:
+       show rest = p.rest_between_exercises
+  if c < p.supersets_count - 1:
+     show rest = p.rest_between_supersets     // mai dopo l'ultimo superset
+```
 
-## File / aree NON toccate
+Esempio (`supersets_count=3`, `exercises_count=2`):
+- Superset 1: esercizio 1 con `set_data[0].sets[0]` → rec esercizi → esercizio 2 con `set_data[1].sets[0]` → rec superset.
+- Superset 2: `set_data[0].sets[1]`, `set_data[1].sets[1]` → rec superset.
+- Superset 3: `set_data[0].sets[2]`, `set_data[1].sets[2]` → fine.
 
-`emom.ts`, `EmomBlocksEditor.tsx`, `setsData.ts`, altri protocolli (SET, TOP_SET_BACKOFF, RAMPING, EMOM, SUPERSET, LADDER, DEAD_LADDER, TABATA, HIIT, RXT, RUNNING_TOTAL), `workout_logs`, esecuzione atleta (`GuidedWorkoutFlow`, sheet, ecc.), DB / migration / RLS / auth / sidebar / `ProtocolsTab` info popover.
+State machine: `{ supersetIdx, exerciseIdx, phase: 'work' | 'rest_ex' | 'rest_set' }`. Stesso pattern già usato per EMOM/AMRAP, isolato al solo Superset.
+
+UI atleta: niente "round / circuito / blocco". Etichette: "Superset X di N", "Esercizio Y di M", "Recupero esercizio", "Recupero tra superset".
+
+Tracking eseguito: i log salvati lato atleta usano i valori di `set_data[r].sets[c]` come prescritti, e i valori effettivi inseriti dall'atleta (reps/kg) come actual.
+
+## 9. File toccati
+
+- `src/lib/protocols/registry.ts` — solo aggiunta tipi opzionali in `ProtocolParams` + `notes?: string` sull'item `exercises`. Nessun cambio a `SUPERSET.defaultParams`.
+- `src/lib/protocols/superset.ts` — nuovo helper.
+- `src/components/pt/protocols/SupersetEditor.tsx` — nuovo componente editor.
+- `src/components/pt/TemplateExerciseBuilder.tsx` — early-return dedicato SUPERSET; rimozione banner-nota SUPERSET ridondante.
+- `src/components/app/GuidedWorkoutFlow.tsx` — branch esecuzione SUPERSET set-based §8.
+
+## 10. File / aree NON toccate
+
+`amrap.ts`, `emom.ts`, `AmrapEditor.tsx`, `EmomBlocksEditor.tsx`, `setsData.ts`, gli altri protocolli (SET, TOP_SET_BACKOFF, RAMPING, EMOM, AMRAP, LADDER, DEAD_LADDER, TABATA, HIIT, RXT, RUNNING_TOTAL), `workout_logs`, DB / migration / RLS / auth / sidebar / archivio esercizi globale / `ProtocolsTab` info popover.
