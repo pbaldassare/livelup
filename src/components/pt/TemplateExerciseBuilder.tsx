@@ -756,7 +756,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </div>
                                           {/* Back Off params */}
                                           {backoffEnabled && (
-                                            <div className="grid grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Serie</Label>
                                                 <Input
