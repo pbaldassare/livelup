@@ -987,14 +987,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </div>
                                         </div>
                                       )}
-                                      {/* EMOM e AMRAP hanno editor dedicati (vedi early return sopra) */}
-                                      {ptype === 'SUPERSET' && (
-                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
-                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
-                                            <span className="font-semibold">Nota:</span> questo esercizio è accoppiato con un altro. L'atleta eseguirà A → pausa breve → B → recupero completo, ripetendo per il numero di superset previsti.
-                                          </p>
-                                        </div>
-                                      )}
+                                      {/* EMOM, AMRAP e SUPERSET hanno editor dedicati (vedi early return sopra) */}
                                       {ptype === 'LADDER' && (
                                         <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
                                           <p className="text-[11px] text-foreground/80 leading-relaxed">
