@@ -1504,7 +1504,10 @@ function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTablePro
                     min="0"
                     step="0.5"
                     value={s.weight ?? ''}
-                    onChange={(e) => onCellChange(i, { weight: parseNum(e.target.value) })}
+                    onChange={(e) => {
+                      const w = parseNum(e.target.value);
+                      onCellChange(i, { weight: w, weight_is_manual: w !== null });
+                    }}
                     className="h-8 text-center px-1"
                   />
                 </td>
