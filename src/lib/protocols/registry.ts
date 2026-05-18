@@ -43,15 +43,31 @@ export type ProtocolParams = {
     name: string;
     reps: number;
     weight: number | null;
+    notes?: string;
   }> | null;
   // EMOM / TABATA (mode è condiviso ma con valori diversi a runtime)
   duration_minutes?: number | null;
   mode?: EmomMode | TabataMode | null;
   ladder?: string | null;
-  // SUPERSET
+  // SUPERSET (legacy)
   paired_exercise_id?: string | null;
   internal_rest_seconds?: number | null;
   external_rest_seconds?: number | null;
+  // SUPERSET (nuovo schema strutturato)
+  supersets_count?: number | null;
+  rest_between_supersets?: number | null;
+  rest_between_exercises_enabled?: boolean | null;
+  rest_between_exercises?: number | null;
+  set_data?: Array<{
+    exercise_id?: string;
+    exercise_name: string;
+    sets: Array<{
+      set_number: number;
+      reps: number;
+      weight: number | null;
+      rest_seconds: number;
+    }>;
+  }> | null;
   // LADDER
   ladder_steps?: number[] | null;
   step_rest_seconds?: number | null;

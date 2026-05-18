@@ -72,7 +72,9 @@ import {
 import { ProtocolInfoPopover } from '@/components/protocols/ProtocolInfoPopover';
 import { EmomBlocksEditor } from '@/components/pt/protocols/EmomBlocksEditor';
 import { AmrapEditor } from '@/components/pt/protocols/AmrapEditor';
+import { SupersetEditor } from '@/components/pt/protocols/SupersetEditor';
 import { normalizeAmrapParams } from '@/lib/protocols/amrap';
+import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
 import { Link } from 'react-router-dom';
@@ -846,6 +848,25 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     );
                                   }
 
+                                  // SUPERSET: editor strutturato (set-based, tabella set = fonte di verità)
+                                  if (ptype === 'SUPERSET') {
+                                    const supersetValue = normalizeSupersetParams(
+                                      params as Record<string, unknown>,
+                                    );
+                                    return (
+                                      <SupersetEditor
+                                        value={supersetValue}
+                                        exerciseOptions={allTemplateExerciseOptions}
+                                        onChange={(next) => {
+                                          updateProtocolParamMutation.mutate({
+                                            id: te.id,
+                                            params: next as unknown as ProtocolParams,
+                                          });
+                                        }}
+                                      />
+                                    );
+                                  }
+
                                   return (
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
@@ -966,14 +987,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </div>
                                         </div>
                                       )}
-                                      {/* EMOM e AMRAP hanno editor dedicati (vedi early return sopra) */}
-                                      {ptype === 'SUPERSET' && (
-                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
-                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
-                                            <span className="font-semibold">Nota:</span> questo esercizio è accoppiato con un altro. L'atleta eseguirà A → pausa breve → B → recupero completo, ripetendo per il numero di superset previsti.
-                                          </p>
-                                        </div>
-                                      )}
+                                      {/* EMOM, AMRAP e SUPERSET hanno editor dedicati (vedi early return sopra) */}
                                       {ptype === 'LADDER' && (
                                         <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
                                           <p className="text-[11px] text-foreground/80 leading-relaxed">
