@@ -780,6 +780,18 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                                 />
                                               </div>
                                               <div className="space-y-1">
+                                                <Label className="text-xs">Kg</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={0}
+                                                  step={0.5}
+                                                  placeholder="—"
+                                                  value={params.backoff_kg ?? ''}
+                                                  onChange={(e) => updateParam('backoff_kg', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
+                                                />
+                                              </div>
+                                              <div className="space-y-1">
                                                 <Label className="text-xs">% riduzione</Label>
                                                 <Input
                                                   type="number"
