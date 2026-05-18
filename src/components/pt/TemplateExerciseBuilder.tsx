@@ -848,6 +848,25 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     );
                                   }
 
+                                  // SUPERSET: editor strutturato (set-based, tabella set = fonte di verità)
+                                  if (ptype === 'SUPERSET') {
+                                    const supersetValue = normalizeSupersetParams(
+                                      params as Record<string, unknown>,
+                                    );
+                                    return (
+                                      <SupersetEditor
+                                        value={supersetValue}
+                                        exerciseOptions={allTemplateExerciseOptions}
+                                        onChange={(next) => {
+                                          updateProtocolParamMutation.mutate({
+                                            id: te.id,
+                                            params: next as unknown as ProtocolParams,
+                                          });
+                                        }}
+                                      />
+                                    );
+                                  }
+
                                   return (
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
