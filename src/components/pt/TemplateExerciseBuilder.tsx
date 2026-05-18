@@ -681,7 +681,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           {/* Top Set */}
                                           <div className="space-y-2">
                                             <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/80">Top Set</p>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Serie</Label>
                                                 <Input
