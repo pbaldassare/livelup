@@ -1445,7 +1445,7 @@ function applyParamSync(
 interface TopSetBackoffTableProps {
   title: string;
   sets: SetItem[];
-  onCellChange: (idx: number, patch: Partial<SetItem>) => void;
+  onCellChange: (idx: number, patch: Partial<SetItem> & { weight_is_manual?: boolean }) => void;
 }
 
 function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTableProps) {
