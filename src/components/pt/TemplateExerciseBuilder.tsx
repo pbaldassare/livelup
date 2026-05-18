@@ -652,20 +652,20 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     };
 
                                     const updateParam = (
-                                      key: 'top_sets' | 'top_reps' | 'top_rest' | 'top_increase_percent' | 'backoff_enabled' | 'backoff_sets' | 'backoff_reps' | 'backoff_percentage',
+                                      key: 'top_sets' | 'top_reps' | 'top_rest' | 'top_increase_percent' | 'top_kg' | 'backoff_enabled' | 'backoff_sets' | 'backoff_reps' | 'backoff_percentage' | 'backoff_kg',
                                       value: number | boolean | null,
                                     ) => {
                                       const next = applyParamSync(params, key, value);
                                       commit(next);
                                     };
 
-                                    const updateTopSetCell = (idx: number, patch: Partial<SetItem>) => {
+                                    const updateTopSetCell = (idx: number, patch: Partial<SetItem> & { weight_is_manual?: boolean }) => {
                                       const top_set_data = params.top_set_data.map((s, i) =>
                                         i === idx ? { ...s, ...patch } : s,
                                       );
                                       commit({ ...params, top_set_data });
                                     };
-                                    const updateBackoffCell = (idx: number, patch: Partial<SetItem>) => {
+                                    const updateBackoffCell = (idx: number, patch: Partial<SetItem> & { weight_is_manual?: boolean }) => {
                                       const backoff_data = params.backoff_data.map((s, i) =>
                                         i === idx ? { ...s, ...patch } : s,
                                       );
