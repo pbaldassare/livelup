@@ -30,6 +30,8 @@ export type ProtocolParams = {
   backoff_sets?: number | null;
   backoff_reps?: number | null;
   backoff_percentage?: number | null;
+  top_kg?: number | null;
+  backoff_kg?: number | null;
   // Ramping
   note?: string | null;
   value_type?: 'kg' | 'time' | 'km' | 'custom' | null;

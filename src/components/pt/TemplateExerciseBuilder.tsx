@@ -652,20 +652,20 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     };
 
                                     const updateParam = (
-                                      key: 'top_sets' | 'top_reps' | 'top_rest' | 'top_increase_percent' | 'backoff_enabled' | 'backoff_sets' | 'backoff_reps' | 'backoff_percentage',
+                                      key: 'top_sets' | 'top_reps' | 'top_rest' | 'top_increase_percent' | 'top_kg' | 'backoff_enabled' | 'backoff_sets' | 'backoff_reps' | 'backoff_percentage' | 'backoff_kg',
                                       value: number | boolean | null,
                                     ) => {
                                       const next = applyParamSync(params, key, value);
                                       commit(next);
                                     };
 
-                                    const updateTopSetCell = (idx: number, patch: Partial<SetItem>) => {
+                                    const updateTopSetCell = (idx: number, patch: Partial<SetItem> & { weight_is_manual?: boolean }) => {
                                       const top_set_data = params.top_set_data.map((s, i) =>
                                         i === idx ? { ...s, ...patch } : s,
                                       );
                                       commit({ ...params, top_set_data });
                                     };
-                                    const updateBackoffCell = (idx: number, patch: Partial<SetItem>) => {
+                                    const updateBackoffCell = (idx: number, patch: Partial<SetItem> & { weight_is_manual?: boolean }) => {
                                       const backoff_data = params.backoff_data.map((s, i) =>
                                         i === idx ? { ...s, ...patch } : s,
                                       );
@@ -681,7 +681,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           {/* Top Set */}
                                           <div className="space-y-2">
                                             <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/80">Top Set</p>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Serie</Label>
                                                 <Input
@@ -717,6 +717,18 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                                 />
                                               </div>
                                               <div className="space-y-1">
+                                                <Label className="text-xs">Kg</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={0}
+                                                  step={0.5}
+                                                  placeholder="—"
+                                                  value={params.top_kg ?? ''}
+                                                  onChange={(e) => updateParam('top_kg', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
+                                                />
+                                              </div>
+                                              <div className="space-y-1">
                                                 <Label className="text-xs">Aumento %</Label>
                                                 <Input
                                                   type="number"
@@ -744,7 +756,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </div>
                                           {/* Back Off params */}
                                           {backoffEnabled && (
-                                            <div className="grid grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Serie</Label>
                                                 <Input
@@ -764,6 +776,18 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                                   placeholder="8"
                                                   value={params.backoff_reps ?? ''}
                                                   onChange={(e) => updateParam('backoff_reps', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
+                                                />
+                                              </div>
+                                              <div className="space-y-1">
+                                                <Label className="text-xs">Kg</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={0}
+                                                  step={0.5}
+                                                  placeholder="—"
+                                                  value={params.backoff_kg ?? ''}
+                                                  onChange={(e) => updateParam('backoff_kg', e.target.value === '' ? null : Number(e.target.value))}
                                                   className="h-8"
                                                 />
                                               </div>
@@ -1244,25 +1268,29 @@ function SetsTable({ te, onChange }: SetsTableProps) {
 // =====================================================
 // TOP SET + BACK OFF helpers
 // =====================================================
+type TSBOSetItem = SetItem & { weight_is_manual?: boolean };
+
 interface TSBOParams {
   top_sets: number | null;
   top_reps: number | null;
   top_rest: number | null;
   top_increase_percent: number | null;
+  top_kg: number | null;
   backoff_enabled: boolean;
   backoff_sets: number | null;
   backoff_reps: number | null;
   backoff_percentage: number | null;
-  top_set_data: SetItem[];
-  backoff_data: SetItem[];
+  backoff_kg: number | null;
+  top_set_data: TSBOSetItem[];
+  backoff_data: TSBOSetItem[];
   [k: string]: any;
 }
 
 function adjustLength(
-  arr: SetItem[],
+  arr: TSBOSetItem[],
   n: number,
-  defaults: SetItem,
-): SetItem[] {
+  defaults: TSBOSetItem,
+): TSBOSetItem[] {
   const safeN = Math.max(0, Math.floor(n));
   if (arr.length === safeN) return arr;
   if (arr.length > safeN) return arr.slice(0, safeN);
@@ -1271,33 +1299,77 @@ function adjustLength(
   return out;
 }
 
+// Arrotondamento per eccesso al mezzo kg superiore
+function ceilHalfKg(n: number): number {
+  return Math.ceil(n * 2) / 2;
+}
+
+function computeTopKg(top_kg: number, increasePct: number | null, index: number): number {
+  const pct = typeof increasePct === 'number' ? increasePct : 0;
+  return ceilHalfKg(top_kg * (1 + (pct / 100) * index));
+}
+
+function computeBackoffKg(backoff_kg: number, reductionPct: number | null, index: number): number {
+  const pct = typeof reductionPct === 'number' ? reductionPct : 0;
+  return Math.max(0, ceilHalfKg(backoff_kg * (1 - (pct / 100) * index)));
+}
+
+// Riempie weight nelle celle non-manuali. Se kg base è null/0-non-valido, lascia invariato.
+function applyTopAutoWeights(
+  rows: TSBOSetItem[],
+  top_kg: number | null,
+  increasePct: number | null,
+): TSBOSetItem[] {
+  if (typeof top_kg !== 'number') return rows;
+  return rows.map((s, i) =>
+    s.weight_is_manual ? s : { ...s, weight: computeTopKg(top_kg, increasePct, i), weight_is_manual: false },
+  );
+}
+
+function applyBackoffAutoWeights(
+  rows: TSBOSetItem[],
+  backoff_kg: number | null,
+  reductionPct: number | null,
+): TSBOSetItem[] {
+  if (typeof backoff_kg !== 'number') return rows;
+  return rows.map((s, i) =>
+    s.weight_is_manual ? s : { ...s, weight: computeBackoffKg(backoff_kg, reductionPct, i), weight_is_manual: false },
+  );
+}
+
 function normalizeTopSetBackoff(raw: any): TSBOParams {
   const r = raw && typeof raw === 'object' ? raw : {};
   const top_sets = typeof r.top_sets === 'number' && r.top_sets > 0 ? r.top_sets : 1;
   const top_reps = typeof r.top_reps === 'number' ? r.top_reps : null;
   const top_rest = typeof r.top_rest === 'number' ? r.top_rest : null;
+  const top_kg = typeof r.top_kg === 'number' ? r.top_kg : null;
+  const top_increase_percent = typeof r.top_increase_percent === 'number' ? r.top_increase_percent : null;
   const backoff_enabled = r.backoff_enabled !== false;
   const backoff_sets = typeof r.backoff_sets === 'number' && r.backoff_sets > 0 ? r.backoff_sets : (backoff_enabled ? 3 : 0);
   const backoff_reps = typeof r.backoff_reps === 'number' ? r.backoff_reps : null;
+  const backoff_kg = typeof r.backoff_kg === 'number' ? r.backoff_kg : null;
+  const backoff_percentage = typeof r.backoff_percentage === 'number' ? r.backoff_percentage : null;
 
-  const topDefaults: SetItem = { reps: top_reps, weight: null, rest_seconds: top_rest };
-  const backoffDefaults: SetItem = { reps: backoff_reps, weight: null, rest_seconds: top_rest };
+  const topDefaults: TSBOSetItem = { reps: top_reps, weight: null, rest_seconds: top_rest, weight_is_manual: false };
+  const backoffDefaults: TSBOSetItem = { reps: backoff_reps, weight: null, rest_seconds: top_rest, weight_is_manual: false };
 
   const top_set_data = adjustLength(
-    Array.isArray(r.top_set_data) ? (r.top_set_data as SetItem[]).map((s) => ({
+    Array.isArray(r.top_set_data) ? (r.top_set_data as TSBOSetItem[]).map((s) => ({
       reps: s?.reps ?? null,
       weight: s?.weight ?? null,
       rest_seconds: s?.rest_seconds ?? null,
+      weight_is_manual: s?.weight_is_manual === true,
     })) : [],
     top_sets,
     topDefaults,
   );
 
   const backoff_data = adjustLength(
-    Array.isArray(r.backoff_data) ? (r.backoff_data as SetItem[]).map((s) => ({
+    Array.isArray(r.backoff_data) ? (r.backoff_data as TSBOSetItem[]).map((s) => ({
       reps: s?.reps ?? null,
       weight: s?.weight ?? null,
       rest_seconds: s?.rest_seconds ?? null,
+      weight_is_manual: s?.weight_is_manual === true,
     })) : [],
     backoff_enabled ? backoff_sets : 0,
     backoffDefaults,
@@ -1308,11 +1380,13 @@ function normalizeTopSetBackoff(raw: any): TSBOParams {
     top_sets,
     top_reps,
     top_rest,
-    top_increase_percent: typeof r.top_increase_percent === 'number' ? r.top_increase_percent : null,
+    top_increase_percent,
+    top_kg,
     backoff_enabled,
     backoff_sets,
     backoff_reps,
-    backoff_percentage: typeof r.backoff_percentage === 'number' ? r.backoff_percentage : null,
+    backoff_percentage,
+    backoff_kg,
     top_set_data,
     backoff_data,
   };
@@ -1320,7 +1394,7 @@ function normalizeTopSetBackoff(raw: any): TSBOParams {
 
 function applyParamSync(
   prev: TSBOParams,
-  key: 'top_sets' | 'top_reps' | 'top_rest' | 'top_increase_percent' | 'backoff_enabled' | 'backoff_sets' | 'backoff_reps' | 'backoff_percentage',
+  key: 'top_sets' | 'top_reps' | 'top_rest' | 'top_increase_percent' | 'top_kg' | 'backoff_enabled' | 'backoff_sets' | 'backoff_reps' | 'backoff_percentage' | 'backoff_kg',
   value: number | boolean | null,
 ): TSBOParams {
   const next: TSBOParams = { ...prev, [key]: value as any };
@@ -1331,20 +1405,28 @@ function applyParamSync(
       reps: prev.top_reps,
       weight: null,
       rest_seconds: prev.top_rest,
+      weight_is_manual: false,
     });
+    next.top_set_data = applyTopAutoWeights(next.top_set_data, next.top_kg, next.top_increase_percent);
   } else if (key === 'top_reps') {
     next.top_set_data = prev.top_set_data.map((s) => ({ ...s, reps: typeof value === 'number' ? value : null }));
   } else if (key === 'top_rest') {
     next.top_set_data = prev.top_set_data.map((s) => ({ ...s, rest_seconds: typeof value === 'number' ? value : null }));
+  } else if (key === 'top_kg' || key === 'top_increase_percent') {
+    next.top_set_data = applyTopAutoWeights(prev.top_set_data, next.top_kg, next.top_increase_percent);
   } else if (key === 'backoff_sets') {
     const n = typeof value === 'number' && value > 0 ? value : 0;
     next.backoff_data = adjustLength(prev.backoff_data, n, {
       reps: prev.backoff_reps,
       weight: null,
       rest_seconds: prev.top_rest,
+      weight_is_manual: false,
     });
+    next.backoff_data = applyBackoffAutoWeights(next.backoff_data, next.backoff_kg, next.backoff_percentage);
   } else if (key === 'backoff_reps') {
     next.backoff_data = prev.backoff_data.map((s) => ({ ...s, reps: typeof value === 'number' ? value : null }));
+  } else if (key === 'backoff_kg' || key === 'backoff_percentage') {
+    next.backoff_data = applyBackoffAutoWeights(prev.backoff_data, next.backoff_kg, next.backoff_percentage);
   } else if (key === 'backoff_enabled' && value === true && (!prev.backoff_data || prev.backoff_data.length === 0)) {
     const n = prev.backoff_sets ?? 3;
     next.backoff_sets = n;
@@ -1352,7 +1434,9 @@ function applyParamSync(
       reps: prev.backoff_reps,
       weight: null,
       rest_seconds: prev.top_rest,
+      weight_is_manual: false,
     });
+    next.backoff_data = applyBackoffAutoWeights(next.backoff_data, next.backoff_kg, next.backoff_percentage);
   }
 
   return next;
@@ -1361,7 +1445,7 @@ function applyParamSync(
 interface TopSetBackoffTableProps {
   title: string;
   sets: SetItem[];
-  onCellChange: (idx: number, patch: Partial<SetItem>) => void;
+  onCellChange: (idx: number, patch: Partial<SetItem> & { weight_is_manual?: boolean }) => void;
 }
 
 function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTableProps) {
@@ -1420,7 +1504,10 @@ function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTablePro
                     min="0"
                     step="0.5"
                     value={s.weight ?? ''}
-                    onChange={(e) => onCellChange(i, { weight: parseNum(e.target.value) })}
+                    onChange={(e) => {
+                      const w = parseNum(e.target.value);
+                      onCellChange(i, { weight: w, weight_is_manual: w !== null });
+                    }}
                     className="h-8 text-center px-1"
                   />
                 </td>
