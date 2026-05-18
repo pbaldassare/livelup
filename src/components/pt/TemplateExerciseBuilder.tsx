@@ -717,6 +717,18 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                                 />
                                               </div>
                                               <div className="space-y-1">
+                                                <Label className="text-xs">Kg</Label>
+                                                <Input
+                                                  type="number"
+                                                  min={0}
+                                                  step={0.5}
+                                                  placeholder="—"
+                                                  value={params.top_kg ?? ''}
+                                                  onChange={(e) => updateParam('top_kg', e.target.value === '' ? null : Number(e.target.value))}
+                                                  className="h-8"
+                                                />
+                                              </div>
+                                              <div className="space-y-1">
                                                 <Label className="text-xs">Aumento %</Label>
                                                 <Input
                                                   type="number"
