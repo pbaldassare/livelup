@@ -1205,11 +1205,8 @@ function SetsTable({ te, onChange }: SetsTableProps) {
 
   return (
     <div className="rounded-md border bg-muted/20 p-2">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center mb-2">
         <span className="text-xs font-medium text-muted-foreground">Set</span>
-        <Button variant="outline" size="sm" className="h-7 gap-1" onClick={addSet}>
-          <Plus className="h-3 w-3" /> Set
-        </Button>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -1221,6 +1218,16 @@ function SetsTable({ te, onChange }: SetsTableProps) {
                   Set {i + 1}
                 </th>
               ))}
+              <th className="pl-2 py-1 align-middle">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={addSet}
+                >
+                  <Plus className="h-3 w-3 mr-0.5" /> Set
+                </Button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -1237,6 +1244,7 @@ function SetsTable({ te, onChange }: SetsTableProps) {
                   />
                 </td>
               ))}
+              <td />
             </tr>
             <tr>
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Kg</td>
@@ -1252,6 +1260,7 @@ function SetsTable({ te, onChange }: SetsTableProps) {
                   />
                 </td>
               ))}
+              <td />
             </tr>
             <tr>
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Rec (s)</td>
@@ -1266,7 +1275,9 @@ function SetsTable({ te, onChange }: SetsTableProps) {
                   />
                 </td>
               ))}
+              <td />
             </tr>
+
             <tr>
               <td className="sticky left-0 bg-muted/20"></td>
               {sets.map((_, i) => (
