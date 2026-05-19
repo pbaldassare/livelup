@@ -671,6 +671,26 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       );
                                       commit({ ...params, backoff_data });
                                     };
+                                    const addTopSet = () => {
+                                      const next = applyParamSync(params, 'top_sets', (params.top_sets ?? 1) + 1);
+                                      commit(next);
+                                    };
+                                    const removeTopSet = (idx: number) => {
+                                      if (params.top_set_data.length <= 1) return;
+                                      const filtered = params.top_set_data.filter((_, i) => i !== idx);
+                                      const top_set_data = applyTopAutoWeights(filtered, params.top_kg, params.top_increase_percent);
+                                      commit({ ...params, top_sets: filtered.length, top_set_data });
+                                    };
+                                    const addBackoffSet = () => {
+                                      const next = applyParamSync(params, 'backoff_sets', (params.backoff_sets ?? 1) + 1);
+                                      commit(next);
+                                    };
+                                    const removeBackoffSet = (idx: number) => {
+                                      if (params.backoff_data.length <= 1) return;
+                                      const filtered = params.backoff_data.filter((_, i) => i !== idx);
+                                      const backoff_data = applyBackoffAutoWeights(filtered, params.backoff_kg, params.backoff_percentage);
+                                      commit({ ...params, backoff_sets: filtered.length, backoff_data });
+                                    };
 
                                     return (
                                       <div className="space-y-3">
@@ -812,6 +832,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           title="Top Set"
                                           sets={params.top_set_data}
                                           onCellChange={updateTopSetCell}
+                                          onAddSet={addTopSet}
+                                          onRemoveSet={removeTopSet}
                                         />
 
                                         {/* Tabella Back Off */}
@@ -820,6 +842,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                             title="Back Off"
                                             sets={params.backoff_data}
                                             onCellChange={updateBackoffCell}
+                                            onAddSet={addBackoffSet}
+                                            onRemoveSet={removeBackoffSet}
                                           />
                                         )}
                                       </div>
@@ -1446,9 +1470,11 @@ interface TopSetBackoffTableProps {
   title: string;
   sets: SetItem[];
   onCellChange: (idx: number, patch: Partial<SetItem> & { weight_is_manual?: boolean }) => void;
+  onAddSet?: () => void;
+  onRemoveSet?: (idx: number) => void;
 }
 
-function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTableProps) {
+function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }: TopSetBackoffTableProps) {
   const parseNum = (v: string): number | null => {
     if (v === '') return null;
     const n = Number(v);
@@ -1478,6 +1504,20 @@ function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTablePro
                   Set {i + 1}
                 </th>
               ))}
+              {onAddSet && (
+                <th className="px-1 py-1 text-center align-middle">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={onAddSet}
+                    aria-label="Aggiungi set"
+                  >
+                    <Plus className="h-3 w-3 mr-0.5" /> Set
+                  </Button>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -1494,6 +1534,7 @@ function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTablePro
                   />
                 </td>
               ))}
+              {onAddSet && <td />}
             </tr>
             <tr>
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Kg</td>
@@ -1512,6 +1553,7 @@ function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTablePro
                   />
                 </td>
               ))}
+              {onAddSet && <td />}
             </tr>
             <tr>
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Rec (s)</td>
@@ -1526,7 +1568,29 @@ function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTablePro
                   />
                 </td>
               ))}
+              {onAddSet && <td />}
             </tr>
+            {onRemoveSet && (
+              <tr>
+                <td className="pr-2 py-1 sticky left-0 bg-muted/20"></td>
+                {sets.map((_, i) => (
+                  <td key={i} className="px-1 py-1 text-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      disabled={sets.length <= 1}
+                      onClick={() => onRemoveSet(i)}
+                      aria-label={`Elimina Set ${i + 1}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
+                ))}
+                {onAddSet && <td />}
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
