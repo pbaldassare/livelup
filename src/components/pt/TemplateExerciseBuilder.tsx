@@ -671,6 +671,26 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       );
                                       commit({ ...params, backoff_data });
                                     };
+                                    const addTopSet = () => {
+                                      const next = applyParamSync(params, 'top_sets', (params.top_sets ?? 1) + 1);
+                                      commit(next);
+                                    };
+                                    const removeTopSet = (idx: number) => {
+                                      if (params.top_set_data.length <= 1) return;
+                                      const filtered = params.top_set_data.filter((_, i) => i !== idx);
+                                      const top_set_data = applyTopAutoWeights(filtered, params.top_kg, params.top_increase_percent);
+                                      commit({ ...params, top_sets: filtered.length, top_set_data });
+                                    };
+                                    const addBackoffSet = () => {
+                                      const next = applyParamSync(params, 'backoff_sets', (params.backoff_sets ?? 1) + 1);
+                                      commit(next);
+                                    };
+                                    const removeBackoffSet = (idx: number) => {
+                                      if (params.backoff_data.length <= 1) return;
+                                      const filtered = params.backoff_data.filter((_, i) => i !== idx);
+                                      const backoff_data = applyBackoffAutoWeights(filtered, params.backoff_kg, params.backoff_percentage);
+                                      commit({ ...params, backoff_sets: filtered.length, backoff_data });
+                                    };
 
                                     return (
                                       <div className="space-y-3">
