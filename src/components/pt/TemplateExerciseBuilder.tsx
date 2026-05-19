@@ -1446,9 +1446,11 @@ interface TopSetBackoffTableProps {
   title: string;
   sets: SetItem[];
   onCellChange: (idx: number, patch: Partial<SetItem> & { weight_is_manual?: boolean }) => void;
+  onAddSet?: () => void;
+  onRemoveSet?: (idx: number) => void;
 }
 
-function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTableProps) {
+function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }: TopSetBackoffTableProps) {
   const parseNum = (v: string): number | null => {
     if (v === '') return null;
     const n = Number(v);
@@ -1478,6 +1480,20 @@ function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTablePro
                   Set {i + 1}
                 </th>
               ))}
+              {onAddSet && (
+                <th className="px-1 py-1 text-center align-middle">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={onAddSet}
+                    aria-label="Aggiungi set"
+                  >
+                    <Plus className="h-3 w-3 mr-0.5" /> Set
+                  </Button>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -1494,6 +1510,7 @@ function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTablePro
                   />
                 </td>
               ))}
+              {onAddSet && <td />}
             </tr>
             <tr>
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Kg</td>
@@ -1512,6 +1529,7 @@ function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTablePro
                   />
                 </td>
               ))}
+              {onAddSet && <td />}
             </tr>
             <tr>
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Rec (s)</td>
@@ -1526,7 +1544,29 @@ function TopSetBackoffTable({ title, sets, onCellChange }: TopSetBackoffTablePro
                   />
                 </td>
               ))}
+              {onAddSet && <td />}
             </tr>
+            {onRemoveSet && (
+              <tr>
+                <td className="pr-2 py-1 sticky left-0 bg-muted/20"></td>
+                {sets.map((_, i) => (
+                  <td key={i} className="px-1 py-1 text-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      disabled={sets.length <= 1}
+                      onClick={() => onRemoveSet(i)}
+                      aria-label={`Elimina Set ${i + 1}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
+                ))}
+                {onAddSet && <td />}
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
