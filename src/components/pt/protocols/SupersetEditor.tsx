@@ -152,6 +152,21 @@ export function SupersetEditor({
     commit(value, { set_data }, onChange);
   };
 
+  // --- columns (supersets) add/remove from table ---------------------
+  const addSuperset = () => {
+    commit(value, { supersets_count: value.supersets_count + 1 }, onChange);
+  };
+  const removeSuperset = (cIdx: number) => {
+    if (value.supersets_count <= 1) return;
+    const set_data = value.set_data.map((row) => ({
+      ...row,
+      sets: row.sets
+        .filter((_, i) => i !== cIdx)
+        .map((c, i) => ({ ...c, set_number: i + 1 })),
+    }));
+    commit(value, { supersets_count: value.supersets_count - 1, set_data }, onChange);
+  };
+
   // --- general fields ------------------------------------------------
   const setExercisesCount = (n: number) => {
     const clamped = Math.max(1, Math.floor(n));
