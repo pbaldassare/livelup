@@ -1292,7 +1292,9 @@ function SetsTable({ te, onChange }: SetsTableProps) {
                   </Button>
                 </td>
               ))}
+              <td />
             </tr>
+
           </tbody>
         </table>
       </div>
