@@ -832,6 +832,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           title="Top Set"
                                           sets={params.top_set_data}
                                           onCellChange={updateTopSetCell}
+                                          onAddSet={addTopSet}
+                                          onRemoveSet={removeTopSet}
                                         />
 
                                         {/* Tabella Back Off */}
@@ -840,6 +842,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                             title="Back Off"
                                             sets={params.backoff_data}
                                             onCellChange={updateBackoffCell}
+                                            onAddSet={addBackoffSet}
+                                            onRemoveSet={removeBackoffSet}
                                           />
                                         )}
                                       </div>
