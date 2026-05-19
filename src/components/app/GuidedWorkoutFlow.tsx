@@ -437,7 +437,31 @@ export function GuidedWorkoutFlow({
             } catch (e: any) {
               toast.error(e?.message || 'Errore salvataggio EMOM');
             }
-            advance(true);
+            // EMOM è un protocollo single-log: forziamo il passaggio al
+            // prossimo esercizio (o la fine workout) bypassando la logica
+            // di setNumber/totalSets che vale solo per protocolli set-based.
+            const isLastExercise = state.exerciseIndex >= exercises.length - 1;
+            if (isLastExercise) {
+              dispatch({ type: 'FINISH' });
+              return;
+            }
+            let nextIdx = state.exerciseIndex + 1;
+            while (nextIdx < exercises.length && state.skipped[exercises[nextIdx].id]) {
+              nextIdx++;
+            }
+            if (nextIdx >= exercises.length) {
+              dispatch({ type: 'FINISH' });
+              return;
+            }
+            dispatch({
+              type: 'GOTO_NEXT',
+              payload: {
+                exerciseIndex: nextIdx,
+                setNumber: 1,
+                flow: 'ready',
+                transitionMessage: 'Prossimo esercizio',
+              },
+            });
           }}
         />
       </div>
