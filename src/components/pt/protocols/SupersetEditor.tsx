@@ -359,6 +359,18 @@ export function SupersetEditor({
                     Set {c + 1}
                   </TableHead>
                 ))}
+                <TableHead className="h-8 text-xs text-center w-[80px]">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={addSuperset}
+                    aria-label="Aggiungi set"
+                  >
+                    <Plus className="h-3 w-3 mr-0.5" /> Set
+                  </Button>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -425,8 +437,28 @@ export function SupersetEditor({
                       </div>
                     </TableCell>
                   ))}
+                  <TableCell />
                 </TableRow>
               ))}
+              <TableRow>
+                <TableCell className="py-1" />
+                {Array.from({ length: value.supersets_count }).map((_, c) => (
+                  <TableCell key={c} className="py-1 text-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      disabled={value.supersets_count <= 1}
+                      onClick={() => removeSuperset(c)}
+                      aria-label={`Elimina Set ${c + 1}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                ))}
+                <TableCell />
+              </TableRow>
             </TableBody>
           </Table>
         </div>
