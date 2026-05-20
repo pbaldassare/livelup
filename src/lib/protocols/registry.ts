@@ -616,17 +616,15 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     description:
       'Circuito a tempo con numero preciso di intervalli totali e tempi lavoro/pausa configurabili. Gli esercizi vengono eseguiti a rotazione per il numero totale di intervalli indicato. Tabata usa round canonici e una struttura classica; HIIT usa intervalli liberi, durata personalizzabile e rotazione esercizi più flessibile.',
     defaultParams: {
-      work_seconds: 40,
-      rest_seconds: 20,
-      intervals_total: 12,
+      exercises_count: 1,
+      exercise_duration_seconds: 40,
+      rest_between_exercises_seconds: 20,
+      rest_between_rounds_seconds: 60,
+      rounds: 4,
+      exercises: [],
       note: '',
     },
-    paramFields: [
-      { key: 'work_seconds', label: 'Lavoro (s)', type: 'number', min: 1, step: 5, placeholder: '40' },
-      { key: 'rest_seconds', label: 'Riposo (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
-      { key: 'intervals_total', label: 'Intervalli totali', type: 'number', min: 1, placeholder: '12' },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o rotazione esercizi', hint: 'Indicazioni libere per l\'atleta' },
-    ],
+    paramFields: [],
     executionMode: 'rounds',
     sections: {
       coachSets: [
