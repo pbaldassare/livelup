@@ -551,14 +551,14 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
 
                               {/* Exercise Info */}
                               <div className="flex-1 space-y-3">
-                                <div className="sticky top-2 z-20 bg-card flex items-start justify-between gap-2 py-1 -mx-1 px-1 rounded-md">
+                                <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
                                     <p className="font-medium truncate">{te.exercise?.name}</p>
                                     <p className="text-sm text-muted-foreground truncate">
                                       {te.exercise?.category} • {te.exercise?.muscle_groups.join(', ')}
                                     </p>
                                   </div>
-                                  <div className="flex items-center gap-1 shrink-0">
+                                  <div className="flex items-center gap-2 shrink-0">
                                     {/* Selettore Protocollo */}
                                     <Select
                                       value={(te.protocol_type as ProtocolType) || 'SET'}
