@@ -567,27 +567,15 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     description:
       'Circuito a tempo con alternanza fissa lavoro / riposo. Round ripetuti con intervalli di lavoro e recupero gestiti automaticamente.',
     defaultParams: {
-      work_seconds: 20,
-      rest_seconds: 20,
+      exercises_count: 1,
+      exercise_duration_seconds: 20,
+      rest_between_exercises_seconds: 10,
+      rest_between_rounds_seconds: 60,
       rounds: 8,
-      mode: 'single',
+      exercises: [],
       note: '',
     },
-    paramFields: [
-      { key: 'work_seconds', label: 'Lavoro (s)', type: 'number', min: 1, step: 5, placeholder: '20' },
-      { key: 'rest_seconds', label: 'Riposo (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
-      { key: 'rounds', label: 'Round totali', type: 'number', min: 1, placeholder: '8' },
-      {
-        key: 'mode',
-        label: 'Modalità',
-        type: 'select',
-        options: [
-          { value: 'single', label: 'Singolo (stesso esercizio)' },
-          { value: 'alternating', label: 'Alternato (esercizi alternati)' },
-        ],
-      },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o variazione', hint: 'Indicazioni libere per l\'atleta' },
-    ],
+    paramFields: [],
     executionMode: 'rounds',
     sections: {
       coachSets: [
