@@ -880,17 +880,13 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
       const sets = p.sets ?? 1;
       return `${sets} scale a cedimento`;
     }
-    case 'TABATA': {
-      const rounds = p.rounds ?? 8;
-      const work = p.work_seconds ?? 20;
-      const rest = p.rest_seconds ?? 20;
-      return `${rounds} round a intervalli ${work}" lavoro / ${rest}" riposo`;
-    }
+    case 'TABATA':
     case 'HIIT': {
-      const intervals = p.intervals_total ?? 12;
-      const work = p.work_seconds ?? 40;
-      const rest = p.rest_seconds ?? 20;
-      return `${intervals} intervalli ${work}" lavoro / ${rest}" riposo`;
+      const rounds = p.rounds ?? (type === 'HIIT' ? 4 : 8);
+      const work = p.exercise_duration_seconds ?? p.work_seconds ?? (type === 'HIIT' ? 40 : 20);
+      const rest = p.rest_between_exercises_seconds ?? p.rest_seconds ?? 20;
+      const exCount = Array.isArray(p.exercises) ? p.exercises.length : (p.exercises_count ?? 1);
+      return `${rounds} round × ${exCount} esercizi (${work}" lavoro / ${rest}" riposo)`;
     }
     case 'RXT': {
       const rounds = p.rounds ?? 5;
