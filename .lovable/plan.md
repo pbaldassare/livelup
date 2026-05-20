@@ -1,33 +1,88 @@
-## Analisi stato attuale
+# Piano
 
-Solo 3 protocolli usano una tabella set: **SET**, **TOP_SET_BACKOFF**, **SUPERSET**. Tutti gli altri (EMOM, AMRAP, RAMPING, LADDER, DEAD_LADDER, TABATA, HIIT, RXT, RUNNING_TOTAL) sono solo parametri/timer/note — fuori scope.
+## Obiettivo
+Ripristinare il comportamento corretto del protocollo `SUPERSET` lato PT, in modo che:
+- il selettore protocollo resti sempre visibile e cliccabile
+- il cestino principale della card esercizio resti sempre visibile e cliccabile
+- sotto l’header venga montato il `SupersetEditor` corretto
+- nel `SupersetEditor` compaiano `Numero superset`, tabella set, `+ Set` e cestino colonne
+- sia sempre possibile cambiare protocollo da `SUPERSET` a un altro
 
-Stato attuale di ciascuno:
+## Cosa modificherò
 
-| Protocollo | Cestino per colonna | "+ Set" | Sync bidirezionale | Modifiche manuali |
-|---|---|---|---|---|
-| SET standard | ✓ riga cestino sotto | ✓ ma in alto a destra, non a lato | ✓ (`summarizeSets` → `te.sets`) | ✓ |
-| TOP_SET_BACKOFF | ✓ già implementato turno scorso | ✓ a lato ultima colonna | ✓ (`applyParamSync`) | ✓ (`weight_is_manual`) |
-| SUPERSET | ✓ già implementato turno scorso | ✓ a lato ultima colonna | ✓ (`commit` + `syncSetData`) | ✓ |
+### 1. Header stabile della card esercizio in `TemplateExerciseBuilder.tsx`
+Manterrò l’header della card come blocco sempre renderizzato, con questi elementi sempre presenti e cliccabili anche quando `protocol_type === 'SUPERSET'`:
+- nome esercizio
+- select protocollo
+- info protocollo (popover)
+- azioni (es. “Sposta in…”)
+- cestino principale esercizio (in alto a destra della card)
 
-**TOP_SET_BACKOFF e SUPERSET sono già conformi** alla specifica (modifiche fatte nel turno precedente).
+Il cestino principale è quello che elimina l’intero esercizio dal template, e deve continuare a usare la stessa mutation `removeExerciseMutation` già utilizzata dagli altri protocolli — senza alcuna logica alternativa per SUPERSET.
 
-**SET standard**: la logica funziona correttamente (add/remove → `te.sets` aggiornato via `summarizeSets`, modifiche manuali persistite, niente scritture al mount). L'unico scostamento dalla specifica è la **posizione del bottone "+ Set"**: oggi è in alto a destra sopra la tabella, mentre TOP_SET_BACKOFF/SUPERSET lo hanno **a lato dell'ultima colonna** dentro la testata.
+Il body della card resterà separato dall’header e conterrà solo il rendering condizionale dell’editor:
+- `SET` → `SetsTable`
+- `TOP_SET_BACKOFF` → editor dedicato esistente
+- `EMOM` / `AMRAP` → editor dedicati esistenti
+- `SUPERSET` → `SupersetEditor`
+- altri → paramFields generici
 
-Nota: il SET standard non mostra al PT un campo "Serie" sopra la tabella (il `paramFields` `sets` non viene renderizzato perché `if (ptype === 'SET')` ritorna direttamente `<SetsTable>`), quindi non c'è disallineamento "numero sopra ↔ tabella" da gestire — la tabella è l'unica fonte e `te.sets` viene riallineato sul salvataggio.
+Il `SupersetEditor` non dovrà mai coprire, sostituire o disabilitare il cestino principale né gli altri controlli dell’header. Se necessario per evitare che vengano coperti durante lo scroll, applicherò una correzione di layout minima al wrapper dell’header (es. sticky/z-index/background), senza spostare logica negli editor figli.
 
-## Modifica proposta
+### 2. Blindare il ramo `SUPERSET`
+- Verificherò che il confronto usi sempre `SUPERSET` esatto.
+- Verificherò che il branch custom `SUPERSET` venga valutato prima del fallback generico `paramFields`.
+- Confermerò che venga usato l’import corretto di `SupersetEditor`, senza UI legacy o banner sostitutivi.
+- Garantirò che `SupersetEditor` venga montato nel body della card, non come `return` che rimpiazza l’intera card/header.
 
-Una sola micro-modifica UI in `src/components/pt/TemplateExerciseBuilder.tsx` nel componente `SetsTable` (righe ~1206-1224):
+### 3. Garantire i dati attesi in `SupersetEditor.tsx`
+- Terrò il binding su `protocol_params.set_data` come fonte di verità della tabella set.
+- Verificherò che restino visibili e funzionanti:
+  - input `Numero superset`
+  - tabella con colonne `Set 1`, `Set 2`, `Set 3`...
+  - pulsante `+ Set` in alto a destra
+  - cestino sotto ogni colonna set
+- Verificherò che le azioni aggiornino correttamente `supersets_count` senza alterare il numero esercizi.
 
-1. **Rimuovere** il bottone "+ Set" dall'intestazione superiore (la riga `<div className="flex items-center justify-between mb-2">` resta solo con l'etichetta "Set").
-2. **Aggiungere** una `<th>` finale nell'`<thead>` contenente lo stesso bottone "+ Set" piccolo, identico per stile a quello di TOP_SET_BACKOFF/SUPERSET (`<Button variant="outline" size="sm" className="h-7 px-2 text-[11px]"><Plus className="h-3 w-3 mr-0.5" /> Set</Button>`).
-3. **Aggiungere** una `<td />` vuota corrispondente in ognuna delle 4 righe `<tbody>` (Reps, Kg, Rec, riga cestini) per mantenere l'allineamento delle colonne.
+### 4. Hardening della normalizzazione SUPERSET
+- Se necessario, rafforzerò la normalizzazione in memoria per garantire sempre:
+  - `supersets_count >= 1`
+  - `exercises_count >= 1`
+  - `exercises` presente
+  - `set_data` presente e coerente con righe/colonne
+- Nessun salvataggio automatico al mount.
+- Preserverò i dati già inseriti quando si aggiungono/rimuovono colonne o si cambia il numero di superset.
 
-Nessuna modifica a logica, handler (`addSet`, `removeSet`, `updateSet`), tipi, normalizzazione, o salvataggio. Nessun tocco a TOP_SET_BACKOFF, SUPERSET, altri protocolli, DB, RLS, auth, sidebar, archivio esercizi, lato atleta.
+### 5. QA mirata nel preview
+Test obbligatori:
+1. Selezione `SUPERSET`:
+   - select protocollo visibile e cliccabile
+   - cestino principale esercizio visibile e cliccabile in alto a destra
+   - compare `Numero superset`
+   - compare tabella set
+   - compare `+ Set`
+2. Click sul cestino principale con SUPERSET attivo:
+   - l’intero esercizio viene eliminato dal template
+   - usa la stessa mutation `removeExerciseMutation` degli altri protocolli
+3. Click su `+ Set`:
+   - `Numero superset` aumenta
+   - la tabella aggiunge una colonna
+4. Modifica manuale di `Numero superset`:
+   - la tabella si riallinea
+5. Cambio protocollo:
+   - `SUPERSET → SET`
+   - `SUPERSET → EMOM`
+   - `SUPERSET → AMRAP`
+   - `SUPERSET → TOP_SET_BACKOFF`
+   l’editor Superset scompare e compare l’editor corretto.
 
-## QA dopo la modifica
+## Dettagli tecnici
+- File principali:
+  - `src/components/pt/TemplateExerciseBuilder.tsx`
+  - `src/components/pt/protocols/SupersetEditor.tsx`
+- File di supporto solo se necessario alla coerenza dati:
+  - `src/lib/protocols/superset.ts`
+- Nessuna modifica a: database, RLS, auth, sidebar, lato atleta, altri protocolli (`EMOM`, `AMRAP`, `SET`, `TOP_SET_BACKOFF`, `RAMPING`).
 
-- SET standard: "+ Set" appare a lato dell'ultima colonna, cestino sotto ogni colonna, `te.sets` resta sincronizzato, valori manuali preservati, non scende sotto 1 set.
-- TOP_SET_BACKOFF: nessuna regressione (intoccato), kg auto/manuali corretti.
-- SUPERSET: nessuna regressione (intoccato), numero esercizi invariato quando si aggiunge/rimuove un set.
+## Nota
+Dall’analisi attuale, `SupersetEditor` è già importato e include già `Numero superset`, `+ Set` e cestino colonne; il fix si concentrerà sul montaggio del ramo `SUPERSET` nel body e sulla stabilità dell’header (incluso il cestino principale), con hardening minimo dei dati solo se serve.
