@@ -98,6 +98,10 @@ export type ProtocolParams = {
     }>;
   }> | null;
   // (rest_seconds, rounds, mode, note già presenti sopra — TABATA/HIIT/RXT/RUNNING_TOTAL li riusano)
+  // TIMED ROUNDS (HIIT + TABATA nuovo schema condiviso)
+  exercise_duration_seconds?: number | null;
+  rest_between_exercises_seconds?: number | null;
+  rest_between_rounds_seconds?: number | null;
 };
 
 export type ParamFieldType = 'number' | 'text' | 'select' | 'exercise_select' | 'number_list';
@@ -567,27 +571,15 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     description:
       'Circuito a tempo con alternanza fissa lavoro / riposo. Round ripetuti con intervalli di lavoro e recupero gestiti automaticamente.',
     defaultParams: {
-      work_seconds: 20,
-      rest_seconds: 20,
+      exercises_count: 1,
+      exercise_duration_seconds: 20,
+      rest_between_exercises_seconds: 10,
+      rest_between_rounds_seconds: 60,
       rounds: 8,
-      mode: 'single',
+      exercises: [],
       note: '',
     },
-    paramFields: [
-      { key: 'work_seconds', label: 'Lavoro (s)', type: 'number', min: 1, step: 5, placeholder: '20' },
-      { key: 'rest_seconds', label: 'Riposo (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
-      { key: 'rounds', label: 'Round totali', type: 'number', min: 1, placeholder: '8' },
-      {
-        key: 'mode',
-        label: 'Modalità',
-        type: 'select',
-        options: [
-          { value: 'single', label: 'Singolo (stesso esercizio)' },
-          { value: 'alternating', label: 'Alternato (esercizi alternati)' },
-        ],
-      },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o variazione', hint: 'Indicazioni libere per l\'atleta' },
-    ],
+    paramFields: [],
     executionMode: 'rounds',
     sections: {
       coachSets: [
@@ -624,17 +616,15 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     description:
       'Circuito a tempo con numero preciso di intervalli totali e tempi lavoro/pausa configurabili. Gli esercizi vengono eseguiti a rotazione per il numero totale di intervalli indicato. Tabata usa round canonici e una struttura classica; HIIT usa intervalli liberi, durata personalizzabile e rotazione esercizi più flessibile.',
     defaultParams: {
-      work_seconds: 40,
-      rest_seconds: 20,
-      intervals_total: 12,
+      exercises_count: 1,
+      exercise_duration_seconds: 40,
+      rest_between_exercises_seconds: 20,
+      rest_between_rounds_seconds: 60,
+      rounds: 4,
+      exercises: [],
       note: '',
     },
-    paramFields: [
-      { key: 'work_seconds', label: 'Lavoro (s)', type: 'number', min: 1, step: 5, placeholder: '40' },
-      { key: 'rest_seconds', label: 'Riposo (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
-      { key: 'intervals_total', label: 'Intervalli totali', type: 'number', min: 1, placeholder: '12' },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o rotazione esercizi', hint: 'Indicazioni libere per l\'atleta' },
-    ],
+    paramFields: [],
     executionMode: 'rounds',
     sections: {
       coachSets: [
@@ -825,17 +815,14 @@ export function describeExerciseProtocol(
       const start = p.start_reps ?? 1;
       return `Dead Ladder ${sets}× (start ${start})`;
     }
-    case 'TABATA': {
-      const rounds = p.rounds ?? 8;
-      const work = p.work_seconds ?? 20;
-      const rest = p.rest_seconds ?? 20;
-      return `Tabata ${rounds}× (${work}"/${rest}")`;
-    }
+    case 'TABATA':
     case 'HIIT': {
-      const intervals = p.intervals_total ?? 12;
-      const work = p.work_seconds ?? 40;
-      const rest = p.rest_seconds ?? 20;
-      return `HIIT ${intervals}× (${work}"W/${rest}"R)`;
+      const rounds = p.rounds ?? (type === 'HIIT' ? 4 : 8);
+      const work = p.exercise_duration_seconds ?? p.work_seconds ?? (type === 'HIIT' ? 40 : 20);
+      const rest = p.rest_between_exercises_seconds ?? p.rest_seconds ?? 20;
+      const exCount = Array.isArray(p.exercises) ? p.exercises.length : (p.exercises_count ?? 1);
+      const label = type === 'HIIT' ? 'HIIT' : 'Tabata';
+      return `${label} ${rounds}× round, ${exCount} es. (${work}"/${rest}")`;
     }
     case 'RXT': {
       const rounds = p.rounds ?? 5;
@@ -893,17 +880,13 @@ export function describeBlockForAthlete(type: ProtocolType, params: ProtocolPara
       const sets = p.sets ?? 1;
       return `${sets} scale a cedimento`;
     }
-    case 'TABATA': {
-      const rounds = p.rounds ?? 8;
-      const work = p.work_seconds ?? 20;
-      const rest = p.rest_seconds ?? 20;
-      return `${rounds} round a intervalli ${work}" lavoro / ${rest}" riposo`;
-    }
+    case 'TABATA':
     case 'HIIT': {
-      const intervals = p.intervals_total ?? 12;
-      const work = p.work_seconds ?? 40;
-      const rest = p.rest_seconds ?? 20;
-      return `${intervals} intervalli ${work}" lavoro / ${rest}" riposo`;
+      const rounds = p.rounds ?? (type === 'HIIT' ? 4 : 8);
+      const work = p.exercise_duration_seconds ?? p.work_seconds ?? (type === 'HIIT' ? 40 : 20);
+      const rest = p.rest_between_exercises_seconds ?? p.rest_seconds ?? 20;
+      const exCount = Array.isArray(p.exercises) ? p.exercises.length : (p.exercises_count ?? 1);
+      return `${rounds} round × ${exCount} esercizi (${work}" lavoro / ${rest}" riposo)`;
     }
     case 'RXT': {
       const rounds = p.rounds ?? 5;

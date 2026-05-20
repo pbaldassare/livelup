@@ -73,6 +73,8 @@ import { ProtocolInfoPopover } from '@/components/protocols/ProtocolInfoPopover'
 import { EmomBlocksEditor } from '@/components/pt/protocols/EmomBlocksEditor';
 import { AmrapEditor } from '@/components/pt/protocols/AmrapEditor';
 import { SupersetEditor } from '@/components/pt/protocols/SupersetEditor';
+import { TimedRoundsEditor } from '@/components/pt/protocols/TimedRoundsEditor';
+import { normalizeTimedRoundsParams } from '@/lib/protocols/timedRounds';
 import { normalizeAmrapParams } from '@/lib/protocols/amrap';
 import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
@@ -915,6 +917,27 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     );
                                   }
 
+                                  // HIIT / TABATA: editor condiviso a tempo + lista esercizi
+                                  if (ptype === 'HIIT' || ptype === 'TABATA') {
+                                    const trValue = normalizeTimedRoundsParams(
+                                      params as Record<string, unknown>,
+                                    );
+                                    return (
+                                      <TimedRoundsEditor
+                                        value={trValue}
+                                        title={ptype}
+                                        exerciseOptions={allTemplateExerciseOptions}
+                                        onChange={(next) => {
+                                          updateProtocolParamMutation.mutate({
+                                            id: te.id,
+                                            params: next as unknown as ProtocolParams,
+                                          });
+                                        }}
+                                      />
+                                    );
+                                  }
+
+
                                   return (
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
@@ -1050,20 +1073,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </p>
                                         </div>
                                       )}
-                                      {ptype === 'TABATA' && (
-                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
-                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
-                                            <span className="font-semibold">Nota:</span> l'esercizio verrà eseguito a intervalli di lavoro e recupero, ripetuti automaticamente. Lo stato (LAVORO / RIPOSO), il contatore round e il nome dell'esercizio corrente verranno mostrati all'atleta durante l'allenamento.
-                                          </p>
-                                        </div>
-                                      )}
-                                      {ptype === 'HIIT' && (
-                                        <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
-                                          <p className="text-[11px] text-foreground/80 leading-relaxed">
-                                            <span className="font-semibold">Nota:</span> Protocollo a intervalli flessibili con rotazione esercizi e tempi configurabili. La struttura atleta mostrerà stato LAVORO / PAUSA, intervallo corrente / totale, esercizio corrente e anteprima del prossimo esercizio.
-                                          </p>
-                                        </div>
-                                      )}
+                                      {/* HIIT e TABATA: rendering gestito da TimedRoundsEditor sopra (early return) */}
+
                                       {ptype === 'RXT' && (
                                         <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
                                           <p className="text-[11px] text-foreground/80 leading-relaxed">
