@@ -558,7 +558,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       {te.exercise?.category} • {te.exercise?.muscle_groups.join(', ')}
                                     </p>
                                   </div>
-                                  <div className="flex items-center gap-1 shrink-0">
+                                  <div className="flex items-center gap-2 shrink-0">
                                     {/* Selettore Protocollo */}
                                     <Select
                                       value={(te.protocol_type as ProtocolType) || 'SET'}
