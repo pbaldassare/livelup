@@ -1,122 +1,159 @@
 ## Obiettivo
 
-Trasformare i protocolli esistenti **HIIT** e **TABATA** in protocolli multi-esercizio a tempo, **condividendo esattamente lo stesso editor, la stessa struttura dati e la stessa normalizzazione**. L'unica differenza tra HIIT e TABATA in questo step è il titolo/nome visualizzato. Nessun nuovo protocollo, nessuna modifica a DB/RLS/auth/sidebar/altri protocolli/lato atleta.
+Aggiungere un player atleta dedicato e condiviso per HIIT e TABATA, basato sui nuovi `protocol_params` (TimedRounds). Stessa identica logica per i due protocolli, unica differenza il titolo. Nessun nuovo protocollo, nessuna modifica a DB/RLS/auth/sidebar/builder PT/altri protocolli.
 
-## Cosa cambia
+## Logica di esecuzione
 
-### 1. Nuovo modulo dati condiviso `src/lib/protocols/timedRounds.ts`
+Per round `r` di `R` con esercizi `E1…En`:
 
-Type e helper UNICI per HIIT e TABATA:
-
-```ts
-type TimedRoundsExercise = {
-  id: string;                // uuid locale riga
-  exercise_id?: string;      // id esercizio del template, se selezionato
-  name: string;              // nome (sempre presente, fallback per legacy)
-  notes?: string;
-};
-
-type TimedRoundsParams = {
-  exercises_count: number;
-  exercise_duration_seconds: number;
-  rest_between_exercises_seconds: number;
-  rest_between_rounds_seconds: number;
-  rounds: number;
-  exercises: TimedRoundsExercise[];
-};
+```text
+work E1 → rest_ex → work E2 → rest_ex → … → work En
+                                              ├─ r < R → rest_round → round r+1 (E1)
+                                              └─ r = R → fine (auto-advance workout)
 ```
 
-Helper:
-- `makeTimedRoundsExercise()` — crea riga vuota con uuid.
-- `syncExercisesCount(list, n)` — porta `exercises.length === n` (aggiunge righe vuote o taglia).
-- `normalizeTimedRoundsParams(raw)` — **unica** funzione, usata sia per HIIT che TABATA. Normalizza in memoria i legacy (`work_seconds`, `rest_seconds`, `rounds`, `intervals_total`, eventuale `mode`) verso il nuovo schema, con fallback:
-  - `exercises_count = 1`
-  - `exercise_duration_seconds = 40`
-  - `rest_between_exercises_seconds = 20`
-  - `rest_between_rounds_seconds = 60`
-  - `rounds = 4`
-  - `exercises = [makeTimedRoundsExercise()]` se mancante
-- Nessuna scrittura DB automatica al mount: il commit avviene solo su modifica del PT.
+Se `rest_between_exercises_seconds === 0` o `rest_between_rounds_seconds === 0` la relativa fase è saltata.
 
-### 2. Nuovo editor condiviso `src/components/pt/protocols/TimedRoundsEditor.tsx`
+## File nuovi / modificati
 
-**Un solo componente** usato sia per HIIT che per TABATA.
+### 1. Nuovo: `src/components/app/AtletaTimedRoundsPlayer.tsx`
+
+Player UNICO per HIIT e TABATA, modellato 1:1 su `AtletaEmomPlayer` (stesso dark theme + lime).
 
 Props:
 ```ts
 {
-  value: TimedRoundsParams;
-  onChange: (next: TimedRoundsParams) => void;
-  exerciseOptions: { id: string; name: string }[]; // = allTemplateExerciseOptions
-  title?: string; // "HIIT" | "TABATA" — unica differenza
+  protocolLabel: 'HIIT' | 'TABATA';   // unica differenza visibile
+  exerciseName: string;                // fallback se un item non ha name
+  protocolParams: Record<string, unknown> | null | undefined;
+  onFinished: (summary: {
+    roundsCompleted: number;
+    totalDurationSeconds: number;
+  }) => void;
 }
 ```
 
-UI:
-- **Dati generali** (griglia responsive): Numero esercizi, Durata esercizio (s), Recupero tra esercizi (s), Recupero tra round (s), Numero round.
-  - Modificare "Numero esercizi" chiama `syncExercisesCount`.
-- **Lista esercizi interni**:
-  - Per ogni riga: combobox Popover+Command (stesso pattern di `SupersetEditor`) alimentato da `exerciseOptions`, campo note opzionale, cestino (disabilitato se `exercises_count === 1`).
-  - Quando il PT seleziona un esercizio dal dropdown, salvare **sempre sia `exercise_id` sia `name`**. Se `exercise_id` non è disponibile (input libero/legacy), salvare almeno `name` per garantire la leggibilità.
-  - Pulsante "+ Aggiungi esercizio" in fondo (incrementa `exercises_count` e aggiunge una riga).
-- **NIENTE** reps, kg, set, tabella set.
-- Eliminare un esercizio decrementa `exercises_count`; non si scende mai sotto 1.
+Stato interno:
+```ts
+type Phase = 'work' | 'rest_between_exercises' | 'rest_between_rounds';
+{ phase, round, exerciseIndex, secondsLeft, isRunning, hasStarted }
+```
 
-### 3. Wiring in `TemplateExerciseBuilder.tsx`
+**Niente stato `finished` visibile**. Quando l'ultimo work dell'ultimo round termina (o viene saltato), si chiama `onFinished` **una sola volta** e basta — il branch del `GuidedWorkoutFlow` smonta il player e fa avanzare il workout. L'utente NON deve cliccare nessun bottone per uscire.
 
-- Importare `TimedRoundsEditor` e `normalizeTimedRoundsParams`.
-- **Un singolo branch** condiviso HIIT/TABATA, prima del fallback generico:
-  ```tsx
-  if (ptype === 'HIIT' || ptype === 'TABATA') {
-    const v = normalizeTimedRoundsParams(params);
-    return (
-      <TimedRoundsEditor
-        value={v}
-        title={ptype}  // "HIIT" oppure "TABATA"
-        exerciseOptions={allTemplateExerciseOptions}
-        onChange={(next) => updateProtocolParamMutation.mutate({
-          id: te.id, params: next as unknown as ProtocolParams,
-        })}
+Timer robusto (uguale a EMOM ma timestamp-based per evitare drift in background):
+- `phaseStartedAt` (ms) + `phaseDuration` (s); ad ogni tick (250ms) `secondsLeft = phaseDuration - floor((now - phaseStartedAt)/1000)`.
+- Un singolo `setInterval` con cleanup completo nel return dell'effect.
+- `isCompletingRef = useRef(false)` per garantire **un solo `onFinished`** anche se l'utente preme "Salta fase" più volte velocemente sull'ultima fase, o se l'effetto di transizione fire due volte.
+- `accumulatedSecondsRef` aggiornato solo quando una fase **work** finisce o viene saltata, per il totale durata salvato nel log.
+
+Funzione `advancePhase()` (unica via di transizione, chiamata sia dal tick a 0 sia da "Salta fase"):
+- `work`:
+  - se `exerciseIndex < n-1`: → `rest_between_exercises` (skip se 0).
+  - altrimenti se `round < R`: → `rest_between_rounds` (skip se 0).
+  - altrimenti: **`finish()`** → set `isCompletingRef`, stop timer, chiama `onFinished({ roundsCompleted: R, totalDurationSeconds })` una sola volta.
+- `rest_between_exercises` → `work` con `exerciseIndex + 1`.
+- `rest_between_rounds` → `work` con `round + 1`, `exerciseIndex = 0`.
+
+Controlli (solo questi, come EMOM):
+- **Inizia HIIT/TABATA** (prima dello start).
+- **Pausa / Riprendi**.
+- **Salta fase** (SkipForward); sull'ultima fase porta direttamente a `finish()` e quindi a `onFinished`.
+
+Nessun bottone "Termina", nessuna schermata di "Protocollo completato" interna al player: l'auto-advance è gestito fuori.
+
+UI (dark theme atleta, lime accents — coerente con EMOM):
+- Header: `HIIT` o `TABATA`, `Round r di R`, `Esercizio i di n`.
+- Cerchio timer grande (stesso SVG di EMOM), tabular-nums.
+- Card con nome esercizio corrente; nelle fasi di rest mostra "Prossimo: <nome>" o "Prossimo round x di R".
+- Etichetta fase: `Lavoro` / `Recupero` / `Recupero round` / `Pronto` / `In pausa`.
+
+### 2. Modificato: `src/components/app/GuidedWorkoutFlow.tsx`
+
+Aggiungo un branch dedicato subito dopo quello EMOM (linee ~385–469), prima del rendering set-based generico. Il blocco `onFinished` è una copia 1:1 di quello EMOM, così l'avanzamento è identico:
+
+```tsx
+if (currentExercise.protocol_type === 'HIIT' || currentExercise.protocol_type === 'TABATA') {
+  return (
+    <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
+      {/* stessa top progress bar di EMOM */}
+      <AtletaTimedRoundsPlayer
+        key={currentExercise.id}
+        protocolLabel={currentExercise.protocol_type as 'HIIT' | 'TABATA'}
+        exerciseName={currentExercise.exercises.name}
+        protocolParams={currentExercise.protocol_params ?? null}
+        onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
+          // 1) salva log UNA volta
+          try {
+            await saveSet.mutateAsync({
+              workoutExerciseId: currentExercise.id,
+              setNumber: 1,
+              reps: roundsCompleted,
+              durationSeconds: totalDurationSeconds,
+              weight: 0,
+              restPlanned: 0,
+            });
+          } catch (e: any) { toast.error(e?.message || 'Errore salvataggio'); }
+
+          // 2) auto-advance IDENTICO a EMOM (single-log)
+          const isLastExercise = state.exerciseIndex >= exercises.length - 1;
+          if (isLastExercise) { dispatch({ type: 'FINISH' }); return; }
+          let nextIdx = state.exerciseIndex + 1;
+          while (nextIdx < exercises.length && state.skipped[exercises[nextIdx].id]) nextIdx++;
+          if (nextIdx >= exercises.length) { dispatch({ type: 'FINISH' }); return; }
+          dispatch({
+            type: 'GOTO_NEXT',
+            payload: {
+              exerciseIndex: nextIdx,
+              setNumber: 1,
+              flow: 'ready',
+              transitionMessage: 'Prossimo esercizio',
+            },
+          });
+        }}
       />
-    );
-  }
-  ```
-- Rimuovere i blocchi note `ptype === 'TABATA'` e `ptype === 'HIIT'` (righe 1053–1066) perché il rendering è ora gestito dall'editor dedicato.
-- `allTemplateExerciseOptions` è già la sorgente del tab "Esercizi" del template corrente (React Query già reattiva → nessun refresh manuale).
+    </div>
+  );
+}
+```
 
-### 4. `src/lib/protocols/registry.ts`
+Risultato: a fine protocollo il player viene smontato dal cambio di `currentExercise` (o dal `FINISH`); l'atleta non vede mai una schermata finale "premi per continuare", esattamente come EMOM.
 
-- Aggiornare `defaultParams` di HIIT e TABATA al nuovo schema condiviso:
-  ```ts
-  { exercises_count: 1, exercise_duration_seconds: 40,
-    rest_between_exercises_seconds: 20, rest_between_rounds_seconds: 60,
-    rounds: 4, exercises: [{ id: <uuid>, name: '' }] }
-  ```
-- Svuotare i `paramFields` di HIIT e TABATA per evitare campi duplicati nel fallback generico (non vengono più renderizzati grazie al branch dedicato).
-- Aggiornare `summarize`/preview (righe ~828 e ~896) per leggere il nuovo schema in modo difensivo (fallback ai vecchi campi se presenti, coerente con la normalizzazione in memoria).
-- Aggiornare leggermente i testi di `sections` per riflettere il nuovo modello.
+### 3. Riuso esistente
 
-### 5. Cosa NON si tocca
+- `normalizeTimedRoundsParams` (già in `src/lib/protocols/timedRounds.ts`): fallback `40 / 20 / 60 / 4` e almeno 1 esercizio per i record legacy.
+- `saveSet.mutateAsync` già usato dal flow EMOM.
+- `dispatch GOTO_NEXT` / `FINISH` del reducer esistente — nessuna nuova action.
 
-- Database, migration, RLS, auth, sidebar, archivio esercizi globale.
+## Garanzie "single-fire"
+
+| Rischio | Mitigazione |
+|---|---|
+| Doppio `onFinished` da React StrictMode o re-render | `isCompletingRef.current` settato prima della chiamata; controllato all'ingresso di `finish()`. |
+| Salva log duplicato | `saveSet.mutateAsync` chiamato solo dentro `onFinished` del flow, che è invocato una sola volta dal player. |
+| Doppio `dispatch` di avanzamento | Stesso `onFinished` esegue una sola sequenza salva→dispatch (await sulla mutation poi una sola dispatch). |
+| Tick a 0 + click "Salta fase" simultanei sull'ultima fase | `advancePhase()` legge `isCompletingRef`; se true esce subito senza re-chiamare `finish()`. |
+| App in background | Timer timestamp-based: al primo tick di ritorno recupera lo stato reale e, se la fase è scaduta, esegue `advancePhase()` una sola volta. |
+
+## Cosa NON si tocca
+
+- DB, migration, RLS, auth, sidebar.
+- Builder PT (TimedRoundsEditor invariato).
 - Protocolli SET, SUPERSET, EMOM, AMRAP, TOP_SET_BACKOFF, RAMPING, LADDER, DEAD_LADDER, RXT, RUNNING_TOTAL.
-- Lato atleta (player/timer HIIT/TABATA): la normalizzazione in memoria garantisce che il rendering atleta legacy continui a funzionare leggendo i campi vecchi.
-
-## File modificati / creati
-
-- **Nuovo:** `src/lib/protocols/timedRounds.ts`
-- **Nuovo:** `src/components/pt/protocols/TimedRoundsEditor.tsx`
-- **Modificato:** `src/components/pt/TemplateExerciseBuilder.tsx` (import + branch unico HIIT/TABATA + rimozione note inline)
-- **Modificato:** `src/lib/protocols/registry.ts` (defaultParams, paramFields, summarize/preview per HIIT e TABATA)
+- Reducer `GuidedWorkoutFlow` (uso le action esistenti).
 
 ## QA
 
-1. Aprire un template, aggiungere esercizio, scegliere HIIT → compare editor con dati generali + 1 riga esercizio.
-2. Cambiare "Numero esercizi" a 3 → 3 righe; ridurre a 2 → 2 righe.
-3. Cliccare "+ Aggiungi esercizio" → aggiunge riga, counter sale.
-4. Cestino su riga → rimuove e decrementa; con 1 sola riga il cestino è disabilitato.
-5. Dropdown esercizi mostra tutti gli esercizi del template corrente; aggiungendone uno nel tab "Esercizi" compare nel dropdown senza refresh manuale.
-6. Selezionando un esercizio dal dropdown → in `protocol_params.exercises[i]` sono salvati sia `exercise_id` sia `name`.
-7. Cambiando protocollo da HIIT a TABATA → stesso editor, stessi dati, solo titolo diverso.
-8. Aprire un HIIT/TABATA legacy → si vede l'editor con valori normalizzati; nessuna scrittura finché il PT non modifica nulla.
-9. SET, SUPERSET, EMOM, AMRAP e gli altri protocolli restano invariati.
+1. **HIIT 3 × 3 round** (40/20/60): A→rest→B→rest→C → rest_round → … ; dopo l'ultimo C del round 3 → log + auto-advance, nessuna schermata "finished".
+2. **TABATA 2 × 4 round** (20/10/60): stesso comportamento, solo titolo "TABATA".
+3. **HIIT come ultimo esercizio** → log salvato, `FINISH` chiamato, workout terminato senza interazione.
+4. **HIIT intermedio** → log salvato, `GOTO_NEXT` al prossimo esercizio set-based.
+5. **Pausa/Riprendi**: nessun drift, nessun doppio tick.
+6. **Salta fase ripetuto sull'ultima fase**: log salvato 1 volta, dispatch chiamato 1 volta.
+7. **`rest_between_exercises = 0`** o **`rest_between_rounds = 0`**: fase saltata.
+8. **HIIT/TABATA legacy senza `exercises`**: normalizer crea fallback, player parte usando `exerciseName`.
+
+## File toccati
+
+- **Nuovo:** `src/components/app/AtletaTimedRoundsPlayer.tsx`
+- **Modificato:** `src/components/app/GuidedWorkoutFlow.tsx` (un solo branch HIIT/TABATA dopo EMOM)
