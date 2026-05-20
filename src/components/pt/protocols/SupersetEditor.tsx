@@ -264,8 +264,8 @@ export function SupersetEditor({
             key={ex.id}
             className="rounded-md border border-dashed bg-background p-2 space-y-2"
           >
-            <div className="grid grid-cols-12 gap-2 items-end">
-              <div className="col-span-12 md:col-span-6 space-y-1">
+            <div className="flex flex-col md:flex-row md:items-end gap-2">
+              <div className="flex-1 min-w-0 space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Esercizio</Label>
                 <ExerciseCombobox
                   value={ex.name}
@@ -275,54 +275,55 @@ export function SupersetEditor({
                   }
                 />
               </div>
-              <div className="col-span-6 md:col-span-2 space-y-1">
-                <Label className="text-[10px] text-muted-foreground">Reps</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={ex.reps}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    updateExercise(eIdx, {
-                      reps: Number.isFinite(n) && n > 0 ? Math.floor(n) : 1,
-                    });
-                  }}
-                  className="h-8"
-                />
-              </div>
-              <div className="col-span-5 md:col-span-3 space-y-1">
-                <Label className="text-[10px] text-muted-foreground">Kg</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={ex.weight ?? ''}
-                  placeholder="—"
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    if (raw === '') {
-                      updateExercise(eIdx, { weight: null });
-                      return;
-                    }
-                    const n = Number(raw);
-                    updateExercise(eIdx, {
-                      weight: Number.isFinite(n) && n >= 0 ? n : null,
-                    });
-                  }}
-                  className="h-8"
-                />
-              </div>
-              <div className="col-span-1 flex justify-end">
+              <div className="flex items-end gap-2">
+                <div className="w-20 space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Reps</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={ex.reps}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      updateExercise(eIdx, {
+                        reps: Number.isFinite(n) && n > 0 ? Math.floor(n) : 1,
+                      });
+                    }}
+                    className="h-9"
+                  />
+                </div>
+                <div className="w-24 space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Kg</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={ex.weight ?? ''}
+                    placeholder="—"
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        updateExercise(eIdx, { weight: null });
+                        return;
+                      }
+                      const n = Number(raw);
+                      updateExercise(eIdx, {
+                        weight: Number.isFinite(n) && n >= 0 ? n : null,
+                      });
+                    }}
+                    className="h-9"
+                  />
+                </div>
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
                   disabled={value.exercises.length <= 1}
                   onClick={() => removeExercise(eIdx)}
                   aria-label="Elimina esercizio"
+                  title="Elimina esercizio"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </div>
