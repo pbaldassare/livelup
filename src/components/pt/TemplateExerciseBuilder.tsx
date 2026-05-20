@@ -917,6 +917,27 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     );
                                   }
 
+                                  // HIIT / TABATA: editor condiviso a tempo + lista esercizi
+                                  if (ptype === 'HIIT' || ptype === 'TABATA') {
+                                    const trValue = normalizeTimedRoundsParams(
+                                      params as Record<string, unknown>,
+                                    );
+                                    return (
+                                      <TimedRoundsEditor
+                                        value={trValue}
+                                        title={ptype}
+                                        exerciseOptions={allTemplateExerciseOptions}
+                                        onChange={(next) => {
+                                          updateProtocolParamMutation.mutate({
+                                            id: te.id,
+                                            params: next as unknown as ProtocolParams,
+                                          });
+                                        }}
+                                      />
+                                    );
+                                  }
+
+
                                   return (
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
