@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AtletaEmomPlayer } from '@/components/app/AtletaEmomPlayer';
+import { AtletaTimedRoundsPlayer } from '@/components/app/AtletaTimedRoundsPlayer';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
 
 // =====================================================
@@ -440,6 +441,81 @@ export function GuidedWorkoutFlow({
             // EMOM è un protocollo single-log: forziamo il passaggio al
             // prossimo esercizio (o la fine workout) bypassando la logica
             // di setNumber/totalSets che vale solo per protocolli set-based.
+            const isLastExercise = state.exerciseIndex >= exercises.length - 1;
+            if (isLastExercise) {
+              dispatch({ type: 'FINISH' });
+              return;
+            }
+            let nextIdx = state.exerciseIndex + 1;
+            while (nextIdx < exercises.length && state.skipped[exercises[nextIdx].id]) {
+              nextIdx++;
+            }
+            if (nextIdx >= exercises.length) {
+              dispatch({ type: 'FINISH' });
+              return;
+            }
+            dispatch({
+              type: 'GOTO_NEXT',
+              payload: {
+                exerciseIndex: nextIdx,
+                setNumber: 1,
+                flow: 'ready',
+                transitionMessage: 'Prossimo esercizio',
+              },
+            });
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Branch dedicato HIIT/TABATA: player condiviso a tempo con auto-advance.
+  if (currentExercise.protocol_type === 'HIIT' || currentExercise.protocol_type === 'TABATA') {
+    const protocolLabel = currentExercise.protocol_type as 'HIIT' | 'TABATA';
+    return (
+      <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
+        <div className="px-4 pt-4 pb-2">
+          <div className="flex gap-1">
+            {exercises.map((ex, idx) => {
+              const isCurrent = idx === state.exerciseIndex;
+              const isDone = idx < state.exerciseIndex || !!state.skipped[ex.id];
+              return (
+                <div
+                  key={ex.id}
+                  className={cn(
+                    'flex-1 h-1 rounded-full',
+                    isDone ? 'bg-app-accent' : isCurrent ? 'bg-app-accent/50' : 'bg-app-muted',
+                  )}
+                />
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-xs text-app-muted-foreground">
+              Esercizio {state.exerciseIndex + 1}/{exercises.length}
+            </span>
+          </div>
+        </div>
+
+        <AtletaTimedRoundsPlayer
+          key={currentExercise.id}
+          protocolLabel={protocolLabel}
+          exerciseName={currentExercise.exercises.name}
+          protocolParams={currentExercise.protocol_params ?? null}
+          onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
+            try {
+              await saveSet.mutateAsync({
+                workoutExerciseId: currentExercise.id,
+                setNumber: 1,
+                reps: roundsCompleted,
+                durationSeconds: totalDurationSeconds,
+                weight: 0,
+                restPlanned: 0,
+              });
+            } catch (e: any) {
+              toast.error(e?.message || `Errore salvataggio ${protocolLabel}`);
+            }
+            // Single-log + auto-advance identico a EMOM
             const isLastExercise = state.exerciseIndex >= exercises.length - 1;
             if (isLastExercise) {
               dispatch({ type: 'FINISH' });
