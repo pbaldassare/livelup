@@ -73,6 +73,8 @@ import { ProtocolInfoPopover } from '@/components/protocols/ProtocolInfoPopover'
 import { EmomBlocksEditor } from '@/components/pt/protocols/EmomBlocksEditor';
 import { AmrapEditor } from '@/components/pt/protocols/AmrapEditor';
 import { SupersetEditor } from '@/components/pt/protocols/SupersetEditor';
+import { TimedRoundsEditor } from '@/components/pt/protocols/TimedRoundsEditor';
+import { normalizeTimedRoundsParams } from '@/lib/protocols/timedRounds';
 import { normalizeAmrapParams } from '@/lib/protocols/amrap';
 import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
