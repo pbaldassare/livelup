@@ -190,7 +190,7 @@ export function SupersetEditor({
   };
 
   return (
-    <div className="rounded-md border bg-muted/20 p-3 space-y-4">
+    <div className="rounded-md border bg-muted/20 p-3 space-y-4 min-w-0 max-w-full overflow-hidden">
       <p className="text-xs font-medium text-muted-foreground">Configurazione Superset</p>
 
       {/* A — Dati generali */}

@@ -1,66 +1,55 @@
 ## Obiettivo
+Correggere solo il rendering del protocollo SUPERSET nel builder PT, mantenendo invariata la logica esistente e senza toccare database, auth, sidebar, lato atleta o altri protocolli.
 
-Correggere due problemi di rendering del protocollo SUPERSET nel builder PT, senza toccare DB, RLS, auth, sidebar, altri protocolli o lato atleta.
+## Principio guida
+Il cestino principale della card esiste già nel DOM anche con `protocol_type === "SUPERSET"` (riga 621–628 di `TemplateExerciseBuilder.tsx`, stesso `removeExerciseMutation` degli altri protocolli). Quindi il fix è di **layout/visibilità**, non di nuovi pulsanti.
 
-## Problema 1 — Layout SupersetEditor / cestino esercizio interno tagliato
+- Non duplicare il cestino.
+- Non creare una nuova funzione di eliminazione.
+- Non creare un pulsante separato solo per Superset.
+- Riutilizzare l’header e il cestino esistenti, risolvendo cosa li nasconde.
 
-File: `src/components/pt/protocols/SupersetEditor.tsx`
+## Intervento
 
-Nella sezione "Esercizi del Superset" (linee ~260-345), ogni riga usa `grid grid-cols-12 gap-2` con il cestino interno in `col-span-1`. Su molte viewport `col-span-1` (≈8% della riga) è troppo stretto e il bottone (`h-8 w-8`) viene compresso, tagliato o difficile da cliccare; inoltre Reps/Kg restano stretti.
+1. **Header card esercizio — visibilità del cestino esistente** (`src/components/pt/TemplateExerciseBuilder.tsx`)
+   - Verificare e correggere nell’ordine i possibili colpevoli del clipping/coverage:
+     - `overflow-hidden` sulla `Card` esterna che taglia elementi del gruppo azioni
+     - larghezza del gruppo azioni a destra non garantita (manca `shrink-0` o ha gap insufficiente)
+     - select protocollo troppo largo (`w-[140px]`) che spinge fuori cestino su viewport stretti
+     - elementi del body SupersetEditor che invadono visivamente l’header (es. residui di posizionamento)
+     - `min-w-0` mancante sul blocco titolo a sinistra, che fa traboccare nome esercizio e schiaccia le azioni
+   - Mantenere l’header **identico per tutti i protocolli**: nome, categoria/muscoli, select protocollo, info, “Sposta in…”, cestino principale rosso.
+   - Il cestino principale rimane lo stesso bottone già esistente, con la stessa `removeExerciseMutation`.
 
-Interventi:
+2. **Layout stabile delle righe interne del Superset** (`src/components/pt/protocols/SupersetEditor.tsx`)
+   - Riga desktop con struttura non comprimibile:
+     - esercizio flessibile con `min-w-0`
+     - reps a larghezza fissa
+     - kg a larghezza fissa
+     - cestino interno con `shrink-0`, mai tagliato
+   - Note su seconda riga full width.
+   - Mobile: cestino sempre visibile e cliccabile, senza `absolute`, senza wrapper con `overflow-hidden`.
 
-1. Sostituire il grid `cols-12` con un layout responsive più chiaro:
-   - Desktop (`md:`): `flex items-end gap-2` con
-     - Esercizio: `flex-1 min-w-0`
-     - Reps: `w-20`
-     - Kg: `w-24`
-     - Cestino: `w-9 shrink-0` (bottone `h-9 w-9`, mai compresso)
-   - Mobile: layout a wrap
-     - Esercizio: full width
-     - Reps + Kg: due colonne (`grid grid-cols-2 gap-2`)
-     - Cestino: pulsante destructive "ghost" allineato a destra subito sotto, sempre visibile e cliccabile (`h-9 w-9`, non `h-8 w-8 p-0` stretto)
-2. Note: rimangono `full width` sotto la riga, invariate nel comportamento.
-3. Container esterno della riga (`rounded-md border border-dashed bg-background p-2`): lasciare invariato ma assicurare `min-w-0` sui figli flex per evitare overflow del nome esercizio lungo nel combobox.
+3. **Contenimento del SupersetEditor dentro la card**
+   - Evitare overflow orizzontale del body.
+   - Tenere `overflow-x-auto` solo sulla tabella set, dove serve.
+   - Il body non deve mai coprire o spingere l’header.
 
-## Problema 2 — Cestino principale della card "scompare" con SUPERSET
+## Vincoli rispettati
+- Nessun nuovo protocollo.
+- Nessuna nuova logica/mutation.
+- Nessun cestino duplicato o alternativo per il SUPERSET.
+- Nessuna modifica a: database/RLS, auth, sidebar, lato atleta, altri protocolli.
+- Restano invariate: numero esercizi, numero superset, recuperi, aggiunta/rimozione esercizi interni, tabella set, `+ Set`, cestino colonne, salvataggio `protocol_params` e `set_data`.
 
-File: `src/components/pt/TemplateExerciseBuilder.tsx`
-
-Nell'intervento precedente l'header dell'esercizio (linea 554) era stato reso `sticky top-2 z-20 bg-card …`. La `Card` genitore ha però `overflow-hidden` (linea 535): in questo contesto lo sticky non si comporta come previsto e l'header (con select protocollo + info + sposta + **cestino principale**) può apparire visivamente fuori posto o coperto, dando l'impressione che il cestino manchi quando si scrolla con SUPERSET attivo. Anche le icone restano in `gap-1` molto stretto e su viewport medie possono sembrare nascoste accanto allo `Select w-[140px]`.
-
-Interventi:
-
-1. Rimuovere lo `sticky top-2 z-20 bg-card py-1 -mx-1 px-1 rounded-md` dall'header (riga 554) e tornare a un header in flusso normale:
-   `flex items-start justify-between gap-2`. L'header così rimane sempre presente sopra il body, indipendentemente dal protocollo (incluso SUPERSET), ed è ben visibile senza dipendere da uno scroll-container che non c'è.
-2. Aumentare `gap-1` → `gap-2` nel gruppo destro per evitare che i 4 controlli (Select, info, "Sposta in…", cestino) appaiano accavallati.
-3. Verificare che `shrink-0` resti su tutto il gruppo destro e che `min-w-0` rimanga sul gruppo sinistro (nome esercizio), così il nome lungo non spinge fuori il cestino.
-4. Nessuna modifica alla `Select` protocollo né al branch SUPERSET (linee 899-916): `SupersetEditor` continua a montarsi nel body sotto l'header, mai al posto dell'header.
-5. Cestino principale (linee 621-628): continua a usare `removeExerciseMutation.mutate(te.id)`, identica a tutti gli altri protocolli. Nessuna modifica funzionale.
-
-## Disambiguazione cestini (nessuna modifica logica, solo conferma)
-
-- Cestino principale card (header) → `removeExerciseMutation.mutate(te.id)` — elimina l'esercizio principale dal template.
-- Cestino riga esercizio interna al SupersetEditor → `removeExercise(eIdx)` interno al componente — rimuove solo l'esercizio interno (`exercises[eIdx]`) e sincronizza `set_data`.
-- Cestino colonna Set nella tabella set → `removeSuperset(cIdx)` — decrementa `supersets_count` e rimuove la colonna.
-
-Nessuna delle tre funzioni viene modificata.
-
-## File modificati
-
-- `src/components/pt/protocols/SupersetEditor.tsx` — layout riga esercizio interna (problema 1).
-- `src/components/pt/TemplateExerciseBuilder.tsx` — rimozione `sticky` e ritocco gap dell'header card (problema 2).
-
-## File NON toccati
-
-DB, migration, RLS, auth, sidebar, archivio esercizi, lato atleta, altri protocolli (SET, EMOM, AMRAP, TOP_SET_BACKOFF, RAMPING), logica esecuzione workout, `protocol_params` (salvo gli aggiornamenti già esistenti quando si elimina un esercizio interno Superset).
+## File coinvolti
+- `src/components/pt/TemplateExerciseBuilder.tsx` (header card, wrapper, gruppo azioni)
+- `src/components/pt/protocols/SupersetEditor.tsx` (righe interne e overflow)
 
 ## QA
-
-1. Selezionare SUPERSET → header card visibile con: nome, select protocollo, info, "Sposta in…", **cestino principale**.
-2. Cliccare cestino principale → l'intero esercizio principale viene rimosso (stessa mutation degli altri protocolli).
-3. Aggiungere più esercizi interni → ogni riga mostra Esercizio / Reps / Kg / Cestino senza taglio; Note full width sotto.
-4. Cliccare cestino di una riga interna → rimuove solo quella riga interna; `set_data` e numero esercizi restano coerenti.
-5. Cliccare cestino sotto colonna Set → rimuove solo quel set/superset.
-6. Cambiare protocollo da SUPERSET a SET / EMOM / AMRAP → editor Superset sparisce, header con cestino principale resta funzionante.
-7. Test responsive: viewport ~375px (mobile) e ~1280px (desktop) → cestino interno mai tagliato.
+1. **SET**: cestino principale visibile e funzionante.
+2. **SUPERSET**: stesso header, **stesso** cestino principale visibile in alto a destra, che chiama la **stessa** mutation e cancella l’intera card.
+3. **Esercizi interni**: ogni riga mostra il cestino interno completo, elimina solo la riga.
+4. **Tabella set**: `+ Set` e cestini colonna funzionanti.
+5. **Responsive**: a ~375px e ~1280px nessun elemento esce dalla card, nessun cestino tagliato.
+6. **DOM check**: confermare che nel ramo SUPERSET il bottone cestino principale è lo stesso nodo già presente per gli altri protocolli (nessun duplicato).

@@ -550,7 +550,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                               </div>
 
                               {/* Exercise Info */}
-                              <div className="flex-1 space-y-3">
+                              <div className="flex-1 min-w-0 space-y-3">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
                                     <p className="font-medium truncate">{te.exercise?.name}</p>
