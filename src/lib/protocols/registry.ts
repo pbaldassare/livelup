@@ -815,17 +815,14 @@ export function describeExerciseProtocol(
       const start = p.start_reps ?? 1;
       return `Dead Ladder ${sets}× (start ${start})`;
     }
-    case 'TABATA': {
-      const rounds = p.rounds ?? 8;
-      const work = p.work_seconds ?? 20;
-      const rest = p.rest_seconds ?? 20;
-      return `Tabata ${rounds}× (${work}"/${rest}")`;
-    }
+    case 'TABATA':
     case 'HIIT': {
-      const intervals = p.intervals_total ?? 12;
-      const work = p.work_seconds ?? 40;
-      const rest = p.rest_seconds ?? 20;
-      return `HIIT ${intervals}× (${work}"W/${rest}"R)`;
+      const rounds = p.rounds ?? (type === 'HIIT' ? 4 : 8);
+      const work = p.exercise_duration_seconds ?? p.work_seconds ?? (type === 'HIIT' ? 40 : 20);
+      const rest = p.rest_between_exercises_seconds ?? p.rest_seconds ?? 20;
+      const exCount = Array.isArray(p.exercises) ? p.exercises.length : (p.exercises_count ?? 1);
+      const label = type === 'HIIT' ? 'HIIT' : 'Tabata';
+      return `${label} ${rounds}× round, ${exCount} es. (${work}"/${rest}")`;
     }
     case 'RXT': {
       const rounds = p.rounds ?? 5;
