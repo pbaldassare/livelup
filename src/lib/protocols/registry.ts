@@ -98,6 +98,10 @@ export type ProtocolParams = {
     }>;
   }> | null;
   // (rest_seconds, rounds, mode, note già presenti sopra — TABATA/HIIT/RXT/RUNNING_TOTAL li riusano)
+  // TIMED ROUNDS (HIIT + TABATA nuovo schema condiviso)
+  exercise_duration_seconds?: number | null;
+  rest_between_exercises_seconds?: number | null;
+  rest_between_rounds_seconds?: number | null;
 };
 
 export type ParamFieldType = 'number' | 'text' | 'select' | 'exercise_select' | 'number_list';
