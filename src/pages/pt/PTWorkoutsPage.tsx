@@ -111,6 +111,7 @@ export function PTWorkoutsPage() {
   const [isImportLoading, setIsImportLoading] = useState(false);
   const [importedData, setImportedData] = useState<ImportedTemplate | null>(null);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [isSavingImport, setIsSavingImport] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isCreateExerciseOpen, setIsCreateExerciseOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<any | null>(null);
@@ -581,11 +582,30 @@ export function PTWorkoutsPage() {
         open={isReviewDialogOpen}
         onOpenChange={setIsReviewDialogOpen}
         data={importedData}
-        onSave={async (_payload) => {
-          // TODO: persistere su DB (workout_templates + template_exercises)
-          toast.info('Salvataggio non ancora implementato');
+        isSaving={isSavingImport}
+        onSave={async (payload) => {
+          if (!user?.id) return;
+          try {
+            setIsSavingImport(true);
+            const { importTemplateFromAI } = await import('@/lib/api/workouts');
+            await importTemplateFromAI({
+              ptUserId: user.id,
+              templateName: payload.template_name,
+              exercises: payload.exercises,
+            });
+            await queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
+            toast.success('Scheda importata con successo');
+            setIsReviewDialogOpen(false);
+            setImportedData(null);
+          } catch (e) {
+            console.error('Salvataggio scheda importata fallito:', e);
+            toast.error('Errore nel salvataggio — riprova');
+          } finally {
+            setIsSavingImport(false);
+          }
         }}
       />
+
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogTrigger asChild>
