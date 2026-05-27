@@ -3,21 +3,21 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 const PROMPT = `You are a fitness assistant. Analyze this document which is a workout template created by a Personal Trainer. Extract all exercises and return ONLY a valid JSON object with this exact structure, no preamble, no markdown:
 
 {
-  template_name: string,
-  exercises: [
+  "template_name": string,
+  "exercises": [
     {
-      name: string,
-      sets: number,
-      reps: number | null,
-      rest_seconds: number | null,
-      protocol_type: 'standard' | 'emom' | 'amrap' | 'superset' | 'hiit' | 'tabata',
-      notes: string | null,
-      protocol_config: object | null
+      "name": string,
+      "sets": number,
+      "reps": number | null,
+      "rest_seconds": number | null,
+      "protocol_type": "standard" | "emom" | "amrap" | "superset" | "hiit" | "tabata",
+      "notes": string | null,
+      "protocol_config": object | null
     }
   ]
 }
 
-protocol_type defaults to 'standard' if unclear.
+protocol_type defaults to "standard" if unclear.
 rest_seconds: convert any rest notation (90', 90s, 1'30'') to seconds.
 If the document is in Italian, translate exercise names to Italian.`;
 
@@ -36,10 +36,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }),
+        JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -54,55 +54,63 @@ Deno.serve(async (req) => {
       );
     }
 
-    const mediaType = isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    const contentBlock = isPdf
-      ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: file_base64 } }
-      : { type: 'document', source: { type: 'base64', media_type: mediaType, data: file_base64 } };
+    const dataUrl = `data:${mime_type};base64,${file_base64}`;
 
-    let anthropicRes: Response;
+    let gatewayRes: Response;
     try {
-      anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+      gatewayRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4096,
+          model: 'google/gemini-2.5-pro',
           messages: [
             {
               role: 'user',
               content: [
-                contentBlock,
+                { type: 'image_url', image_url: { url: dataUrl } },
                 { type: 'text', text: PROMPT },
               ],
             },
           ],
+          response_format: { type: 'json_object' },
         }),
       });
     } catch (err) {
-      console.error('Anthropic fetch failed:', err);
+      console.error('Gateway fetch failed:', err);
       return new Response(
         JSON.stringify({ error: 'API call failed', details: err instanceof Error ? err.message : String(err) }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!anthropicRes.ok) {
-      const errText = await anthropicRes.text();
-      console.error('Anthropic API error:', anthropicRes.status, errText);
+    if (!gatewayRes.ok) {
+      const errText = await gatewayRes.text();
+      console.error('Gateway API error:', gatewayRes.status, errText);
+      if (gatewayRes.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (gatewayRes.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Payment required, please add credits to your Lovable workspace.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       return new Response(
-        JSON.stringify({ error: 'API call failed', details: errText, status: anthropicRes.status }),
+        JSON.stringify({ error: 'API call failed', details: errText, status: gatewayRes.status }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await anthropicRes.json();
-    const textOutput: string = data?.content?.[0]?.text ?? '';
+    const data = await gatewayRes.json();
+    const textOutput: string = data?.choices?.[0]?.message?.content ?? '';
 
-    console.log('Raw Claude response:', textOutput);
+    console.log('Raw gateway response content:', textOutput);
 
     let parsed;
     try {
@@ -115,7 +123,6 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
 
     return new Response(JSON.stringify(parsed), {
       status: 200,
