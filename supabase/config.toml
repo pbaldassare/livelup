@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.seed-platform-data]
 verify_jwt = false
+
+[functions.import-workout-schema]
+verify_jwt = false
