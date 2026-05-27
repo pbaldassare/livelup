@@ -1,25 +1,49 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
-const PROMPT = `You are a fitness assistant. Analyze this document which is a workout template created by a Personal Trainer. Extract all exercises and return ONLY a valid JSON object with this exact structure, no preamble, no markdown:
+const PROMPT = `Sei un assistente fitness esperto. Analizza questo documento, una scheda di allenamento creata da un Personal Trainer italiano.
 
-{
-  "template_name": string,
-  "exercises": [
-    {
-      "name": string,
-      "sets": number,
-      "reps": number | null,
-      "rest_seconds": number | null,
-      "protocol_type": "standard" | "emom" | "amrap" | "superset" | "hiit" | "tabata",
-      "notes": string | null,
-      "protocol_config": object | null
-    }
-  ]
-}
+OBIETTIVO: Estrarre gli esercizi e creare UN template di allenamento per OGNI sessione trovata nel documento (es. Sessione A, Sessione B, Sessione C → 3 template separati). Se c'è una sola sessione, restituisci un array con un solo template.
 
-protocol_type defaults to "standard" if unclear.
-rest_seconds: convert any rest notation (90', 90s, 1'30'') to seconds.
-If the document is in Italian, translate exercise names to Italian.`;
+IGNORA COMPLETAMENTE:
+- Progressione settimanale (colonne W1, W2, W3, W4 — usa solo i valori di W1 come default)
+- Frequenza settimanale o scheduling (quante volte a settimana)
+- Riscaldamento e defaticamento (respirazione, stretching, mobilità)
+- Protocolli di recupero fuori dall'allenamento
+- Tabelle di monitoraggio o tabelle note generiche
+
+ESTRAI e mappa correttamente:
+- Nome esercizio: in italiano, come scritto nel documento
+- sets: usa il primo valore disponibile (W1 o il singolo valore indicato)
+- reps: valore numerico; se "max" usa null e aggiungi "AMRAP" nelle notes
+- rest_seconds: converti qualsiasi formato in secondi (90" = 90, 1' = 60, 2'→1' usa il primo = 120, 1'30'' = 90)
+- Notazione TUT/tempo (es. 20X0, 30X1, 2010): salva COSÌ COM'È nel campo notes come "TUT: 20X0" (concatenato ad altre note se presenti)
+- protocol_type:
+  * "JUMP SET" o esercizi etichettati A1/A2/A3 nello stesso blocco → "superset"
+  * "HIIT" o "30 ON 90 OFF" o lavoro/riposo a tempo → "hiit"
+  * "EMOM" → "emom"
+  * "AMRAP" → "amrap"
+  * "TABATA" → "tabata"
+  * tutto il resto → "standard"
+- Per blocchi superset: raggruppa esercizi con lo stesso prefisso lettera (A1+A2+A3 = un superset gruppo "A", B1+B2+B3 = gruppo "B") e imposta protocol_config: { "group": "A" }
+- Per esercizi HIIT: imposta protocol_config: { "work_seconds": 30, "rest_seconds": 90 } usando i valori trovati nel documento
+
+FORMATO OUTPUT — restituisci SOLO un array JSON valido, senza preamboli, senza markdown, senza backticks:
+[
+  {
+    "template_name": "Sessione A — Nome Programma",
+    "exercises": [
+      {
+        "name": string,
+        "sets": number,
+        "reps": number | null,
+        "rest_seconds": number | null,
+        "protocol_type": "standard" | "emom" | "amrap" | "superset" | "hiit" | "tabata",
+        "notes": string | null,
+        "protocol_config": object | null
+      }
+    ]
+  }
+]`;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -112,7 +136,7 @@ Deno.serve(async (req) => {
 
     console.log('Raw gateway response content:', textOutput);
 
-    let parsed;
+    let parsed: unknown;
     try {
       const cleaned = textOutput.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim();
       parsed = JSON.parse(cleaned);
@@ -124,7 +148,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    return new Response(JSON.stringify(parsed), {
+    // Normalize: ensure we return an array of templates.
+    // response_format: json_object forces an object, so the model may wrap the array
+    // under a key like "templates" or "sessions", or return a single template object.
+    let templates: unknown[];
+    if (Array.isArray(parsed)) {
+      templates = parsed;
+    } else if (parsed && typeof parsed === 'object') {
+      const obj = parsed as Record<string, unknown>;
+      const arrayKey = Object.keys(obj).find((k) => Array.isArray(obj[k]));
+      if (arrayKey && Array.isArray(obj[arrayKey])) {
+        templates = obj[arrayKey] as unknown[];
+      } else if ('exercises' in obj) {
+        templates = [obj];
+      } else {
+        templates = [obj];
+      }
+    } else {
+      templates = [];
+    }
+
+    return new Response(JSON.stringify({ templates }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
