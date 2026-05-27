@@ -1,5 +1,26 @@
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
 import { safeSet } from "@/lib/safeStorage";
+import { supabase } from "@/integrations/supabase/client";
+
+async function persistTourDismissed() {
+  safeSet("livellapp_tour_done", "1");
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("notification_preferences")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const current = (data?.notification_preferences as Record<string, unknown> | null) ?? {};
+    await supabase
+      .from("profiles")
+      .update({ notification_preferences: { ...current, tour_dismissed: true } })
+      .eq("user_id", user.id);
+  } catch (e) {
+    console.warn("[AppTour] failed to persist tour_dismissed", e);
+  }
+}
 
 export type TourActionType = "navigate" | "scroll" | "wait";
 
