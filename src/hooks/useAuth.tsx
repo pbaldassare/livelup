@@ -114,20 +114,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 2) Resolve role OUTSIDE onAuthStateChange callback
   useEffect(() => {
     if (!user) {
+      inFlightRef.current = false;
+      resolvedForUserRef.current = null;
       setIsLoading(false);
       return;
     }
-    if (roleRef.current !== null) {
+    if (roleRef.current !== null && resolvedForUserRef.current === user.id) {
       setIsLoading(false);
       setIsRoleLoading(false);
       return;
     }
+    if (inFlightRef.current) {
+      return;
+    }
+    inFlightRef.current = true;
     setIsRoleLoading(true);
     resolveRole(user.id)
       .then((resolved) => {
         console.log('[Auth] resolved role:', resolved);
         if (isMountedRef.current) {
           setRole(resolved);
+          resolvedForUserRef.current = user.id;
           setIsRoleLoading(false);
           setIsLoading(false);
         }
@@ -138,6 +145,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsRoleLoading(false);
           setIsLoading(false);
         }
+      })
+      .finally(() => {
+        inFlightRef.current = false;
       });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
