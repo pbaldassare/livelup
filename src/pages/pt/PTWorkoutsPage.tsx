@@ -42,6 +42,10 @@ import {
 import { ProgramsTab } from '@/components/pt/ProgramsTab';
 import { ProtocolsTab } from '@/components/pt/ProtocolsTab';
 import { ImportTemplateDialog } from '@/components/pt/ImportTemplateDialog';
+import {
+  ReviewImportedTemplateDialog,
+  type ImportedTemplate,
+} from '@/components/pt/ReviewImportedTemplateDialog';
 import { Sliders, Upload } from 'lucide-react';
 import {
   AlertDialog,
@@ -105,6 +109,8 @@ export function PTWorkoutsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isImportLoading, setIsImportLoading] = useState(false);
+  const [importedData, setImportedData] = useState<ImportedTemplate | null>(null);
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isCreateExerciseOpen, setIsCreateExerciseOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<any | null>(null);
@@ -536,10 +542,51 @@ export function PTWorkoutsPage() {
         open={isImportDialogOpen}
         onOpenChange={setIsImportDialogOpen}
         isLoading={isImportLoading}
-        onAnalyze={async (_file) => {
-          // TODO: collegare alla edge function import-workout-schema
+        onAnalyze={async (file) => {
+          try {
+            setIsImportLoading(true);
+            const file_base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const result = reader.result as string;
+                // result is "data:<mime>;base64,<data>"
+                const base64 = result.split(',')[1] ?? '';
+                resolve(base64);
+              };
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(file);
+            });
+
+            const { data, error } = await supabase.functions.invoke(
+              'import-workout-schema',
+              { body: { file_base64, mime_type: file.type } }
+            );
+            if (error) throw error;
+            if (!data || !Array.isArray(data?.exercises)) {
+              throw new Error('Risposta non valida');
+            }
+
+            setImportedData(data as ImportedTemplate);
+            setIsImportDialogOpen(false);
+            setIsReviewDialogOpen(true);
+          } catch (e) {
+            console.error('Import scheda error:', e);
+            toast.error('Errore nell\'analisi del file — riprova');
+          } finally {
+            setIsImportLoading(false);
+          }
         }}
       />
+      <ReviewImportedTemplateDialog
+        open={isReviewDialogOpen}
+        onOpenChange={setIsReviewDialogOpen}
+        data={importedData}
+        onSave={async (_payload) => {
+          // TODO: persistere su DB (workout_templates + template_exercises)
+          toast.info('Salvataggio non ancora implementato');
+        }}
+      />
+
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogTrigger asChild>
           <Button>
