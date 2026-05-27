@@ -59,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const roleRef = useRef<AppRole | null>(null);
   const isMountedRef = useRef(true);
+  const inFlightRef = useRef(false);
+  const resolvedForUserRef = useRef<string | null>(null);
 
   const setRole = useCallback((r: AppRole | null) => {
     roleRef.current = r;
