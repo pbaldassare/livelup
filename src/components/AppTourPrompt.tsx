@@ -1,35 +1,69 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTour, TourRole } from "./AppTourContext";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Map } from "lucide-react";
-import { safeGet, safeSet } from "@/lib/safeStorage";
+import { safeSet } from "@/lib/safeStorage";
 
 const AppTourPrompt = () => {
   const { startTour } = useTour();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const [open, setOpen] = useState(false);
   const [dontShow, setDontShow] = useState(false);
+  const checkedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const done = safeGet("livellapp_tour_done");
-    if (!done && role) {
+    if (!role || !user?.id) return;
+    if (checkedRef.current === user.id) return;
+    checkedRef.current = user.id;
+
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("notification_preferences")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      const prefs = (data?.notification_preferences as Record<string, unknown> | null) ?? {};
+      if (prefs.tour_dismissed === true) return;
       const t = setTimeout(() => setOpen(true), 1200);
       return () => clearTimeout(t);
-    }
-  }, [role]);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [role, user?.id]);
+
+  const persistDismissed = async () => {
+    safeSet("livellapp_tour_done", "1");
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("notification_preferences")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const current = (data?.notification_preferences as Record<string, unknown> | null) ?? {};
+    const next = { ...current, tour_dismissed: true };
+    await supabase
+      .from("profiles")
+      .update({ notification_preferences: next })
+      .eq("user_id", user.id);
+  };
 
   const handleStart = () => {
     setOpen(false);
-    if (dontShow) safeSet("livellapp_tour_done", "1");
+    if (dontShow) void persistDismissed();
     startTour((role as TourRole) ?? "atleta");
   };
 
   const handleSkip = () => {
     setOpen(false);
-    if (dontShow) safeSet("livellapp_tour_done", "1");
+    if (dontShow) void persistDismissed();
   };
 
   return (
