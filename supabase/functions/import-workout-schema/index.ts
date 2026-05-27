@@ -54,52 +54,55 @@ Deno.serve(async (req) => {
       );
     }
 
-    const dataUrl = `data:${mime_type};base64,${file_base64}`;
+    const mediaType = isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const contentBlock = isPdf
+      ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: file_base64 } }
+      : { type: 'document', source: { type: 'base64', media_type: mediaType, data: file_base64 } };
 
-    const gatewayRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'image_url', image_url: { url: dataUrl } },
-              { type: 'text', text: PROMPT },
-            ],
-          },
-        ],
-        response_format: { type: 'json_object' },
-      }),
-    });
-
-    if (!gatewayRes.ok) {
-      const errText = await gatewayRes.text();
-      console.error('AI gateway error:', gatewayRes.status, errText);
-      if (gatewayRes.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded, please retry shortly.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (gatewayRes.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI credits exhausted, please top up the workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    let anthropicRes: Response;
+    try {
+      anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4096,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                contentBlock,
+                { type: 'text', text: PROMPT },
+              ],
+            },
+          ],
+        }),
+      });
+    } catch (err) {
+      console.error('Anthropic fetch failed:', err);
       return new Response(
-        JSON.stringify({ error: 'AI gateway error', status: gatewayRes.status, details: errText }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'API call failed', details: err instanceof Error ? err.message : String(err) }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await gatewayRes.json();
-    const textOutput: string = data?.choices?.[0]?.message?.content ?? '';
+    if (!anthropicRes.ok) {
+      const errText = await anthropicRes.text();
+      console.error('Anthropic API error:', anthropicRes.status, errText);
+      return new Response(
+        JSON.stringify({ error: 'API call failed', details: errText, status: anthropicRes.status }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const data = await anthropicRes.json();
+    const textOutput: string = data?.content?.[0]?.text ?? '';
+
+    console.log('Raw Claude response:', textOutput);
 
     let parsed;
     try {
@@ -108,10 +111,11 @@ Deno.serve(async (req) => {
     } catch (_e) {
       console.error('Failed to parse model JSON:', textOutput);
       return new Response(
-        JSON.stringify({ error: 'Failed to parse JSON from model', raw: textOutput }),
+        JSON.stringify({ error: 'JSON parse failed', raw: textOutput }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
 
     return new Response(JSON.stringify(parsed), {
       status: 200,
