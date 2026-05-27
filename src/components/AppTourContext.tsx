@@ -163,14 +163,14 @@ export const TourProvider = ({ children }: { children: ReactNode }) => {
   const stopTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
-    safeSet("livellapp_tour_done", "1");
+    void persistTourDismissed();
   }, []);
 
   const nextStep = useCallback(() => {
     setCurrentStep(prev => {
       if (prev >= stepsRef.current.length - 1) {
         setIsActive(false);
-        safeSet("livellapp_tour_done", "1");
+        void persistTourDismissed();
         return 0;
       }
       return prev + 1;
