@@ -82,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(null);
           setRole(null);
           roleRef.current = null;
+          inFlightRef.current = false;
+          resolvedForUserRef.current = null;
           setIsRoleLoading(false);
           setIsLoading(false);
           return;
