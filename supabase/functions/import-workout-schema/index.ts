@@ -1,45 +1,72 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
-const PROMPT = `Sei un assistente fitness esperto. Analizza questo documento, una scheda di allenamento creata da un Personal Trainer italiano.
+const PROMPT = `You are an expert fitness assistant parsing Italian Personal Trainer workout sheets.
+Your job is to extract exercises and return structured JSON.
 
-OBIETTIVO: Estrarre gli esercizi e creare UN template di allenamento per OGNI sessione trovata nel documento (es. Sessione A, Sessione B, Sessione C → 3 template separati). Se c'è una sola sessione, restituisci un array con un solo template.
+RULES:
 
-IGNORA COMPLETAMENTE:
-- Progressione settimanale (colonne W1, W2, W3, W4 — usa solo i valori di W1 come default)
-- Frequenza settimanale o scheduling (quante volte a settimana)
-- Riscaldamento e defaticamento (respirazione, stretching, mobilità)
-- Protocolli di recupero fuori dall'allenamento
-- Tabelle di monitoraggio o tabelle note generiche
+1. CREATE ONE TEMPLATE PER SESSION/GIORNO found in the document.
+   Sessions may be labeled as: "GIORNO 1", "SESSIONE A", "UPPER", "LOWER",
+   "HYROX", "HIIT", etc. Each becomes a separate template.
 
-ESTRAI e mappa correttamente:
-- Nome esercizio: in italiano, come scritto nel documento
-- sets: usa il primo valore disponibile (W1 o il singolo valore indicato)
-- reps: valore numerico; se "max" usa null e aggiungi "AMRAP" nelle notes
-- rest_seconds: converti qualsiasi formato in secondi (90" = 90, 1' = 60, 2'→1' usa il primo = 120, 1'30'' = 90)
-- Notazione TUT/tempo (es. 20X0, 30X1, 2010): salva COSÌ COM'È nel campo notes come "TUT: 20X0" (concatenato ad altre note se presenti)
-- protocol_type:
-  * "JUMP SET" o esercizi etichettati A1/A2/A3 nello stesso blocco → "superset"
-  * "HIIT" o "30 ON 90 OFF" o lavoro/riposo a tempo → "hiit"
-  * "EMOM" → "emom"
-  * "AMRAP" → "amrap"
-  * "TABATA" → "tabata"
-  * tutto il resto → "standard"
-- Per blocchi superset: raggruppa esercizi con lo stesso prefisso lettera (A1+A2+A3 = un superset gruppo "A", B1+B2+B3 = gruppo "B") e imposta protocol_config: { "group": "A" }
-- Per esercizi HIIT: imposta protocol_config: { "work_seconds": 30, "rest_seconds": 90 } usando i valori trovati nel documento
+2. USE ONLY WEEK 1 / SETTIMANA 1 values (sets, reps, load).
+   IGNORE all other weeks, progressions, deload weeks.
 
-FORMATO OUTPUT — restituisci SOLO un array JSON valido, senza preamboli, senza markdown, senza backticks:
+3. IGNORE completely: warm-up, cool-down, breathing exercises, stretching,
+   mobility routines, scheduling tables, monitoring tables, feedback columns,
+   weekly frequency, session frequency.
+
+4. PROTOCOL TYPE mapping (use these exact values):
+   - "TOP SET" or "BACK OFF" or "RAMPING" → "standard"
+     (add the protocol name to notes field: "TOP SET", "BACK OFF", "RAMPING")
+   - "TABATA" → "tabata"
+   - "HIIT" or "RT" (Run + exercise circuit) → "hiit"
+   - "EMOM" or "AMRAP Xmin" → use "emom" or "amrap" accordingly
+   - "JUMP SET" or exercises with same letter prefix (A1/A2/A3, 1a/1b) → "superset"
+   - Everything else → "standard"
+
+5. SUPERSET grouping: exercises labeled 1a/1b, 2a/2b, A1/A2/A3 etc.
+   belong to the same superset block. Set protocol_config: { "group": "1", "position": 1 }
+   using the number/letter prefix as group and the order within the superset as position.
+
+6. REPS:
+   - If "MAX" or "AMRAP" → set reps to null, add "AMRAP" to notes
+   - If time-based (es: "30\\"", "45\\"") → set reps to null,
+     set rest_seconds to the rest value, add work duration to notes
+   - Ranges like "8-10" → use the lower value (8)
+
+7. REST: convert any format to seconds:
+   - "2'" or "2min" → 120
+   - "90\\"" or "90s" → 90
+   - "2'→1'" → 120 (use first value)
+   - "NO REST" → 0
+   - If not specified → null
+
+8. NOTES field: include any of these when present:
+   - Protocol variant: "TOP SET", "BACK OFF", "RAMPING", "BACK OFF -15%"
+   - TUT notation as-is: "TUT: 20X0"
+   - Relevant coach annotations (brief, max 100 chars)
+   - Work duration for timed exercises: "30\\" work"
+
+9. SETS: use numeric value from Settimana 1. If not specified → null.
+
+10. For CARDIO/RUN exercises (es: "700m Run", "Corsa"):
+    set protocol_type to "standard", reps to null,
+    add distance/instructions to notes.
+
+Return ONLY a valid JSON array, no preamble, no markdown, no backticks:
 [
   {
-    "template_name": "Sessione A — Nome Programma",
+    "template_name": "Giorno 1 — Upper",
     "exercises": [
       {
-        "name": string,
-        "sets": number,
-        "reps": number | null,
-        "rest_seconds": number | null,
-        "protocol_type": "standard" | "emom" | "amrap" | "superset" | "hiit" | "tabata",
-        "notes": string | null,
-        "protocol_config": object | null
+        "name": "Nome esercizio in italiano",
+        "sets": 4,
+        "reps": 8,
+        "rest_seconds": 120,
+        "protocol_type": "standard",
+        "notes": "TOP SET | TUT: 20X0",
+        "protocol_config": null
       }
     ]
   }
