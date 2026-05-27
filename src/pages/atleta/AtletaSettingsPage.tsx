@@ -183,9 +183,21 @@ export function AtletaSettingsPage() {
           </h2>
           <div className="bg-app-card rounded-xl overflow-hidden">
             <button
-              onClick={() => {
+              onClick={async () => {
                 safeRemove('livellapp_tour_done');
                 safeRemove('livellapp_tour_dismissed');
+                if (user?.id) {
+                  const { data } = await supabase
+                    .from('profiles')
+                    .select('notification_preferences')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+                  const current = (data?.notification_preferences as Record<string, unknown> | null) ?? {};
+                  await supabase
+                    .from('profiles')
+                    .update({ notification_preferences: { ...current, tour_dismissed: false } })
+                    .eq('user_id', user.id);
+                }
                 startTour();
                 toast.success('Tour riavviato!');
               }}
