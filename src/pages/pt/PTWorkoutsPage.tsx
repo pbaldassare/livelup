@@ -41,7 +41,8 @@ import {
 } from 'lucide-react';
 import { ProgramsTab } from '@/components/pt/ProgramsTab';
 import { ProtocolsTab } from '@/components/pt/ProtocolsTab';
-import { Sliders } from 'lucide-react';
+import { ImportTemplateDialog } from '@/components/pt/ImportTemplateDialog';
+import { Sliders, Upload } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -102,6 +103,8 @@ export function PTWorkoutsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('templates');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isImportLoading, setIsImportLoading] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isCreateExerciseOpen, setIsCreateExerciseOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<any | null>(null);
@@ -522,6 +525,21 @@ export function PTWorkoutsPage() {
         <CalendarDays className="h-4 w-4 mr-2" />
         Nuovo Programma
       </Button>
+      <Button
+        variant="outline"
+        onClick={() => setIsImportDialogOpen(true)}
+      >
+        <Upload className="h-4 w-4 mr-2" />
+        Importa scheda
+      </Button>
+      <ImportTemplateDialog
+        open={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
+        isLoading={isImportLoading}
+        onAnalyze={async (_file) => {
+          // TODO: collegare alla edge function import-workout-schema
+        }}
+      />
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogTrigger asChild>
           <Button>
