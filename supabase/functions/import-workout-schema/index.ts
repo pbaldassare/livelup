@@ -54,54 +54,59 @@ Deno.serve(async (req) => {
       );
     }
 
-    const contentBlock = isPdf
-      ? {
-          type: 'document',
-          source: { type: 'base64', media_type: 'application/pdf', data: file_base64 },
-        }
-      : {
-          type: 'document',
-          source: { type: 'base64', media_type: mime_type, data: file_base64 },
-        };
+    const dataUrl = `data:${mime_type};base64,${file_base64}`;
 
-    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+    const gatewayRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
+        model: 'google/gemini-2.5-pro',
         messages: [
           {
             role: 'user',
-            content: [contentBlock, { type: 'text', text: PROMPT }],
+            content: [
+              { type: 'image_url', image_url: { url: dataUrl } },
+              { type: 'text', text: PROMPT },
+            ],
           },
         ],
+        response_format: { type: 'json_object' },
       }),
     });
 
-    if (!anthropicRes.ok) {
-      const errText = await anthropicRes.text();
-      console.error('Anthropic API error:', anthropicRes.status, errText);
+    if (!gatewayRes.ok) {
+      const errText = await gatewayRes.text();
+      console.error('AI gateway error:', gatewayRes.status, errText);
+      if (gatewayRes.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded, please retry shortly.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (gatewayRes.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'AI credits exhausted, please top up the workspace.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       return new Response(
-        JSON.stringify({ error: 'Anthropic API error', status: anthropicRes.status, details: errText }),
+        JSON.stringify({ error: 'AI gateway error', status: gatewayRes.status, details: errText }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const anthropicData = await anthropicRes.json();
-    const textOutput: string = anthropicData?.content?.[0]?.text ?? '';
+    const data = await gatewayRes.json();
+    const textOutput: string = data?.choices?.[0]?.message?.content ?? '';
 
     let parsed;
     try {
-      // Strip possible code fences just in case
       const cleaned = textOutput.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim();
       parsed = JSON.parse(cleaned);
-    } catch (e) {
-      console.error('Failed to parse Claude JSON:', textOutput);
+    } catch (_e) {
+      console.error('Failed to parse model JSON:', textOutput);
       return new Response(
         JSON.stringify({ error: 'Failed to parse JSON from model', raw: textOutput }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
