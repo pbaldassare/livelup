@@ -294,3 +294,132 @@ export async function countCompletedWorkouts(atletaUserId: string): Promise<numb
 
   return data ?? 0;
 }
+
+// =====================================================
+// IMPORTA SCHEDA (da AI) → workout_templates + template_exercises
+// Riusa esercizi esistenti per nome (case-insensitive),
+// altrimenti crea un nuovo esercizio privato del PT.
+// =====================================================
+
+export interface ImportedTemplateExerciseInput {
+  name: string;
+  sets: number;
+  reps: number | null;
+  rest_seconds: number | null;
+  protocol_type:
+    | 'standard'
+    | 'emom'
+    | 'amrap'
+    | 'superset'
+    | 'hiit'
+    | 'tabata';
+  notes: string | null;
+  protocol_config?: Record<string, unknown> | null;
+}
+
+const PROTOCOL_MAP: Record<ImportedTemplateExerciseInput['protocol_type'], string> = {
+  standard: 'SET',
+  emom: 'EMOM',
+  amrap: 'AMRAP',
+  superset: 'SUPERSET',
+  hiit: 'HIIT',
+  tabata: 'TABATA',
+};
+
+export async function importTemplateFromAI(params: {
+  ptUserId: string;
+  templateName: string;
+  exercises: ImportedTemplateExerciseInput[];
+}) {
+  const { ptUserId, templateName, exercises } = params;
+
+  if (!templateName.trim()) throw new Error('Nome scheda mancante');
+  if (!exercises.length) throw new Error('Nessun esercizio da importare');
+
+  // 1. Crea template
+  const { data: template, error: tplErr } = await supabase
+    .from('workout_templates')
+    .insert({
+      pt_user_id: ptUserId,
+      title: templateName.trim(),
+      is_public: false,
+    })
+    .select()
+    .single();
+
+  if (tplErr || !template) {
+    throw new Error('Errore creazione scheda: ' + (tplErr?.message ?? 'unknown'));
+  }
+
+  try {
+    // 2. Risolvi exercise_id per ognuno (lookup case-insensitive, crea se manca)
+    const exerciseIds: string[] = [];
+
+    for (const ex of exercises) {
+      const name = ex.name?.trim();
+      if (!name) {
+        throw new Error('Esercizio senza nome');
+      }
+
+      // Lookup esistente (case-insensitive)
+      const { data: found, error: findErr } = await supabase
+        .from('exercises')
+        .select('id')
+        .ilike('name', name)
+        .limit(1)
+        .maybeSingle();
+
+      if (findErr) throw new Error('Errore ricerca esercizio: ' + findErr.message);
+
+      let exerciseId = found?.id as string | undefined;
+
+      if (!exerciseId) {
+        const { data: created, error: createErr } = await supabase
+          .from('exercises')
+          .insert({
+            name,
+            category: 'altro',
+            is_public: false,
+            created_by: ptUserId,
+          })
+          .select('id')
+          .single();
+        if (createErr || !created) {
+          throw new Error('Errore creazione esercizio: ' + (createErr?.message ?? 'unknown'));
+        }
+        exerciseId = created.id;
+      }
+
+      exerciseIds.push(exerciseId);
+    }
+
+    // 3. Inserisci template_exercises
+    const inserts = exercises.map((ex, idx) => ({
+      template_id: template.id,
+      exercise_id: exerciseIds[idx],
+      order_index: idx,
+      sets: ex.sets > 0 ? ex.sets : 1,
+      reps_min: ex.reps ?? null,
+      reps_max: ex.reps ?? null,
+      rest_seconds: ex.rest_seconds ?? 60,
+      notes: ex.notes ?? null,
+      protocol_type: PROTOCOL_MAP[ex.protocol_type] ?? 'SET',
+      protocol_params: (ex.protocol_config ?? {}) as any,
+    }));
+
+    const { error: insErr } = await supabase
+      .from('template_exercises')
+      .insert(inserts);
+
+    if (insErr) {
+      throw new Error('Errore inserimento esercizi: ' + insErr.message);
+    }
+
+    return template;
+  } catch (e) {
+    // rollback best-effort
+    await supabase.from('workout_templates').delete().eq('id', template.id);
+    throw e;
+  }
+}
+
