@@ -37,9 +37,12 @@ export function AuthPage() {
   const [selectedRole, setSelectedRole] = useState<AppRole>('atleta');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const didRedirectRef = useRef(false);
 
   // Redirect if already authenticated, handle referral connection
   useEffect(() => {
+    if (didRedirectRef.current) return;
+
     if (isAuthenticated && role) {
       // Process referral if present
       const storedRef = localStorage.getItem('livellapp_ref_pt');
@@ -61,7 +64,9 @@ export function AuthPage() {
         })();
       }
       const homeRoute = getHomeRoute(role);
+      didRedirectRef.current = true;
       navigate(homeRoute, { replace: true });
+      return;
     }
 
     // Handle case: authenticated but role is null after auth fully finished loading
@@ -75,7 +80,7 @@ export function AuthPage() {
       }, 3000);
       return () => clearTimeout(timeout);
     }
-  }, [isAuthenticated, role, authLoading, isRoleLoading, navigate, user]);
+  }, [isAuthenticated, role, authLoading, isRoleLoading]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
