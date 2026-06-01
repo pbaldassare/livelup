@@ -61,6 +61,12 @@ interface GuidedWorkoutFlowProps {
   initialSet?: number;
   initialCompletedSets?: Record<string, number[]>;
   onCompleted: () => void;
+  /**
+   * When true, the flow runs in "PT on-behalf" mode: logs are saved via the
+   * `pt_save_workout_log` RPC so the data persists on the athlete's profile
+   * even though it's the PT executing the session in person.
+   */
+  ptOnBehalfMode?: boolean;
 }
 
 type FlowState = 'ready' | 'input' | 'rest' | 'next' | 'finished';
@@ -169,6 +175,7 @@ export function GuidedWorkoutFlow({
   initialSet = 1,
   initialCompletedSets = {},
   onCompleted,
+  ptOnBehalfMode = false,
 }: GuidedWorkoutFlowProps) {
   const queryClient = useQueryClient();
 
@@ -281,6 +288,22 @@ export function GuidedWorkoutFlow({
       weight: number;
       restPlanned: number;
     }) => {
+      if (ptOnBehalfMode) {
+        // PT executing the session in person on the athlete's behalf.
+        // Use SECURITY DEFINER RPC to bypass athlete-only RLS after server-side checks.
+        const { error } = await supabase.rpc('pt_save_workout_log', {
+          _workout_exercise_id: payload.workoutExerciseId,
+          _set_number: payload.setNumber,
+          _reps_completed: payload.reps || null,
+          _weight_used: payload.weight || null,
+          _duration_seconds: payload.durationSeconds || null,
+          _rpe: null,
+          _notes: `rest_planned:${payload.restPlanned}`,
+        });
+        if (error) throw error;
+        return;
+      }
+
       await supabase
         .from('workout_logs')
         .delete()
