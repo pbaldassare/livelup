@@ -27,6 +27,10 @@ interface SetTrackerProps {
   restSeconds?: number;
   initialReps?: number;
   initialWeight?: number;
+  exerciseName?: string;
+  protocolType?: string | null;
+  notes?: string | null;
+  onShowDetails?: () => void;
 }
 
 const RPE_LABELS: Record<number, string> = {
