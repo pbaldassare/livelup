@@ -175,6 +175,7 @@ export function GuidedWorkoutFlow({
   initialSet = 1,
   initialCompletedSets = {},
   onCompleted,
+  ptOnBehalfMode = false,
 }: GuidedWorkoutFlowProps) {
   const queryClient = useQueryClient();
 
