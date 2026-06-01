@@ -714,10 +714,16 @@ export function GuidedWorkoutFlow({
               exit={{ opacity: 0, y: -20 }}
               className="absolute inset-0 flex flex-col items-center justify-center px-6 py-8"
             >
-              <h2 className="text-xl font-bold text-app-foreground mb-1 text-center">
-                {currentExercise.exercises.name}
-              </h2>
-              <p className="text-sm text-app-muted-foreground mb-8 text-center">
+              <ExerciseHeader
+                name={currentExercise.exercises.name}
+                protocolType={currentExercise.protocol_type ?? 'standard'}
+                notes={currentExercise.notes ?? null}
+                onShowDetails={openDetails}
+                size="md"
+                align="center"
+                className="mb-2"
+              />
+              <p className="text-sm text-app-muted-foreground mb-8 text-center mt-2">
                 Serie {state.setNumber} • inserisci i risultati
               </p>
 
