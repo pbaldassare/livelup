@@ -217,13 +217,13 @@ export function PTTemplateDetailPage() {
         {/* Exercise Builder */}
         <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Blocchi e protocolli</CardTitle>
+            <CardTitle>Esercizi e protocolli</CardTitle>
             <CardDescription>
-              Costruisci la scheda usando blocchi (protocolli). Ogni blocco contiene uno o più esercizi.
+              Aggiungi gli esercizi in ordine. Imposta il protocollo (Set, EMOM, AMRAP, Superset, HIIT...) direttamente su ogni esercizio.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <TemplateBlockBuilder templateId={template.id} />
+            <TemplateExerciseBuilder templateId={template.id} />
           </CardContent>
         </Card>
       </div>
