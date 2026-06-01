@@ -570,6 +570,8 @@ export function GuidedWorkoutFlow({
           protocolLabel={protocolLabel}
           exerciseName={currentExercise.exercises.name}
           protocolParams={currentExercise.protocol_params ?? null}
+          notes={currentExercise.notes ?? null}
+          onShowDetails={openDetails}
           onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
             try {
               await saveSet.mutateAsync({
