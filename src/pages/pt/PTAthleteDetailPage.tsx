@@ -182,7 +182,8 @@ export function PTAthleteDetailPage() {
   }
 
   const { connection, profile, atletaProfile } = athlete;
-  const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Atleta';
+  const fullName = getAthleteDisplayName(profile?.first_name, profile?.last_name, profile?.email);
+  const initials = getAthleteInitials(profile?.first_name, profile?.last_name, profile?.email);
   const activeWorkouts = workouts.filter(w => w.status === 'attivo').length;
   const completedWorkouts = workouts.filter(w => w.status === 'completato').length;
 
