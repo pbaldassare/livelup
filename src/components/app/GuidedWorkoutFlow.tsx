@@ -538,6 +538,7 @@ export function GuidedWorkoutFlow({
   if (currentExercise.protocol_type === 'HIIT' || currentExercise.protocol_type === 'TABATA') {
     const protocolLabel = currentExercise.protocol_type as 'HIIT' | 'TABATA';
     return (
+      <>
       <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
         <div className="px-4 pt-4 pb-2">
           <div className="flex gap-1">
