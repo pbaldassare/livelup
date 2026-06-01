@@ -155,8 +155,11 @@ export function PTAppAthletesPage() {
 }
 
 function AthleteCard({ connection, type }: { connection: any; type: 'active' | 'pending' }) {
-  const name = `${connection.profiles?.first_name || ''} ${connection.profiles?.last_name || ''}`.trim() || 'Atleta';
-  const initials = `${connection.profiles?.first_name?.[0] || ''}${connection.profiles?.last_name?.[0] || ''}`;
+  const p = connection.profiles;
+  const name = `${p?.first_name || ''} ${p?.last_name || ''}`.trim() || p?.email || 'Atleta';
+  const initials = (p?.first_name?.[0] || p?.last_name?.[0])
+    ? `${p?.first_name?.[0] || ''}${p?.last_name?.[0] || ''}`
+    : (p?.email?.[0]?.toUpperCase() || 'A');
 
   return (
     <Link to={`/pt/app/athlete/${connection.atleta_user_id}`}>
