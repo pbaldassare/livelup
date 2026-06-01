@@ -108,6 +108,15 @@ export function AtletaEmomPlayer({
 
   return (
     <div className="flex flex-col items-center px-5 py-6">
+      <ExerciseHeader
+        name={exerciseName}
+        protocolType="EMOM"
+        notes={notes ?? null}
+        onShowDetails={onShowDetails}
+        size="md"
+        align="center"
+        className="mb-3"
+      />
       {/* Counter round */}
       <p className="text-xs uppercase tracking-[0.2em] text-app-muted-foreground mb-2">
         Round {round} di {emom.rounds}
