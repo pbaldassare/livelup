@@ -1,5 +1,7 @@
-import { useNavigate } from 'react-router-dom';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useNotifications, type Notification } from '@/hooks/useNotifications';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Bell, Check, Trash2, UserPlus, MessageSquare, Calendar, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 // =====================================================
 // COMPONENT: Notification Dropdown
@@ -19,38 +22,91 @@ import { cn } from '@/lib/utils';
 
 const notificationIcons: Record<string, typeof Bell> = {
   connection_request: UserPlus,
+  connection: UserPlus,
   connection_accepted: Check,
   message: MessageSquare,
   event: Calendar,
   payment: CreditCard,
 };
 
+function extractChatId(n: Notification): string | null {
+  const fromData =
+    n.data && typeof n.data === 'object' ? (n.data as Record<string, unknown>).chat_id : null;
+  if (typeof fromData === 'string' && fromData) return fromData;
+  if (n.action_url) {
+    const m = n.action_url.match(/\/(?:chat|messages)\/([0-9a-fA-F-]{8,})/);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 export function NotificationDropdown() {
   const navigate = useNavigate();
-  const { 
-    notifications, 
-    unreadCount, 
-    markAsRead, 
+  const location = useLocation();
+  const { user, role } = useAuth();
+  const [open, setOpen] = useState(false);
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
     markAllAsRead,
-    deleteNotification 
+    deleteNotification,
   } = useNotifications();
 
-  const handleNotificationClick = (notification: typeof notifications[0]) => {
-    if (!notification.is_read) {
-      markAsRead(notification.id);
+  const resolveChatRoute = async (chatId: string): Promise<string | null> => {
+    if (!user?.id) return null;
+    const { data, error } = await supabase
+      .from('chats')
+      .select('pt_user_id, atleta_user_id')
+      .eq('id', chatId)
+      .maybeSingle();
+    if (error || !data) return null;
+
+    const otherUserId =
+      data.pt_user_id === user.id ? data.atleta_user_id : data.pt_user_id;
+
+    if (role === 'atleta') {
+      return `/app/chat/${otherUserId}`;
     }
+    if (role === 'pt') {
+      // PT can be in the dashboard (/pt/...) or in the PT PWA (/pt/app/...)
+      const inPwa = location.pathname.startsWith('/pt/app');
+      return inPwa
+        ? `/pt/app/chat/${otherUserId}`
+        : `/pt/messages?athlete=${otherUserId}`;
+    }
+    return null;
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.is_read) markAsRead(notification.id);
+    setOpen(false);
+
+    const isMessage =
+      notification.type === 'message' ||
+      (notification.action_url || '').includes('/messages/') ||
+      (notification.action_url || '').includes('/chat/');
+
+    if (isMessage) {
+      const chatId = extractChatId(notification);
+      if (chatId) {
+        const route = await resolveChatRoute(chatId);
+        if (route) {
+          navigate(route);
+          return;
+        }
+      }
+    }
+
     if (notification.action_url) {
       navigate(notification.action_url);
     }
   };
 
-  const getIcon = (type: string) => {
-    const Icon = notificationIcons[type] || Bell;
-    return Icon;
-  };
+  const getIcon = (type: string) => notificationIcons[type] || Bell;
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
@@ -65,9 +121,9 @@ export function NotificationDropdown() {
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Notifiche</span>
           {unreadCount > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="h-auto p-1 text-xs"
               onClick={() => markAllAsRead()}
             >
@@ -76,7 +132,7 @@ export function NotificationDropdown() {
           )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        
+
         {notifications.length === 0 ? (
           <div className="p-4 text-center text-sm text-muted-foreground">
             Nessuna notifica
@@ -92,7 +148,10 @@ export function NotificationDropdown() {
                     'flex items-start gap-3 p-3 cursor-pointer',
                     !notification.is_read && 'bg-muted/50'
                   )}
-                  onClick={() => handleNotificationClick(notification)}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    handleNotificationClick(notification);
+                  }}
                 >
                   <div className={cn(
                     'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
