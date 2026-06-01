@@ -607,10 +607,13 @@ export function GuidedWorkoutFlow({
           }}
         />
       </div>
+      {detailSheet}
+      </>
     );
   }
 
   return (
+    <>
     <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
       {/* Top progress bar */}
       <div className="px-4 pt-4 pb-2">
