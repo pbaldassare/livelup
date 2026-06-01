@@ -447,6 +447,7 @@ export function GuidedWorkoutFlow({
   // Branch dedicato EMOM: player a round con timer, alternanza blocchi in loop.
   if (currentExercise.protocol_type === 'EMOM') {
     return (
+      <>
       <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
         {/* Top progress bar */}
         <div className="px-4 pt-4 pb-2">
