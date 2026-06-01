@@ -695,11 +695,6 @@ export function GuidedWorkoutFlow({
                 />
               </div>
 
-              {currentExercise.notes && (
-                <p className="text-xs text-app-muted-foreground mb-6 max-w-sm">
-                  💬 {currentExercise.notes}
-                </p>
-              )}
 
               <Button
                 onClick={() => dispatch({ type: 'START_SET' })}
