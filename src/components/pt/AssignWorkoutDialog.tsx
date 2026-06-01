@@ -495,8 +495,7 @@ export function AssignWorkoutDialog({
                             </AvatarFallback>
                           </Avatar>
                           <span>
-                            {athlete.profile?.first_name || 'Atleta'}{' '}
-                            {athlete.profile?.last_name || ''}
+                            {`${athlete.profile?.first_name || ''} ${athlete.profile?.last_name || ''}`.trim() || 'Atleta'}
                           </span>
                         </div>
                       </SelectItem>
