@@ -814,6 +814,9 @@ export function GuidedWorkoutFlow({
           )}
         </AnimatePresence>
 
+        {/* Next exercise slide-up preview (last rest only) */}
+        <NextExercisePreview show={showNextPreview} next={nextPreviewInfo} />
+
         {/* Transition micro-feedback */}
         <AnimatePresence>
           {state.transitionMessage && (
