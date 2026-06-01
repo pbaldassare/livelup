@@ -756,10 +756,11 @@ export function GuidedWorkoutFlow({
                     {formatTime(state.restSeconds)}
                   </span>
                   <span className="text-xs text-app-muted-foreground mt-1">
-                    Prossima: serie {Math.min(state.setNumber + 1, totalSetsForCurrent)}
-                    {state.setNumber >= totalSetsForCurrent && exercises[state.exerciseIndex + 1]
-                      ? ` • ${exercises[state.exerciseIndex + 1].exercises.name}`
-                      : ''}
+                    {isLastSetOfCurrent
+                      ? nextExercise
+                        ? 'Prossimo esercizio in arrivo'
+                        : 'Ultima serie completata'
+                      : `Prossima: serie ${Math.min(state.setNumber + 1, totalSetsForCurrent)}`}
                   </span>
                 </div>
               </div>
