@@ -213,7 +213,7 @@ export function PTAthleteDetailPage() {
             <Avatar className="h-24 w-24 mx-auto ring-4 ring-role-atleta/20">
               <AvatarImage src={profile?.avatar_url || undefined} />
               <AvatarFallback className="bg-role-atleta/10 text-role-atleta text-2xl">
-                {profile?.first_name?.[0]}{profile?.last_name?.[0]}
+                {initials}
               </AvatarFallback>
             </Avatar>
             <CardTitle className="mt-4">{fullName}</CardTitle>
