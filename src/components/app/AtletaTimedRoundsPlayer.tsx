@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 import {
   normalizeTimedRoundsParams,
   type TimedRoundsParams,
@@ -25,6 +26,8 @@ interface AtletaTimedRoundsPlayerProps {
     roundsCompleted: number;
     totalDurationSeconds: number;
   }) => void;
+  notes?: string | null;
+  onShowDetails?: () => void;
 }
 
 function formatClock(seconds: number): string {
@@ -59,6 +62,8 @@ export function AtletaTimedRoundsPlayer({
   exerciseName,
   protocolParams,
   onFinished,
+  notes,
+  onShowDetails,
 }: AtletaTimedRoundsPlayerProps) {
   const params = useMemo(
     () => normalizeTimedRoundsParams(protocolParams ?? {}),
@@ -232,6 +237,15 @@ export function AtletaTimedRoundsPlayer({
 
   return (
     <div className="flex flex-col items-center px-5 py-6">
+      <ExerciseHeader
+        name={exerciseName}
+        protocolType={protocolLabel}
+        notes={notes ?? null}
+        onShowDetails={onShowDetails}
+        size="md"
+        align="center"
+        className="mb-3"
+      />
       <p className="text-xs uppercase tracking-[0.2em] text-app-muted-foreground mb-2">
         {protocolLabel} · Round {round} di {totalRounds}
       </p>

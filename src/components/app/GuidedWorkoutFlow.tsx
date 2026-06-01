@@ -1,4 +1,4 @@
-import { useReducer, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useReducer, useEffect, useMemo, useCallback, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,8 @@ import { toast } from 'sonner';
 import { AtletaEmomPlayer } from '@/components/app/AtletaEmomPlayer';
 import { AtletaTimedRoundsPlayer } from '@/components/app/AtletaTimedRoundsPlayer';
 import { NextExercisePreview } from '@/components/app/NextExercisePreview';
+import { ExerciseHeader } from '@/components/app/ExerciseHeader';
+import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
 
 // =====================================================
@@ -30,6 +32,7 @@ import { resolveRampingUnit } from '@/lib/protocols/registry';
 
 export interface GWExercise {
   id: string; // workout_exercise_id
+  exercise_id?: string;
   order_index: number;
   prescribed_sets: number;
   prescribed_reps_min?: number | null;
@@ -40,11 +43,14 @@ export interface GWExercise {
   notes?: string | null;
   protocol_type?: string | null;
   protocol_params?: Record<string, unknown> | null;
+  sets_data?: unknown;
   exercises: {
     name: string;
     category?: string | null;
     image_url?: string | null;
+    video_url?: string | null;
     instructions?: string | null;
+    muscle_groups?: string[] | null;
   };
 }
 
@@ -184,6 +190,41 @@ export function GuidedWorkoutFlow({
   });
 
   const currentExercise = exercises[state.exerciseIndex];
+
+  // Detail sheet for the clickable exercise header
+  const [detailOpen, setDetailOpen] = useState(false);
+  const openDetails = useCallback(() => setDetailOpen(true), []);
+  const detailSheet = currentExercise ? (
+    <AtletaExerciseDetailSheet
+      open={detailOpen}
+      onOpenChange={setDetailOpen}
+      exercise={{
+        id: currentExercise.id,
+        prescribed_sets: currentExercise.prescribed_sets,
+        prescribed_reps_min: currentExercise.prescribed_reps_min ?? undefined,
+        prescribed_reps_max: currentExercise.prescribed_reps_max ?? undefined,
+        prescribed_duration_seconds: currentExercise.prescribed_duration_seconds ?? null,
+        prescribed_weight: currentExercise.prescribed_weight ?? undefined,
+        rest_seconds: currentExercise.rest_seconds ?? undefined,
+        notes: currentExercise.notes ?? undefined,
+        sets_data: currentExercise.sets_data,
+        protocol_type: currentExercise.protocol_type ?? null,
+        protocol_params: currentExercise.protocol_params ?? null,
+        exercises: {
+          name: currentExercise.exercises.name,
+          category: currentExercise.exercises.category ?? undefined,
+          video_url: currentExercise.exercises.video_url ?? undefined,
+          image_url: currentExercise.exercises.image_url ?? undefined,
+          instructions: currentExercise.exercises.instructions ?? undefined,
+          muscle_groups: currentExercise.exercises.muscle_groups ?? undefined,
+        },
+      }}
+      completedSetsForEx={state.completed[currentExercise.id] ?? []}
+      status="in_progress"
+      onStart={() => setDetailOpen(false)}
+      onMarkAllCompleted={() => setDetailOpen(false)}
+    />
+  ) : null;
   const totalSetsForCurrent =
     (currentExercise?.prescribed_sets || 0) +
     (currentExercise ? state.extraSets[currentExercise.id] || 0 : 0);
@@ -406,6 +447,7 @@ export function GuidedWorkoutFlow({
   // Branch dedicato EMOM: player a round con timer, alternanza blocchi in loop.
   if (currentExercise.protocol_type === 'EMOM') {
     return (
+      <>
       <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
         {/* Top progress bar */}
         <div className="px-4 pt-4 pb-2">
@@ -435,6 +477,8 @@ export function GuidedWorkoutFlow({
           key={currentExercise.id}
           exerciseName={currentExercise.exercises.name}
           protocolParams={currentExercise.protocol_params ?? null}
+          notes={currentExercise.notes ?? null}
+          onShowDetails={openDetails}
           onFinished={async () => {
             try {
               const params = (currentExercise.protocol_params ?? {}) as Record<string, unknown>;
@@ -487,6 +531,8 @@ export function GuidedWorkoutFlow({
           }}
         />
       </div>
+      {detailSheet}
+      </>
     );
   }
 
@@ -494,6 +540,7 @@ export function GuidedWorkoutFlow({
   if (currentExercise.protocol_type === 'HIIT' || currentExercise.protocol_type === 'TABATA') {
     const protocolLabel = currentExercise.protocol_type as 'HIIT' | 'TABATA';
     return (
+      <>
       <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
         <div className="px-4 pt-4 pb-2">
           <div className="flex gap-1">
@@ -523,6 +570,8 @@ export function GuidedWorkoutFlow({
           protocolLabel={protocolLabel}
           exerciseName={currentExercise.exercises.name}
           protocolParams={currentExercise.protocol_params ?? null}
+          notes={currentExercise.notes ?? null}
+          onShowDetails={openDetails}
           onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
             try {
               await saveSet.mutateAsync({
@@ -562,10 +611,13 @@ export function GuidedWorkoutFlow({
           }}
         />
       </div>
+      {detailSheet}
+      </>
     );
   }
 
   return (
+    <>
     <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
       {/* Top progress bar */}
       <div className="px-4 pt-4 pb-2">
@@ -613,10 +665,16 @@ export function GuidedWorkoutFlow({
               <div className="w-16 h-16 rounded-2xl bg-app-accent/10 flex items-center justify-center mb-4">
                 <Dumbbell className="h-8 w-8 text-app-accent" />
               </div>
-              <h2 className="text-2xl font-bold text-app-foreground mb-1">
-                {currentExercise.exercises.name}
-              </h2>
-              <p className="text-sm text-app-muted-foreground mb-6">
+              <ExerciseHeader
+                name={currentExercise.exercises.name}
+                protocolType={currentExercise.protocol_type ?? 'standard'}
+                notes={currentExercise.notes ?? null}
+                onShowDetails={openDetails}
+                size="lg"
+                align="center"
+                className="mb-2"
+              />
+              <p className="text-sm text-app-muted-foreground mb-6 mt-2">
                 Serie {state.setNumber} di {totalSetsForCurrent}
               </p>
 
@@ -648,11 +706,6 @@ export function GuidedWorkoutFlow({
                 />
               </div>
 
-              {currentExercise.notes && (
-                <p className="text-xs text-app-muted-foreground mb-6 max-w-sm">
-                  💬 {currentExercise.notes}
-                </p>
-              )}
 
               <Button
                 onClick={() => dispatch({ type: 'START_SET' })}
@@ -672,10 +725,16 @@ export function GuidedWorkoutFlow({
               exit={{ opacity: 0, y: -20 }}
               className="absolute inset-0 flex flex-col items-center justify-center px-6 py-8"
             >
-              <h2 className="text-xl font-bold text-app-foreground mb-1 text-center">
-                {currentExercise.exercises.name}
-              </h2>
-              <p className="text-sm text-app-muted-foreground mb-8 text-center">
+              <ExerciseHeader
+                name={currentExercise.exercises.name}
+                protocolType={currentExercise.protocol_type ?? 'standard'}
+                notes={currentExercise.notes ?? null}
+                onShowDetails={openDetails}
+                size="md"
+                align="center"
+                className="mb-2"
+              />
+              <p className="text-sm text-app-muted-foreground mb-8 text-center mt-2">
                 Serie {state.setNumber} • inserisci i risultati
               </p>
 
@@ -861,6 +920,8 @@ export function GuidedWorkoutFlow({
         </div>
       )}
     </div>
+    {detailSheet}
+    </>
   );
 }
 

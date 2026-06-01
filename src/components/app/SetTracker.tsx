@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Check, ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 
 // =====================================================
 // SET TRACKER - Track reps, weight, RPE for each set
@@ -26,6 +27,10 @@ interface SetTrackerProps {
   restSeconds?: number;
   initialReps?: number;
   initialWeight?: number;
+  exerciseName?: string;
+  protocolType?: string | null;
+  notes?: string | null;
+  onShowDetails?: () => void;
 }
 
 const RPE_LABELS: Record<number, string> = {
@@ -44,6 +49,10 @@ export function SetTracker({
   restSeconds = 60,
   initialReps,
   initialWeight,
+  exerciseName,
+  protocolType,
+  notes,
+  onShowDetails,
 }: SetTrackerProps) {
   const current = sets.find(s => s.setNumber === currentSet);
 
@@ -90,6 +99,18 @@ export function SetTracker({
       <div className="flex justify-center">
         <div className="w-12 h-1.5 bg-app-border rounded-full" />
       </div>
+
+      {/* Exercise meta (name + protocol + notes) */}
+      {exerciseName && (
+        <ExerciseHeader
+          name={exerciseName}
+          protocolType={protocolType ?? 'standard'}
+          notes={notes ?? null}
+          onShowDetails={onShowDetails}
+          size="md"
+          align="left"
+        />
+      )}
 
       {/* Exercise header */}
       <div 

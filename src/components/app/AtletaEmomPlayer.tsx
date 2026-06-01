@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 import {
   normalizeEmomParams,
   formatRoundDurationSeconds,
@@ -20,6 +21,8 @@ interface AtletaEmomPlayerProps {
   exerciseName: string;
   protocolParams: Record<string, unknown> | null | undefined;
   onFinished: () => void;
+  notes?: string | null;
+  onShowDetails?: () => void;
 }
 
 function formatClock(seconds: number): string {
@@ -37,6 +40,8 @@ export function AtletaEmomPlayer({
   exerciseName,
   protocolParams,
   onFinished,
+  notes,
+  onShowDetails,
 }: AtletaEmomPlayerProps) {
   const emom = useMemo(
     () => normalizeEmomParams(protocolParams ?? {}, exerciseName),
@@ -103,6 +108,15 @@ export function AtletaEmomPlayer({
 
   return (
     <div className="flex flex-col items-center px-5 py-6">
+      <ExerciseHeader
+        name={exerciseName}
+        protocolType="EMOM"
+        notes={notes ?? null}
+        onShowDetails={onShowDetails}
+        size="md"
+        align="center"
+        className="mb-3"
+      />
       {/* Counter round */}
       <p className="text-xs uppercase tracking-[0.2em] text-app-muted-foreground mb-2">
         Round {round} di {emom.rounds}
