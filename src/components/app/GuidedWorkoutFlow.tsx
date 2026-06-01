@@ -30,6 +30,7 @@ import { resolveRampingUnit } from '@/lib/protocols/registry';
 
 export interface GWExercise {
   id: string; // workout_exercise_id
+  exercise_id?: string;
   order_index: number;
   prescribed_sets: number;
   prescribed_reps_min?: number | null;
@@ -40,11 +41,14 @@ export interface GWExercise {
   notes?: string | null;
   protocol_type?: string | null;
   protocol_params?: Record<string, unknown> | null;
+  sets_data?: unknown;
   exercises: {
     name: string;
     category?: string | null;
     image_url?: string | null;
+    video_url?: string | null;
     instructions?: string | null;
+    muscle_groups?: string[] | null;
   };
 }
 
