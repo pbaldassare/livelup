@@ -49,6 +49,10 @@ export function SetTracker({
   restSeconds = 60,
   initialReps,
   initialWeight,
+  exerciseName,
+  protocolType,
+  notes,
+  onShowDetails,
 }: SetTrackerProps) {
   const current = sets.find(s => s.setNumber === currentSet);
 
