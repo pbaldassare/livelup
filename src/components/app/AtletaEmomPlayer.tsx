@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 import {
   normalizeEmomParams,
   formatRoundDurationSeconds,
