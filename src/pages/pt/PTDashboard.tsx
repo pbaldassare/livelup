@@ -195,6 +195,11 @@ export function PTDashboard() {
         )}
       </div>
 
+      {/* Today's Training Report */}
+      <PTTodayReport />
+
+
+
       {/* Dashboard KPI Section */}
       <SectionCard
         title="Dashboard KPI"
