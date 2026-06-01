@@ -25,6 +25,8 @@ interface AtletaTimedRoundsPlayerProps {
     roundsCompleted: number;
     totalDurationSeconds: number;
   }) => void;
+  notes?: string | null;
+  onShowDetails?: () => void;
 }
 
 function formatClock(seconds: number): string {
