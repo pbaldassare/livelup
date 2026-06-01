@@ -529,6 +529,8 @@ export function GuidedWorkoutFlow({
           }}
         />
       </div>
+      {detailSheet}
+      </>
     );
   }
 
