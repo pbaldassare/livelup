@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AtletaEmomPlayer } from '@/components/app/AtletaEmomPlayer';
 import { AtletaTimedRoundsPlayer } from '@/components/app/AtletaTimedRoundsPlayer';
+import { NextExercisePreview } from '@/components/app/NextExercisePreview';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
 
 // =====================================================
