@@ -40,6 +40,8 @@ export function AtletaEmomPlayer({
   exerciseName,
   protocolParams,
   onFinished,
+  notes,
+  onShowDetails,
 }: AtletaEmomPlayerProps) {
   const emom = useMemo(
     () => normalizeEmomParams(protocolParams ?? {}, exerciseName),
