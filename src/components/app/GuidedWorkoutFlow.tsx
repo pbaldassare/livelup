@@ -477,6 +477,8 @@ export function GuidedWorkoutFlow({
           key={currentExercise.id}
           exerciseName={currentExercise.exercises.name}
           protocolParams={currentExercise.protocol_params ?? null}
+          notes={currentExercise.notes ?? null}
+          onShowDetails={openDetails}
           onFinished={async () => {
             try {
               const params = (currentExercise.protocol_params ?? {}) as Record<string, unknown>;
