@@ -20,6 +20,8 @@ import { toast } from 'sonner';
 import { AtletaEmomPlayer } from '@/components/app/AtletaEmomPlayer';
 import { AtletaTimedRoundsPlayer } from '@/components/app/AtletaTimedRoundsPlayer';
 import { NextExercisePreview } from '@/components/app/NextExercisePreview';
+import { ExerciseHeader } from '@/components/app/ExerciseHeader';
+import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
 
 // =====================================================
