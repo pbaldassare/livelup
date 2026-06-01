@@ -20,6 +20,8 @@ interface AtletaEmomPlayerProps {
   exerciseName: string;
   protocolParams: Record<string, unknown> | null | undefined;
   onFinished: () => void;
+  notes?: string | null;
+  onShowDetails?: () => void;
 }
 
 function formatClock(seconds: number): string {
