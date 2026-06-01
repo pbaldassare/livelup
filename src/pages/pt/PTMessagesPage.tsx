@@ -45,6 +45,7 @@ export function PTMessagesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [messageInput, setMessageInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
