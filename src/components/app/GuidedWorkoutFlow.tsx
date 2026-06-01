@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AtletaEmomPlayer } from '@/components/app/AtletaEmomPlayer';
 import { AtletaTimedRoundsPlayer } from '@/components/app/AtletaTimedRoundsPlayer';
+import { NextExercisePreview } from '@/components/app/NextExercisePreview';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
 
 // =====================================================
@@ -382,6 +383,26 @@ export function GuidedWorkoutFlow({
   const restProgress =
     state.restTotal > 0 ? ((state.restTotal - state.restSeconds) / state.restTotal) * 100 : 0;
 
+  // Find next non-skipped exercise (for last-rest preview card)
+  const nextExercise = (() => {
+    let i = state.exerciseIndex + 1;
+    while (i < exercises.length && state.skipped[exercises[i].id]) i++;
+    return i < exercises.length ? exercises[i] : null;
+  })();
+  const isLastSetOfCurrent = state.setNumber >= totalSetsForCurrent;
+  const showNextPreview =
+    state.flow === 'rest' && isLastSetOfCurrent && !!nextExercise;
+  const nextPreviewInfo = nextExercise
+    ? {
+        name: nextExercise.exercises.name,
+        category: nextExercise.exercises.category ?? null,
+        imageUrl: nextExercise.exercises.image_url ?? null,
+        sets: nextExercise.prescribed_sets ?? null,
+        repsLabel: formatRepsLabel(nextExercise),
+        protocolType: nextExercise.protocol_type ?? null,
+      }
+    : null;
+
   // Branch dedicato EMOM: player a round con timer, alternanza blocchi in loop.
   if (currentExercise.protocol_type === 'EMOM') {
     return (
@@ -735,10 +756,11 @@ export function GuidedWorkoutFlow({
                     {formatTime(state.restSeconds)}
                   </span>
                   <span className="text-xs text-app-muted-foreground mt-1">
-                    Prossima: serie {Math.min(state.setNumber + 1, totalSetsForCurrent)}
-                    {state.setNumber >= totalSetsForCurrent && exercises[state.exerciseIndex + 1]
-                      ? ` • ${exercises[state.exerciseIndex + 1].exercises.name}`
-                      : ''}
+                    {isLastSetOfCurrent
+                      ? nextExercise
+                        ? 'Prossimo esercizio in arrivo'
+                        : 'Ultima serie completata'
+                      : `Prossima: serie ${Math.min(state.setNumber + 1, totalSetsForCurrent)}`}
                   </span>
                 </div>
               </div>
@@ -791,6 +813,9 @@ export function GuidedWorkoutFlow({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Next exercise slide-up preview (last rest only) */}
+        <NextExercisePreview show={showNextPreview} next={nextPreviewInfo} />
 
         {/* Transition micro-feedback */}
         <AnimatePresence>
