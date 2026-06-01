@@ -511,9 +511,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       {/* Exercise List with Drag and Drop */}
       {templateExercises.length === 0 ? (
         <div className="py-6 text-center text-sm text-muted-foreground">
-          {blockId
-            ? 'Circuito vuoto. Aggiungi il primo esercizio.'
-            : 'Nessun esercizio libero. Aggiungi il primo o crea un circuito.'}
+          Nessun esercizio. Aggiungi il primo per iniziare.
         </div>
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
