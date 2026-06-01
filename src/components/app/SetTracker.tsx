@@ -100,6 +100,18 @@ export function SetTracker({
         <div className="w-12 h-1.5 bg-app-border rounded-full" />
       </div>
 
+      {/* Exercise meta (name + protocol + notes) */}
+      {exerciseName && (
+        <ExerciseHeader
+          name={exerciseName}
+          protocolType={protocolType ?? 'standard'}
+          notes={notes ?? null}
+          onShowDetails={onShowDetails}
+          size="md"
+          align="left"
+        />
+      )}
+
       {/* Exercise header */}
       <div 
         className="flex items-center justify-between cursor-pointer"
