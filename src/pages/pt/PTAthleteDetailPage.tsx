@@ -284,7 +284,7 @@ export function PTAthleteDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Stats and History */}
+        {/* Stats and Tabs */}
         <div className="lg:col-span-2 space-y-6">
           {/* Quick Stats */}
           <div className="grid gap-4 grid-cols-3">
@@ -329,125 +329,170 @@ export function PTAthleteDetailPage() {
             </Card>
           </div>
 
-          {/* Recent Workouts */}
-          <SectionCard
-            title="Allenamenti Recenti"
-            subtitle="Ultimi 10 allenamenti assegnati"
-            icon={Dumbbell}
-            iconColor="primary"
-          >
-            {workouts.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Dumbbell className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p>Nessun allenamento assegnato</p>
-                <Button 
-                  variant="link" 
-                  className="mt-2"
-                  onClick={() => setAssignDialogOpen(true)}
-                >
-                  Assegna il primo allenamento
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {workouts.map((workout) => (
-                  <div 
-                    key={workout.id}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-muted">
-                        <Dumbbell className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{workout.title}</p>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {format(new Date(workout.created_at), 'dd MMM yyyy', { locale: it })}
-                        </p>
-                      </div>
-                    </div>
-                    <DashboardStatusBadge status={workout.status} size="sm" />
-                  </div>
-                ))}
-              </div>
-            )}
-          </SectionCard>
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="overview">
+                <Activity className="h-4 w-4 mr-1.5" /> Panoramica
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <History className="h-4 w-4 mr-1.5" /> Storico
+              </TabsTrigger>
+              <TabsTrigger value="train">
+                <Play className="h-4 w-4 mr-1.5" /> Allena ora
+              </TabsTrigger>
+              <TabsTrigger value="badges">
+                <Award className="h-4 w-4 mr-1.5" /> Badge
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Progress */}
-          {progressData.length > 0 && (
-            <SectionCard
-              title="Progressi Recenti"
-              subtitle="Ultimi aggiornamenti"
-              icon={TrendingUp}
-              iconColor="green"
-            >
-              <div className="space-y-3">
-                {progressData.map((progress) => (
-                  <div 
-                    key={progress.id}
-                    className="flex items-center justify-between p-3 rounded-lg border"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {format(new Date(progress.tracked_date), 'dd MMM yyyy', { locale: it })}
-                      </p>
-                      <div className="flex gap-4 text-sm text-muted-foreground">
-                        {progress.weight_kg && (
-                          <span>Peso: {progress.weight_kg} kg</span>
-                        )}
-                        {progress.energy_level && (
-                          <span>Energia: {progress.energy_level}/10</span>
-                        )}
+            <TabsContent value="overview" className="space-y-6 mt-4">
+              {/* Recent Workouts */}
+              <SectionCard
+                title="Allenamenti Recenti"
+                subtitle="Ultimi 10 allenamenti assegnati"
+                icon={Dumbbell}
+                iconColor="primary"
+              >
+                {workouts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Dumbbell className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p>Nessun allenamento assegnato</p>
+                    <Button
+                      variant="link"
+                      className="mt-2"
+                      onClick={() => setAssignDialogOpen(true)}
+                    >
+                      Assegna il primo allenamento
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {workouts.map((workout) => (
+                      <div
+                        key={workout.id}
+                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-muted">
+                            <Dumbbell className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{workout.title}</p>
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {format(new Date(workout.created_at), 'dd MMM yyyy', { locale: it })}
+                            </p>
+                          </div>
+                        </div>
+                        <DashboardStatusBadge status={workout.status} size="sm" />
                       </div>
+                    ))}
+                  </div>
+                )}
+              </SectionCard>
+
+              {progressData.length > 0 && (
+                <SectionCard
+                  title="Progressi Recenti"
+                  subtitle="Ultimi aggiornamenti"
+                  icon={TrendingUp}
+                  iconColor="green"
+                >
+                  <div className="space-y-3">
+                    {progressData.map((progress) => (
+                      <div
+                        key={progress.id}
+                        className="flex items-center justify-between p-3 rounded-lg border"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {format(new Date(progress.tracked_date), 'dd MMM yyyy', { locale: it })}
+                          </p>
+                          <div className="flex gap-4 text-sm text-muted-foreground">
+                            {progress.weight_kg && <span>Peso: {progress.weight_kg} kg</span>}
+                            {progress.energy_level && (
+                              <span>Energia: {progress.energy_level}/10</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+              )}
+            </TabsContent>
+
+            <TabsContent value="history" className="mt-4">
+              {atletaId && user?.id && (
+                <PTAthleteHistoryTab atletaUserId={atletaId} ptUserId={user.id} />
+              )}
+            </TabsContent>
+
+            <TabsContent value="train" className="mt-4">
+              {atletaId && user?.id && (
+                <PTAthleteTrainNowTab
+                  atletaUserId={atletaId}
+                  ptUserId={user.id}
+                  atletaName={fullName}
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="badges" className="mt-4">
+              <SectionCard
+                title="Assegna Badge"
+                subtitle="Premia i risultati del tuo atleta"
+                icon={Award}
+                iconColor="yellow"
+              >
+                {unassignedBadges.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Tutti i badge sono già stati assegnati! 🎉
+                  </p>
+                ) : (
+                  <div className="flex items-end gap-3">
+                    <div className="flex-1">
+                      <Select value={selectedBadgeId} onValueChange={setSelectedBadgeId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleziona badge..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {unassignedBadges.map((b) => (
+                            <SelectItem key={b.id} value={b.id}>
+                              {b.name} - {b.description}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      onClick={() => assignBadgeMutation.mutate()}
+                      disabled={!selectedBadgeId || assignBadgeMutation.isPending}
+                    >
+                      <Award className="h-4 w-4 mr-2" />
+                      Assegna
+                    </Button>
+                  </div>
+                )}
+                {earnedBadges.length > 0 && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Badge guadagnati ({earnedBadges.length})
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {badges
+                        .filter((b) => earnedBadges.includes(b.id))
+                        .map((b) => (
+                          <Badge key={b.id} variant="secondary">
+                            {b.name}
+                          </Badge>
+                        ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </SectionCard>
-          )}
-
-          {/* Badge Assignment */}
-          <SectionCard
-            title="Assegna Badge"
-            subtitle="Premia i risultati del tuo atleta"
-            icon={Award}
-            iconColor="yellow"
-          >
-            {unassignedBadges.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Tutti i badge sono già stati assegnati! 🎉</p>
-            ) : (
-              <div className="flex items-end gap-3">
-                <div className="flex-1">
-                  <Select value={selectedBadgeId} onValueChange={setSelectedBadgeId}>
-                    <SelectTrigger><SelectValue placeholder="Seleziona badge..." /></SelectTrigger>
-                    <SelectContent>
-                      {unassignedBadges.map(b => (
-                        <SelectItem key={b.id} value={b.id}>{b.name} - {b.description}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  onClick={() => assignBadgeMutation.mutate()}
-                  disabled={!selectedBadgeId || assignBadgeMutation.isPending}
-                >
-                  <Award className="h-4 w-4 mr-2" />
-                  Assegna
-                </Button>
-              </div>
-            )}
-            {earnedBadges.length > 0 && (
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-sm text-muted-foreground mb-2">Badge guadagnati ({earnedBadges.length})</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {badges.filter(b => earnedBadges.includes(b.id)).map(b => (
-                    <Badge key={b.id} variant="secondary">{b.name}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </SectionCard>
+                )}
+              </SectionCard>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 
