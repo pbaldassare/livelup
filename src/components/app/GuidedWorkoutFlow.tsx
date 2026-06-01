@@ -61,6 +61,12 @@ interface GuidedWorkoutFlowProps {
   initialSet?: number;
   initialCompletedSets?: Record<string, number[]>;
   onCompleted: () => void;
+  /**
+   * When true, the flow runs in "PT on-behalf" mode: logs are saved via the
+   * `pt_save_workout_log` RPC so the data persists on the athlete's profile
+   * even though it's the PT executing the session in person.
+   */
+  ptOnBehalfMode?: boolean;
 }
 
 type FlowState = 'ready' | 'input' | 'rest' | 'next' | 'finished';
