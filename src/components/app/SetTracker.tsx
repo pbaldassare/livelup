@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Check, ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 
 // =====================================================
 // SET TRACKER - Track reps, weight, RPE for each set
