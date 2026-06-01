@@ -311,6 +311,7 @@ export function AssignWorkoutDialog({
           prescribedSets: te.sets,
           prescribedRepsMin: te.reps_min,
           prescribedRepsMax: te.reps_max,
+          prescribedDurationSeconds: te.prescribed_duration_seconds ?? null,
           restSeconds: te.rest_seconds,
           notes: te.notes,
           setsData: te.sets_data ?? null,
