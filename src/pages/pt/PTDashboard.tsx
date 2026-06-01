@@ -10,6 +10,7 @@ import { SectionCard, InfoSection } from '@/components/dashboard/SectionCard';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
 import { PTAnalyticsCharts } from '@/components/dashboard/PTAnalyticsCharts';
+import { PTTodayReport } from '@/components/pt/dashboard/PTTodayReport';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -193,6 +194,11 @@ export function PTDashboard() {
           </>
         )}
       </div>
+
+      {/* Today's Training Report */}
+      <PTTodayReport />
+
+
 
       {/* Dashboard KPI Section */}
       <SectionCard
