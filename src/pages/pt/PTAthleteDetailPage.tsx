@@ -14,6 +14,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PTAthleteHistoryTab } from '@/components/pt/PTAthleteHistoryTab';
+import { PTAthleteTrainNowTab } from '@/components/pt/PTAthleteTrainNowTab';
+import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import {
   User,
   ArrowLeft,
@@ -24,7 +28,9 @@ import {
   Activity,
   TrendingUp,
   Clock,
-  Award
+  Award,
+  History,
+  Play,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
