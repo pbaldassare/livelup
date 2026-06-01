@@ -446,14 +446,14 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <p className="text-sm text-muted-foreground">
-            {templateExercises.length} esercizi {blockId ? 'nel circuito' : 'liberi'} • Trascina per riordinare
+            {templateExercises.length} esercizi • Trascina per riordinare
           </p>
         </div>
         <Popover open={searchOpen} onOpenChange={setSearchOpen}>
           <PopoverTrigger asChild>
-            <Button size={blockId ? 'sm' : 'default'}>
+            <Button size="default">
               <Plus className="h-4 w-4 mr-2" />
-              {blockId ? 'Aggiungi al circuito' : 'Aggiungi esercizio'}
+              Aggiungi esercizio
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[400px] p-0" align="end">
