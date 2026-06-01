@@ -190,6 +190,41 @@ export function GuidedWorkoutFlow({
   });
 
   const currentExercise = exercises[state.exerciseIndex];
+
+  // Detail sheet for the clickable exercise header
+  const [detailOpen, setDetailOpen] = useState(false);
+  const openDetails = useCallback(() => setDetailOpen(true), []);
+  const detailSheet = currentExercise ? (
+    <AtletaExerciseDetailSheet
+      open={detailOpen}
+      onOpenChange={setDetailOpen}
+      exercise={{
+        id: currentExercise.id,
+        prescribed_sets: currentExercise.prescribed_sets,
+        prescribed_reps_min: currentExercise.prescribed_reps_min ?? undefined,
+        prescribed_reps_max: currentExercise.prescribed_reps_max ?? undefined,
+        prescribed_duration_seconds: currentExercise.prescribed_duration_seconds ?? null,
+        prescribed_weight: currentExercise.prescribed_weight ?? undefined,
+        rest_seconds: currentExercise.rest_seconds ?? undefined,
+        notes: currentExercise.notes ?? undefined,
+        sets_data: currentExercise.sets_data,
+        protocol_type: currentExercise.protocol_type ?? null,
+        protocol_params: currentExercise.protocol_params ?? null,
+        exercises: {
+          name: currentExercise.exercises.name,
+          category: currentExercise.exercises.category ?? undefined,
+          video_url: currentExercise.exercises.video_url ?? undefined,
+          image_url: currentExercise.exercises.image_url ?? undefined,
+          instructions: currentExercise.exercises.instructions ?? undefined,
+          muscle_groups: currentExercise.exercises.muscle_groups ?? undefined,
+        },
+      }}
+      completedSetsForEx={state.completed[currentExercise.id] ?? []}
+      status="in_progress"
+      onStart={() => setDetailOpen(false)}
+      onMarkAllCompleted={() => setDetailOpen(false)}
+    />
+  ) : null;
   const totalSetsForCurrent =
     (currentExercise?.prescribed_sets || 0) +
     (currentExercise ? state.extraSets[currentExercise.id] || 0 : 0);
