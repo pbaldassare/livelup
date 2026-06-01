@@ -62,6 +62,8 @@ export function AtletaTimedRoundsPlayer({
   exerciseName,
   protocolParams,
   onFinished,
+  notes,
+  onShowDetails,
 }: AtletaTimedRoundsPlayerProps) {
   const params = useMemo(
     () => normalizeTimedRoundsParams(protocolParams ?? {}),
