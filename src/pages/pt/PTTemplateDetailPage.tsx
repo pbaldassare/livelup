@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
-import { TemplateBlockBuilder } from '@/components/pt/TemplateBlockBuilder';
+import { TemplateExerciseBuilder } from '@/components/pt/TemplateExerciseBuilder';
 import { PageLoader } from '@/components/common/PageLoader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
