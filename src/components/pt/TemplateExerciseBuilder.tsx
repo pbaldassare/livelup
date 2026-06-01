@@ -446,14 +446,14 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <p className="text-sm text-muted-foreground">
-            {templateExercises.length} esercizi {blockId ? 'nel circuito' : 'liberi'} • Trascina per riordinare
+            {templateExercises.length} esercizi • Trascina per riordinare
           </p>
         </div>
         <Popover open={searchOpen} onOpenChange={setSearchOpen}>
           <PopoverTrigger asChild>
-            <Button size={blockId ? 'sm' : 'default'}>
+            <Button size="default">
               <Plus className="h-4 w-4 mr-2" />
-              {blockId ? 'Aggiungi al circuito' : 'Aggiungi esercizio'}
+              Aggiungi esercizio
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[400px] p-0" align="end">
@@ -511,9 +511,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       {/* Exercise List with Drag and Drop */}
       {templateExercises.length === 0 ? (
         <div className="py-6 text-center text-sm text-muted-foreground">
-          {blockId
-            ? 'Circuito vuoto. Aggiungi il primo esercizio.'
-            : 'Nessun esercizio libero. Aggiungi il primo o crea un circuito.'}
+          Nessun esercizio. Aggiungi il primo per iniziare.
         </div>
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
@@ -586,40 +584,6 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       </SelectContent>
                                     </Select>
                                     <ProtocolInfoPopover type={(te.protocol_type as ProtocolType) || 'SET'} />
-                                    {/* Sposta in... */}
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" title="Sposta esercizio">
-                                          <MoveRight className="h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuLabel>Sposta in</DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                          disabled={!te.block_id}
-                                          onClick={() =>
-                                            moveToCircuitMutation.mutate({ id: te.id, targetBlockId: null })
-                                          }
-                                        >
-                                          Esercizi singoli
-                                        </DropdownMenuItem>
-                                        {allCircuits.map((c: any) => (
-                                          <DropdownMenuItem
-                                            key={c.id}
-                                            disabled={te.block_id === c.id}
-                                            onClick={() =>
-                                              moveToCircuitMutation.mutate({
-                                                id: te.id,
-                                                targetBlockId: c.id,
-                                              })
-                                            }
-                                          >
-                                            {c.name || 'Circuito'}
-                                          </DropdownMenuItem>
-                                        ))}
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
                                     <Button
                                       variant="ghost"
                                       size="icon"

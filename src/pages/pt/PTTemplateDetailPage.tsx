@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
-import { TemplateBlockBuilder } from '@/components/pt/TemplateBlockBuilder';
+import { TemplateExerciseBuilder } from '@/components/pt/TemplateExerciseBuilder';
 import { PageLoader } from '@/components/common/PageLoader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -217,13 +217,13 @@ export function PTTemplateDetailPage() {
         {/* Exercise Builder */}
         <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Blocchi e protocolli</CardTitle>
+            <CardTitle>Esercizi e protocolli</CardTitle>
             <CardDescription>
-              Costruisci la scheda usando blocchi (protocolli). Ogni blocco contiene uno o più esercizi.
+              Aggiungi gli esercizi in ordine. Imposta il protocollo (Set, EMOM, AMRAP, Superset, HIIT...) direttamente su ogni esercizio.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <TemplateBlockBuilder templateId={template.id} />
+            <TemplateExerciseBuilder templateId={template.id} />
           </CardContent>
         </Card>
       </div>
