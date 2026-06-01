@@ -916,6 +916,8 @@ export function GuidedWorkoutFlow({
         </div>
       )}
     </div>
+    {detailSheet}
+    </>
   );
 }
 
