@@ -740,6 +740,11 @@ export function AtletaWorkoutDetailPage() {
                               <p className="font-semibold text-app-foreground truncate">
                                 {ex.exercises?.name}
                               </p>
+                              {ex.notes && (
+                                <p className="text-xs text-app-muted-foreground/80 italic truncate mt-0.5">
+                                  {ex.notes}
+                                </p>
+                              )}
                               <div className="flex items-center gap-1.5 text-sm text-app-muted-foreground mt-0.5">
                                 {isDuration ? (
                                   <>
@@ -749,7 +754,7 @@ export function AtletaWorkoutDetailPage() {
                                 ) : (
                                   <>
                                     <Repeat className="h-3.5 w-3.5" />
-                                    <span className="tabular-nums">×{repsCount}</span>
+                                    <span className="tabular-nums">×{repsCount} · {ex.prescribed_sets} set</span>
                                   </>
                                 )}
                                 {status === 'in_progress' && (
