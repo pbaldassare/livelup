@@ -1,4 +1,5 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const PROMPT = `You are an expert fitness assistant parsing Italian Personal Trainer workout sheets.
 Your job is to extract exercises and return structured JSON.
@@ -78,6 +79,41 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Require authenticated caller to prevent AI credit abuse
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims?.sub) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const userId = claimsData.claims.sub;
+    const { data: roleRow } = await userClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['pt', 'admin'])
+      .maybeSingle();
+    if (!roleRow) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { file_base64, mime_type } = await req.json();
 
     if (!file_base64 || !mime_type) {
