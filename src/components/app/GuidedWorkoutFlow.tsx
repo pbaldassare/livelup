@@ -654,10 +654,16 @@ export function GuidedWorkoutFlow({
               <div className="w-16 h-16 rounded-2xl bg-app-accent/10 flex items-center justify-center mb-4">
                 <Dumbbell className="h-8 w-8 text-app-accent" />
               </div>
-              <h2 className="text-2xl font-bold text-app-foreground mb-1">
-                {currentExercise.exercises.name}
-              </h2>
-              <p className="text-sm text-app-muted-foreground mb-6">
+              <ExerciseHeader
+                name={currentExercise.exercises.name}
+                protocolType={currentExercise.protocol_type ?? 'standard'}
+                notes={currentExercise.notes ?? null}
+                onShowDetails={openDetails}
+                size="lg"
+                align="center"
+                className="mb-2"
+              />
+              <p className="text-sm text-app-muted-foreground mb-6 mt-2">
                 Serie {state.setNumber} di {totalSetsForCurrent}
               </p>
 
