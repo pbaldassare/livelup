@@ -584,40 +584,6 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       </SelectContent>
                                     </Select>
                                     <ProtocolInfoPopover type={(te.protocol_type as ProtocolType) || 'SET'} />
-                                    {/* Sposta in... */}
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" title="Sposta esercizio">
-                                          <MoveRight className="h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuLabel>Sposta in</DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                          disabled={!te.block_id}
-                                          onClick={() =>
-                                            moveToCircuitMutation.mutate({ id: te.id, targetBlockId: null })
-                                          }
-                                        >
-                                          Esercizi singoli
-                                        </DropdownMenuItem>
-                                        {allCircuits.map((c: any) => (
-                                          <DropdownMenuItem
-                                            key={c.id}
-                                            disabled={te.block_id === c.id}
-                                            onClick={() =>
-                                              moveToCircuitMutation.mutate({
-                                                id: te.id,
-                                                targetBlockId: c.id,
-                                              })
-                                            }
-                                          >
-                                            {c.name || 'Circuito'}
-                                          </DropdownMenuItem>
-                                        ))}
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
                                     <Button
                                       variant="ghost"
                                       size="icon"
