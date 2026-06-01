@@ -2884,6 +2884,18 @@ export type Database = {
       }
       is_premium: { Args: { _user_id: string }; Returns: boolean }
       is_pt: { Args: { _user_id: string }; Returns: boolean }
+      pt_save_workout_log: {
+        Args: {
+          _duration_seconds?: number
+          _notes?: string
+          _reps_completed?: number
+          _rpe?: number
+          _set_number: number
+          _weight_used?: number
+          _workout_exercise_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "pt" | "atleta"
