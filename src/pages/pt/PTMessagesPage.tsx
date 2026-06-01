@@ -154,6 +154,24 @@ export function PTMessagesPage() {
   const selectedRow = rows.find((r) => r.atleta_user_id === selectedAthleteId) || null;
   const selectedChatId = selectedRow?.chat_id || null;
 
+  // Auto-select athlete from ?athlete= or ?chat= URL param (e.g. from notification click)
+  useEffect(() => {
+    const athleteParam = searchParams.get('athlete');
+    const chatParam = searchParams.get('chat');
+    if (athleteParam && rows.some((r) => r.atleta_user_id === athleteParam)) {
+      setSelectedAthleteId(athleteParam);
+      searchParams.delete('athlete');
+      setSearchParams(searchParams, { replace: true });
+    } else if (chatParam) {
+      const match = rows.find((r) => r.chat_id === chatParam);
+      if (match) {
+        setSelectedAthleteId(match.atleta_user_id);
+        searchParams.delete('chat');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [searchParams, rows, setSearchParams]);
+
   // Fetch messaggi (solo se la chat esiste)
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['chat-messages', selectedChatId],
