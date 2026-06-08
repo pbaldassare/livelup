@@ -365,12 +365,12 @@ export function PTAthletesPage() {
                           <Avatar className="h-10 w-10 ring-2 ring-role-atleta/20">
                             <AvatarImage src={conn.profiles?.avatar_url || undefined} />
                             <AvatarFallback className="bg-role-atleta/10 text-role-atleta font-medium">
-                              {conn.profiles?.first_name?.[0]}{conn.profiles?.last_name?.[0]}
+                              {getAthleteInitials(conn.profiles?.first_name, conn.profiles?.last_name, conn.profiles?.email)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <p className="font-medium">
-                              {conn.profiles?.first_name} {conn.profiles?.last_name}
+                              {getAthleteDisplayName(conn.profiles?.first_name, conn.profiles?.last_name, conn.profiles?.email)}
                             </p>
                             <p className="text-sm text-muted-foreground">{conn.profiles?.email}</p>
                           </div>

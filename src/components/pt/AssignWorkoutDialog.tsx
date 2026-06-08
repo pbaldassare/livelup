@@ -141,13 +141,13 @@ export function AssignWorkoutDialog({
         (data || []).map(async (conn) => {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('first_name, last_name, avatar_url')
+            .select('first_name, last_name, email, avatar_url')
             .eq('user_id', conn.atleta_user_id)
             .single();
 
           return {
             ...conn,
-            profile: profile || { first_name: null, last_name: null, avatar_url: null },
+            profile: profile || { first_name: null, last_name: null, email: null, avatar_url: null },
           };
         }),
       );
@@ -490,12 +490,11 @@ export function AssignWorkoutDialog({
                           <Avatar className="h-6 w-6">
                             <AvatarImage src={athlete.profile?.avatar_url || undefined} />
                             <AvatarFallback className="text-xs">
-                              {athlete.profile?.first_name?.[0]}
-                              {athlete.profile?.last_name?.[0]}
+                              {getAthleteInitials(athlete.profile?.first_name, athlete.profile?.last_name, (athlete.profile as any)?.email)}
                             </AvatarFallback>
                           </Avatar>
                           <span>
-                            {`${athlete.profile?.first_name || ''} ${athlete.profile?.last_name || ''}`.trim() || 'Atleta'}
+                            {getAthleteDisplayName(athlete.profile?.first_name, athlete.profile?.last_name, (athlete.profile as any)?.email)}
                           </span>
                         </div>
                       </SelectItem>
