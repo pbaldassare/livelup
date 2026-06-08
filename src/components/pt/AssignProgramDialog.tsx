@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
