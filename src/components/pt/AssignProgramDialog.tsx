@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -107,7 +108,7 @@ export function AssignProgramDialog({
         (data || []).map(async (c) => {
           const { data: p } = await supabase
             .from('profiles')
-            .select('first_name, last_name, avatar_url')
+            .select('first_name, last_name, email, avatar_url')
             .eq('user_id', c.atleta_user_id)
             .single();
           return { atleta_user_id: c.atleta_user_id, profile: p };
@@ -222,12 +223,11 @@ export function AssignProgramDialog({
                         <Avatar className="h-6 w-6">
                           <AvatarImage src={a.profile?.avatar_url || undefined} />
                           <AvatarFallback className="text-xs">
-                            {a.profile?.first_name?.[0]}
-                            {a.profile?.last_name?.[0]}
+                            {getAthleteInitials(a.profile?.first_name, a.profile?.last_name, (a.profile as any)?.email)}
                           </AvatarFallback>
                         </Avatar>
                         <span>
-                          {a.profile?.first_name || 'Atleta'} {a.profile?.last_name || ''}
+                          {getAthleteDisplayName(a.profile?.first_name, a.profile?.last_name, (a.profile as any)?.email)}
                         </span>
                       </div>
                     </SelectItem>
