@@ -1,0 +1,1 @@
+ALTER TYPE public.fitness_level ADD VALUE IF NOT EXISTS 'nessuno';
