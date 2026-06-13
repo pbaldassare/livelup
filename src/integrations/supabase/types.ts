@@ -2903,7 +2903,7 @@ export type Database = {
       content_type: "pdf" | "video" | "image" | "document" | "other"
       coupon_type: "percentage" | "fixed_amount" | "free_months"
       event_type: "allenamento" | "evento" | "gara" | "raduno" | "altro"
-      fitness_level: "principiante" | "intermedio" | "avanzato" | "agonista"
+      fitness_level: "nessuno" | "principiante" | "intermedio" | "avanzato" | "agonista"
       package_type:
         | "sessioni"
         | "mensile"
@@ -3074,7 +3074,7 @@ export const Constants = {
       content_type: ["pdf", "video", "image", "document", "other"],
       coupon_type: ["percentage", "fixed_amount", "free_months"],
       event_type: ["allenamento", "evento", "gara", "raduno", "altro"],
-      fitness_level: ["principiante", "intermedio", "avanzato", "agonista"],
+      fitness_level: ["nessuno", "principiante", "intermedio", "avanzato", "agonista"],
       package_type: [
         "sessioni",
         "mensile",

@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Plus,
   Trash2,
@@ -21,8 +20,6 @@ import {
   Repeat,
   CalendarRange,
   Copy,
-  TrendingUp,
-  Sparkles,
   AlertTriangle,
   ExternalLink,
   Dumbbell,
@@ -36,7 +33,7 @@ import {
 } from '@hello-pangea/dnd';
 import { cn } from '@/lib/utils';
 import { describeRotation } from '@/lib/api/programs';
-import { PROGRESSION_LABELS, type WizardData } from './types';
+import type { WizardData } from './types';
 
 const WEEKDAYS = [
   { iso: 1, label: 'Lun' },
@@ -189,225 +186,168 @@ export function Step3Planner({ data, onChange }: Props) {
 
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="planner">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="planner" className="gap-2">
-            {data.mode === 'recurring' ? (
-              <Repeat className="h-3.5 w-3.5" />
-            ) : (
-              <CalendarRange className="h-3.5 w-3.5" />
-            )}
-            Planner
-          </TabsTrigger>
-          <TabsTrigger value="progressions" className="gap-2">
-            <TrendingUp className="h-3.5 w-3.5" />
-            Progressioni
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ===== PLANNER TAB ===== */}
-        <TabsContent value="planner" className="space-y-4 mt-4">
-          {data.mode === 'recurring' ? (
-            <>
-              <section className="space-y-2">
-                <Label className="text-sm font-semibold">
-                  Giorni di allenamento <span className="text-destructive">*</span>
-                </Label>
-                <div className="flex flex-wrap gap-2">
-                  {WEEKDAYS.map((d) => (
-                    <Toggle
-                      key={d.iso}
-                      pressed={data.activeDays.includes(d.iso)}
-                      onPressedChange={() => toggleDay(d.iso)}
-                      variant="outline"
-                      size="sm"
-                      className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                    >
-                      {d.label}
-                    </Toggle>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Le schede ruotano in modo continuo nei giorni selezionati.
-                </p>
-              </section>
-
-              <section className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-semibold flex items-center gap-2">
-                    <Repeat className="h-4 w-4" />
-                    Schede in rotazione
-                    <Badge variant="secondary" className="text-[10px]">
-                      {data.schedules.length}
-                    </Badge>
-                  </Label>
-                  <Button type="button" size="sm" variant="outline" onClick={addSchedule}>
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Aggiungi
-                  </Button>
-                </div>
-
-                {data.schedules.length === 0 ? (
-                  <Card className="p-6 text-center border-dashed">
-                    <p className="text-sm text-muted-foreground">
-                      Nessuna scheda. Aggiungine almeno una per definire la rotazione.
-                    </p>
-                  </Card>
-                ) : (
-                  <DragDropContext onDragEnd={onDragEnd}>
-                    <Droppable droppableId="schedules">
-                      {(provided) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className="space-y-2"
-                        >
-                          {data.schedules.map((sch, idx) => (
-                            <Draggable
-                              key={`${idx}-${sch.template_id}`}
-                              draggableId={`${idx}-${sch.template_id}`}
-                              index={idx}
-                            >
-                              {(prov, snap) => (
-                                <Card
-                                  ref={prov.innerRef}
-                                  {...prov.draggableProps}
-                                  className={cn(
-                                    'p-3 transition-shadow',
-                                    snap.isDragging && 'shadow-lg ring-2 ring-primary/30',
-                                  )}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      {...prov.dragHandleProps}
-                                      className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-                                    >
-                                      <GripVertical className="h-4 w-4" />
-                                    </div>
-                                    <Badge
-                                      variant="secondary"
-                                      className="h-7 w-7 rounded-full flex items-center justify-center p-0 font-bold"
-                                    >
-                                      {String.fromCharCode(65 + idx)}
-                                    </Badge>
-                                    <Select
-                                      value={sch.template_id}
-                                      onValueChange={(v) => updateSchedule(idx, v)}
-                                    >
-                                      <SelectTrigger className="h-9 flex-1">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {templates.map((t) => (
-                                          <SelectItem key={t.id} value={t.id}>
-                                            {t.title}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <Button
-                                      type="button"
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-8 w-8 text-destructive"
-                                      onClick={() => removeSchedule(idx)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </Card>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </DragDropContext>
-                )}
-
-                {rotationPreview && (
-                  <div className="rounded-lg bg-primary/10 border border-primary/30 p-3 text-sm">
-                    <div className="flex items-center gap-2 text-primary font-medium mb-1">
-                      <Repeat className="h-3.5 w-3.5" />
-                      Sequenza ciclica
-                    </div>
-                    <p className="text-foreground/90 break-words text-xs">
-                      {rotationPreview}
-                    </p>
-                  </div>
-                )}
-
-                {showFrequencyWarning && (
-                  <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 flex items-start gap-2 text-xs">
-                    <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
-                    <span>
-                      Hai {data.activeDays.length} giorni attivi ma solo {data.schedules.length}{' '}
-                      schede. La rotazione continuerà ciclicamente (A→B→C→A…).
-                    </span>
-                  </div>
-                )}
-              </section>
-
-              <Card className="p-3 bg-muted/30 border-dashed">
-                <Link
-                  to="/pt/workouts"
-                  className="flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+      {data.mode === 'recurring' ? (
+        <>
+          <section className="space-y-2">
+            <Label className="text-sm font-semibold">
+              Giorni di allenamento <span className="text-destructive">*</span>
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {WEEKDAYS.map((d) => (
+                <Toggle
+                  key={d.iso}
+                  pressed={data.activeDays.includes(d.iso)}
+                  onPressedChange={() => toggleDay(d.iso)}
+                  variant="outline"
+                  size="sm"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Crea una nuova scheda nell'archivio
-                </Link>
-              </Card>
-            </>
-          ) : (
-            <DayByDayPlanner
-              data={data}
-              templates={templates}
-              addDayEntry={addDayEntry}
-              updateDayEntry={updateDayEntry}
-              removeDayEntry={removeDayEntry}
-              duplicateWeek={duplicateWeek}
-            />
-          )}
-        </TabsContent>
-
-        {/* ===== PROGRESSIONS TAB ===== */}
-        <TabsContent value="progressions" className="space-y-3 mt-4">
-          <div className="flex items-start gap-2 rounded-lg bg-muted/30 border p-3">
-            <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                  {d.label}
+                </Toggle>
+              ))}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Indica come evolvere il programma settimana dopo settimana. Il preset viene salvato
-              come metadata e visibile all'atleta.
+              Le schede ruotano in modo continuo nei giorni selezionati.
             </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {(Object.keys(PROGRESSION_LABELS) as Array<keyof typeof PROGRESSION_LABELS>).map(
-              (key) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => onChange({ progressionPreset: key })}
-                  className={cn(
-                    'text-left rounded-lg border-2 p-3 transition-colors',
-                    data.progressionPreset === key
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/40',
+          </section>
+
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <Repeat className="h-4 w-4" />
+                Schede in rotazione
+                <Badge variant="secondary" className="text-[10px]">
+                  {data.schedules.length}
+                </Badge>
+              </Label>
+              <Button type="button" size="sm" variant="outline" onClick={addSchedule}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Aggiungi
+              </Button>
+            </div>
+
+            {data.schedules.length === 0 ? (
+              <Card className="p-6 text-center border-dashed">
+                <p className="text-sm text-muted-foreground">
+                  Nessuna scheda. Aggiungine almeno una per definire la rotazione.
+                </p>
+              </Card>
+            ) : (
+              <DragDropContext onDragEnd={onDragEnd}>
+                <Droppable droppableId="schedules">
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className="space-y-2"
+                    >
+                      {data.schedules.map((sch, idx) => (
+                        <Draggable
+                          key={`${idx}-${sch.template_id}`}
+                          draggableId={`${idx}-${sch.template_id}`}
+                          index={idx}
+                        >
+                          {(prov, snap) => (
+                            <Card
+                              ref={prov.innerRef}
+                              {...prov.draggableProps}
+                              className={cn(
+                                'p-3 transition-shadow',
+                                snap.isDragging && 'shadow-lg ring-2 ring-primary/30',
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div
+                                  {...prov.dragHandleProps}
+                                  className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+                                >
+                                  <GripVertical className="h-4 w-4" />
+                                </div>
+                                <Badge
+                                  variant="secondary"
+                                  className="h-7 w-7 rounded-full flex items-center justify-center p-0 font-bold"
+                                >
+                                  {String.fromCharCode(65 + idx)}
+                                </Badge>
+                                <Select
+                                  value={sch.template_id}
+                                  onValueChange={(v) => updateSchedule(idx, v)}
+                                >
+                                  <SelectTrigger className="h-9 flex-1">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {templates.map((t) => (
+                                      <SelectItem key={t.id} value={t.id}>
+                                        {t.title}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-destructive"
+                                  onClick={() => removeSchedule(idx)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </Card>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
                   )}
-                >
-                  <div className="font-medium text-sm">{PROGRESSION_LABELS[key]}</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                    {key === 'none' && 'Nessuna progressione applicata'}
-                    {key === 'volume_progressivo' && '+1 set / esercizio ogni settimana'}
-                    {key === 'carico_progressivo' && '+5% carico per microciclo'}
-                    {key === 'deload' && 'Settimana di scarico ogni 4'}
-                    {key === 'personalizzato' && 'Specifica nelle note'}
-                  </div>
-                </button>
-              ),
+                </Droppable>
+              </DragDropContext>
             )}
-          </div>
-        </TabsContent>
-      </Tabs>
+
+            {rotationPreview && (
+              <div className="rounded-lg bg-primary/10 border border-primary/30 p-3 text-sm">
+                <div className="flex items-center gap-2 text-primary font-medium mb-1">
+                  <Repeat className="h-3.5 w-3.5" />
+                  Sequenza ciclica
+                </div>
+                <p className="text-foreground/90 break-words text-xs">
+                  {rotationPreview}
+                </p>
+              </div>
+            )}
+
+            {showFrequencyWarning && (
+              <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 flex items-start gap-2 text-xs">
+                <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
+                <span>
+                  Hai {data.activeDays.length} giorni attivi ma solo {data.schedules.length}{' '}
+                  schede. La rotazione continuerà ciclicamente (A→B→C→A…).
+                </span>
+              </div>
+            )}
+          </section>
+
+          <Card className="p-3 bg-muted/30 border-dashed">
+            <Link
+              to="/pt/workouts"
+              className="flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Crea una nuova scheda nell'archivio
+            </Link>
+          </Card>
+        </>
+      ) : (
+        <DayByDayPlanner
+          data={data}
+          templates={templates}
+          addDayEntry={addDayEntry}
+          updateDayEntry={updateDayEntry}
+          removeDayEntry={removeDayEntry}
+          duplicateWeek={duplicateWeek}
+        />
+      )}
     </div>
   );
 }

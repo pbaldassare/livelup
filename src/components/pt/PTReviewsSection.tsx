@@ -130,7 +130,7 @@ export function PTReviewsSection({ reviews, averageRating, totalReviews }: PTRev
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <p className="font-medium text-sm">
-                      {review.profiles?.first_name || 'Atleta'} {review.profiles?.last_name?.[0]}.
+                      {[review.profiles?.first_name, review.profiles?.last_name].filter(Boolean).join(' ') || 'Anonimo'}
                     </p>
                     <time className="text-xs text-muted-foreground">
                       {format(new Date(review.created_at), 'd MMM yyyy', { locale: it })}

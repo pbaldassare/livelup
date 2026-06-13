@@ -10,8 +10,8 @@ import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { 
-  Plus, Zap, BarChart3, Calendar as CalendarIcon, Dumbbell, Camera
+import {
+  Plus, Zap, BarChart3, Calendar as CalendarIcon, Dumbbell, Camera, History
 } from 'lucide-react';
 import { format, subDays, isSameDay, startOfWeek, endOfWeek, eachWeekOfInterval, subWeeks } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -22,6 +22,7 @@ import {
   Tooltip, ResponsiveContainer, Area, AreaChart 
 } from 'recharts';
 import { ProgressPhotos } from '@/components/app/ProgressPhotos';
+import { WorkoutHistoryList } from '@/components/shared/WorkoutHistoryList';
 
 // =====================================================
 // ATLETA PROGRESS PAGE - With real recharts graphs
@@ -270,6 +271,9 @@ export function AtletaProgressPage() {
           <TabsTrigger value="photos" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3">
             <Camera className="h-5 w-5" />
           </TabsTrigger>
+          <TabsTrigger value="history" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-app-accent data-[state=active]:bg-transparent text-app-muted-foreground data-[state=active]:text-app-foreground py-3">
+            <History className="h-5 w-5" />
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="calendar" className="mt-0">
@@ -390,6 +394,18 @@ export function AtletaProgressPage() {
 
         <TabsContent value="photos" className="mt-0">
           <ProgressPhotos />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-0 p-4">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-app-foreground">Storico allenamenti</h2>
+            <p className="text-sm text-app-muted-foreground mt-0.5">
+              Prescritto vs eseguito per ogni serie completata
+            </p>
+          </div>
+          {user?.id && (
+            <WorkoutHistoryList atletaUserId={user.id} variant="atleta" />
+          )}
         </TabsContent>
       </Tabs>
     </div>

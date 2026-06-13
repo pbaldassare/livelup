@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 type Exercise = {
@@ -68,6 +69,7 @@ const MUSCLE_GROUPS = [
 ];
 
 const DIFFICULTY_LEVELS = [
+  { value: 'nessuno', label: 'Nessuno' },
   { value: 'principiante', label: 'Principiante' },
   { value: 'intermedio', label: 'Intermedio' },
   { value: 'avanzato', label: 'Avanzato' },
@@ -78,7 +80,7 @@ const emptyForm = {
   description: '',
   category: 'Forza',
   muscle_groups: [] as string[],
-  difficulty_level: 'intermedio',
+  difficulty_level: 'nessuno',
   video_url: '',
   image_url: '',
   instructions: '',
@@ -188,6 +190,7 @@ function FormSection({ title, children }: { title: string; children: ReactNode }
 }
 
 export default function AdminExercisesPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -223,7 +226,7 @@ export default function AdminExercisesPage() {
         description: values.description.trim() || null,
         category: values.category,
         muscle_groups: values.muscle_groups,
-        difficulty_level: values.difficulty_level as 'principiante' | 'intermedio' | 'avanzato',
+        difficulty_level: values.difficulty_level as 'nessuno' | 'principiante' | 'intermedio' | 'avanzato',
         video_url: values.video_url.trim() || null,
         image_url: values.image_url.trim() || null,
         instructions: values.instructions.trim(),
@@ -322,7 +325,7 @@ export default function AdminExercisesPage() {
     try {
       const ext = file.name.split('.').pop() || 'jpg';
       const safeId = editingId || crypto.randomUUID();
-      const path = `admin/${safeId}/${Date.now()}.${ext}`;
+      const path = `${user?.id}/${safeId}/${Date.now()}.${ext}`;
       const { error } = await supabase.storage
         .from('exercise-images')
         .upload(path, file, { upsert: true });
@@ -358,7 +361,7 @@ export default function AdminExercisesPage() {
     setVideoUploadProgress(5);
     try {
       const safeId = editingId || crypto.randomUUID();
-      const path = `admin/${safeId}/${Date.now()}.${ext || 'mp4'}`;
+      const path = `${user?.id}/${safeId}/${Date.now()}.${ext || 'mp4'}`;
       const progressTimer = window.setInterval(() => {
         setVideoUploadProgress(prev => (prev < 88 ? prev + 6 : prev));
       }, 350);

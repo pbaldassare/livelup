@@ -46,7 +46,7 @@ const emptyForm = {
   name: '',
   description: '',
   category: '',
-  difficulty_level: 'intermedio',
+  difficulty_level: 'nessuno',
   instructions: '',
   video_url: '',
   image_url: '',
@@ -69,7 +69,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
         name: exercise.name || '',
         description: exercise.description || '',
         category: exercise.category || '',
-        difficulty_level: exercise.difficulty_level || 'intermedio',
+        difficulty_level: exercise.difficulty_level || 'nessuno',
         instructions: exercise.instructions || '',
         video_url: exercise.video_url || '',
         image_url: exercise.image_url || '',
@@ -117,7 +117,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
         name: form.name,
         description: form.description || null,
         category: form.category,
-        difficulty_level: form.difficulty_level as 'principiante' | 'intermedio' | 'avanzato' | 'agonista',
+        difficulty_level: form.difficulty_level as 'nessuno' | 'principiante' | 'intermedio' | 'avanzato' | 'agonista',
         muscle_groups: selectedMuscles,
         instructions: form.instructions || null,
         video_url: form.video_url || null,
@@ -140,11 +140,12 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
       }
     },
     onSuccess: () => {
-      // Invalidazione completa: tab Esercizi + builder scheda + admin library
       queryClient.invalidateQueries({ queryKey: ['pt-exercises'] });
       queryClient.invalidateQueries({ queryKey: ['exercises'] });
       queryClient.invalidateQueries({ queryKey: ['admin-exercises'] });
       queryClient.invalidateQueries({ queryKey: ['template-exercises'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-exercises-archive'] });
+      queryClient.invalidateQueries({ queryKey: ['template-exercises-library'] });
       toast.success(isEditMode ? 'Esercizio aggiornato' : 'Esercizio creato con successo');
       resetForm();
       onOpenChange(false);
@@ -204,6 +205,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
               <Select value={form.difficulty_level} onValueChange={v => setForm(p => ({ ...p, difficulty_level: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="nessuno">Nessuno</SelectItem>
                   <SelectItem value="principiante">Principiante</SelectItem>
                   <SelectItem value="intermedio">Intermedio</SelectItem>
                   <SelectItem value="avanzato">Avanzato</SelectItem>

@@ -29,6 +29,7 @@ interface AthleteChatRow {
   profile: {
     first_name: string | null;
     last_name: string | null;
+    email: string | null;
     avatar_url: string | null;
   } | null;
   lastMessage: { content: string | null; sender_user_id: string; created_at: string } | null;
@@ -72,7 +73,7 @@ export function PTAppChatPage() {
       // 3) Profili
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, first_name, last_name, avatar_url')
+        .select('user_id, first_name, last_name, email, avatar_url')
         .in('user_id', athleteIds);
 
       const profileByUser = new Map<string, AthleteChatRow['profile']>();
@@ -80,6 +81,7 @@ export function PTAppChatPage() {
         profileByUser.set(p.user_id, {
           first_name: p.first_name,
           last_name: p.last_name,
+          email: p.email,
           avatar_url: p.avatar_url,
         });
       });
@@ -203,7 +205,7 @@ export function PTAppChatPage() {
 }
 
 function ChatCard({ row, currentUserId }: { row: AthleteChatRow; currentUserId: string }) {
-  const name = `${row.profile?.first_name || ''} ${row.profile?.last_name || ''}`.trim() || 'Atleta';
+  const name = `${row.profile?.first_name || ''} ${row.profile?.last_name || ''}`.trim() || row.profile?.email || 'Atleta';
   const initials = `${row.profile?.first_name?.[0] || ''}${row.profile?.last_name?.[0] || ''}`;
   const hasUnread = row.unreadCount > 0;
 

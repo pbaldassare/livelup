@@ -54,7 +54,7 @@ export function AtletaChatPage() {
       // 3. Profili coach
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, first_name, last_name, avatar_url')
+        .select('user_id, first_name, last_name, email, avatar_url')
         .in('user_id', ptIds);
       const profileByUser = new Map(
         (profiles || []).map((p) => [p.user_id, p]),
@@ -97,7 +97,7 @@ export function AtletaChatPage() {
           return {
             id: chat?.id ?? `pending-${ptId}`,
             recipientUserId: ptId,
-            name: realName ?? 'Il tuo Coach',
+            name: realName ?? profile?.email ?? 'Il tuo Coach',
             avatarUrl: profile?.avatar_url,
             lastMessage: lastMessage ?? (chat ? undefined : 'Nessuna conversazione'),
             lastMessageAt,
@@ -138,6 +138,21 @@ export function AtletaChatPage() {
     retry: false,
   });
 
+  // Fetch PT profile for the newly-created chat case (race condition fix)
+  const { data: recipientProfile } = useQuery({
+    queryKey: ['pt-profile-for-chat', recipientId],
+    queryFn: async () => {
+      if (!recipientId) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, email, avatar_url')
+        .eq('user_id', recipientId)
+        .single();
+      return data;
+    },
+    enabled: !!recipientId && !chatsLoading && !existingChat,
+  });
+
   // Refetch chat list once a new chat has been created so it appears in sidebar
   useEffect(() => {
     if (createdChat) {
@@ -150,8 +165,10 @@ export function AtletaChatPage() {
     ? {
         id: createdChat.id,
         recipientUserId: recipientId!,
-        name: 'Il tuo Coach',
-        avatarUrl: undefined as string | undefined,
+        name: buildCoachFullName(recipientProfile?.first_name, recipientProfile?.last_name)
+          ?? recipientProfile?.email
+          ?? 'Il tuo Coach',
+        avatarUrl: recipientProfile?.avatar_url ?? undefined,
         lastMessage: undefined as string | undefined,
         lastMessageAt: undefined as string | undefined,
         unreadCount: 0,

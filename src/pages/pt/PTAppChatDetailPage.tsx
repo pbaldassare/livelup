@@ -38,7 +38,7 @@ export function PTAppChatDetailPage() {
 
       const { data } = await supabase
         .from('profiles')
-        .select('first_name, last_name, avatar_url')
+        .select('first_name, last_name, email, avatar_url')
         .eq('user_id', atletaId)
         .single();
 
@@ -60,7 +60,7 @@ export function PTAppChatDetailPage() {
         messagesData.map(async (msg) => {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('first_name, last_name, avatar_url')
+            .select('first_name, last_name, email, avatar_url')
             .eq('user_id', msg.sender_user_id)
             .single();
 
@@ -68,9 +68,9 @@ export function PTAppChatDetailPage() {
             id: msg.id,
             content: msg.content || '',
             senderUserId: msg.sender_user_id,
-            senderName: profile 
-              ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User' 
-              : 'User',
+            senderName: profile
+              ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email || 'Utente'
+              : 'Utente',
             senderAvatar: profile?.avatar_url,
             createdAt: msg.created_at,
             isRead: msg.is_read,
@@ -125,8 +125,8 @@ export function PTAppChatDetailPage() {
     };
   }, [chatData?.chatId, user?.id, queryClient]);
 
-  const recipientName = atletaProfile 
-    ? `${atletaProfile.first_name || ''} ${atletaProfile.last_name || ''}`.trim() || 'Atleta'
+  const recipientName = atletaProfile
+    ? `${atletaProfile.first_name || ''} ${atletaProfile.last_name || ''}`.trim() || atletaProfile.email || 'Atleta'
     : 'Atleta';
 
   return (

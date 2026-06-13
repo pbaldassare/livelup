@@ -30,8 +30,6 @@ import { Step5Review } from './program-wizard/Step5Review';
 import {
   initialWizardData,
   type WizardData,
-  type ProgressionPreset,
-  PROGRESSION_LABELS,
 } from './program-wizard/types';
 
 interface ProgramFormDialogProps {
@@ -48,28 +46,6 @@ const STEPS = [
   { label: 'Riepilogo', short: 'Conferma' },
 ];
 
-const PROGRESSION_PREFIX_RX = /^\[progression:(\w+)\](?:\n|$)/;
-
-function extractProgression(notes: string | null | undefined): {
-  preset: ProgressionPreset;
-  cleanNotes: string;
-} {
-  if (!notes) return { preset: 'none', cleanNotes: '' };
-  const m = notes.match(PROGRESSION_PREFIX_RX);
-  if (m && m[1] in PROGRESSION_LABELS) {
-    return {
-      preset: m[1] as ProgressionPreset,
-      cleanNotes: notes.replace(PROGRESSION_PREFIX_RX, '').trim(),
-    };
-  }
-  return { preset: 'none', cleanNotes: notes };
-}
-
-function buildNotes(preset: ProgressionPreset, notes: string): string | null {
-  const trimmed = notes.trim();
-  if (preset === 'none') return trimmed || null;
-  return `[progression:${preset}]\n${trimmed}`.trim();
-}
 
 export function ProgramFormDialog({
   open,
@@ -106,7 +82,7 @@ export function ProgramFormDialog({
     if (!open) return;
     if (existing) {
       const existingMode = ((existing as any).mode as ProgramMode) ?? 'recurring';
-      const { preset, cleanNotes } = extractProgression((existing as any).notes);
+      const cleanNotes = ((existing as any).notes ?? '').replace(/^\[progression:\w+\]\n?/, '').trim();
       const allSchedules = ((existing as any).program_schedules || []) as any[];
       const sortedRecurring = [...allSchedules].sort(
         (a, b) => a.order_index - b.order_index,
@@ -144,7 +120,6 @@ export function ProgramFormDialog({
                 day_offset: s.day_offset ?? 0,
               }))
             : [],
-        progressionPreset: preset,
       });
       setInitialMode(existingMode);
       setInitialDuration(existing.duration_weeks);
@@ -179,7 +154,7 @@ export function ProgramFormDialog({
       if (!user?.id) throw new Error('Non autenticato');
       if (!canSubmit) throw new Error('Compila tutti i passaggi richiesti');
 
-      const finalNotes = buildNotes(data.progressionPreset, data.notes);
+      const finalNotes = data.notes.trim() || null;
 
       const dayByDaySchedules: ProgramScheduleInput[] = [...data.dayByDayEntries]
         .sort((a, b) => a.day_offset - b.day_offset)

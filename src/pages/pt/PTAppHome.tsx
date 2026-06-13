@@ -265,7 +265,7 @@ function ActionCard({ icon: Icon, label, hint, accent, onClick }: ActionCardProp
 // =====================================================
 function AthleteRow({ athlete, onClick }: { athlete: PTHomeAthlete; onClick?: () => void }) {
   const fullName =
-    [athlete.first_name, athlete.last_name].filter(Boolean).join(' ') || 'Atleta';
+    [athlete.first_name, athlete.last_name].filter(Boolean).join(' ') || athlete.email || 'Atleta';
   const initials = `${athlete.first_name?.[0] || ''}${athlete.last_name?.[0] || ''}`.toUpperCase() || 'A';
 
   const lastSeen = athlete.last_activity_at

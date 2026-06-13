@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,9 +12,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Search, Video, Library, Info, Star, Dumbbell } from 'lucide-react';
+import { Search, Video, Library, Info, Star, Dumbbell, Plus } from 'lucide-react';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
+import { CreateExerciseDialog } from '@/components/pt/CreateExerciseDialog';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
 import { cn } from '@/lib/utils';
 
@@ -31,8 +33,17 @@ type Exercise = {
   created_by: string | null;
 };
 
+type SourceFilter = 'all' | 'archivio' | 'miei';
+
+const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
+  { value: 'all', label: 'Tutti' },
+  { value: 'archivio', label: 'Archivio' },
+  { value: 'miei', label: 'I miei' },
+];
+
 const DIFFICULTY_OPTIONS = [
   { value: 'all', label: 'Tutte le difficoltà' },
+  { value: 'nessuno', label: 'Nessuno' },
   { value: 'principiante', label: 'Principiante' },
   { value: 'intermedio', label: 'Intermedio' },
   { value: 'avanzato', label: 'Avanzato' },
@@ -52,28 +63,37 @@ const difficultyColor = (level: string) => {
 };
 
 export default function PTExercisesArchivePage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [muscleFilter, setMuscleFilter] = useState<string>('all');
   const [favoriteFilter, setFavoriteFilter] = useState<'all' | 'favorites'>('all');
   const [selected, setSelected] = useState<Exercise | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const { data: favIds } = useFavoriteIds();
   const toggleFav = useToggleFavorite();
 
   const { data: exercises = [], isLoading } = useQuery({
-    queryKey: ['pt-exercises-archive'],
+    queryKey: ['pt-exercises-archive', user?.id, sourceFilter],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('*')
-        .or('is_public.eq.true,created_by.is.null')
-        .order('category')
-        .order('name');
+      if (!user?.id) return [];
+      let q = supabase.from('exercises').select('*');
+
+      if (sourceFilter === 'archivio') {
+        q = q.or('is_public.eq.true,created_by.is.null');
+      } else if (sourceFilter === 'miei') {
+        q = q.eq('created_by', user.id).eq('is_public', false);
+      }
+      // 'all': RLS returns (public exercises) ∪ (own private exercises) automatically
+
+      const { data, error } = await q.order('category').order('name');
       if (error) throw error;
       return data as Exercise[];
     },
+    enabled: !!user?.id,
   });
 
   const { categories, muscleGroups } = useMemo(() => {
@@ -98,27 +118,59 @@ export default function PTExercisesArchivePage() {
     return matchesSearch && matchesDiff && matchesCat && matchesMuscle && matchesFav;
   });
 
+  const isPersonal = (ex: Exercise) =>
+    ex.created_by === user?.id && !ex.is_public;
+
   return (
     <div className="space-y-6">
       <DashboardPageHeader
-        title="Archivio Esercizi"
-        subtitle="Catalogo ufficiale della piattaforma — consultazione"
+        title="Esercizi"
+        subtitle="Archivio pubblico e i tuoi esercizi personali"
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Crea esercizio
+          </Button>
+        }
       />
 
       {/* Info banner */}
       <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
         <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
         <div className="text-sm">
-          <p className="font-medium text-foreground">Aggiungi ai preferiti gli esercizi che usi più spesso.</p>
+          <p className="font-medium text-foreground">
+            Aggiungi ai preferiti gli esercizi pubblici che usi più spesso.
+          </p>
           <p className="text-muted-foreground mt-0.5">
-            Solo gli esercizi <span className="font-medium">preferiti</span> appariranno nel builder schede e nella tab Esercizi.
+            I tuoi esercizi <span className="font-medium">personali</span> e quelli{' '}
+            <span className="font-medium">preferiti</span> appaiono sempre nel builder schede.
           </p>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Source toggle + Filters */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-3">
+          {/* Source filter segmented control */}
+          <div className="flex items-center gap-1 p-1 rounded-lg border bg-muted/30 w-fit">
+            {SOURCE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSourceFilter(opt.value)}
+                className={cn(
+                  'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
+                  sourceFilter === opt.value
+                    ? 'bg-background shadow-sm text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Other filters */}
           <div className="flex flex-col lg:flex-row gap-3">
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -182,7 +234,19 @@ export default function PTExercisesArchivePage() {
           {isLoading ? (
             <p className="text-muted-foreground text-center py-8">Caricamento...</p>
           ) : filtered.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">Nessun esercizio trovato</p>
+            <div className="text-center py-10 text-muted-foreground">
+              <Dumbbell className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              {sourceFilter === 'miei' ? (
+                <>
+                  <p className="font-medium">Nessun esercizio personale</p>
+                  <p className="text-sm mt-1">
+                    Clicca su <strong>Crea esercizio</strong> per aggiungerne uno.
+                  </p>
+                </>
+              ) : (
+                <p>Nessun esercizio trovato</p>
+              )}
+            </div>
           ) : (
             <Table>
               <TableHeader>
@@ -200,12 +264,13 @@ export default function PTExercisesArchivePage() {
               <TableBody>
                 {filtered.map(ex => {
                   const isFav = favIds?.has(ex.id) ?? false;
+                  const personal = isPersonal(ex);
                   return (
                     <TableRow
                       key={ex.id}
                       className={cn(
                         'cursor-pointer hover:bg-muted/50',
-                        isFav && 'bg-primary/[0.03]'
+                        isFav && 'bg-primary/[0.03]',
                       )}
                       onClick={() => setSelected(ex)}
                     >
@@ -223,7 +288,7 @@ export default function PTExercisesArchivePage() {
                           <Star
                             className={cn(
                               'h-4 w-4 transition-colors',
-                              isFav ? 'fill-primary text-primary' : 'text-muted-foreground'
+                              isFav ? 'fill-primary text-primary' : 'text-muted-foreground',
                             )}
                           />
                         </Button>
@@ -237,7 +302,19 @@ export default function PTExercisesArchivePage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">{ex.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{ex.name}</span>
+                          {personal && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] h-4 px-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 shrink-0"
+                            >
+                              Personale
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={difficultyColor(ex.difficulty_level)}>
                           {ex.difficulty_level}
@@ -280,6 +357,11 @@ export default function PTExercisesArchivePage() {
         open={!!selected}
         onOpenChange={(o) => !o && setSelected(null)}
         showFavoriteToggle
+      />
+
+      <CreateExerciseDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
       />
     </div>
   );

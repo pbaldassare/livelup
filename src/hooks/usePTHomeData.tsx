@@ -17,6 +17,7 @@ export interface PTHomeAthlete {
   user_id: string;
   first_name: string | null;
   last_name: string | null;
+  email: string | null;
   avatar_url: string | null;
   last_activity_at: string | null;
   status: AthleteWorkoutStatus;
@@ -68,11 +69,11 @@ export function usePTHomeData() {
       const athleteIds = (connections || []).map((c) => c.atleta_user_id);
 
       // 2) Profili atleti
-      let profilesMap = new Map<string, { first_name: string | null; last_name: string | null; avatar_url: string | null; updated_at: string }>();
+      let profilesMap = new Map<string, { first_name: string | null; last_name: string | null; email: string | null; avatar_url: string | null; updated_at: string }>();
       if (athleteIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('user_id, first_name, last_name, avatar_url, updated_at')
+          .select('user_id, first_name, last_name, email, avatar_url, updated_at')
           .in('user_id', athleteIds);
         (profiles || []).forEach((p) => profilesMap.set(p.user_id, p));
       }
@@ -123,6 +124,7 @@ export function usePTHomeData() {
           user_id: aid,
           first_name: profile?.first_name ?? null,
           last_name: profile?.last_name ?? null,
+          email: profile?.email ?? null,
           avatar_url: profile?.avatar_url ?? null,
           last_activity_at: lastActivity,
           status,

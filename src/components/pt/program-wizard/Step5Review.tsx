@@ -8,10 +8,9 @@ import {
   CalendarRange,
   Activity,
   Target,
-  TrendingUp,
   AlertTriangle,
 } from 'lucide-react';
-import { PROGRESSION_LABELS, type WizardData } from './types';
+import type { WizardData } from './types';
 
 interface Props {
   data: WizardData;
@@ -87,12 +86,6 @@ export function Step5Review({ data, isEdit, activeAssignmentsCount }: Props) {
             <Target className="h-3 w-3" />
             {LEVEL_LABELS[data.athleteLevel]}
           </Badge>
-          {data.progressionPreset !== 'none' && (
-            <Badge variant="outline" className="gap-1">
-              <TrendingUp className="h-3 w-3" />
-              {PROGRESSION_LABELS[data.progressionPreset]}
-            </Badge>
-          )}
         </div>
 
         {data.mode === 'recurring' && data.activeDays.length > 0 && (

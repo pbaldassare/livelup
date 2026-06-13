@@ -308,7 +308,7 @@ export function PTReviewsManager() {
                   </Avatar>
                   <div className="flex-1">
                     <p className="text-sm font-medium">
-                      {replyingTo.profiles?.first_name || 'Atleta'} {replyingTo.profiles?.last_name?.[0]}.
+                      {[replyingTo.profiles?.first_name, replyingTo.profiles?.last_name].filter(Boolean).join(' ') || 'Anonimo'}
                     </p>
                     {renderStars(replyingTo.rating)}
                   </div>
@@ -396,7 +396,7 @@ function ReviewCard({
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <p className="font-medium text-sm">
-              {review.profiles?.first_name || 'Atleta'} {review.profiles?.last_name?.[0]}.
+              {[review.profiles?.first_name, review.profiles?.last_name].filter(Boolean).join(' ') || 'Anonimo'}
             </p>
             <time className="text-xs text-muted-foreground">
               {format(new Date(review.created_at), 'd MMM yyyy', { locale: it })}

@@ -95,6 +95,8 @@ interface Exercise {
   difficulty_level: string;
   video_url: string | null;
   image_url: string | null;
+  is_public: boolean;
+  created_by: string | null;
 }
 
 interface TemplateExercise {
@@ -130,22 +132,29 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   // Cache key — separato per blocco
   const queryKey = ['template-exercises', templateId, blockId ?? 'no-block'];
 
-  // Fetch only PT's favorite exercises
+  // Fetch PT's favorite exercises + own private exercises
   const { data: favIds } = useFavoriteIds();
   const { data: exercises = [] } = useQuery({
     queryKey: ['template-exercises-library', user?.id, favIds ? Array.from(favIds).sort().join(',') : ''],
     queryFn: async () => {
+      if (!user?.id) return [] as Exercise[];
       const ids = favIds ? Array.from(favIds) : [];
-      if (ids.length === 0) return [] as Exercise[];
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('*')
-        .in('id', ids)
-        .order('name');
+
+      let q = supabase.from('exercises').select('*');
+
+      // Include own private exercises AND favorited exercises
+      const ownPrivate = `and(created_by.eq.${user.id},is_public.eq.false)`;
+      if (ids.length > 0) {
+        q = q.or(`${ownPrivate},id.in.(${ids.join(',')})`);
+      } else {
+        q = q.eq('created_by', user.id).eq('is_public', false);
+      }
+
+      const { data, error } = await q.order('name');
       if (error) throw error;
-      return data as Exercise[];
+      return (data || []) as Exercise[];
     },
-    enabled: !!user?.id && !!favIds,
+    enabled: !!user?.id && favIds !== undefined,
   });
 
   // Fetch template exercises (filtrati per block_id se presente)
@@ -467,14 +476,14 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                 {exercises.length === 0 ? (
                   <div className="py-6 px-4 text-center space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      Non hai ancora esercizi preferiti.
+                      Nessun esercizio disponibile. Aggiungi preferiti o crea esercizi personali.
                     </p>
                     <Link
                       to="/pt/exercises"
                       onClick={() => setSearchOpen(false)}
                       className="inline-block text-sm font-medium text-primary hover:underline"
                     >
-                      Vai all'Archivio →
+                      Vai agli Esercizi →
                     </Link>
                   </div>
                 ) : (
@@ -488,16 +497,26 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                         onSelect={() => addExerciseMutation.mutate(exercise)}
                         className="cursor-pointer"
                       >
-                        <Dumbbell className="h-4 w-4 mr-2" />
-                        <div className="flex-1">
+                        <Dumbbell className="h-4 w-4 mr-2 shrink-0" />
+                        <div className="flex-1 min-w-0">
                           <p className="font-medium">{exercise.name}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground truncate">
                             {exercise.muscle_groups.join(', ')}
                           </p>
                         </div>
-                        <Badge variant="outline" className="text-xs capitalize">
-                          {exercise.difficulty_level}
-                        </Badge>
+                        <div className="flex items-center gap-1 ml-2 shrink-0">
+                          {exercise.created_by === user?.id && !exercise.is_public && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] h-4 px-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                            >
+                              Personale
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {exercise.difficulty_level}
+                          </Badge>
+                        </div>
                       </CommandItem>
                     ))}
                   </CommandGroup>

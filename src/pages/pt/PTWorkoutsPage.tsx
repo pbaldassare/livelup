@@ -64,6 +64,20 @@ import { toast } from 'sonner';
 // Solo per ruolo: pt (web dashboard)
 // =====================================================
 
+const TEMPLATE_CATEGORIES = [
+  { value: 'Forza', label: 'Forza' },
+  { value: 'Ipertrofia', label: 'Ipertrofia' },
+  { value: 'Cardio', label: 'Cardio' },
+  { value: 'HIIT', label: 'HIIT' },
+  { value: 'Total Body', label: 'Total Body' },
+  { value: 'Mobilità', label: 'Mobilità' },
+  { value: 'Funzionale', label: 'Funzionale' },
+  { value: 'Calisthenics', label: 'Calisthenics' },
+  { value: 'Dimagrimento', label: 'Dimagrimento' },
+  { value: 'Powerlifting', label: 'Powerlifting' },
+  { value: 'Altro', label: 'Altro' },
+];
+
 const MUSCLE_GROUP_OPTIONS = [
   { id: 'petto', name: 'Petto' },
   { id: 'schiena', name: 'Schiena' },
@@ -328,7 +342,7 @@ export function PTWorkoutsPage() {
 
   // Update template mutation (inline edit)
   const updateTemplateMutation = useMutation({
-    mutationFn: async ({ id, field, value }: { id: string; field: 'title' | 'difficulty_level'; value: string }) => {
+    mutationFn: async ({ id, field, value }: { id: string; field: 'title' | 'difficulty_level' | 'category'; value: string }) => {
       const { error } = await supabase
         .from('workout_templates')
         .update({ [field]: value, updated_at: new Date().toISOString() })
@@ -423,7 +437,12 @@ export function PTWorkoutsPage() {
       key: 'category',
       header: 'Categoria',
       cell: (template) => (
-        <span className="capitalize">{template.category || 'N/A'}</span>
+        <InlineEditSelect
+          value={template.category}
+          options={TEMPLATE_CATEGORIES}
+          onSave={(value) => updateTemplateMutation.mutate({ id: template.id, field: 'category', value })}
+          placeholder="Seleziona..."
+        />
       ),
     },
     {

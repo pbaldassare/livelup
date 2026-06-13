@@ -115,7 +115,7 @@ export function PTDashboard() {
     enabled: !!user?.id,
   });
 
-  const firstName = profile?.first_name || 'Coach';
+  const firstName = profile?.first_name || user?.email?.split('@')[0] || null;
 
   return (
     <div className="space-y-6 animate-in">
@@ -123,7 +123,7 @@ export function PTDashboard() {
       <DashboardPageHeader
         icon={<LayoutDashboard className="h-6 w-6" />}
         title={`Dashboard Personal Trainer`}
-        subtitle={`Benvenuto, ${firstName} • ${user?.email}`}
+        subtitle={firstName ? `Benvenuto, ${firstName} • ${user?.email}` : `Benvenuto • ${user?.email}`}
         badges={
           <div className="flex gap-2">
             <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
