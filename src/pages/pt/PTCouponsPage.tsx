@@ -261,7 +261,7 @@ export function PTCouponsPage() {
       try {
         const recipientIds: string[] = c.target_athlete_ids && c.target_athlete_ids.length > 0
           ? c.target_athlete_ids
-          : (connectedAthletes ?? []).map((a: any) => a.user_id ?? a.atleta_user_id).filter(Boolean);
+          : (athletes ?? []).map((a: any) => a.user_id).filter(Boolean);
 
         if (recipientIds.length > 0) {
           const notif = recipientIds.map((uid) => ({
