@@ -104,6 +104,7 @@ export function CreatePublicEventDialog({
         title,
         description: description || null,
         event_type: 'evento' as const,
+        category: 'evento',
         event_type_id: eventTypeId || null,
         start_datetime: startDatetime,
         end_datetime: endDatetime,

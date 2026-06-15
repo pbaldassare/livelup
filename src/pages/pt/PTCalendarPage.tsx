@@ -132,6 +132,7 @@ export function PTCalendarPage() {
           title: newEvent.title,
           description: newEvent.description || null,
           event_type: 'evento' as const,
+          category: 'evento',
           event_type_id: newEvent.event_type_id || null,
           start_datetime: newEvent.start_datetime,
           end_datetime: newEvent.end_datetime || null,
