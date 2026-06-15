@@ -290,10 +290,18 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
-              <Route path="/pt/calendar" element={
+              <Route path="/pt/calendar" element={<Navigate to="/pt/calendar/eventi" replace />} />
+              <Route path="/pt/calendar/eventi" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>
-                    <PTCalendarPage />
+                    <PTCalendarPage mode="eventi" />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/calendar/appuntamenti" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTCalendarPage mode="appuntamenti" />
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />

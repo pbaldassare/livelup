@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -53,7 +54,11 @@ interface CalendarEvent {
   cover_image_url: string | null;
 }
 
-export function PTCalendarPage() {
+export interface PTCalendarPageProps {
+  mode?: 'eventi' | 'appuntamenti';
+}
+
+export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -89,15 +94,16 @@ export function PTCalendarPage() {
     },
   });
 
-  // Fetch events
+  // Fetch events filtered by category (evento o appuntamento)
   const { data: events = [] } = useQuery({
-    queryKey: ['pt-calendar', user?.id],
+    queryKey: ['pt-calendar', user?.id, mode],
     queryFn: async () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
         .eq('pt_user_id', user.id)
+        .eq('category', mode === 'appuntamenti' ? 'appuntamento' : 'evento')
         .eq('is_cancelled', false)
         .order('start_datetime', { ascending: true });
       if (error) throw error;
@@ -132,6 +138,7 @@ export function PTCalendarPage() {
           title: newEvent.title,
           description: newEvent.description || null,
           event_type: 'evento' as const,
+          category: 'evento',
           event_type_id: newEvent.event_type_id || null,
           start_datetime: newEvent.start_datetime,
           end_datetime: newEvent.end_datetime || null,
@@ -399,20 +406,48 @@ export function PTCalendarPage() {
     </Dialog>
   );
 
+  const isAppuntamenti = mode === 'appuntamenti';
+  const pageTitle = isAppuntamenti ? 'Calendario Appuntamenti' : 'Calendario Eventi';
+  const pageDescription = isAppuntamenti
+    ? 'Sessioni 1-a-1 prenotate dai tuoi atleti'
+    : 'Open day, lezioni di gruppo e attività pubbliche';
+  const itemLabel = isAppuntamenti ? 'appuntamenti' : 'eventi';
+
   return (
     <div className="space-y-6 animate-in">
       <PageHeader
-        title="Calendario"
-        description="Gestisci appuntamenti e sessioni di allenamento"
+        title={pageTitle}
+        description={pageDescription}
         icon={CalendarIcon}
-        actions={createButton}
+        actions={isAppuntamenti ? null : createButton}
       />
+
+      {/* Switch tra le due tipologie di calendario */}
+      <div className="inline-flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
+        <Link
+          to="/pt/calendar/eventi"
+          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            !isAppuntamenti ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Eventi
+        </Link>
+        <Link
+          to="/pt/calendar/appuntamenti"
+          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            isAppuntamenti ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Appuntamenti
+        </Link>
+      </div>
+
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Calendario</CardTitle>
-            <CardDescription>Seleziona una data per vedere gli eventi</CardDescription>
+            <CardDescription>Seleziona una data per vedere gli {itemLabel}</CardDescription>
           </CardHeader>
           <CardContent>
             <Calendar
@@ -438,11 +473,11 @@ export function PTCalendarPage() {
             <CardTitle className="text-lg">
               {selectedDate ? format(selectedDate, 'EEEE d MMMM', { locale: it }) : 'Seleziona una data'}
             </CardTitle>
-            <CardDescription>{selectedDateEvents.length} eventi</CardDescription>
+            <CardDescription>{selectedDateEvents.length} {itemLabel}</CardDescription>
           </CardHeader>
           <CardContent>
             {selectedDateEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Nessun evento per questa data</p>
+              <p className="text-sm text-muted-foreground text-center py-8">Nessun {isAppuntamenti ? 'appuntamento' : 'evento'} per questa data</p>
             ) : (
               <div className="space-y-3">
                 {selectedDateEvents.map((event) => (
@@ -489,11 +524,11 @@ export function PTCalendarPage() {
       <Card>
         <CardHeader>
           <CardTitle>Prossimi 7 Giorni</CardTitle>
-          <CardDescription>{upcomingEvents.length} eventi in programma</CardDescription>
+          <CardDescription>{upcomingEvents.length} {itemLabel} in programma</CardDescription>
         </CardHeader>
         <CardContent>
           {upcomingEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Nessun evento nei prossimi 7 giorni</p>
+            <p className="text-sm text-muted-foreground text-center py-8">Nessun {isAppuntamenti ? 'appuntamento' : 'evento'} nei prossimi 7 giorni</p>
           ) : (
             <div className="space-y-4">
               {upcomingEvents.map((event) => (

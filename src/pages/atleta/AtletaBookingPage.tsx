@@ -146,6 +146,7 @@ export function AtletaBookingPage() {
           creator_user_id: user.id,
           title: 'Sessione di allenamento',
           event_type: 'allenamento',
+          category: 'appuntamento',
           start_datetime: startDatetime.toISOString(),
           end_datetime: endDatetime.toISOString(),
           pt_user_id: connection.pt_user_id,
