@@ -1647,6 +1647,7 @@ export type Database = {
           body: string
           created_at: string
           id: string
+          is_shared_with_athlete: boolean
           pt_user_id: string
           tag: string | null
           title: string | null
@@ -1657,6 +1658,7 @@ export type Database = {
           body: string
           created_at?: string
           id?: string
+          is_shared_with_athlete?: boolean
           pt_user_id: string
           tag?: string | null
           title?: string | null
@@ -1667,6 +1669,7 @@ export type Database = {
           body?: string
           created_at?: string
           id?: string
+          is_shared_with_athlete?: boolean
           pt_user_id?: string
           tag?: string | null
           title?: string | null
