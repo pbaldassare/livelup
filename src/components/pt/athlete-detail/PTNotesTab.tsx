@@ -36,6 +36,8 @@ export function PTNotesTab({ atletaUserId }: Props) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [tag, setTag] = useState('generale');
+  const [shared, setShared] = useState(false);
+
 
   const { data: notes = [], isLoading } = useQuery({
     queryKey: ['pt-athlete-notes', atletaUserId, user?.id],
