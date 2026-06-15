@@ -34,6 +34,22 @@ const DOC_TYPES = [
 
 type DocType = (typeof DOC_TYPES)[number]['value'];
 
+type AthleteDocument = {
+  id: string;
+  atleta_user_id: string;
+  uploaded_by_user_id: string;
+  doc_type: DocType;
+  title: string;
+  file_path: string | null;
+  issued_date: string | null;
+  expiry_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type PreviewState = { doc: AthleteDocument; url: string; type: string };
+
 interface Props {
   atletaUserId: string;
   /** Se true, l'atleta sta gestendo i propri (PWA). */
@@ -50,7 +66,7 @@ function expiryStatus(expiry?: string | null) {
   return { label: 'Valido', tone: 'success' as const, icon: CheckCircle2 };
 }
 
-function DocumentInlinePreview({ doc, onOpen }: { doc: any; onOpen: () => void }) {
+function DocumentInlinePreview({ doc, onOpen }: { doc: AthleteDocument; onOpen: () => void }) {
   const [state, setState] = useState<{ url: string; type: string } | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -131,8 +147,8 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [preview, setPreview] = useState<{ doc: any; url: string; type: string } | null>(null);
+  const [editing, setEditing] = useState<AthleteDocument | null>(null);
+  const [preview, setPreview] = useState<PreviewState | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
 
   // Connection gate (only for PT view). selfMode skip.
@@ -179,7 +195,7 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
   }, [atletaUserId, qc]);
 
   const remove = useMutation({
-    mutationFn: async (doc: any) => {
+    mutationFn: async (doc: AthleteDocument) => {
       if (doc.file_path) {
         await supabase.storage.from('athlete-documents').remove([doc.file_path]);
       }
@@ -190,7 +206,7 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
       toast.success('Documento eliminato');
       qc.invalidateQueries({ queryKey: ['athlete-documents', atletaUserId] });
     },
-    onError: (e: any) => toast.error(e?.message || 'Errore'),
+    onError: (e: Error) => toast.error(e?.message || 'Errore'),
   });
 
   useEffect(() => {
@@ -204,7 +220,7 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
     setPreview(null);
   };
 
-  const previewFile = async (doc: any) => {
+  const previewFile = async (doc: AthleteDocument) => {
     if (!doc.file_path) {
       toast.error('Nessun file allegato a questo documento');
       return;
@@ -218,8 +234,9 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
       const url = URL.createObjectURL(data);
       if (preview?.url) URL.revokeObjectURL(preview.url);
       setPreview({ doc, url, type: data.type || fileTypeFromPath(doc.file_path) });
-    } catch (e: any) {
-      toast.error(e?.message || 'Impossibile caricare l’anteprima');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Impossibile caricare l’anteprima';
+      toast.error(message);
     } finally {
       setPreviewLoadingId(null);
     }
@@ -277,7 +294,7 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {docs.map((d: any) => {
+          {docs.map((d: AthleteDocument) => {
             const st = expiryStatus(d.expiry_date);
             const Icon = st.icon;
             const typeLabel = DOC_TYPES.find(t => t.value === d.doc_type)?.label ?? d.doc_type;
