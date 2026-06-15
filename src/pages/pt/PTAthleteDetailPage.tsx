@@ -252,7 +252,7 @@ export function PTAthleteDetailPage() {
             <CardTitle className="mt-4">{fullName}</CardTitle>
             <CardDescription>{profile?.email}</CardDescription>
             <div className="flex justify-center mt-2">
-              <DashboardStatusBadge status={connection.status} />
+              {connection?.status && <DashboardStatusBadge status={connection.status} />}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
