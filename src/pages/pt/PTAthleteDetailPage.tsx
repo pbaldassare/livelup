@@ -356,7 +356,7 @@ export function PTAthleteDetailPage() {
             </Card>
           </div>
 
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="flex flex-wrap h-auto w-full justify-start gap-1">
               <TabsTrigger value="overview"><Activity className="h-4 w-4 mr-1.5" /> Panoramica</TabsTrigger>
               <TabsTrigger value="anagrafica"><IdCard className="h-4 w-4 mr-1.5" /> Anagrafica</TabsTrigger>
