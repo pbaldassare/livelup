@@ -201,7 +201,7 @@ export function AdminCouponTemplatesPage() {
         }
       />
 
-      <SectionCard title="Tipologie disponibili" subtitle="I PT vedranno solo le tipologie attive" icon={Layers} iconColor="purple">
+      <SectionCard title="Tipologie disponibili" subtitle="I PT vedranno solo le tipologie attive" icon={Layers} iconColor="primary">
         <div className="rounded-md border">
           <Table>
             <TableHeader>
