@@ -70,6 +70,11 @@ const navigationItems = [
     icon: Tag 
   },
   { 
+    label: 'Catalogo Coupon', 
+    href: '/admin/coupon-templates', 
+    icon: Layers 
+  },
+  { 
     label: 'Archivio Esercizi', 
     href: '/admin/exercises', 
     icon: Library 
