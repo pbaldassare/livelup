@@ -96,9 +96,9 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false 
         <div className="text-sm text-muted-foreground">
           {docs.length} document{docs.length === 1 ? 'o' : 'i'}
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => !readOnly && setOpen(v)}>
           <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" /> Carica documento</Button>
+            <Button disabled={readOnly}><Plus className="h-4 w-4 mr-2" /> Carica documento</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nuovo documento</DialogTitle></DialogHeader>
