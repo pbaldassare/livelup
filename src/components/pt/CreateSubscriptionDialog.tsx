@@ -241,6 +241,35 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
     setCustomSessions('');
     setExpiryDate(undefined);
     setNotes('');
+    setCouponCode('');
+    setAppliedCoupon(null);
+    setCouponError('');
+  };
+
+  const handleVerifyCoupon = async () => {
+    if (!user?.id || !selectedAthleteId || !selectedPackageId) {
+      setCouponError('Seleziona prima atleta e pacchetto');
+      return;
+    }
+    const pkg = packages.find((p) => p.id === selectedPackageId);
+    if (!pkg) return;
+    const basePrice = customPrice ? parseFloat(customPrice) : pkg.price;
+    setVerifyingCoupon(true);
+    setCouponError('');
+    const result = await validateCoupon(couponCode, {
+      ptUserId: user.id,
+      athleteUserId: selectedAthleteId,
+      packageId: selectedPackageId,
+      basePrice,
+    });
+    setVerifyingCoupon(false);
+    if ('error' in result) {
+      setAppliedCoupon(null);
+      setCouponError(result.error);
+      return;
+    }
+    setAppliedCoupon(result);
+    toast.success(`Coupon applicato: ${result.effect.summary}`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
