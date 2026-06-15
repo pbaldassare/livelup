@@ -112,6 +112,48 @@ export type Database = {
         }
         Relationships: []
       }
+      athlete_documents: {
+        Row: {
+          atleta_user_id: string
+          created_at: string
+          doc_type: Database["public"]["Enums"]["athlete_doc_type"]
+          expiry_date: string | null
+          file_path: string | null
+          id: string
+          issued_date: string | null
+          notes: string | null
+          title: string
+          updated_at: string
+          uploaded_by_user_id: string
+        }
+        Insert: {
+          atleta_user_id: string
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["athlete_doc_type"]
+          expiry_date?: string | null
+          file_path?: string | null
+          id?: string
+          issued_date?: string | null
+          notes?: string | null
+          title: string
+          updated_at?: string
+          uploaded_by_user_id: string
+        }
+        Update: {
+          atleta_user_id?: string
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["athlete_doc_type"]
+          expiry_date?: string | null
+          file_path?: string | null
+          id?: string
+          issued_date?: string | null
+          notes?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_by_user_id?: string
+        }
+        Relationships: []
+      }
       atleta_badges: {
         Row: {
           atleta_user_id: string
@@ -143,6 +185,7 @@ export type Database = {
       }
       atleta_profiles: {
         Row: {
+          bio: string | null
           created_at: string
           date_of_birth: string | null
           fitness_level: string | null
@@ -159,6 +202,7 @@ export type Database = {
           weight_kg: number | null
         }
         Insert: {
+          bio?: string | null
           created_at?: string
           date_of_birth?: string | null
           fitness_level?: string | null
@@ -175,6 +219,7 @@ export type Database = {
           weight_kg?: number | null
         }
         Update: {
+          bio?: string | null
           created_at?: string
           date_of_birth?: string | null
           fitness_level?: string | null
@@ -1323,41 +1368,68 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           avatar_url: string | null
+          birth_date: string | null
+          city: string | null
           cover_url: string | null
           created_at: string
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           first_name: string | null
+          fiscal_code: string | null
+          gender: string | null
           id: string
           last_name: string | null
+          nickname: string | null
           notification_preferences: Json | null
           phone: string | null
+          postal_code: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          address?: string | null
           avatar_url?: string | null
+          birth_date?: string | null
+          city?: string | null
           cover_url?: string | null
           created_at?: string
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           first_name?: string | null
+          fiscal_code?: string | null
+          gender?: string | null
           id?: string
           last_name?: string | null
+          nickname?: string | null
           notification_preferences?: Json | null
           phone?: string | null
+          postal_code?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          address?: string | null
           avatar_url?: string | null
+          birth_date?: string | null
+          city?: string | null
           cover_url?: string | null
           created_at?: string
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           first_name?: string | null
+          fiscal_code?: string | null
+          gender?: string | null
           id?: string
           last_name?: string | null
+          nickname?: string | null
           notification_preferences?: Json | null
           phone?: string | null
+          postal_code?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1566,6 +1638,39 @@ export type Database = {
           updated_at?: string
           waist_cm?: number | null
           weight_kg?: number | null
+        }
+        Relationships: []
+      }
+      pt_athlete_notes: {
+        Row: {
+          atleta_user_id: string
+          body: string
+          created_at: string
+          id: string
+          pt_user_id: string
+          tag: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          atleta_user_id: string
+          body: string
+          created_at?: string
+          id?: string
+          pt_user_id: string
+          tag?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          atleta_user_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          pt_user_id?: string
+          tag?: string | null
+          title?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2992,6 +3097,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "pt" | "atleta"
+      athlete_doc_type:
+        | "visita_medica"
+        | "certificato_agonistico"
+        | "assicurazione"
+        | "consenso_privacy"
+        | "altro"
       atleta_status: "non_collegato" | "collegato" | "premium"
       calendar_event_category: "evento" | "appuntamento"
       content_type: "pdf" | "video" | "image" | "document" | "other"
@@ -3169,6 +3280,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "pt", "atleta"],
+      athlete_doc_type: [
+        "visita_medica",
+        "certificato_agonistico",
+        "assicurazione",
+        "consenso_privacy",
+        "altro",
+      ],
       atleta_status: ["non_collegato", "collegato", "premium"],
       calendar_event_category: ["evento", "appuntamento"],
       content_type: ["pdf", "video", "image", "document", "other"],
