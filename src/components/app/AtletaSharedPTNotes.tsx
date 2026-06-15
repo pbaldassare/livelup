@@ -1,6 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { StickyNote, Share2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
