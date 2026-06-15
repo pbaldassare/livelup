@@ -71,6 +71,7 @@ interface CouponTemplate {
   max_validity_days: number | null;
   requires_active_connection: boolean;
   one_per_athlete: boolean;
+  pt_user_id: string | null;
 }
 
 interface Coupon {
@@ -124,6 +125,20 @@ export function PTCouponsPage() {
     max_uses: '',
   });
   const [shareCoupon, setShareCoupon] = useState<Coupon | null>(null);
+  const [tplDialogOpen, setTplDialogOpen] = useState(false);
+  const [tplForm, setTplForm] = useState({
+    id: '' as string,
+    name: '',
+    description: '',
+    allowed_discount_types: ['percentage'] as DiscountType[],
+    max_discount_percentage: '' as string,
+    max_discount_amount: '' as string,
+    max_free_months: '' as string,
+    max_free_sessions: '' as string,
+    max_validity_days: '' as string,
+    one_per_athlete: false,
+  });
+
 
   // Active connected athletes
   const { data: athletes = [] } = useQuery({
@@ -308,6 +323,87 @@ export function PTCouponsPage() {
     onError: (e: Error) => toast.error('Errore: ' + e.message),
   });
 
+  const saveTplMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error('Non autenticato');
+      if (!tplForm.name.trim()) throw new Error('Nome obbligatorio');
+      if (tplForm.allowed_discount_types.length === 0) throw new Error('Seleziona almeno un tipo di sconto');
+      const payload = {
+        name: tplForm.name.trim(),
+        description: tplForm.description || null,
+        allowed_discount_types: tplForm.allowed_discount_types,
+        max_discount_percentage: tplForm.max_discount_percentage ? parseFloat(tplForm.max_discount_percentage) : null,
+        max_discount_amount: tplForm.max_discount_amount ? parseFloat(tplForm.max_discount_amount) : null,
+        max_free_months: tplForm.max_free_months ? parseInt(tplForm.max_free_months) : null,
+        max_free_sessions: tplForm.max_free_sessions ? parseInt(tplForm.max_free_sessions) : null,
+        max_validity_days: tplForm.max_validity_days ? parseInt(tplForm.max_validity_days) : null,
+        one_per_athlete: tplForm.one_per_athlete,
+        is_active: true,
+        pt_user_id: user.id,
+      };
+      if (tplForm.id) {
+        const { error } = await supabase.from('coupon_templates').update(payload).eq('id', tplForm.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('coupon_templates').insert([payload]);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-coupon-templates'] });
+      toast.success(tplForm.id ? 'Tipologia aggiornata' : 'Tipologia creata');
+      setTplDialogOpen(false);
+    },
+    onError: (e: Error) => toast.error('Errore: ' + e.message),
+  });
+
+  const deleteTplMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('coupon_templates').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-coupon-templates'] });
+      toast.success('Tipologia eliminata');
+    },
+    onError: (e: Error) => toast.error('Errore: ' + e.message),
+  });
+
+  const openNewTpl = () => {
+    setTplForm({ id: '', name: '', description: '', allowed_discount_types: ['percentage'], max_discount_percentage: '', max_discount_amount: '', max_free_months: '', max_free_sessions: '', max_validity_days: '', one_per_athlete: false });
+    setTplDialogOpen(true);
+  };
+
+  const openEditTpl = (t: CouponTemplate, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTplForm({
+      id: t.id,
+      name: t.name,
+      description: t.description ?? '',
+      allowed_discount_types: (t.allowed_discount_types as DiscountType[]) ?? ['percentage'],
+      max_discount_percentage: t.max_discount_percentage?.toString() ?? '',
+      max_discount_amount: t.max_discount_amount?.toString() ?? '',
+      max_free_months: t.max_free_months?.toString() ?? '',
+      max_free_sessions: t.max_free_sessions?.toString() ?? '',
+      max_validity_days: t.max_validity_days?.toString() ?? '',
+      one_per_athlete: t.one_per_athlete,
+    });
+    setTplDialogOpen(true);
+  };
+
+  const toggleTplType = (t: DiscountType, checked: boolean) => {
+    setTplForm((f) => ({
+      ...f,
+      allowed_discount_types: checked
+        ? Array.from(new Set([...f.allowed_discount_types, t]))
+        : f.allowed_discount_types.filter((x) => x !== t),
+    }));
+  };
+
+  const allDiscountTypes: DiscountType[] = ['percentage', 'fixed_amount', 'free_months', 'free_sessions'];
+
+
+
   const pickTemplate = (t: CouponTemplate) => {
     setSelectedTemplate(t);
     const firstType = (t.allowed_discount_types[0] ?? 'percentage') as DiscountType;
@@ -428,33 +524,144 @@ export function PTCouponsPage() {
         <DialogContent className="max-w-2xl w-[calc(100%-2rem)] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Scegli una tipologia</DialogTitle>
-            <DialogDescription>Seleziona il tipo di coupon che vuoi creare per i tuoi atleti</DialogDescription>
+            <DialogDescription>Tipologie standard create dall'Admin e tue tipologie personalizzate</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
-            {loadingTemplates ? (
-              <div className="col-span-2 text-center py-8"><LoadingSpinner variant="dots" size="sm" /></div>
-            ) : templates.length === 0 ? (
-              <div className="col-span-2 text-center py-8 text-muted-foreground text-sm">Nessuna tipologia disponibile. Contatta l'amministratore.</div>
-            ) : (
-              templates.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => pickTemplate(t)}
-                  className="text-left border rounded-lg p-4 hover:border-primary hover:bg-muted/30 transition"
-                >
-                  <div className="font-medium mb-1">{t.name}</div>
-                  {t.description && <div className="text-xs text-muted-foreground mb-2 line-clamp-2">{t.description}</div>}
-                  <div className="flex flex-wrap gap-1">
-                    {(t.allowed_discount_types as DiscountType[]).map((d) => (
-                      <Badge key={d} variant="outline" className="text-[10px]">{DISCOUNT_TYPE_LABEL[d]}</Badge>
-                    ))}
+
+          {(() => {
+            const globalTpls = templates.filter((t) => !t.pt_user_id);
+            const ownTpls = templates.filter((t) => t.pt_user_id === user?.id);
+            const renderCard = (t: CouponTemplate, isOwn: boolean) => (
+              <button
+                key={t.id}
+                onClick={() => pickTemplate(t)}
+                className="text-left border rounded-lg p-4 hover:border-primary hover:bg-muted/30 transition relative"
+              >
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="font-medium">{t.name}</div>
+                  {isOwn && (
+                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => openEditTpl(t, e)}
+                        className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-muted"
+                      >Modifica</button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (confirm('Eliminare questa tipologia?')) deleteTplMutation.mutate(t.id); }}
+                        className="text-[10px] px-1.5 py-0.5 rounded border text-destructive hover:bg-destructive/10"
+                      >×</button>
+                    </div>
+                  )}
+                </div>
+                {t.description && <div className="text-xs text-muted-foreground mb-2 line-clamp-2">{t.description}</div>}
+                <div className="flex flex-wrap gap-1">
+                  {(t.allowed_discount_types as DiscountType[]).map((d) => (
+                    <Badge key={d} variant="outline" className="text-[10px]">{DISCOUNT_TYPE_LABEL[d]}</Badge>
+                  ))}
+                </div>
+              </button>
+            );
+
+            return (
+              <div className="space-y-5 py-2">
+                <div>
+                  <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">Tipologie standard</div>
+                  {loadingTemplates ? (
+                    <div className="text-center py-6"><LoadingSpinner variant="dots" size="sm" /></div>
+                  ) : globalTpls.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground text-sm">Nessuna tipologia standard disponibile.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {globalTpls.map((t) => renderCard(t, false))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">Le mie tipologie</div>
+                    <Button size="sm" variant="outline" onClick={openNewTpl}>
+                      <Plus className="mr-1 h-3 w-3" /> Crea tipologia
+                    </Button>
                   </div>
-                </button>
-              ))
-            )}
-          </div>
+                  {ownTpls.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground text-xs border border-dashed rounded-md">
+                      Non hai ancora tipologie personalizzate. Creane una per riutilizzarla velocemente.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {ownTpls.map((t) => renderCard(t, true))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
+
+      {/* Custom template editor */}
+      <Dialog open={tplDialogOpen} onOpenChange={setTplDialogOpen}>
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{tplForm.id ? 'Modifica tipologia' : 'Nuova tipologia personale'}</DialogTitle>
+            <DialogDescription>Definisci limiti riutilizzabili per i tuoi futuri coupon</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input value={tplForm.name} onChange={(e) => setTplForm({ ...tplForm, name: e.target.value })} placeholder="Es. Sconto Estate" />
+            </div>
+            <div className="space-y-2">
+              <Label>Descrizione</Label>
+              <Textarea value={tplForm.description} onChange={(e) => setTplForm({ ...tplForm, description: e.target.value })} rows={2} />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipi di sconto consentiti</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {allDiscountTypes.map((t) => (
+                  <label key={t} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={tplForm.allowed_discount_types.includes(t)} onCheckedChange={(c) => toggleTplType(t, c === true)} />
+                    {DISCOUNT_TYPE_LABEL[t]}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Max %</Label>
+                <Input type="number" value={tplForm.max_discount_percentage} onChange={(e) => setTplForm({ ...tplForm, max_discount_percentage: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Max €</Label>
+                <Input type="number" value={tplForm.max_discount_amount} onChange={(e) => setTplForm({ ...tplForm, max_discount_amount: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Max mesi gratis</Label>
+                <Input type="number" value={tplForm.max_free_months} onChange={(e) => setTplForm({ ...tplForm, max_free_months: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Max sessioni gratis</Label>
+                <Input type="number" value={tplForm.max_free_sessions} onChange={(e) => setTplForm({ ...tplForm, max_free_sessions: e.target.value })} />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Validità max (giorni)</Label>
+                <Input type="number" value={tplForm.max_validity_days} onChange={(e) => setTplForm({ ...tplForm, max_validity_days: e.target.value })} />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={tplForm.one_per_athlete} onCheckedChange={(c) => setTplForm({ ...tplForm, one_per_athlete: c })} />
+              Una sola volta per atleta
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTplDialogOpen(false)}>Annulla</Button>
+            <Button onClick={() => saveTplMutation.mutate()} disabled={saveTplMutation.isPending}>
+              {saveTplMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {tplForm.id ? 'Salva' : 'Crea'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Step 2: form */}
       <Dialog open={step === 2} onOpenChange={(o) => !o && setStep(0)}>
