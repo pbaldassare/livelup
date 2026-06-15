@@ -1,68 +1,97 @@
-## Problema
+## Obiettivo
+Trasformare la sezione "Atleti" del PT da semplice vista in una vera **Scheda Cliente** completa, modificabile, con tutte le informazioni operative del rapporto PT↔Atleta. Tutto sincronizzato con la PWA Atleta (stessi dati, RLS coerenti).
 
-I popup non risultano centrati nella preview (esempio "Crea Evento" da `CreatePublicEventDialog`, dialog allineato in basso a destra invece che al centro).
+Ispirazione: `UserDetailsModal` del progetto *allenati* (anagrafica completa, contatto emergenza, certificato medico con scadenza e file).
 
-Il `DialogContent` base in `src/components/ui/dialog.tsx` usa già `left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%]`, ma queste classi vengono perse/sovrascritte in vari contesti (transform parent, override di className, scroll body). La memoria di progetto già fissa lo standard: ogni dialog complesso deve forzare il centraggio con classi `!`-important.
+## Cosa non funziona oggi
+- `PTAthleteDetailPage` mostra solo: profilo statico, badge, "Allena ora", storico workout.
+- Nessun campo è **modificabile** dal PT.
+- Manca: progressi (peso/misure/foto), storico allenamenti completati con dettaglio, note private del PT, upload documenti, scadenze (visita medica/certificato/assicurazione).
+- L'Atleta nella PWA non vede ciò che il PT scrive (non esiste).
 
-## Cosa fa la patch (solo CSS, nessuna modifica logica)
+## Nuova Scheda Atleta — struttura
+Header invariato (avatar, nome, status, azioni rapide Chat/Assegna).
+Sotto, **tabs ampliati**:
 
-1. **Hardening del componente base `DialogContent`** (`src/components/ui/dialog.tsx`):
-   - aggiungere `!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2` nella className di default (mantenendo `fixed`, `max-w-lg`, `w-[calc(100%-2rem)]` per il safe area mobile).
-   - aggiungere `max-h-[90vh] overflow-y-auto` di default così il body lungo non sfora.
-
-2. **Stesso trattamento su `AlertDialogContent`** (`src/components/ui/alert-dialog.tsx`).
-
-3. **Pulizia delle override locali** (rimuovere classi che alterano la posizione, lasciare solo `max-w-*` / `sm:max-w-*` dove servono). File da rivedere:
-
-```
-src/components/pt/CreatePublicEventDialog.tsx
-src/components/pt/EditEventDialog.tsx
-src/components/pt/calendar/NewAppointmentDialog.tsx
-src/components/pt/AssignWorkoutDialog.tsx
-src/components/pt/AssignProgramDialog.tsx
-src/components/pt/CreateSubscriptionDialog.tsx
-src/components/pt/CreateExerciseDialog.tsx
-src/components/pt/ProgramFormDialog.tsx
-src/components/pt/ImportTemplateDialog.tsx
-src/components/pt/ReviewImportedTemplateDialog.tsx
-src/components/pt/PTPackagesManager.tsx
-src/components/pt/PTGalleryUpload.tsx
-src/components/pt/PTPhotoGallery.tsx
-src/components/pt/PTReviewsManager.tsx
-src/components/pt/AthleteSubscriptionsTab.tsx
-src/components/reviews/PTReviewForm.tsx
-src/components/reviews/AtletaReviewsHistory.tsx
-src/components/exercises/ExerciseDetailDialog.tsx
-src/components/admin/CourseBuilder.tsx
-src/components/AppTourPrompt.tsx
-src/pages/pt/PTWorkoutsPage.tsx
-src/pages/pt/PTSettingsPage.tsx
-src/pages/pt/PTBlogPage.tsx
-src/pages/pt/PTCouponsPage.tsx
-src/pages/admin/AdminExercisesPage.tsx
-src/pages/admin/AdminCouponTemplatesPage.tsx
-src/pages/admin/AdminCouponsPage.tsx
-src/pages/admin/AdminCoursesPage.tsx
-src/pages/admin/AdminSubscriptionsPage.tsx
-src/pages/admin/AdminPTsPage.tsx
-src/pages/admin/AdminSettingsPage.tsx
-src/pages/atleta/AtletaAppuntamentiPage.tsx
-src/pages/atleta/AtletaProfilePage.tsx
-src/pages/atleta/AtletaSettingsPage.tsx
-src/pages/atleta/AtletaEserciziPage.tsx
-src/pages/atleta/AtletaCoursesPage.tsx
-src/pages/atleta/AtletaWorkoutDetailPage.tsx
+```text
+[Panoramica] [Anagrafica] [Progressi] [Storico] [Note PT] [Documenti] [Allena ora] [Badge]
 ```
 
-4. **Verifica visiva** su tre dialog rappresentativi:
-   - `CreatePublicEventDialog` (PT Calendario Eventi → "Nuovo evento")
-   - `NewAppointmentDialog` (PT Calendario Appuntamenti → "Nuovo appuntamento")
-   - una conferma `AlertDialog` (es. cancellazione appuntamento atleta)
+### 1. Anagrafica (NUOVO — editabile)
+Form inline con sezioni a card (sul modello allenati):
+- **Personale**: nome, cognome, nickname, data nascita, genere, codice fiscale, telefono
+- **Contatti**: indirizzo, città, CAP
+- **Emergenza**: nome + telefono contatto emergenza
+- **Fisico**: altezza, peso attuale, livello, obiettivi (chip multi-select)
+- **Bio / note libere** visibili anche all'atleta
+
+Salvataggio per-sezione con pulsante "Salva". I dati vivono su `profiles` + `atleta_profiles` (campi nuovi dove servono).
+
+### 2. Progressi (NUOVO)
+- Grafico peso (Recharts, 6 mesi) da `progress_tracking`
+- Tabella ultime misurazioni (peso, % grasso, circonferenze, energia, sonno) con possibilità per il PT di **aggiungere** una nuova rilevazione
+- Sezione "Foto progressi" da `progress_photos` (già esistente) — galleria mensile con confronto Prima/Dopo
+- Tutto già visibile all'atleta nella sua PWA (`AtletaProgressPage`)
+
+### 3. Storico (potenziato)
+- Lista completa allenamenti completati con: data, durata reale, % completamento, RPE medio, note atleta, badge stato
+- Click → drawer con dettaglio set (esistente in PWA), riusato qui
+- Filtri: periodo, programma, stato
+
+### 4. Note PT (NUOVO, **private al PT**)
+- Diario libero del PT sull'atleta (RTF/markdown semplice)
+- Timeline di note datate (titolo + testo + tag: tecnica/comportamento/infortunio/obiettivo)
+- **RLS**: visibili SOLO al PT autore, mai all'atleta
+- Tabella nuova `pt_athlete_notes`
+
+### 5. Documenti & Scadenze (NUOVO)
+Modello: certificato medico di allenati, generalizzato.
+- Upload file (PDF/JPG) con tipo: `visita_medica`, `certificato_agonistico`, `assicurazione`, `consenso_privacy`, `altro`
+- Campi: titolo, tipo, data emissione, **data scadenza**, file
+- Badge "Scaduto / In scadenza < 30gg / Valido"
+- Bucket privato `athlete-documents` con signed URL
+- L'atleta vede i propri documenti (e scadenze) nella sua PWA, sezione "Documenti"
+- Notifica automatica all'atleta + PT 30/7/0 giorni prima della scadenza (tramite trigger + tabella `notifications` esistente)
+
+### 6. Sincronizzazione PWA Atleta
+- Anagrafica editata dal PT → riflessa subito in `AtletaProfilePage` e onboarding (Realtime su `profiles`/`atleta_profiles`)
+- Progressi aggiunti dal PT → compaiono in `AtletaProgressPage`
+- Documenti caricati dal PT → nuova pagina `/app/documenti` con elenco e scadenze
+- Note PT: NON visibili all'atleta (intenzionale)
 
 ## Dettagli tecnici
 
-- Le classi `!`-important neutralizzano qualunque conflitto di transform/position introdotto da wrapper genitore (preview iframe con `transform: scale`, layout con `transform` per animazioni Framer Motion).
-- Manteniamo `w-[calc(100%-2rem)]` per evitare che su mobile il dialog tocchi i bordi.
-- `max-h-[90vh] overflow-y-auto` previene il taglio del contenuto su viewport bassi.
-- Nessun cambiamento a logica di business, RLS, query o tabelle. Solo CSS/className.
-- Aggiornamento della memoria `mem://style/dialog-standardization-system` per ribadire che lo standard è ora applicato anche al componente base, e che le pagine non devono più ripetere le classi di posizione.
+### Migration DB
+1. `ALTER TABLE profiles` aggiunge (se mancanti): `nickname`, `birth_date`, `gender`, `fiscal_code`, `address`, `city`, `postal_code`, `emergency_contact_name`, `emergency_contact_phone`
+2. `ALTER TABLE atleta_profiles`: `height_cm`, `bio` (se mancanti)
+3. Nuova `pt_athlete_notes` (`id`, `pt_user_id`, `atleta_user_id`, `title`, `body`, `tag`, `created_at`, `updated_at`) — RLS: solo il PT autore + admin
+4. Nuova `athlete_documents` (`id`, `atleta_user_id`, `uploaded_by_user_id`, `doc_type` enum, `title`, `file_path`, `issued_date`, `expiry_date`, `created_at`) — RLS: atleta proprietario + PT connesso + admin
+5. Nuovo bucket Storage **privato** `athlete-documents` con policy: insert/select per PT connesso o atleta proprietario
+6. GRANT espliciti per ogni tabella nuova (authenticated + service_role)
+7. Trigger `notify_expiring_documents` schedulato (o controllo lato app al login PT) — fase 2 se complesso
+
+### Frontend
+- Refactor `src/pages/pt/PTAthleteDetailPage.tsx` (tabs estesi)
+- Nuovi componenti in `src/components/pt/athlete-detail/`:
+  - `AnagraficaEditor.tsx`
+  - `ProgressTab.tsx` (riusa Recharts, pattern già in `PTAnalyticsCharts`)
+  - `PTNotesTab.tsx`
+  - `DocumentsTab.tsx` + `UploadDocumentDialog.tsx`
+- Riuso: `WorkoutHistoryList`, `ProgressPhotos`, `ImageUpload`
+- Nuova pagina atleta: `src/pages/atleta/AtletaDocumentsPage.tsx` + voce nel menu mobile
+- Mutation con React Query + invalidation; realtime opzionale per anagrafica
+
+### Sicurezza
+- Note PT: policy `USING (pt_user_id = auth.uid())`
+- Documenti: policy `USING (atleta_user_id = auth.uid() OR are_connected(auth.uid(), atleta_user_id) OR is_admin(auth.uid()))`
+- Storage: signed URL 60s, mai pubblico
+
+### Memoria
+A fine implementazione aggiorno `mem://features/pt-athlete-card-v2` con la struttura tabs, le nuove tabelle e la regola "Note PT mai visibili all'atleta".
+
+## Roll-out in 3 step
+1. **DB + Anagrafica editabile + sync PWA** (sblocca subito la richiesta principale)
+2. **Note PT + Documenti & Scadenze** (con pagina atleta)
+3. **Progressi avanzati** (grafici, foto, inserimento misure dal PT)
+
+Confermi questa direzione e l'ordine dei 3 step? Vuoi che includa anche un alert in dashboard PT per documenti in scadenza (es. badge rosso su "Atleti")?

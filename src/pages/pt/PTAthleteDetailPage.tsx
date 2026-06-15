@@ -17,6 +17,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PTAthleteHistoryTab } from '@/components/pt/PTAthleteHistoryTab';
 import { PTAthleteTrainNowTab } from '@/components/pt/PTAthleteTrainNowTab';
+import { AnagraficaEditor } from '@/components/pt/athlete-detail/AnagraficaEditor';
+import { PTNotesTab } from '@/components/pt/athlete-detail/PTNotesTab';
+import { DocumentsTab } from '@/components/pt/athlete-detail/DocumentsTab';
+import { ProgressTab } from '@/components/pt/athlete-detail/ProgressTab';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import {
   User,
@@ -31,6 +35,9 @@ import {
   Award,
   History,
   Play,
+  IdCard,
+  StickyNote,
+  FileText,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -330,20 +337,38 @@ export function PTAthleteDetailPage() {
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview">
-                <Activity className="h-4 w-4 mr-1.5" /> Panoramica
-              </TabsTrigger>
-              <TabsTrigger value="history">
-                <History className="h-4 w-4 mr-1.5" /> Storico
-              </TabsTrigger>
-              <TabsTrigger value="train">
-                <Play className="h-4 w-4 mr-1.5" /> Allena ora
-              </TabsTrigger>
-              <TabsTrigger value="badges">
-                <Award className="h-4 w-4 mr-1.5" /> Badge
-              </TabsTrigger>
+            <TabsList className="flex flex-wrap h-auto w-full justify-start gap-1">
+              <TabsTrigger value="overview"><Activity className="h-4 w-4 mr-1.5" /> Panoramica</TabsTrigger>
+              <TabsTrigger value="anagrafica"><IdCard className="h-4 w-4 mr-1.5" /> Anagrafica</TabsTrigger>
+              <TabsTrigger value="progress"><TrendingUp className="h-4 w-4 mr-1.5" /> Progressi</TabsTrigger>
+              <TabsTrigger value="history"><History className="h-4 w-4 mr-1.5" /> Storico</TabsTrigger>
+              <TabsTrigger value="notes"><StickyNote className="h-4 w-4 mr-1.5" /> Note PT</TabsTrigger>
+              <TabsTrigger value="documents"><FileText className="h-4 w-4 mr-1.5" /> Documenti</TabsTrigger>
+              <TabsTrigger value="train"><Play className="h-4 w-4 mr-1.5" /> Allena ora</TabsTrigger>
+              <TabsTrigger value="badges"><Award className="h-4 w-4 mr-1.5" /> Badge</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="anagrafica" className="mt-4">
+              {atletaId && (
+                <AnagraficaEditor
+                  atletaUserId={atletaId}
+                  profile={profile}
+                  atletaProfile={atletaProfile}
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="progress" className="mt-4">
+              {atletaId && <ProgressTab atletaUserId={atletaId} />}
+            </TabsContent>
+
+            <TabsContent value="notes" className="mt-4">
+              {atletaId && <PTNotesTab atletaUserId={atletaId} />}
+            </TabsContent>
+
+            <TabsContent value="documents" className="mt-4">
+              {atletaId && <DocumentsTab atletaUserId={atletaId} />}
+            </TabsContent>
 
             <TabsContent value="overview" className="space-y-6 mt-4">
               {/* Recent Workouts */}
