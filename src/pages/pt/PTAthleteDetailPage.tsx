@@ -281,7 +281,7 @@ export function PTAthleteDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Connesso da</span>
                 <span className="text-sm">
-                  {connection.accepted_at 
+                  {connection?.accepted_at 
                     ? format(new Date(connection.accepted_at), 'dd MMM yyyy', { locale: it })
                     : 'N/A'
                   }
