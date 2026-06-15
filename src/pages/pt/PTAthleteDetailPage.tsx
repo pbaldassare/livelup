@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -51,10 +51,30 @@ import { toast } from 'sonner';
 export function PTAthleteDetailPage() {
   const { atletaId } = useParams<{ atletaId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedBadgeId, setSelectedBadgeId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || 'overview');
+
+  // Auto-open assign dialog when ?assign=1 is in URL
+  useEffect(() => {
+    if (searchParams.get('assign') === '1') {
+      setAssignDialogOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('assign');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const next = new URLSearchParams(searchParams);
+    if (value === 'overview') next.delete('tab');
+    else next.set('tab', value);
+    setSearchParams(next, { replace: true });
+  };
 
   // Fetch athlete data
   const { data: athlete, isLoading } = useQuery({
