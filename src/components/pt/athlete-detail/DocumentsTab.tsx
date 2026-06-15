@@ -420,7 +420,7 @@ function DocumentForm({
 }: {
   atletaUserId: string;
   uploaderUserId: string;
-  existing?: any;
+  existing?: AthleteDocument;
   onDone: () => void;
 }) {
   const isEdit = !!existing;
@@ -483,12 +483,12 @@ function DocumentForm({
         toast.success('Documento caricato');
       }
       onDone();
-    } catch (e: any) {
+    } catch (e) {
       // Cleanup orphan upload if DB write failed
       if (uploadedPath) {
         await supabase.storage.from('athlete-documents').remove([uploadedPath]).catch(() => {});
       }
-      toast.error(e?.message || 'Errore');
+      toast.error(e instanceof Error ? e.message : 'Errore');
     } finally {
       setBusy(false);
     }
