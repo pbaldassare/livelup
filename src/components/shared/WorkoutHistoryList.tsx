@@ -341,6 +341,25 @@ export function WorkoutHistoryList({
     enabled: !!atletaUserId,
   });
 
+  // Realtime: sincronizza storico PT ↔ atleta su qualsiasi modifica del workout dell'atleta
+  useEffect(() => {
+    if (!atletaUserId) return;
+    const channel = supabase
+      .channel(`workout-history-${atletaUserId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'workouts', filter: `atleta_user_id=eq.${atletaUserId}` },
+        () => qc.invalidateQueries({ queryKey }),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'workout_logs' },
+        () => qc.invalidateQueries({ queryKey }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [atletaUserId, ptUserId, qc]);
+
   const isAtleta = variant === 'atleta';
 
   if (isLoading) {
