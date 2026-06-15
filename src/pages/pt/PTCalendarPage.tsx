@@ -405,14 +405,42 @@ export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
     </Dialog>
   );
 
+  const isAppuntamenti = mode === 'appuntamenti';
+  const pageTitle = isAppuntamenti ? 'Calendario Appuntamenti' : 'Calendario Eventi';
+  const pageDescription = isAppuntamenti
+    ? 'Sessioni 1-a-1 prenotate dai tuoi atleti'
+    : 'Open day, lezioni di gruppo e attività pubbliche';
+  const itemLabel = isAppuntamenti ? 'appuntamenti' : 'eventi';
+
   return (
     <div className="space-y-6 animate-in">
       <PageHeader
-        title="Calendario"
-        description="Gestisci appuntamenti e sessioni di allenamento"
+        title={pageTitle}
+        description={pageDescription}
         icon={CalendarIcon}
-        actions={createButton}
+        actions={isAppuntamenti ? null : createButton}
       />
+
+      {/* Switch tra le due tipologie di calendario */}
+      <div className="inline-flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
+        <Link
+          to="/pt/calendar/eventi"
+          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            !isAppuntamenti ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Eventi
+        </Link>
+        <Link
+          to="/pt/calendar/appuntamenti"
+          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            isAppuntamenti ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Appuntamenti
+        </Link>
+      </div>
+
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
