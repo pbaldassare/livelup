@@ -457,6 +457,60 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
             />
           </div>
 
+          {/* Coupon */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Ticket className="h-4 w-4" />
+              Codice coupon (opzionale)
+            </Label>
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-primary" />
+                    <code className="font-mono text-sm">{appliedCoupon.coupon.code}</code>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{appliedCoupon.effect.summary}</p>
+                  {selectedPackage && (
+                    <p className="text-xs mt-0.5">
+                      Prezzo finale: <strong>€{appliedCoupon.effect.finalPrice.toFixed(2)}</strong>
+                    </p>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setAppliedCoupon(null); setCouponCode(''); setCouponError(''); }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="ES. WELCOME10"
+                    value={couponCode}
+                    onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
+                    className="font-mono uppercase"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleVerifyCoupon}
+                    disabled={!couponCode || verifyingCoupon || !selectedAthleteId || !selectedPackageId}
+                  >
+                    {verifyingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verifica'}
+                  </Button>
+                </div>
+                {couponError && (
+                  <p className="text-xs text-destructive">{couponError}</p>
+                )}
+              </>
+            )}
+          </div>
+
           {/* Notes */}
           <div className="space-y-2">
             <Label>Note (opzionale)</Label>
