@@ -112,7 +112,15 @@ const queryClient = new QueryClient();
 // =====================================================
 
 const App = () => {
-  const [showSplash, setShowSplash] = useState(true);
+  // Mostra splash solo al primo ingresso della sessione (no HMR, no re-mount).
+  const [showSplash, setShowSplash] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return sessionStorage.getItem('livellapp:splash-shown') !== '1';
+    } catch {
+      return true;
+    }
+  });
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -120,11 +128,14 @@ const App = () => {
         <Toaster />
         <Sonner />
         
-        {/* Splash Screen - shown on first load */}
+        {/* Splash Screen - shown only once per session */}
         {showSplash && (
           <SplashScreen 
-            duration={1800} 
-            onComplete={() => setShowSplash(false)} 
+            duration={900} 
+            onComplete={() => {
+              try { sessionStorage.setItem('livellapp:splash-shown', '1'); } catch {}
+              setShowSplash(false);
+            }} 
           />
         )}
         
