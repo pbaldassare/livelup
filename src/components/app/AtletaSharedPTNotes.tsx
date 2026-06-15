@@ -16,9 +16,12 @@ import { it } from 'date-fns/locale';
 
 export function AtletaSharedPTNotes() {
   const { user } = useAuth();
+  const { isConnected } = useAtletaStatus();
+  const qc = useQueryClient();
+  const queryKey = ['atleta-shared-notes', user?.id];
 
   const { data: notes = [], isLoading } = useQuery({
-    queryKey: ['atleta-shared-notes', user?.id],
+    queryKey,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pt_athlete_notes')
@@ -29,9 +32,25 @@ export function AtletaSharedPTNotes() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isConnected,
   });
 
+  // Realtime: aggiorna la lista quando il PT condivide/aggiorna una nota
+  useEffect(() => {
+    if (!user?.id || !isConnected) return;
+    const channel = supabase
+      .channel(`shared-notes-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pt_athlete_notes', filter: `atleta_user_id=eq.${user.id}` },
+        () => qc.invalidateQueries({ queryKey }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, isConnected, qc]);
+
+  // Gate funzionale: solo atleti collegati con PT attivo possono vedere note PT
+  if (!isConnected) return null;
   if (isLoading) return null;
   if (notes.length === 0) return null;
 
