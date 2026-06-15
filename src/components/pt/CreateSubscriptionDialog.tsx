@@ -157,15 +157,28 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
       const pkg = packages.find((p) => p.id === selectedPackageId);
       if (!pkg) throw new Error('Pacchetto non trovato');
 
-      const price = customPrice ? parseFloat(customPrice) : pkg.price;
-      const sessionsTotal = isSessionBased 
+      const basePrice = customPrice ? parseFloat(customPrice) : pkg.price;
+      let finalPrice = basePrice;
+      let sessionsTotal = isSessionBased
         ? (customSessions ? parseInt(customSessions) : pkg.sessions_count)
         : null;
-      
+
       // Calculate expiry date for non-session packages
       let calculatedExpiry = expiryDate;
       if (!isSessionBased && !expiryDate && pkg.duration_days) {
         calculatedExpiry = addDays(startDate, pkg.duration_days);
+      }
+
+      // Apply coupon effects
+      if (appliedCoupon) {
+        finalPrice = Math.max(0, basePrice - appliedCoupon.effect.priceDiscount);
+        if (appliedCoupon.effect.bonusSessions && sessionsTotal != null) {
+          sessionsTotal += appliedCoupon.effect.bonusSessions;
+        }
+        if (appliedCoupon.effect.bonusMonths) {
+          const base = calculatedExpiry ?? addDays(startDate, 30);
+          calculatedExpiry = addMonths(base, appliedCoupon.effect.bonusMonths);
+        }
       }
 
       const { error } = await supabase.from('atleta_pt_subscriptions').insert({
@@ -177,21 +190,35 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
         sessions_used: 0,
         expires_at: calculatedExpiry?.toISOString() || null,
         started_at: startDate.toISOString(),
-        price_paid: price,
+        price_paid: finalPrice,
         currency: pkg.currency,
         notes: notes || null,
       });
 
       if (error) throw error;
 
+      // Record coupon usage
+      if (appliedCoupon) {
+        try {
+          await recordCouponUse({
+            couponId: appliedCoupon.coupon.id,
+            userId: selectedAthleteId,
+            discountApplied: appliedCoupon.effect.priceDiscount,
+            currentUses: appliedCoupon.coupon.current_uses,
+          });
+        } catch (e) {
+          console.error('Coupon use logging failed', e);
+        }
+      }
+
       // Send notification to athlete
-      const selectedAthlete = athletes.find((a) => a.atleta_user_id === selectedAthleteId);
+      const discountNote = appliedCoupon ? ` (coupon ${appliedCoupon.coupon.code} applicato: ${appliedCoupon.effect.summary})` : '';
       await supabase.from('notifications').insert({
         user_id: selectedAthleteId,
         type: 'subscription_created',
         title: 'Nuovo abbonamento attivato!',
-        body: `Il tuo PT ha attivato il pacchetto "${pkg.name}"`,
-        data: { package_id: selectedPackageId },
+        body: `Il tuo PT ha attivato il pacchetto "${pkg.name}"${discountNote}`,
+        data: { package_id: selectedPackageId, coupon_code: appliedCoupon?.coupon.code ?? null },
         action_url: '/app/subscription',
       });
     },
