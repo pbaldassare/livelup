@@ -50,6 +50,77 @@ function expiryStatus(expiry?: string | null) {
   return { label: 'Valido', tone: 'success' as const, icon: CheckCircle2 };
 }
 
+function DocumentInlinePreview({ doc, onOpen }: { doc: any; onOpen: () => void }) {
+  const [state, setState] = useState<{ url: string; type: string } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+    setFailed(false);
+    setState(null);
+
+    if (!doc?.file_path) return;
+    supabase.storage
+      .from('athlete-documents')
+      .download(doc.file_path)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error || !data) {
+          setFailed(true);
+          return;
+        }
+        objectUrl = URL.createObjectURL(data);
+        setState({ url: objectUrl, type: data.type || fileTypeFromPath(doc.file_path) });
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [doc?.file_path]);
+
+  if (!doc?.file_path) {
+    return (
+      <div className="h-36 rounded-md border bg-muted/20 flex items-center justify-center text-xs text-muted-foreground">
+        Nessun file allegato
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className="h-36 rounded-md border border-destructive/30 bg-destructive/5 flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground text-center px-3">
+        <AlertTriangle className="h-5 w-5 text-destructive" />
+        File non leggibile o permessi mancanti
+      </div>
+    );
+  }
+
+  if (!state) {
+    return (
+      <div className="h-36 rounded-md border bg-muted/20 flex items-center justify-center text-xs text-muted-foreground">
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Carico anteprima…
+      </div>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onOpen} className="h-36 w-full overflow-hidden rounded-md border bg-muted/20 text-left">
+      {state.type.startsWith('image/') ? (
+        <img src={state.url} alt={doc.title || 'Documento atleta'} className="h-full w-full object-cover" />
+      ) : state.type === 'application/pdf' ? (
+        <iframe title={doc.title || 'Anteprima documento'} src={`${state.url}#toolbar=0&navpanes=0`} className="h-full w-full pointer-events-none" />
+      ) : (
+        <div className="h-full flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+          <FileText className="h-8 w-8 opacity-60" />
+          Apri anteprima
+        </div>
+      )}
+    </button>
+  );
+}
+
 export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnlyProp = false }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -207,6 +278,7 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
             return (
               <Card key={d.id}>
                 <CardContent className="pt-4 space-y-2">
+                  <DocumentInlinePreview doc={d} onOpen={() => previewFile(d)} />
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold truncate">{d.title}</p>
