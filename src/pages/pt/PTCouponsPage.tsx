@@ -125,6 +125,20 @@ export function PTCouponsPage() {
     max_uses: '',
   });
   const [shareCoupon, setShareCoupon] = useState<Coupon | null>(null);
+  const [tplDialogOpen, setTplDialogOpen] = useState(false);
+  const [tplForm, setTplForm] = useState({
+    id: '' as string,
+    name: '',
+    description: '',
+    allowed_discount_types: ['percentage'] as DiscountType[],
+    max_discount_percentage: '' as string,
+    max_discount_amount: '' as string,
+    max_free_months: '' as string,
+    max_free_sessions: '' as string,
+    max_validity_days: '' as string,
+    one_per_athlete: false,
+  });
+
 
   // Active connected athletes
   const { data: athletes = [] } = useQuery({
