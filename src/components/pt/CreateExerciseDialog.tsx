@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,9 @@ const emptyForm = {
   video_url: '',
   image_url: '',
 };
+
+type ExerciseInsert = Database['public']['Tables']['exercises']['Insert'];
+type ExerciseUpdate = Database['public']['Tables']['exercises']['Update'];
 
 export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExerciseDialogProps) {
   const { user } = useAuth();
@@ -113,11 +117,12 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
   const upsertMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
-      const payload = {
+
+      const payload: ExerciseUpdate = {
         name: form.name,
         description: form.description || null,
         category: form.category,
-        difficulty_level: form.difficulty_level as 'nessuno' | 'principiante' | 'intermedio' | 'avanzato' | 'agonista',
+        difficulty_level: form.difficulty_level as Database['public']['Enums']['fitness_level'],
         muscle_groups: selectedMuscles,
         instructions: form.instructions || null,
         video_url: form.video_url || null,
@@ -131,11 +136,13 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
           .eq('id', exercise.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('exercises').insert({
+        const insertPayload: ExerciseInsert = {
           ...payload,
           created_by: user.id,
           is_public: false,
-        });
+        };
+
+        const { error } = await supabase.from('exercises').insert(insertPayload);
         if (error) throw error;
       }
     },
