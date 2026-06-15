@@ -535,6 +535,7 @@ export type Database = {
           max_validity_days: number | null
           name: string
           one_per_athlete: boolean
+          pt_user_id: string | null
           requires_active_connection: boolean
           sort_order: number
           updated_at: string
@@ -553,6 +554,7 @@ export type Database = {
           max_validity_days?: number | null
           name: string
           one_per_athlete?: boolean
+          pt_user_id?: string | null
           requires_active_connection?: boolean
           sort_order?: number
           updated_at?: string
@@ -571,6 +573,7 @@ export type Database = {
           max_validity_days?: number | null
           name?: string
           one_per_athlete?: boolean
+          pt_user_id?: string | null
           requires_active_connection?: boolean
           sort_order?: number
           updated_at?: string
