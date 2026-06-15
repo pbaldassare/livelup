@@ -32,10 +32,16 @@ export function ProtectedRoute({
   const { hasAccess, hasRole } = usePermissions();
   const location = useLocation();
   const signOutTriggered = useRef(false);
+  // Mantiene l'ultimo ruolo "buono" per evitare redirect transitori durante
+  // TOKEN_REFRESHED / SIGNED_IN che riemettono onAuthStateChange mentre un
+  // Dialog (es. anteprima documenti) sta aprendo.
+  const lastGoodRoleRef = useRef<AppRole | null>(null);
+  if (role) lastGoodRoleRef.current = role;
+  const effectiveRole = role ?? lastGoodRoleRef.current;
 
   // Auto sign-out when role not resolved (long debounce to avoid race conditions)
   useEffect(() => {
-    if (!role && !isRoleLoading && !isLoading && isAuthenticated && !signOutTriggered.current) {
+    if (!effectiveRole && !isRoleLoading && !isLoading && isAuthenticated && !signOutTriggered.current) {
       const timeout = setTimeout(() => {
         if (!signOutTriggered.current) {
           signOutTriggered.current = true;
@@ -47,7 +53,7 @@ export function ProtectedRoute({
       }, 5000);
       return () => clearTimeout(timeout);
     }
-  }, [role, isRoleLoading, isLoading, isAuthenticated]);
+  }, [effectiveRole, isRoleLoading, isLoading, isAuthenticated]);
 
   // Initial auth loading
   if (isLoading) {
@@ -64,23 +70,23 @@ export function ProtectedRoute({
   }
 
   // Role still resolving or sign-out in progress
-  if (!role) {
+  if (!effectiveRole) {
     return (
       <LoadingSpinner variant="logo" size="lg" text="Caricamento permessi..." fullScreen />
     );
   }
 
-  // Check allowed roles
+  // Check allowed roles — usa effectiveRole per non sbattere fuori durante un refresh token
   if (allowedRoles && allowedRoles.length > 0) {
-    const hasAllowedRole = allowedRoles.some(r => hasRole(r));
+    const hasAllowedRole = allowedRoles.some(r => r === effectiveRole || hasRole(r));
     if (!hasAllowedRole) {
-      return <Navigate to={getHomeRoute(role)} replace />;
+      return <Navigate to={getHomeRoute(effectiveRole)} replace />;
     }
   }
 
   // Check required resource access
-  if (requiredResource && !hasAccess(requiredResource)) {
-    return <Navigate to={getHomeRoute(role)} replace />;
+  if (requiredResource && !hasAccess(requiredResource) && !ROLE_ACCESS_MATRIX[effectiveRole]?.[requiredResource as keyof typeof ROLE_ACCESS_MATRIX.admin]) {
+    return <Navigate to={getHomeRoute(effectiveRole)} replace />;
   }
 
   return <>{children}</>;

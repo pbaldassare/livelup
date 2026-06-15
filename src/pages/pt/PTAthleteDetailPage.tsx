@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
@@ -77,43 +77,49 @@ export function PTAthleteDetailPage() {
   };
 
   // Fetch athlete data
+  // NOTE: keepPreviousData + non-throwing connection lookup evita che riapertura
+  // del dialog (anteprima/documento) causi un flicker o un finto "non trovato"
+  // che il guard interpreterebbe come motivo per tornare a /pt.
   const { data: athlete, isLoading } = useQuery({
-    queryKey: ['pt-athlete-detail', atletaId],
+    queryKey: ['pt-athlete-detail', atletaId, user?.id],
     queryFn: async () => {
-      if (!atletaId) return null;
+      if (!atletaId || !user?.id) return null;
 
-      // Get connection
+      // Get connection (no throw: una connessione mancante è uno stato valido)
       const { data: connection, error: connError } = await supabase
         .from('pt_atleta_connections')
         .select('*')
         .eq('atleta_user_id', atletaId)
-        .eq('pt_user_id', user?.id)
+        .eq('pt_user_id', user.id)
         .maybeSingle();
 
-      if (connError) throw connError;
-      if (!connection) throw new Error('Connessione non trovata');
+      if (connError) {
+        console.warn('[PTAthleteDetail] connection lookup failed', connError.message);
+      }
 
       // Get profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', atletaId)
-        .single();
+        .maybeSingle();
 
       // Get atleta profile
       const { data: atletaProfile } = await supabase
         .from('atleta_profiles')
         .select('*')
         .eq('user_id', atletaId)
-        .single();
+        .maybeSingle();
 
       return {
-        connection,
-        profile,
-        atletaProfile,
+        connection: connection ?? null,
+        profile: profile ?? null,
+        atletaProfile: atletaProfile ?? null,
       };
     },
     enabled: !!atletaId && !!user?.id,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 
   // Fetch workouts assigned to this athlete
@@ -246,7 +252,7 @@ export function PTAthleteDetailPage() {
             <CardTitle className="mt-4">{fullName}</CardTitle>
             <CardDescription>{profile?.email}</CardDescription>
             <div className="flex justify-center mt-2">
-              <DashboardStatusBadge status={connection.status} />
+              {connection?.status && <DashboardStatusBadge status={connection.status} />}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -275,7 +281,7 @@ export function PTAthleteDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Connesso da</span>
                 <span className="text-sm">
-                  {connection.accepted_at 
+                  {connection?.accepted_at 
                     ? format(new Date(connection.accepted_at), 'dd MMM yyyy', { locale: it })
                     : 'N/A'
                   }
