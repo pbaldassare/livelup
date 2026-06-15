@@ -186,6 +186,13 @@ const App = () => {
                   </AdminLayout>
                 </AdminRoute>
               } />
+              <Route path="/admin/coupon-templates" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminCouponTemplatesPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
               <Route path="/admin/support" element={
                 <AdminRoute>
                   <AdminLayout>
