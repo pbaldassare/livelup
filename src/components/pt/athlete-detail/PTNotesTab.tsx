@@ -144,8 +144,17 @@ export function PTNotesTab({ atletaUserId }: Props) {
               <CardContent className="pt-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       {n.tag && <Badge variant="outline" className="text-xs capitalize">{n.tag}</Badge>}
+                      {n.is_shared_with_athlete ? (
+                        <Badge className="text-xs gap-1 bg-primary/15 text-primary border-primary/30" variant="outline">
+                          <Share2 className="h-3 w-3" /> Condivisa
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs gap-1 text-muted-foreground">
+                          <EyeOff className="h-3 w-3" /> Privata
+                        </Badge>
+                      )}
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(n.created_at), 'dd MMM yyyy · HH:mm', { locale: it })}
                       </span>
@@ -153,9 +162,16 @@ export function PTNotesTab({ atletaUserId }: Props) {
                     {n.title && <p className="font-semibold">{n.title}</p>}
                     <p className="text-sm whitespace-pre-wrap text-foreground/90">{n.body}</p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => removeNote.mutate(n.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex flex-col items-end gap-2">
+                    <Switch
+                      checked={!!n.is_shared_with_athlete}
+                      onCheckedChange={(v) => toggleShare.mutate({ id: n.id, value: v })}
+                      aria-label="Condividi con atleta"
+                    />
+                    <Button variant="ghost" size="icon" onClick={() => removeNote.mutate(n.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
