@@ -75,6 +75,22 @@ export function PTNotesTab({ atletaUserId }: Props) {
     enabled: !!user?.id,
   });
 
+  // Realtime sync: refresh on any change to this athlete's notes
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`pt-notes-${user.id}-${atletaUserId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pt_athlete_notes', filter: `atleta_user_id=eq.${atletaUserId}` },
+        () => qc.invalidateQueries({ queryKey: ['pt-athlete-notes', atletaUserId, user.id] }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, atletaUserId, qc]);
+
+  const filteredNotes = onlyShared ? notes.filter((n: any) => n.is_shared_with_athlete) : notes;
+
   const addNote = useMutation({
     mutationFn: async () => {
       if (!body.trim()) throw new Error('Scrivi qualcosa nella nota');
