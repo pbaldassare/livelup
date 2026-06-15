@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +21,8 @@ import {
   Loader2,
   CheckCircle2,
   Clock,
+  Ticket,
+  ChevronRight,
 } from 'lucide-react';
 
 // =====================================================
@@ -71,6 +74,23 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
 
       if (error) throw error;
       return data;
+    },
+    enabled: !!user?.id && !!ptUserId && isConnected,
+  });
+
+  // Coupons available from this PT (RLS-scoped)
+  const { data: availableCoupons = [] } = useQuery({
+    queryKey: ['pt-available-coupons', ptUserId, user?.id],
+    queryFn: async () => {
+      const nowIso = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('id, code, valid_until')
+        .eq('pt_user_id', ptUserId)
+        .eq('is_active', true)
+        .lte('valid_from', nowIso);
+      if (error) throw error;
+      return (data || []).filter((c) => !c.valid_until || new Date(c.valid_until) > new Date());
     },
     enabled: !!user?.id && !!ptUserId && isConnected,
   });
