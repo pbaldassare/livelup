@@ -147,6 +147,28 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
 
   return (
     <div className="mx-4 mb-4 space-y-4">
+      {/* Available coupons banner */}
+      {availableCoupons.length > 0 && (
+        <Link to="/app/coupons" className="block">
+          <Card className="bg-app-accent/10 border-app-accent/30 hover:bg-app-accent/15 transition-colors">
+            <CardContent className="py-3 px-4 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-app-accent/20 flex items-center justify-center shrink-0">
+                <Ticket className="h-4 w-4 text-app-accent" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-app-foreground">
+                  Hai {availableCoupons.length} {availableCoupons.length === 1 ? 'coupon disponibile' : 'coupon disponibili'}
+                </p>
+                <p className="text-xs text-app-muted-foreground">
+                  Tocca per vedere e usarli all'acquisto di un pacchetto
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-app-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
+      )}
+
       {/* Active Subscription Banner */}
       {activeSubscription && (
         <Card className="bg-app-accent/10 border-app-accent/20">
