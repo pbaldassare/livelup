@@ -117,6 +117,13 @@ export function PTNotesTab({ atletaUserId }: Props) {
             </Select>
           </div>
           <Textarea rows={4} placeholder="Scrivi una nota sull'atleta…" value={body} onChange={(e) => setBody(e.target.value)} />
+          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+            <div className="flex items-center gap-2 text-sm">
+              <Share2 className="h-4 w-4 text-primary" />
+              <Label htmlFor="share-note" className="cursor-pointer">Condividi con l'atleta</Label>
+            </div>
+            <Switch id="share-note" checked={shared} onCheckedChange={setShared} />
+          </div>
           <Button onClick={() => addNote.mutate()} disabled={addNote.isPending || !body.trim()}>
             <Plus className="h-4 w-4 mr-2" /> Aggiungi nota
           </Button>
