@@ -128,7 +128,15 @@ function DocumentInlinePreview({ doc, onOpen }: { doc: AthleteDocument; onOpen: 
   }
 
   return (
-    <button type="button" onClick={onOpen} className="h-36 w-full overflow-hidden rounded-md border bg-muted/20 text-left">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') onOpen();
+      }}
+      className="h-36 w-full cursor-pointer overflow-hidden rounded-md border bg-muted/20 text-left focus:outline-none focus:ring-2 focus:ring-ring"
+    >
       {state.type.startsWith('image/') ? (
         <img src={state.url} alt={doc.title || 'Documento atleta'} className="h-full w-full object-cover" />
       ) : state.type === 'application/pdf' ? (
@@ -139,7 +147,7 @@ function DocumentInlinePreview({ doc, onOpen }: { doc: AthleteDocument; onOpen: 
           Apri anteprima
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
