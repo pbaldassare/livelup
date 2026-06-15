@@ -40,7 +40,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tag, Plus, Copy, MoreHorizontal, Trash2, Loader2, Share2, ArrowLeft } from 'lucide-react';
+import { Tag, Plus, Copy, MoreHorizontal, Trash2, Loader2, Share2, ArrowLeft, Layers, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
