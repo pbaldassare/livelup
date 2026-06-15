@@ -1,97 +1,42 @@
-## Obiettivo
-Trasformare la sezione "Atleti" del PT da semplice vista in una vera **Scheda Cliente** completa, modificabile, con tutte le informazioni operative del rapporto PT↔Atleta. Tutto sincronizzato con la PWA Atleta (stessi dati, RLS coerenti).
+## Problema
 
-Ispirazione: `UserDetailsModal` del progetto *allenati* (anagrafica completa, contatto emergenza, certificato medico con scadenza e file).
+Sulla pagina `/pt/athletes` cliccando un atleta si apre solo il **DetailSheet laterale** (visibile nello screenshot) con Contatti / Statistiche / Messaggio / Assegna Scheda. **Non c'è nessun ingresso** alla scheda atleta completa `/pt/athletes/:atletaId`, che invece contiene già le tab:
 
-## Cosa non funziona oggi
-- `PTAthleteDetailPage` mostra solo: profilo statico, badge, "Allena ora", storico workout.
-- Nessun campo è **modificabile** dal PT.
-- Manca: progressi (peso/misure/foto), storico allenamenti completati con dettaglio, note private del PT, upload documenti, scadenze (visita medica/certificato/assicurazione).
-- L'Atleta nella PWA non vede ciò che il PT scrive (non esiste).
+- Anagrafica (modifica dati)
+- Progressi (grafico peso + rilevazioni + foto)
+- Storico allenamenti (`PTAthleteHistoryTab` → `WorkoutHistoryList` realtime)
+- Note PT (private/condivise)
+- Documenti & Scadenze (`DocumentsTab` con upload/modifica)
+- Allena ora / Badge
 
-## Nuova Scheda Atleta — struttura
-Header invariato (avatar, nome, status, azioni rapide Chat/Assegna).
-Sotto, **tabs ampliati**:
+Risultato percepito dal PT: "non vedo niente — storico, modifiche documenti, ecc.". I componenti esistono già, manca solo la **navigazione**.
 
-```text
-[Panoramica] [Anagrafica] [Progressi] [Storico] [Note PT] [Documenti] [Allena ora] [Badge]
-```
+## Cosa cambia (solo presentation layer — niente DB, niente nuove feature)
 
-### 1. Anagrafica (NUOVO — editabile)
-Form inline con sezioni a card (sul modello allenati):
-- **Personale**: nome, cognome, nickname, data nascita, genere, codice fiscale, telefono
-- **Contatti**: indirizzo, città, CAP
-- **Emergenza**: nome + telefono contatto emergenza
-- **Fisico**: altezza, peso attuale, livello, obiettivi (chip multi-select)
-- **Bio / note libere** visibili anche all'atleta
+1. **`src/pages/pt/PTAthletesPage.tsx`**
+   - Click sulla riga della tabella (stato `active`/`terminated`) → naviga a `/pt/athletes/:atletaId` invece di aprire il quick sheet. Per lo stato `pending` resta il flusso attuale (Accetta / Rifiuta inline + sheet).
+   - Pulsante "Eye" nella colonna Azioni → naviga a `/pt/athletes/:atletaId`.
+   - Pulsante "Dumbbell" (Assegna) → naviga a `/pt/athletes/:atletaId?tab=overview` e apre il dialog assegnazione (parametro letto dalla detail page).
+   - `DetailSheet` viene mantenuto **solo per le richieste pending**: il quick view ha senso lì per accettare/rifiutare al volo.
 
-Salvataggio per-sezione con pulsante "Salva". I dati vivono su `profiles` + `atleta_profiles` (campi nuovi dove servono).
+2. **`src/pages/pt/PTAthleteDetailPage.tsx`**
+   - Legge `?tab=` da `useSearchParams` e lo passa come `value` controllato al componente `Tabs` (con `onValueChange` che aggiorna l'URL). Default: `overview`.
+   - Legge `?assign=1` per aprire automaticamente `AssignWorkoutDialog` quando arriva dal pulsante "Assegna" della lista.
+   - Aggiunge un breadcrumb/CTA "Torna alla lista" già presente (nessun cambio funzionale).
 
-### 2. Progressi (NUOVO)
-- Grafico peso (Recharts, 6 mesi) da `progress_tracking`
-- Tabella ultime misurazioni (peso, % grasso, circonferenze, energia, sonno) con possibilità per il PT di **aggiungere** una nuova rilevazione
-- Sezione "Foto progressi" da `progress_photos` (già esistente) — galleria mensile con confronto Prima/Dopo
-- Tutto già visibile all'atleta nella sua PWA (`AtletaProgressPage`)
+3. **Nessuna modifica a**: schema DB, RLS, componenti tab esistenti (`PTNotesTab`, `DocumentsTab`, `ProgressTab`, `PTAthleteHistoryTab`), realtime, `AtletaDocumentsPage`, `AtletaSharedPTNotes`.
 
-### 3. Storico (potenziato)
-- Lista completa allenamenti completati con: data, durata reale, % completamento, RPE medio, note atleta, badge stato
-- Click → drawer con dettaglio set (esistente in PWA), riusato qui
-- Filtri: periodo, programma, stato
+## Verifica manuale dopo l'implementazione
 
-### 4. Note PT (NUOVO, **private al PT**)
-- Diario libero del PT sull'atleta (RTF/markdown semplice)
-- Timeline di note datate (titolo + testo + tag: tecnica/comportamento/infortunio/obiettivo)
-- **RLS**: visibili SOLO al PT autore, mai all'atleta
-- Tabella nuova `pt_athlete_notes`
+1. `/pt/athletes` → click su una riga atleta attivo → si apre `/pt/athletes/<id>` con tutte le tab visibili.
+2. Tab **Storico** → mostra workout completati (con realtime già attivo).
+3. Tab **Documenti** → upload, modifica scadenza, eliminazione funzionanti (RLS già OK).
+4. Tab **Note PT** → creazione/condivisione/eliminazione note funzionanti.
+5. Tab **Progressi** → grafico peso + nuova rilevazione.
+6. Click su una richiesta **pending** → continua ad aprire il DetailSheet con Accetta/Rifiuta.
 
-### 5. Documenti & Scadenze (NUOVO)
-Modello: certificato medico di allenati, generalizzato.
-- Upload file (PDF/JPG) con tipo: `visita_medica`, `certificato_agonistico`, `assicurazione`, `consenso_privacy`, `altro`
-- Campi: titolo, tipo, data emissione, **data scadenza**, file
-- Badge "Scaduto / In scadenza < 30gg / Valido"
-- Bucket privato `athlete-documents` con signed URL
-- L'atleta vede i propri documenti (e scadenze) nella sua PWA, sezione "Documenti"
-- Notifica automatica all'atleta + PT 30/7/0 giorni prima della scadenza (tramite trigger + tabella `notifications` esistente)
+## Note tecniche
 
-### 6. Sincronizzazione PWA Atleta
-- Anagrafica editata dal PT → riflessa subito in `AtletaProfilePage` e onboarding (Realtime su `profiles`/`atleta_profiles`)
-- Progressi aggiunti dal PT → compaiono in `AtletaProgressPage`
-- Documenti caricati dal PT → nuova pagina `/app/documenti` con elenco e scadenze
-- Note PT: NON visibili all'atleta (intenzionale)
-
-## Dettagli tecnici
-
-### Migration DB
-1. `ALTER TABLE profiles` aggiunge (se mancanti): `nickname`, `birth_date`, `gender`, `fiscal_code`, `address`, `city`, `postal_code`, `emergency_contact_name`, `emergency_contact_phone`
-2. `ALTER TABLE atleta_profiles`: `height_cm`, `bio` (se mancanti)
-3. Nuova `pt_athlete_notes` (`id`, `pt_user_id`, `atleta_user_id`, `title`, `body`, `tag`, `created_at`, `updated_at`) — RLS: solo il PT autore + admin
-4. Nuova `athlete_documents` (`id`, `atleta_user_id`, `uploaded_by_user_id`, `doc_type` enum, `title`, `file_path`, `issued_date`, `expiry_date`, `created_at`) — RLS: atleta proprietario + PT connesso + admin
-5. Nuovo bucket Storage **privato** `athlete-documents` con policy: insert/select per PT connesso o atleta proprietario
-6. GRANT espliciti per ogni tabella nuova (authenticated + service_role)
-7. Trigger `notify_expiring_documents` schedulato (o controllo lato app al login PT) — fase 2 se complesso
-
-### Frontend
-- Refactor `src/pages/pt/PTAthleteDetailPage.tsx` (tabs estesi)
-- Nuovi componenti in `src/components/pt/athlete-detail/`:
-  - `AnagraficaEditor.tsx`
-  - `ProgressTab.tsx` (riusa Recharts, pattern già in `PTAnalyticsCharts`)
-  - `PTNotesTab.tsx`
-  - `DocumentsTab.tsx` + `UploadDocumentDialog.tsx`
-- Riuso: `WorkoutHistoryList`, `ProgressPhotos`, `ImageUpload`
-- Nuova pagina atleta: `src/pages/atleta/AtletaDocumentsPage.tsx` + voce nel menu mobile
-- Mutation con React Query + invalidation; realtime opzionale per anagrafica
-
-### Sicurezza
-- Note PT: policy `USING (pt_user_id = auth.uid())`
-- Documenti: policy `USING (atleta_user_id = auth.uid() OR are_connected(auth.uid(), atleta_user_id) OR is_admin(auth.uid()))`
-- Storage: signed URL 60s, mai pubblico
-
-### Memoria
-A fine implementazione aggiorno `mem://features/pt-athlete-card-v2` con la struttura tabs, le nuove tabelle e la regola "Note PT mai visibili all'atleta".
-
-## Roll-out in 3 step
-1. **DB + Anagrafica editabile + sync PWA** (sblocca subito la richiesta principale)
-2. **Note PT + Documenti & Scadenze** (con pagina atleta)
-3. **Progressi avanzati** (grafici, foto, inserimento misure dal PT)
-
-Confermi questa direzione e l'ordine dei 3 step? Vuoi che includa anche un alert in dashboard PT per documenti in scadenza (es. badge rosso su "Atleti")?
+- Solo 2 file toccati, ~40 righe modificate in totale.
+- Nessuna nuova query, nessuna nuova migration, nessun nuovo componente.
+- Reuse al 100% della scheda atleta esistente.
