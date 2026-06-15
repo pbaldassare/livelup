@@ -63,16 +63,33 @@ export function PTNotesTab({ atletaUserId }: Props) {
         title: title.trim() || null,
         body: body.trim(),
         tag,
-      });
+        is_shared_with_athlete: shared,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success('Nota salvata');
-      setTitle(''); setBody(''); setTag('generale');
+      toast.success(shared ? 'Nota salvata e condivisa con l\'atleta' : 'Nota salvata');
+      setTitle(''); setBody(''); setTag('generale'); setShared(false);
       qc.invalidateQueries({ queryKey: ['pt-athlete-notes', atletaUserId] });
     },
     onError: (e: any) => toast.error(e?.message || 'Errore'),
   });
+
+  const toggleShare = useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: boolean }) => {
+      const { error } = await supabase
+        .from('pt_athlete_notes')
+        .update({ is_shared_with_athlete: value } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      toast.success(vars.value ? 'Nota condivisa con l\'atleta' : 'Condivisione rimossa');
+      qc.invalidateQueries({ queryKey: ['pt-athlete-notes', atletaUserId] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Errore'),
+  });
+
 
   const removeNote = useMutation({
     mutationFn: async (id: string) => {
