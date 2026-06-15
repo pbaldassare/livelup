@@ -36,6 +36,8 @@ import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
 import { ProfileStats } from '@/components/app/ProfileStats';
 import { BadgeCard } from '@/components/app/BadgeCard';
+import { AtletaSharedPTNotes } from '@/components/app/AtletaSharedPTNotes';
+import { AtletaDocumentExpiryBanner } from '@/components/app/AtletaDocumentExpiryBanner';
 import { ActivityHistory } from '@/components/app/ActivityHistory';
 import { AtletaReviewsHistory } from '@/components/reviews/AtletaReviewsHistory';
 import { ProfilePageSkeleton } from '@/components/skeletons';
