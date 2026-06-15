@@ -1,42 +1,34 @@
-## Problema
+Implementerò una correzione mirata sul flusso Documenti della scheda atleta PT.
 
-Sulla pagina `/pt/athletes` cliccando un atleta si apre solo il **DetailSheet laterale** (visibile nello screenshot) con Contatti / Statistiche / Messaggio / Assegna Scheda. **Non c'è nessun ingresso** alla scheda atleta completa `/pt/athletes/:atletaId`, che invece contiene già le tab:
+## Cosa sistemare
+1. **Upload documenti**
+   - Rendere chiaro quando l’upload è in corso e quando fallisce.
+   - Verificare che il file venga salvato nel bucket privato `athlete-documents` e che la riga venga creata in `athlete_documents`.
+   - Se l’upload file riesce ma l’inserimento DB fallisce, pulire il file già caricato per evitare documenti “fantasma”.
 
-- Anagrafica (modifica dati)
-- Progressi (grafico peso + rilevazioni + foto)
-- Storico allenamenti (`PTAthleteHistoryTab` → `WorkoutHistoryList` realtime)
-- Note PT (private/condivise)
-- Documenti & Scadenze (`DocumentsTab` con upload/modifica)
-- Allena ora / Badge
+2. **Modifica documenti**
+   - Aggiungere il pulsante **Modifica** su ogni documento nella tab PT.
+   - Permettere di modificare: titolo, tipo documento, data emissione, scadenza, note.
+   - Permettere opzionalmente di sostituire il file allegato.
+   - Salvare via `UPDATE` su `athlete_documents` rispettando le policy esistenti.
 
-Risultato percepito dal PT: "non vedo niente — storico, modifiche documenti, ecc.". I componenti esistono già, manca solo la **navigazione**.
+3. **Coerenza UI / blocchi**
+   - Se la connessione atleta non è attiva o il tab è in sola lettura, disabilitare upload, modifica ed eliminazione.
+   - Mostrare un messaggio esplicito quando le azioni sono bloccate.
+   - Aggiornare subito la lista dopo upload/modifica/eliminazione e mantenere il realtime già presente.
 
-## Cosa cambia (solo presentation layer — niente DB, niente nuove feature)
+4. **Apertura file**
+   - Migliorare feedback su “Apri” se il file non esiste o la signed URL fallisce.
 
-1. **`src/pages/pt/PTAthletesPage.tsx`**
-   - Click sulla riga della tabella (stato `active`/`terminated`) → naviga a `/pt/athletes/:atletaId` invece di aprire il quick sheet. Per lo stato `pending` resta il flusso attuale (Accetta / Rifiuta inline + sheet).
-   - Pulsante "Eye" nella colonna Azioni → naviga a `/pt/athletes/:atletaId`.
-   - Pulsante "Dumbbell" (Assegna) → naviga a `/pt/athletes/:atletaId?tab=overview` e apre il dialog assegnazione (parametro letto dalla detail page).
-   - `DetailSheet` viene mantenuto **solo per le richieste pending**: il quick view ha senso lì per accettare/rifiutare al volo.
+## File coinvolti
+- `src/components/pt/athlete-detail/DocumentsTab.tsx`
+- Eventuale piccola migration solo se dai controlli emerge che manca il bucket o una policy storage/update necessaria.
 
-2. **`src/pages/pt/PTAthleteDetailPage.tsx`**
-   - Legge `?tab=` da `useSearchParams` e lo passa come `value` controllato al componente `Tabs` (con `onValueChange` che aggiorna l'URL). Default: `overview`.
-   - Legge `?assign=1` per aprire automaticamente `AssignWorkoutDialog` quando arriva dal pulsante "Assegna" della lista.
-   - Aggiunge un breadcrumb/CTA "Torna alla lista" già presente (nessun cambio funzionale).
-
-3. **Nessuna modifica a**: schema DB, RLS, componenti tab esistenti (`PTNotesTab`, `DocumentsTab`, `ProgressTab`, `PTAthleteHistoryTab`), realtime, `AtletaDocumentsPage`, `AtletaSharedPTNotes`.
-
-## Verifica manuale dopo l'implementazione
-
-1. `/pt/athletes` → click su una riga atleta attivo → si apre `/pt/athletes/<id>` con tutte le tab visibili.
-2. Tab **Storico** → mostra workout completati (con realtime già attivo).
-3. Tab **Documenti** → upload, modifica scadenza, eliminazione funzionanti (RLS già OK).
-4. Tab **Note PT** → creazione/condivisione/eliminazione note funzionanti.
-5. Tab **Progressi** → grafico peso + nuova rilevazione.
-6. Click su una richiesta **pending** → continua ad aprire il DetailSheet con Accetta/Rifiuta.
-
-## Note tecniche
-
-- Solo 2 file toccati, ~40 righe modificate in totale.
-- Nessuna nuova query, nessuna nuova migration, nessun nuovo componente.
-- Reuse al 100% della scheda atleta esistente.
+## Verifica
+- Test manuale su `/pt/athletes/:id?tab=documents`:
+  - carica documento con file;
+  - modifica metadati/scadenza;
+  - sostituisce file;
+  - apre il documento;
+  - elimina documento;
+  - controlla che la tab non resti vuota dopo refresh/realtime.
