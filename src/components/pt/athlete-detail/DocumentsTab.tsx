@@ -9,8 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { FileText, Upload, Trash2, ExternalLink, Plus, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import {
+  FileText, Upload, Trash2, ExternalLink, Plus, AlertTriangle,
+  CheckCircle2, Clock, Pencil, Lock,
+} from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -46,10 +50,28 @@ function expiryStatus(expiry?: string | null) {
   return { label: 'Valido', tone: 'success' as const, icon: CheckCircle2 };
 }
 
-export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false }: Props) {
+export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnlyProp = false }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
+
+  // Connection gate (only for PT view). selfMode skip.
+  const { data: connection } = useQuery({
+    queryKey: ['pt-athlete-connection-status-docs', user?.id, atletaUserId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('pt_atleta_connections')
+        .select('status')
+        .eq('pt_user_id', user!.id)
+        .eq('atleta_user_id', atletaUserId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !selfMode && !!user?.id,
+  });
+  const ptInactive = !selfMode && (connection?.status && connection.status !== 'active');
+  const readOnly = readOnlyProp || !!ptInactive;
 
   const { data: docs = [], isLoading } = useQuery({
     queryKey: ['athlete-documents', atletaUserId],
@@ -64,7 +86,6 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false 
     },
   });
 
-  // Realtime: sync PT view when athlete uploads/deletes documents (and vice-versa)
   useEffect(() => {
     if (!atletaUserId) return;
     const channel = supabase
@@ -94,11 +115,15 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false 
   });
 
   const openFile = async (path: string) => {
+    if (!path) {
+      toast.error('Nessun file allegato a questo documento');
+      return;
+    }
     const { data, error } = await supabase.storage
       .from('athlete-documents')
       .createSignedUrl(path, 60);
     if (error || !data?.signedUrl) {
-      toast.error("Impossibile aprire il file");
+      toast.error(error?.message || 'Impossibile aprire il file');
       return;
     }
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
@@ -106,6 +131,15 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false 
 
   return (
     <div className="space-y-4">
+      {ptInactive && (
+        <Alert>
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            Connessione non attiva con questo atleta — documenti in sola lettura.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           {docs.length} document{docs.length === 1 ? 'o' : 'i'}
@@ -116,7 +150,7 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false 
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nuovo documento</DialogTitle></DialogHeader>
-            <UploadForm
+            <DocumentForm
               atletaUserId={atletaUserId}
               uploaderUserId={user!.id}
               onDone={() => {
@@ -161,13 +195,23 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false 
                     {d.expiry_date && <p>Scadenza: {format(new Date(d.expiry_date), 'dd MMM yyyy', { locale: it })}</p>}
                     {d.notes && <p className="italic">{d.notes}</p>}
                   </div>
-                  <div className="flex gap-2 pt-1">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     {d.file_path && (
                       <Button variant="outline" size="sm" onClick={() => openFile(d.file_path)}>
                         <ExternalLink className="h-3.5 w-3.5 mr-1" /> Apri
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => remove.mutate(d)} disabled={readOnly}>
+                    <Button variant="outline" size="sm" onClick={() => setEditing(d)} disabled={readOnly}>
+                      <Pencil className="h-3.5 w-3.5 mr-1" /> Modifica
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm('Eliminare definitivamente questo documento?')) remove.mutate(d);
+                      }}
+                      disabled={readOnly}
+                    >
                       <Trash2 className="h-3.5 w-3.5 mr-1 text-destructive" /> Elimina
                     </Button>
                   </div>
@@ -177,63 +221,108 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false 
           })}
         </div>
       )}
+
+      <Dialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Modifica documento</DialogTitle></DialogHeader>
+          {editing && (
+            <DocumentForm
+              atletaUserId={atletaUserId}
+              uploaderUserId={user!.id}
+              existing={editing}
+              onDone={() => {
+                setEditing(null);
+                qc.invalidateQueries({ queryKey: ['athlete-documents', atletaUserId] });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-// ---------------- Upload form ----------------
+// ---------------- Shared form (create + edit) ----------------
 
-function UploadForm({
+function DocumentForm({
   atletaUserId,
   uploaderUserId,
+  existing,
   onDone,
 }: {
   atletaUserId: string;
   uploaderUserId: string;
+  existing?: any;
   onDone: () => void;
 }) {
-  const [title, setTitle] = useState('');
-  const [docType, setDocType] = useState<DocType>('visita_medica');
-  const [issuedDate, setIssuedDate] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [notes, setNotes] = useState('');
+  const isEdit = !!existing;
+  const [title, setTitle] = useState(existing?.title ?? '');
+  const [docType, setDocType] = useState<DocType>(existing?.doc_type ?? 'visita_medica');
+  const [issuedDate, setIssuedDate] = useState(existing?.issued_date ?? '');
+  const [expiryDate, setExpiryDate] = useState(existing?.expiry_date ?? '');
+  const [notes, setNotes] = useState(existing?.notes ?? '');
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [replaceFile, setReplaceFile] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const submit = async () => {
-    if (!title.trim()) {
-      toast.error('Aggiungi un titolo');
-      return;
-    }
-    setUploading(true);
+    if (!title.trim()) { toast.error('Aggiungi un titolo'); return; }
+    setBusy(true);
+    let uploadedPath: string | null = null;
     try {
-      let filePath: string | null = null;
-      if (file) {
+      let filePath: string | null | undefined = existing?.file_path ?? null;
+
+      if (file && (!isEdit || replaceFile)) {
         if (file.size > 15 * 1024 * 1024) throw new Error('File troppo grande (max 15 MB)');
-        const ext = file.name.split('.').pop() || 'pdf';
-        filePath = `${atletaUserId}/${crypto.randomUUID()}.${ext}`;
+        const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
+        const newPath = `${atletaUserId}/${crypto.randomUUID()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from('athlete-documents')
-          .upload(filePath, file, { upsert: false, contentType: file.type });
+          .upload(newPath, file, { upsert: false, contentType: file.type });
         if (upErr) throw upErr;
+        uploadedPath = newPath;
+
+        // Replace: remove previous file (best effort)
+        if (isEdit && existing?.file_path) {
+          await supabase.storage.from('athlete-documents').remove([existing.file_path]);
+        }
+        filePath = newPath;
       }
-      const { error } = await supabase.from('athlete_documents').insert({
-        atleta_user_id: atletaUserId,
-        uploaded_by_user_id: uploaderUserId,
+
+      const payload = {
         doc_type: docType,
         title: title.trim(),
-        file_path: filePath,
+        file_path: filePath ?? null,
         issued_date: issuedDate || null,
         expiry_date: expiryDate || null,
         notes: notes.trim() || null,
-      });
-      if (error) throw error;
-      toast.success('Documento caricato');
+      };
+
+      if (isEdit) {
+        const { error } = await supabase
+          .from('athlete_documents')
+          .update(payload)
+          .eq('id', existing.id);
+        if (error) throw error;
+        toast.success('Documento aggiornato');
+      } else {
+        const { error } = await supabase.from('athlete_documents').insert({
+          atleta_user_id: atletaUserId,
+          uploaded_by_user_id: uploaderUserId,
+          ...payload,
+        });
+        if (error) throw error;
+        toast.success('Documento caricato');
+      }
       onDone();
     } catch (e: any) {
-      toast.error(e?.message || 'Errore upload');
+      // Cleanup orphan upload if DB write failed
+      if (uploadedPath) {
+        await supabase.storage.from('athlete-documents').remove([uploadedPath]).catch(() => {});
+      }
+      toast.error(e?.message || 'Errore');
     } finally {
-      setUploading(false);
+      setBusy(false);
     }
   };
 
@@ -253,23 +342,40 @@ function UploadForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Data emissione</Label>
-          <Input type="date" value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
+          <Input type="date" value={issuedDate ?? ''} onChange={(e) => setIssuedDate(e.target.value)} />
         </div>
         <div>
           <Label>Scadenza</Label>
-          <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+          <Input type="date" value={expiryDate ?? ''} onChange={(e) => setExpiryDate(e.target.value)} />
         </div>
       </div>
       <div>
         <Label>Note</Label>
-        <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <Input value={notes ?? ''} onChange={(e) => setNotes(e.target.value)} />
       </div>
-      <div>
-        <Label>File (PDF, JPG, PNG)</Label>
-        <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      </div>
-      <Button onClick={submit} disabled={uploading} className="w-full">
-        <Upload className="h-4 w-4 mr-2" /> {uploading ? 'Carico…' : 'Salva documento'}
+
+      {isEdit && existing?.file_path && !replaceFile ? (
+        <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+          <span className="text-muted-foreground truncate">File esistente allegato</span>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setReplaceFile(true)}>
+            Sostituisci
+          </Button>
+        </div>
+      ) : (
+        <div>
+          <Label>File (PDF, JPG, PNG) {isEdit && '— opzionale'}</Label>
+          <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          {isEdit && replaceFile && (
+            <Button type="button" variant="ghost" size="sm" className="mt-1" onClick={() => { setReplaceFile(false); setFile(null); }}>
+              Annulla sostituzione
+            </Button>
+          )}
+        </div>
+      )}
+
+      <Button onClick={submit} disabled={busy} className="w-full">
+        <Upload className="h-4 w-4 mr-2" />
+        {busy ? 'Salvataggio…' : isEdit ? 'Salva modifiche' : 'Salva documento'}
       </Button>
     </div>
   );
