@@ -309,8 +309,10 @@ export function WorkoutHistoryList({
   ptUserId,
   variant = 'pt',
 }: WorkoutHistoryListProps) {
+  const qc = useQueryClient();
+  const queryKey = ['workout-history', atletaUserId, ptUserId ?? 'self'];
   const { data: workouts = [], isLoading } = useQuery({
-    queryKey: ['workout-history', atletaUserId, ptUserId ?? 'self'],
+    queryKey,
     queryFn: async () => {
       let q = supabase
         .from('workouts')
