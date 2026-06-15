@@ -71,6 +71,7 @@ interface CouponTemplate {
   max_validity_days: number | null;
   requires_active_connection: boolean;
   one_per_athlete: boolean;
+  pt_user_id: string | null;
 }
 
 interface Coupon {
