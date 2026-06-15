@@ -29,7 +29,8 @@ import {
   Phone,
   MapPin,
   Save,
-  Ticket
+  Ticket,
+  FileText
 } from 'lucide-react';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
