@@ -12,8 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import {
-  FileText, Upload, Trash2, ExternalLink, Plus, AlertTriangle,
-  CheckCircle2, Clock, Pencil, Lock,
+  FileText, Upload, Trash2, Plus, AlertTriangle,
+  CheckCircle2, Clock, Pencil, Lock, Eye, Download, Loader2,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -55,6 +55,8 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [preview, setPreview] = useState<{ doc: any; url: string; type: string } | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
 
   // Connection gate (only for PT view). selfMode skip.
   const { data: connection } = useQuery({
@@ -114,19 +116,46 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
     onError: (e: any) => toast.error(e?.message || 'Errore'),
   });
 
-  const openFile = async (path: string) => {
-    if (!path) {
+  useEffect(() => {
+    return () => {
+      if (preview?.url) URL.revokeObjectURL(preview.url);
+    };
+  }, [preview?.url]);
+
+  const closePreview = () => {
+    if (preview?.url) URL.revokeObjectURL(preview.url);
+    setPreview(null);
+  };
+
+  const previewFile = async (doc: any) => {
+    if (!doc.file_path) {
       toast.error('Nessun file allegato a questo documento');
       return;
     }
-    const { data, error } = await supabase.storage
+    setPreviewLoadingId(doc.id);
+    try {
+      const { data, error } = await supabase.storage
       .from('athlete-documents')
-      .createSignedUrl(path, 60);
-    if (error || !data?.signedUrl) {
-      toast.error(error?.message || 'Impossibile aprire il file');
-      return;
+        .download(doc.file_path);
+      if (error || !data) throw error || new Error('File non trovato');
+      const url = URL.createObjectURL(data);
+      if (preview?.url) URL.revokeObjectURL(preview.url);
+      setPreview({ doc, url, type: data.type || fileTypeFromPath(doc.file_path) });
+    } catch (e: any) {
+      toast.error(e?.message || 'Impossibile caricare l’anteprima');
+    } finally {
+      setPreviewLoadingId(null);
     }
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const downloadPreview = () => {
+    if (!preview) return;
+    const a = document.createElement('a');
+    a.href = preview.url;
+    a.download = `${preview.doc.title || 'documento'}${extensionFromPath(preview.doc.file_path)}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   return (
@@ -197,8 +226,13 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
                   </div>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {d.file_path && (
-                      <Button variant="outline" size="sm" onClick={() => openFile(d.file_path)}>
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Apri
+                      <Button variant="outline" size="sm" onClick={() => previewFile(d)} disabled={previewLoadingId === d.id}>
+                        {previewLoadingId === d.id ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                        )}
+                        Anteprima
                       </Button>
                     )}
                     <Button variant="outline" size="sm" onClick={() => setEditing(d)} disabled={readOnly}>
@@ -238,8 +272,47 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!preview} onOpenChange={(v) => !v && closePreview()}>
+        <DialogContent className="max-w-5xl h-[88vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-3 pr-6">
+              <span className="truncate">{preview?.doc?.title || 'Documento'}</span>
+              <Button type="button" variant="outline" size="sm" onClick={downloadPreview}>
+                <Download className="h-4 w-4 mr-2" /> Scarica
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 rounded-md border bg-muted/20 overflow-hidden">
+            {preview && preview.type.startsWith('image/') ? (
+              <img src={preview.url} alt={preview.doc.title || 'Documento atleta'} className="h-full w-full object-contain" />
+            ) : preview && preview.type === 'application/pdf' ? (
+              <iframe title={preview.doc.title || 'Anteprima documento'} src={preview.url} className="h-full w-full" />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground p-6 text-center">
+                <FileText className="h-12 w-12 opacity-50" />
+                <p>Anteprima non disponibile per questo formato.</p>
+                <Button type="button" onClick={downloadPreview}>Scarica file</Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function extensionFromPath(path?: string | null) {
+  if (!path || !path.includes('.')) return '';
+  return `.${path.split('.').pop()}`;
+}
+
+function fileTypeFromPath(path?: string | null) {
+  const ext = extensionFromPath(path).toLowerCase();
+  if (ext === '.pdf') return 'application/pdf';
+  if (['.jpg', '.jpeg'].includes(ext)) return 'image/jpeg';
+  if (ext === '.png') return 'image/png';
+  return 'application/octet-stream';
 }
 
 // ---------------- Shared form (create + edit) ----------------
