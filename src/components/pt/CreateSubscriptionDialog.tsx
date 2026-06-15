@@ -85,6 +85,10 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
   const [customSessions, setCustomSessions] = useState<string>('');
   const [expiryDate, setExpiryDate] = useState<Date | undefined>(undefined);
   const [notes, setNotes] = useState<string>('');
+  const [couponCode, setCouponCode] = useState<string>('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{ coupon: ValidatableCoupon; effect: CouponEffect } | null>(null);
+  const [couponError, setCouponError] = useState<string>('');
+  const [verifyingCoupon, setVerifyingCoupon] = useState(false);
 
   // Fetch connected athletes
   const { data: athletes = [] } = useQuery({
