@@ -64,6 +64,20 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false 
     },
   });
 
+  // Realtime: sync PT view when athlete uploads/deletes documents (and vice-versa)
+  useEffect(() => {
+    if (!atletaUserId) return;
+    const channel = supabase
+      .channel(`athlete-docs-${atletaUserId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'athlete_documents', filter: `atleta_user_id=eq.${atletaUserId}` },
+        () => qc.invalidateQueries({ queryKey: ['athlete-documents', atletaUserId] }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [atletaUserId, qc]);
+
   const remove = useMutation({
     mutationFn: async (doc: any) => {
       if (doc.file_path) {
