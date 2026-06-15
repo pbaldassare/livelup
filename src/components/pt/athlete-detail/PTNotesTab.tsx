@@ -39,6 +39,25 @@ export function PTNotesTab({ atletaUserId }: Props) {
   const [body, setBody] = useState('');
   const [tag, setTag] = useState('generale');
   const [shared, setShared] = useState(false);
+  const [onlyShared, setOnlyShared] = useState(false);
+
+  // Connection gate: PT can only manage notes for an ACTIVE connected athlete
+  const { data: connection } = useQuery({
+    queryKey: ['pt-athlete-connection-status', user?.id, atletaUserId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pt_atleta_connections')
+        .select('status')
+        .eq('pt_user_id', user!.id)
+        .eq('atleta_user_id', atletaUserId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+  const isActive = connection?.status === 'active';
+  const readOnly = !isActive;
 
 
   const { data: notes = [], isLoading } = useQuery({
