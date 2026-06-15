@@ -520,6 +520,63 @@ export type Database = {
         }
         Relationships: []
       }
+      coupon_templates: {
+        Row: {
+          allowed_discount_types: string[]
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          max_discount_amount: number | null
+          max_discount_percentage: number | null
+          max_free_months: number | null
+          max_free_sessions: number | null
+          max_validity_days: number | null
+          name: string
+          one_per_athlete: boolean
+          requires_active_connection: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          allowed_discount_types?: string[]
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          max_discount_amount?: number | null
+          max_discount_percentage?: number | null
+          max_free_months?: number | null
+          max_free_sessions?: number | null
+          max_validity_days?: number | null
+          name: string
+          one_per_athlete?: boolean
+          requires_active_connection?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          allowed_discount_types?: string[]
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          max_discount_amount?: number | null
+          max_discount_percentage?: number | null
+          max_free_months?: number | null
+          max_free_sessions?: number | null
+          max_validity_days?: number | null
+          name?: string
+          one_per_athlete?: boolean
+          requires_active_connection?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coupon_uses: {
         Row: {
           coupon_id: string
@@ -574,11 +631,16 @@ export type Database = {
           description: string | null
           discount_value: number
           free_months: number | null
+          free_sessions: number | null
           id: string
           is_active: boolean
           max_uses: number | null
           max_uses_per_user: number | null
           min_purchase_amount: number | null
+          pt_package_id: string | null
+          pt_user_id: string | null
+          target_athlete_ids: string[] | null
+          template_id: string | null
           updated_at: string
           valid_from: string
           valid_until: string | null
@@ -594,11 +656,16 @@ export type Database = {
           description?: string | null
           discount_value: number
           free_months?: number | null
+          free_sessions?: number | null
           id?: string
           is_active?: boolean
           max_uses?: number | null
           max_uses_per_user?: number | null
           min_purchase_amount?: number | null
+          pt_package_id?: string | null
+          pt_user_id?: string | null
+          target_athlete_ids?: string[] | null
+          template_id?: string | null
           updated_at?: string
           valid_from?: string
           valid_until?: string | null
@@ -614,16 +681,36 @@ export type Database = {
           description?: string | null
           discount_value?: number
           free_months?: number | null
+          free_sessions?: number | null
           id?: string
           is_active?: boolean
           max_uses?: number | null
           max_uses_per_user?: number | null
           min_purchase_amount?: number | null
+          pt_package_id?: string | null
+          pt_user_id?: string | null
+          target_athlete_ids?: string[] | null
+          template_id?: string | null
           updated_at?: string
           valid_from?: string
           valid_until?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "coupons_pt_package_id_fkey"
+            columns: ["pt_package_id"]
+            isOneToOne: false
+            referencedRelation: "pt_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupons_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "coupon_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       course_enrollments: {
         Row: {

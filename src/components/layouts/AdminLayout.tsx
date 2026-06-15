@@ -16,7 +16,8 @@ import {
   LogOut,
   Map,
   Dumbbell,
-  Library
+  Library,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -68,6 +69,11 @@ const navigationItems = [
     label: 'Coupon', 
     href: '/admin/coupons', 
     icon: Tag 
+  },
+  { 
+    label: 'Catalogo Coupon', 
+    href: '/admin/coupon-templates', 
+    icon: Layers 
   },
   { 
     label: 'Archivio Esercizi', 
