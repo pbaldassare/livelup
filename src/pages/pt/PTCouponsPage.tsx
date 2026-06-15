@@ -323,6 +323,87 @@ export function PTCouponsPage() {
     onError: (e: Error) => toast.error('Errore: ' + e.message),
   });
 
+  const saveTplMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error('Non autenticato');
+      if (!tplForm.name.trim()) throw new Error('Nome obbligatorio');
+      if (tplForm.allowed_discount_types.length === 0) throw new Error('Seleziona almeno un tipo di sconto');
+      const payload = {
+        name: tplForm.name.trim(),
+        description: tplForm.description || null,
+        allowed_discount_types: tplForm.allowed_discount_types,
+        max_discount_percentage: tplForm.max_discount_percentage ? parseFloat(tplForm.max_discount_percentage) : null,
+        max_discount_amount: tplForm.max_discount_amount ? parseFloat(tplForm.max_discount_amount) : null,
+        max_free_months: tplForm.max_free_months ? parseInt(tplForm.max_free_months) : null,
+        max_free_sessions: tplForm.max_free_sessions ? parseInt(tplForm.max_free_sessions) : null,
+        max_validity_days: tplForm.max_validity_days ? parseInt(tplForm.max_validity_days) : null,
+        one_per_athlete: tplForm.one_per_athlete,
+        is_active: true,
+        pt_user_id: user.id,
+      };
+      if (tplForm.id) {
+        const { error } = await supabase.from('coupon_templates').update(payload).eq('id', tplForm.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('coupon_templates').insert([payload]);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-coupon-templates'] });
+      toast.success(tplForm.id ? 'Tipologia aggiornata' : 'Tipologia creata');
+      setTplDialogOpen(false);
+    },
+    onError: (e: Error) => toast.error('Errore: ' + e.message),
+  });
+
+  const deleteTplMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('coupon_templates').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-coupon-templates'] });
+      toast.success('Tipologia eliminata');
+    },
+    onError: (e: Error) => toast.error('Errore: ' + e.message),
+  });
+
+  const openNewTpl = () => {
+    setTplForm({ id: '', name: '', description: '', allowed_discount_types: ['percentage'], max_discount_percentage: '', max_discount_amount: '', max_free_months: '', max_free_sessions: '', max_validity_days: '', one_per_athlete: false });
+    setTplDialogOpen(true);
+  };
+
+  const openEditTpl = (t: CouponTemplate, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTplForm({
+      id: t.id,
+      name: t.name,
+      description: t.description ?? '',
+      allowed_discount_types: (t.allowed_discount_types as DiscountType[]) ?? ['percentage'],
+      max_discount_percentage: t.max_discount_percentage?.toString() ?? '',
+      max_discount_amount: t.max_discount_amount?.toString() ?? '',
+      max_free_months: t.max_free_months?.toString() ?? '',
+      max_free_sessions: t.max_free_sessions?.toString() ?? '',
+      max_validity_days: t.max_validity_days?.toString() ?? '',
+      one_per_athlete: t.one_per_athlete,
+    });
+    setTplDialogOpen(true);
+  };
+
+  const toggleTplType = (t: DiscountType, checked: boolean) => {
+    setTplForm((f) => ({
+      ...f,
+      allowed_discount_types: checked
+        ? Array.from(new Set([...f.allowed_discount_types, t]))
+        : f.allowed_discount_types.filter((x) => x !== t),
+    }));
+  };
+
+  const allDiscountTypes: DiscountType[] = ['percentage', 'fixed_amount', 'free_months', 'free_sessions'];
+
+
+
   const pickTemplate = (t: CouponTemplate) => {
     setSelectedTemplate(t);
     const firstType = (t.allowed_discount_types[0] ?? 'percentage') as DiscountType;
