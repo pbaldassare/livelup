@@ -23,7 +23,7 @@ interface MobileNavProps {
 const atletaNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/app', tourId: 'nav-home' },
   { icon: CalendarDays, label: 'Programma', path: '/app/programma', tourId: 'nav-programma' },
-  { icon: Dumbbell, label: 'Esercizi', path: '/app/esercizi', tourId: 'nav-esercizi' },
+  { icon: CalendarClock, label: 'Appuntam.', path: '/app/appuntamenti', tourId: 'nav-appuntamenti' },
   { icon: Search, label: 'Scopri', path: '/app/discover', tourId: 'nav-discover' },
   { icon: User, label: 'Profilo', path: '/app/profile', tourId: 'nav-profile' },
 ];
