@@ -12,8 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import {
-  FileText, Upload, Trash2, ExternalLink, Plus, AlertTriangle,
-  CheckCircle2, Clock, Pencil, Lock,
+  FileText, Upload, Trash2, Plus, AlertTriangle,
+  CheckCircle2, Clock, Pencil, Lock, Eye, Download, Loader2,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -34,6 +34,22 @@ const DOC_TYPES = [
 
 type DocType = (typeof DOC_TYPES)[number]['value'];
 
+type AthleteDocument = {
+  id: string;
+  atleta_user_id: string;
+  uploaded_by_user_id: string;
+  doc_type: DocType;
+  title: string;
+  file_path: string | null;
+  issued_date: string | null;
+  expiry_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type PreviewState = { doc: AthleteDocument; url: string; type: string };
+
 interface Props {
   atletaUserId: string;
   /** Se true, l'atleta sta gestendo i propri (PWA). */
@@ -50,11 +66,98 @@ function expiryStatus(expiry?: string | null) {
   return { label: 'Valido', tone: 'success' as const, icon: CheckCircle2 };
 }
 
+function DocumentInlinePreview({ doc, onOpen }: { doc: AthleteDocument; onOpen: () => void }) {
+  const [state, setState] = useState<{ url: string; type: string } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+    setFailed(false);
+    setState(null);
+
+    if (!doc?.file_path) return;
+    supabase.storage
+      .from('athlete-documents')
+      .download(doc.file_path)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error || !data) {
+          console.warn('[DocumentsTab] preview download failed', error?.message || 'No file data', doc.file_path);
+          setFailed(true);
+          return;
+        }
+        objectUrl = URL.createObjectURL(data);
+        setState({ url: objectUrl, type: data.type || fileTypeFromPath(doc.file_path) });
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.warn('[DocumentsTab] preview exception', error?.message || error, doc.file_path);
+        setFailed(true);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [doc?.file_path]);
+
+  if (!doc?.file_path) {
+    return (
+      <div className="h-36 rounded-md border bg-muted/20 flex items-center justify-center text-xs text-muted-foreground">
+        Nessun file allegato
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className="h-36 rounded-md border border-destructive/30 bg-destructive/5 flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground text-center px-3">
+        <AlertTriangle className="h-5 w-5 text-destructive" />
+        Anteprima non caricata: usa Modifica per sostituire il file.
+      </div>
+    );
+  }
+
+  if (!state) {
+    return (
+      <div className="h-36 rounded-md border bg-muted/20 flex items-center justify-center text-xs text-muted-foreground">
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Carico anteprima…
+      </div>
+    );
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') onOpen();
+      }}
+      className="h-36 w-full cursor-pointer overflow-hidden rounded-md border bg-muted/20 text-left focus:outline-none focus:ring-2 focus:ring-ring"
+    >
+      {state.type.startsWith('image/') ? (
+        <img src={state.url} alt={doc.title || 'Documento atleta'} className="h-full w-full object-cover" />
+      ) : state.type === 'application/pdf' ? (
+        <iframe title={doc.title || 'Anteprima documento'} src={`${state.url}#toolbar=0&navpanes=0`} className="h-full w-full pointer-events-none" />
+      ) : (
+        <div className="h-full flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+          <FileText className="h-8 w-8 opacity-60" />
+          Apri anteprima
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnlyProp = false }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
+  const [editing, setEditing] = useState<AthleteDocument | null>(null);
+  const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
 
   // Connection gate (only for PT view). selfMode skip.
   const { data: connection } = useQuery({
@@ -100,7 +203,7 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
   }, [atletaUserId, qc]);
 
   const remove = useMutation({
-    mutationFn: async (doc: any) => {
+    mutationFn: async (doc: AthleteDocument) => {
       if (doc.file_path) {
         await supabase.storage.from('athlete-documents').remove([doc.file_path]);
       }
@@ -111,22 +214,50 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
       toast.success('Documento eliminato');
       qc.invalidateQueries({ queryKey: ['athlete-documents', atletaUserId] });
     },
-    onError: (e: any) => toast.error(e?.message || 'Errore'),
+    onError: (e: Error) => toast.error(e?.message || 'Errore'),
   });
 
-  const openFile = async (path: string) => {
-    if (!path) {
+  useEffect(() => {
+    return () => {
+      if (preview?.url) URL.revokeObjectURL(preview.url);
+    };
+  }, [preview?.url]);
+
+  const closePreview = () => {
+    if (preview?.url) URL.revokeObjectURL(preview.url);
+    setPreview(null);
+  };
+
+  const previewFile = async (doc: AthleteDocument) => {
+    if (!doc.file_path) {
       toast.error('Nessun file allegato a questo documento');
       return;
     }
-    const { data, error } = await supabase.storage
+    setPreviewLoadingId(doc.id);
+    try {
+      const { data, error } = await supabase.storage
       .from('athlete-documents')
-      .createSignedUrl(path, 60);
-    if (error || !data?.signedUrl) {
-      toast.error(error?.message || 'Impossibile aprire il file');
-      return;
+        .download(doc.file_path);
+      if (error || !data) throw error || new Error('File non trovato');
+      const url = URL.createObjectURL(data);
+      if (preview?.url) URL.revokeObjectURL(preview.url);
+      setPreview({ doc, url, type: data.type || fileTypeFromPath(doc.file_path) });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Impossibile caricare l’anteprima';
+      toast.error(message);
+    } finally {
+      setPreviewLoadingId(null);
     }
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const downloadPreview = () => {
+    if (!preview) return;
+    const a = document.createElement('a');
+    a.href = preview.url;
+    a.download = `${preview.doc.title || 'documento'}${extensionFromPath(preview.doc.file_path)}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   return (
@@ -171,13 +302,14 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {docs.map((d: any) => {
+          {docs.map((d: AthleteDocument) => {
             const st = expiryStatus(d.expiry_date);
             const Icon = st.icon;
             const typeLabel = DOC_TYPES.find(t => t.value === d.doc_type)?.label ?? d.doc_type;
             return (
               <Card key={d.id}>
                 <CardContent className="pt-4 space-y-2">
+                  <DocumentInlinePreview doc={d} onOpen={() => previewFile(d)} />
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold truncate">{d.title}</p>
@@ -197,8 +329,13 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
                   </div>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {d.file_path && (
-                      <Button variant="outline" size="sm" onClick={() => openFile(d.file_path)}>
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Apri
+                      <Button variant="outline" size="sm" onClick={() => previewFile(d)} disabled={previewLoadingId === d.id}>
+                        {previewLoadingId === d.id ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                        )}
+                        Anteprima
                       </Button>
                     )}
                     <Button variant="outline" size="sm" onClick={() => setEditing(d)} disabled={readOnly}>
@@ -238,8 +375,47 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly: readOnl
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!preview} onOpenChange={(v) => !v && closePreview()}>
+        <DialogContent className="max-w-5xl h-[88vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-3 pr-6">
+              <span className="truncate">{preview?.doc?.title || 'Documento'}</span>
+              <Button type="button" variant="outline" size="sm" onClick={downloadPreview}>
+                <Download className="h-4 w-4 mr-2" /> Scarica
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 rounded-md border bg-muted/20 overflow-hidden">
+            {preview && preview.type.startsWith('image/') ? (
+              <img src={preview.url} alt={preview.doc.title || 'Documento atleta'} className="h-full w-full object-contain" />
+            ) : preview && preview.type === 'application/pdf' ? (
+              <iframe title={preview.doc.title || 'Anteprima documento'} src={preview.url} className="h-full w-full" />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground p-6 text-center">
+                <FileText className="h-12 w-12 opacity-50" />
+                <p>Anteprima non disponibile per questo formato.</p>
+                <Button type="button" onClick={downloadPreview}>Scarica file</Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function extensionFromPath(path?: string | null) {
+  if (!path || !path.includes('.')) return '';
+  return `.${path.split('.').pop()}`;
+}
+
+function fileTypeFromPath(path?: string | null) {
+  const ext = extensionFromPath(path).toLowerCase();
+  if (ext === '.pdf') return 'application/pdf';
+  if (['.jpg', '.jpeg'].includes(ext)) return 'image/jpeg';
+  if (ext === '.png') return 'image/png';
+  return 'application/octet-stream';
 }
 
 // ---------------- Shared form (create + edit) ----------------
@@ -252,7 +428,7 @@ function DocumentForm({
 }: {
   atletaUserId: string;
   uploaderUserId: string;
-  existing?: any;
+  existing?: AthleteDocument;
   onDone: () => void;
 }) {
   const isEdit = !!existing;
@@ -315,12 +491,12 @@ function DocumentForm({
         toast.success('Documento caricato');
       }
       onDone();
-    } catch (e: any) {
+    } catch (e) {
       // Cleanup orphan upload if DB write failed
       if (uploadedPath) {
         await supabase.storage.from('athlete-documents').remove([uploadedPath]).catch(() => {});
       }
-      toast.error(e?.message || 'Errore');
+      toast.error(e instanceof Error ? e.message : 'Errore');
     } finally {
       setBusy(false);
     }
