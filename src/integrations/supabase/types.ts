@@ -378,6 +378,7 @@ export type Database = {
         Row: {
           atleta_user_id: string | null
           cancelled_at: string | null
+          category: Database["public"]["Enums"]["calendar_event_category"]
           cover_image_url: string | null
           created_at: string
           creator_user_id: string
@@ -406,6 +407,7 @@ export type Database = {
         Insert: {
           atleta_user_id?: string | null
           cancelled_at?: string | null
+          category?: Database["public"]["Enums"]["calendar_event_category"]
           cover_image_url?: string | null
           created_at?: string
           creator_user_id: string
@@ -434,6 +436,7 @@ export type Database = {
         Update: {
           atleta_user_id?: string | null
           cancelled_at?: string | null
+          category?: Database["public"]["Enums"]["calendar_event_category"]
           cover_image_url?: string | null
           created_at?: string
           creator_user_id?: string
@@ -2990,6 +2993,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "pt" | "atleta"
       atleta_status: "non_collegato" | "collegato" | "premium"
+      calendar_event_category: "evento" | "appuntamento"
       content_type: "pdf" | "video" | "image" | "document" | "other"
       coupon_type: "percentage" | "fixed_amount" | "free_months"
       event_type: "allenamento" | "evento" | "gara" | "raduno" | "altro"
@@ -3166,6 +3170,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "pt", "atleta"],
       atleta_status: ["non_collegato", "collegato", "premium"],
+      calendar_event_category: ["evento", "appuntamento"],
       content_type: ["pdf", "video", "image", "document", "other"],
       coupon_type: ["percentage", "fixed_amount", "free_months"],
       event_type: ["allenamento", "evento", "gara", "raduno", "altro"],
