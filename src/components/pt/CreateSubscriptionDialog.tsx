@@ -30,7 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format, addDays } from 'date-fns';
+import { format, addDays, addMonths } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -39,7 +39,11 @@ import {
   Package,
   User,
   CreditCard,
+  Ticket,
+  Check,
+  X,
 } from 'lucide-react';
+import { validateCoupon, recordCouponUse, type ValidatableCoupon, type CouponEffect } from '@/lib/coupons';
 
 // =====================================================
 // CREATE SUBSCRIPTION DIALOG - PT crea abbonamento
