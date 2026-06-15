@@ -67,11 +67,17 @@ function DocumentInlinePreview({ doc, onOpen }: { doc: any; onOpen: () => void }
       .then(({ data, error }) => {
         if (!active) return;
         if (error || !data) {
+          console.warn('[DocumentsTab] preview download failed', error?.message || 'No file data', doc.file_path);
           setFailed(true);
           return;
         }
         objectUrl = URL.createObjectURL(data);
         setState({ url: objectUrl, type: data.type || fileTypeFromPath(doc.file_path) });
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.warn('[DocumentsTab] preview exception', error?.message || error, doc.file_path);
+        setFailed(true);
       });
 
     return () => {
@@ -92,7 +98,7 @@ function DocumentInlinePreview({ doc, onOpen }: { doc: any; onOpen: () => void }
     return (
       <div className="h-36 rounded-md border border-destructive/30 bg-destructive/5 flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground text-center px-3">
         <AlertTriangle className="h-5 w-5 text-destructive" />
-        File non leggibile o permessi mancanti
+        Anteprima non caricata: usa Modifica per sostituire il file.
       </div>
     );
   }
