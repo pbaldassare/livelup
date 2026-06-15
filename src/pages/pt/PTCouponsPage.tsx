@@ -253,9 +253,31 @@ export function PTCouponsPage() {
       if (error) throw error;
       return data as Coupon;
     },
-    onSuccess: (c) => {
+    onSuccess: async (c) => {
       queryClient.invalidateQueries({ queryKey: ['pt-coupons'] });
       toast.success('Coupon creato');
+
+      // Auto-notify targeted athletes (or all connected if no target)
+      try {
+        const recipientIds: string[] = c.target_athlete_ids && c.target_athlete_ids.length > 0
+          ? c.target_athlete_ids
+          : (athletes ?? []).map((a: any) => a.user_id).filter(Boolean);
+
+        if (recipientIds.length > 0) {
+          const notif = recipientIds.map((uid) => ({
+            user_id: uid,
+            type: 'coupon',
+            title: '🎁 Nuovo coupon disponibile',
+            body: `Il tuo PT ti ha inviato un coupon: ${c.description || c.code}`,
+            data: { coupon_id: c.id, coupon_code: c.code },
+            action_url: '/app/coupons',
+          }));
+          await supabase.from('notifications').insert(notif);
+        }
+      } catch (e) {
+        console.error('Coupon notification failed', e);
+      }
+
       setStep(0);
       setSelectedTemplate(null);
       setForm({ code: '', description: '', discount_type: 'percentage', discount_value: '10', free_months: '', free_sessions: '', pt_package_id: '', target_athlete_ids: [], valid_until: '', max_uses: '' });

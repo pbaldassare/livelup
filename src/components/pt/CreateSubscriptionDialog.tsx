@@ -30,7 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format, addDays } from 'date-fns';
+import { format, addDays, addMonths } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -39,7 +39,11 @@ import {
   Package,
   User,
   CreditCard,
+  Ticket,
+  Check,
+  X,
 } from 'lucide-react';
+import { validateCoupon, recordCouponUse, type ValidatableCoupon, type CouponEffect } from '@/lib/coupons';
 
 // =====================================================
 // CREATE SUBSCRIPTION DIALOG - PT crea abbonamento
@@ -81,6 +85,10 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
   const [customSessions, setCustomSessions] = useState<string>('');
   const [expiryDate, setExpiryDate] = useState<Date | undefined>(undefined);
   const [notes, setNotes] = useState<string>('');
+  const [couponCode, setCouponCode] = useState<string>('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{ coupon: ValidatableCoupon; effect: CouponEffect } | null>(null);
+  const [couponError, setCouponError] = useState<string>('');
+  const [verifyingCoupon, setVerifyingCoupon] = useState(false);
 
   // Fetch connected athletes
   const { data: athletes = [] } = useQuery({
@@ -149,15 +157,28 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
       const pkg = packages.find((p) => p.id === selectedPackageId);
       if (!pkg) throw new Error('Pacchetto non trovato');
 
-      const price = customPrice ? parseFloat(customPrice) : pkg.price;
-      const sessionsTotal = isSessionBased 
+      const basePrice = customPrice ? parseFloat(customPrice) : pkg.price;
+      let finalPrice = basePrice;
+      let sessionsTotal = isSessionBased
         ? (customSessions ? parseInt(customSessions) : pkg.sessions_count)
         : null;
-      
+
       // Calculate expiry date for non-session packages
       let calculatedExpiry = expiryDate;
       if (!isSessionBased && !expiryDate && pkg.duration_days) {
         calculatedExpiry = addDays(startDate, pkg.duration_days);
+      }
+
+      // Apply coupon effects
+      if (appliedCoupon) {
+        finalPrice = Math.max(0, basePrice - appliedCoupon.effect.priceDiscount);
+        if (appliedCoupon.effect.bonusSessions && sessionsTotal != null) {
+          sessionsTotal += appliedCoupon.effect.bonusSessions;
+        }
+        if (appliedCoupon.effect.bonusMonths) {
+          const base = calculatedExpiry ?? addDays(startDate, 30);
+          calculatedExpiry = addMonths(base, appliedCoupon.effect.bonusMonths);
+        }
       }
 
       const { error } = await supabase.from('atleta_pt_subscriptions').insert({
@@ -169,21 +190,35 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
         sessions_used: 0,
         expires_at: calculatedExpiry?.toISOString() || null,
         started_at: startDate.toISOString(),
-        price_paid: price,
+        price_paid: finalPrice,
         currency: pkg.currency,
         notes: notes || null,
       });
 
       if (error) throw error;
 
+      // Record coupon usage
+      if (appliedCoupon) {
+        try {
+          await recordCouponUse({
+            couponId: appliedCoupon.coupon.id,
+            userId: selectedAthleteId,
+            discountApplied: appliedCoupon.effect.priceDiscount,
+            currentUses: appliedCoupon.coupon.current_uses,
+          });
+        } catch (e) {
+          console.error('Coupon use logging failed', e);
+        }
+      }
+
       // Send notification to athlete
-      const selectedAthlete = athletes.find((a) => a.atleta_user_id === selectedAthleteId);
+      const discountNote = appliedCoupon ? ` (coupon ${appliedCoupon.coupon.code} applicato: ${appliedCoupon.effect.summary})` : '';
       await supabase.from('notifications').insert({
         user_id: selectedAthleteId,
         type: 'subscription_created',
         title: 'Nuovo abbonamento attivato!',
-        body: `Il tuo PT ha attivato il pacchetto "${pkg.name}"`,
-        data: { package_id: selectedPackageId },
+        body: `Il tuo PT ha attivato il pacchetto "${pkg.name}"${discountNote}`,
+        data: { package_id: selectedPackageId, coupon_code: appliedCoupon?.coupon.code ?? null },
         action_url: '/app/subscription',
       });
     },
@@ -206,6 +241,35 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
     setCustomSessions('');
     setExpiryDate(undefined);
     setNotes('');
+    setCouponCode('');
+    setAppliedCoupon(null);
+    setCouponError('');
+  };
+
+  const handleVerifyCoupon = async () => {
+    if (!user?.id || !selectedAthleteId || !selectedPackageId) {
+      setCouponError('Seleziona prima atleta e pacchetto');
+      return;
+    }
+    const pkg = packages.find((p) => p.id === selectedPackageId);
+    if (!pkg) return;
+    const basePrice = customPrice ? parseFloat(customPrice) : pkg.price;
+    setVerifyingCoupon(true);
+    setCouponError('');
+    const result = await validateCoupon(couponCode, {
+      ptUserId: user.id,
+      athleteUserId: selectedAthleteId,
+      packageId: selectedPackageId,
+      basePrice,
+    });
+    setVerifyingCoupon(false);
+    if ('error' in result) {
+      setAppliedCoupon(null);
+      setCouponError(result.error);
+      return;
+    }
+    setAppliedCoupon(result);
+    toast.success(`Coupon applicato: ${result.effect.summary}`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -391,6 +455,60 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
               value={customPrice}
               onChange={(e) => setCustomPrice(e.target.value)}
             />
+          </div>
+
+          {/* Coupon */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Ticket className="h-4 w-4" />
+              Codice coupon (opzionale)
+            </Label>
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-primary" />
+                    <code className="font-mono text-sm">{appliedCoupon.coupon.code}</code>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{appliedCoupon.effect.summary}</p>
+                  {selectedPackage && (
+                    <p className="text-xs mt-0.5">
+                      Prezzo finale: <strong>€{appliedCoupon.effect.finalPrice.toFixed(2)}</strong>
+                    </p>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setAppliedCoupon(null); setCouponCode(''); setCouponError(''); }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="ES. WELCOME10"
+                    value={couponCode}
+                    onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
+                    className="font-mono uppercase"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleVerifyCoupon}
+                    disabled={!couponCode || verifyingCoupon || !selectedAthleteId || !selectedPackageId}
+                  >
+                    {verifyingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verifica'}
+                  </Button>
+                </div>
+                {couponError && (
+                  <p className="text-xs text-destructive">{couponError}</p>
+                )}
+              </>
+            )}
           </div>
 
           {/* Notes */}
