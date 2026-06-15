@@ -53,7 +53,11 @@ interface CalendarEvent {
   cover_image_url: string | null;
 }
 
-export function PTCalendarPage() {
+export interface PTCalendarPageProps {
+  mode?: 'eventi' | 'appuntamenti';
+}
+
+export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -89,15 +93,16 @@ export function PTCalendarPage() {
     },
   });
 
-  // Fetch events
+  // Fetch events filtered by category (evento o appuntamento)
   const { data: events = [] } = useQuery({
-    queryKey: ['pt-calendar', user?.id],
+    queryKey: ['pt-calendar', user?.id, mode],
     queryFn: async () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
         .eq('pt_user_id', user.id)
+        .eq('category', mode === 'appuntamenti' ? 'appuntamento' : 'evento')
         .eq('is_cancelled', false)
         .order('start_datetime', { ascending: true });
       if (error) throw error;
