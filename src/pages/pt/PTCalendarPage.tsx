@@ -447,7 +447,7 @@ export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Calendario</CardTitle>
-            <CardDescription>Seleziona una data per vedere gli eventi</CardDescription>
+            <CardDescription>Seleziona una data per vedere gli {itemLabel}</CardDescription>
           </CardHeader>
           <CardContent>
             <Calendar
@@ -473,11 +473,11 @@ export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
             <CardTitle className="text-lg">
               {selectedDate ? format(selectedDate, 'EEEE d MMMM', { locale: it }) : 'Seleziona una data'}
             </CardTitle>
-            <CardDescription>{selectedDateEvents.length} eventi</CardDescription>
+            <CardDescription>{selectedDateEvents.length} {itemLabel}</CardDescription>
           </CardHeader>
           <CardContent>
             {selectedDateEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Nessun evento per questa data</p>
+              <p className="text-sm text-muted-foreground text-center py-8">Nessun {isAppuntamenti ? 'appuntamento' : 'evento'} per questa data</p>
             ) : (
               <div className="space-y-3">
                 {selectedDateEvents.map((event) => (
@@ -524,11 +524,11 @@ export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
       <Card>
         <CardHeader>
           <CardTitle>Prossimi 7 Giorni</CardTitle>
-          <CardDescription>{upcomingEvents.length} eventi in programma</CardDescription>
+          <CardDescription>{upcomingEvents.length} {itemLabel} in programma</CardDescription>
         </CardHeader>
         <CardContent>
           {upcomingEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Nessun evento nei prossimi 7 giorni</p>
+            <p className="text-sm text-muted-foreground text-center py-8">Nessun {isAppuntamenti ? 'appuntamento' : 'evento'} nei prossimi 7 giorni</p>
           ) : (
             <div className="space-y-4">
               {upcomingEvents.map((event) => (
