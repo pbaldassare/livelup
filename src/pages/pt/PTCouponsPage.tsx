@@ -455,6 +455,116 @@ export function PTCouponsPage() {
         }
       />
 
+      {/* Catalog of templates: standard (Admin) + own (PT) */}
+      <SectionCard
+        title="Catalogo tipologie"
+        subtitle="Tipologie standard create dall'Admin e le tue tipologie personali"
+        icon={Layers}
+        iconColor="primary"
+      >
+        {loadingTemplates ? (
+          <div className="py-6 text-center"><LoadingSpinner variant="dots" size="sm" /></div>
+        ) : (
+          (() => {
+            const globalTpls = templates.filter((t) => !t.pt_user_id);
+            const ownTpls = templates.filter((t) => t.pt_user_id === user?.id);
+
+            const limitChips = (t: CouponTemplate) => {
+              const chips: string[] = [];
+              if (t.max_discount_percentage != null) chips.push(`max ${t.max_discount_percentage}%`);
+              if (t.max_discount_amount != null) chips.push(`max €${t.max_discount_amount}`);
+              if (t.max_free_months != null) chips.push(`max ${t.max_free_months} mesi`);
+              if (t.max_free_sessions != null) chips.push(`max ${t.max_free_sessions} sess.`);
+              if (t.max_validity_days != null) chips.push(`${t.max_validity_days} gg validità`);
+              if (t.one_per_athlete) chips.push('1 per atleta');
+              return chips;
+            };
+
+            const renderCard = (t: CouponTemplate, isOwn: boolean) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => pickTemplate(t)}
+                className="group relative text-left rounded-lg border bg-card p-4 hover:border-primary hover:shadow-sm transition-all"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-8 w-8 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <Tag className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate">{t.name}</div>
+                      <Badge variant={isOwn ? 'default' : 'secondary'} className="text-[10px] mt-0.5">
+                        {isOwn ? 'Personale' : 'Standard'}
+                      </Badge>
+                    </div>
+                  </div>
+                  {isOwn && (
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => openEditTpl(t, e)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={(e) => { e.stopPropagation(); if (confirm('Eliminare questa tipologia?')) deleteTplMutation.mutate(t.id); }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {t.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{t.description}</p>
+                )}
+                <div className="flex flex-wrap gap-1">
+                  {(t.allowed_discount_types as DiscountType[]).map((d) => (
+                    <Badge key={d} variant="outline" className="text-[10px]">{DISCOUNT_TYPE_LABEL[d]}</Badge>
+                  ))}
+                  {limitChips(t).map((c) => (
+                    <Badge key={c} variant="outline" className="text-[10px] text-muted-foreground">{c}</Badge>
+                  ))}
+                </div>
+              </button>
+            );
+
+            return (
+              <div className="space-y-5">
+                <div>
+                  <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">Tipologie standard</div>
+                  {globalTpls.length === 0 ? (
+                    <div className="text-sm text-muted-foreground py-3">Nessuna tipologia standard disponibile.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {globalTpls.map((t) => renderCard(t, false))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">Le mie tipologie</div>
+                    <Button size="sm" variant="outline" onClick={openNewTpl}>
+                      <Plus className="mr-1 h-3 w-3" /> Crea tipologia
+                    </Button>
+                  </div>
+                  {ownTpls.length === 0 ? (
+                    <div className="text-sm text-muted-foreground py-3">
+                      Non hai ancora tipologie personali. Creane una per riutilizzarla velocemente.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {ownTpls.map((t) => renderCard(t, true))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()
+        )}
+      </SectionCard>
+
       <SectionCard title="Lista Coupon" subtitle="Tutti i tuoi codici sconto e offerte" icon={Tag} iconColor="yellow">
         <div className="rounded-md border overflow-x-auto">
           <Table>
