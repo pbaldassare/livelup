@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -68,6 +68,7 @@ interface AtletaConnection {
 
 export function PTAthletesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchParams] = useSearchParams();
@@ -221,8 +222,21 @@ export function PTAthletesPage() {
   const terminatedCount = connections.filter(c => c.status === 'terminated' || c.status === 'terminato').length;
 
   const handleViewDetail = (conn: AtletaConnection) => {
-    setSelectedAthlete(conn);
-    setDetailOpen(true);
+    // Pending → quick sheet to accept/reject. Altrimenti apri la scheda completa.
+    if (conn.status === 'pending') {
+      setSelectedAthlete(conn);
+      setDetailOpen(true);
+    } else {
+      navigate(`/pt/athletes/${conn.atleta_user_id}`);
+    }
+  };
+
+  const handleAssignFromList = (conn: AtletaConnection) => {
+    navigate(`/pt/athletes/${conn.atleta_user_id}?assign=1`);
+  };
+
+  const handleMessageFromList = (conn: AtletaConnection) => {
+    navigate(`/pt/messages?athleteId=${conn.atleta_user_id}`);
   };
 
   const getProfileInfo = (conn: AtletaConnection): ProfileInfo => ({
@@ -416,13 +430,13 @@ export function PTAthletesPage() {
                             </>
                           ) : (
                             <>
-                              <Button size="sm" variant="ghost" onClick={() => handleViewDetail(conn)}>
+                              <Button size="sm" variant="ghost" onClick={() => navigate(`/pt/athletes/${conn.atleta_user_id}`)} title="Apri scheda atleta">
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button size="sm" variant="ghost">
+                              <Button size="sm" variant="ghost" onClick={() => handleMessageFromList(conn)} title="Messaggio">
                                 <MessageSquare className="h-4 w-4" />
                               </Button>
-                              <Button size="sm" variant="ghost">
+                              <Button size="sm" variant="ghost" onClick={() => handleAssignFromList(conn)} title="Assegna allenamento">
                                 <Dumbbell className="h-4 w-4" />
                               </Button>
                             </>
