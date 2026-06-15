@@ -34,6 +34,8 @@ interface Props {
   atletaUserId: string;
   /** Se true, l'atleta sta gestendo i propri (PWA). */
   selfMode?: boolean;
+  /** Disabilita upload/eliminazione (per blocchi su sospeso/abbonamento bloccato). */
+  readOnly?: boolean;
 }
 
 function expiryStatus(expiry?: string | null) {
