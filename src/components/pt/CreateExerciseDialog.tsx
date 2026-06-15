@@ -55,6 +55,7 @@ const emptyForm = {
 
 type ExerciseInsert = Database['public']['Tables']['exercises']['Insert'];
 type ExerciseUpdate = Database['public']['Tables']['exercises']['Update'];
+type ExerciseDifficulty = Database['public']['Enums']['fitness_level'];
 
 export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExerciseDialogProps) {
   const { user } = useAuth();
@@ -118,11 +119,11 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
     mutationFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
 
-      const payload: ExerciseUpdate = {
+      const basePayload = {
         name: form.name,
         description: form.description || null,
         category: form.category,
-        difficulty_level: form.difficulty_level as Database['public']['Enums']['fitness_level'],
+        difficulty_level: form.difficulty_level as ExerciseDifficulty,
         muscle_groups: selectedMuscles,
         instructions: form.instructions || null,
         video_url: form.video_url || null,
@@ -130,6 +131,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
       };
 
       if (isEditMode && exercise?.id) {
+        const payload: ExerciseUpdate = basePayload;
         const { error } = await supabase
           .from('exercises')
           .update(payload)
@@ -137,7 +139,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
         if (error) throw error;
       } else {
         const insertPayload: ExerciseInsert = {
-          ...payload,
+          ...basePayload,
           created_by: user.id,
           is_public: false,
         };
