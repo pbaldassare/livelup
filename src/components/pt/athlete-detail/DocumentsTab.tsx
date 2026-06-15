@@ -46,7 +46,7 @@ function expiryStatus(expiry?: string | null) {
   return { label: 'Valido', tone: 'success' as const, icon: CheckCircle2 };
 }
 
-export function DocumentsTab({ atletaUserId, selfMode = false }: Props) {
+export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
