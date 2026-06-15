@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -309,8 +309,10 @@ export function WorkoutHistoryList({
   ptUserId,
   variant = 'pt',
 }: WorkoutHistoryListProps) {
+  const qc = useQueryClient();
+  const queryKey = ['workout-history', atletaUserId, ptUserId ?? 'self'];
   const { data: workouts = [], isLoading } = useQuery({
-    queryKey: ['workout-history', atletaUserId, ptUserId ?? 'self'],
+    queryKey,
     queryFn: async () => {
       let q = supabase
         .from('workouts')
@@ -338,6 +340,25 @@ export function WorkoutHistoryList({
     },
     enabled: !!atletaUserId,
   });
+
+  // Realtime: sincronizza storico PT ↔ atleta su qualsiasi modifica del workout dell'atleta
+  useEffect(() => {
+    if (!atletaUserId) return;
+    const channel = supabase
+      .channel(`workout-history-${atletaUserId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'workouts', filter: `atleta_user_id=eq.${atletaUserId}` },
+        () => qc.invalidateQueries({ queryKey }),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'workout_logs' },
+        () => qc.invalidateQueries({ queryKey }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [atletaUserId, ptUserId, qc]);
 
   const isAtleta = variant === 'atleta';
 

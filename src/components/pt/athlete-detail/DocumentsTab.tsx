@@ -34,6 +34,8 @@ interface Props {
   atletaUserId: string;
   /** Se true, l'atleta sta gestendo i propri (PWA). */
   selfMode?: boolean;
+  /** Disabilita upload/eliminazione (per blocchi su sospeso/abbonamento bloccato). */
+  readOnly?: boolean;
 }
 
 function expiryStatus(expiry?: string | null) {
@@ -44,7 +46,7 @@ function expiryStatus(expiry?: string | null) {
   return { label: 'Valido', tone: 'success' as const, icon: CheckCircle2 };
 }
 
-export function DocumentsTab({ atletaUserId, selfMode = false }: Props) {
+export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -94,9 +96,9 @@ export function DocumentsTab({ atletaUserId, selfMode = false }: Props) {
         <div className="text-sm text-muted-foreground">
           {docs.length} document{docs.length === 1 ? 'o' : 'i'}
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => !readOnly && setOpen(v)}>
           <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" /> Carica documento</Button>
+            <Button disabled={readOnly}><Plus className="h-4 w-4 mr-2" /> Carica documento</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nuovo documento</DialogTitle></DialogHeader>
@@ -151,7 +153,7 @@ export function DocumentsTab({ atletaUserId, selfMode = false }: Props) {
                         <ExternalLink className="h-3.5 w-3.5 mr-1" /> Apri
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => remove.mutate(d)}>
+                    <Button variant="ghost" size="sm" onClick={() => remove.mutate(d)} disabled={readOnly}>
                       <Trash2 className="h-3.5 w-3.5 mr-1 text-destructive" /> Elimina
                     </Button>
                   </div>
