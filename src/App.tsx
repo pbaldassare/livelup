@@ -478,6 +478,13 @@ const App = () => {
                   </AppLayout>
                 </AtletaRoute>
               } />
+              <Route path="/app/documenti" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaDocumentsPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
               <Route path="/app/chat" element={
                 <AtletaRoute>
                   <AppLayout>
