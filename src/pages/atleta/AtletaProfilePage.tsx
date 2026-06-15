@@ -253,6 +253,7 @@ export function AtletaProfilePage() {
   const menuItems = [
     ...(showInstallOption ? [{ icon: Download, label: 'Installa App', href: '/install' }] : []),
     { icon: Ticket, label: 'I miei Coupon', href: '/app/coupons' },
+    { icon: FileText, label: 'Documenti & Scadenze', href: '/app/documenti' },
     { icon: Bell, label: 'Notifiche', href: '/app/notifications' },
     { icon: Settings, label: 'Impostazioni', href: '/app/settings' },
     { icon: HelpCircle, label: 'Aiuto', href: '/app/help' },
