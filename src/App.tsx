@@ -42,6 +42,7 @@ import AdminPTsPage from "./pages/admin/AdminPTsPage";
 import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
 import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
 import AdminCouponsPage from "./pages/admin/AdminCouponsPage";
+import AdminCouponTemplatesPage from "./pages/admin/AdminCouponTemplatesPage";
 import AdminSupportPage from "./pages/admin/AdminSupportPage";
 import AdminTicketDetailPage from "./pages/admin/AdminTicketDetailPage";
 import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
