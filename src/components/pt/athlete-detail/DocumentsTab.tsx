@@ -153,7 +153,7 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false 
                         <ExternalLink className="h-3.5 w-3.5 mr-1" /> Apri
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => remove.mutate(d)}>
+                    <Button variant="ghost" size="sm" onClick={() => remove.mutate(d)} disabled={readOnly}>
                       <Trash2 className="h-3.5 w-3.5 mr-1 text-destructive" /> Elimina
                     </Button>
                   </div>
