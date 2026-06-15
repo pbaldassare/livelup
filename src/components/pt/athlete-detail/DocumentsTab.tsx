@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,6 +63,20 @@ export function DocumentsTab({ atletaUserId, selfMode = false, readOnly = false 
       return data;
     },
   });
+
+  // Realtime: sync PT view when athlete uploads/deletes documents (and vice-versa)
+  useEffect(() => {
+    if (!atletaUserId) return;
+    const channel = supabase
+      .channel(`athlete-docs-${atletaUserId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'athlete_documents', filter: `atleta_user_id=eq.${atletaUserId}` },
+        () => qc.invalidateQueries({ queryKey: ['athlete-documents', atletaUserId] }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [atletaUserId, qc]);
 
   const remove = useMutation({
     mutationFn: async (doc: any) => {
