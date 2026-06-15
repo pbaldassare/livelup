@@ -28,7 +28,8 @@ import {
   Mail,
   Phone,
   MapPin,
-  Save
+  Save,
+  Ticket
 } from 'lucide-react';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
@@ -250,6 +251,7 @@ export function AtletaProfilePage() {
 
   const menuItems = [
     ...(showInstallOption ? [{ icon: Download, label: 'Installa App', href: '/install' }] : []),
+    { icon: Ticket, label: 'I miei Coupon', href: '/app/coupons' },
     { icon: Bell, label: 'Notifiche', href: '/app/notifications' },
     { icon: Settings, label: 'Impostazioni', href: '/app/settings' },
     { icon: HelpCircle, label: 'Aiuto', href: '/app/help' },
