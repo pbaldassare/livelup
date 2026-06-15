@@ -8,8 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { StickyNote, Plus, Trash2, Lock } from 'lucide-react';
+import { StickyNote, Plus, Trash2, Lock, Share2, EyeOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -34,6 +36,8 @@ export function PTNotesTab({ atletaUserId }: Props) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [tag, setTag] = useState('generale');
+  const [shared, setShared] = useState(false);
+
 
   const { data: notes = [], isLoading } = useQuery({
     queryKey: ['pt-athlete-notes', atletaUserId, user?.id],
@@ -59,16 +63,33 @@ export function PTNotesTab({ atletaUserId }: Props) {
         title: title.trim() || null,
         body: body.trim(),
         tag,
-      });
+        is_shared_with_athlete: shared,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success('Nota salvata');
-      setTitle(''); setBody(''); setTag('generale');
+      toast.success(shared ? 'Nota salvata e condivisa con l\'atleta' : 'Nota salvata');
+      setTitle(''); setBody(''); setTag('generale'); setShared(false);
       qc.invalidateQueries({ queryKey: ['pt-athlete-notes', atletaUserId] });
     },
     onError: (e: any) => toast.error(e?.message || 'Errore'),
   });
+
+  const toggleShare = useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: boolean }) => {
+      const { error } = await supabase
+        .from('pt_athlete_notes')
+        .update({ is_shared_with_athlete: value } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      toast.success(vars.value ? 'Nota condivisa con l\'atleta' : 'Condivisione rimossa');
+      qc.invalidateQueries({ queryKey: ['pt-athlete-notes', atletaUserId] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Errore'),
+  });
+
 
   const removeNote = useMutation({
     mutationFn: async (id: string) => {
@@ -96,6 +117,13 @@ export function PTNotesTab({ atletaUserId }: Props) {
             </Select>
           </div>
           <Textarea rows={4} placeholder="Scrivi una nota sull'atleta…" value={body} onChange={(e) => setBody(e.target.value)} />
+          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+            <div className="flex items-center gap-2 text-sm">
+              <Share2 className="h-4 w-4 text-primary" />
+              <Label htmlFor="share-note" className="cursor-pointer">Condividi con l'atleta</Label>
+            </div>
+            <Switch id="share-note" checked={shared} onCheckedChange={setShared} />
+          </div>
           <Button onClick={() => addNote.mutate()} disabled={addNote.isPending || !body.trim()}>
             <Plus className="h-4 w-4 mr-2" /> Aggiungi nota
           </Button>
@@ -116,8 +144,17 @@ export function PTNotesTab({ atletaUserId }: Props) {
               <CardContent className="pt-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       {n.tag && <Badge variant="outline" className="text-xs capitalize">{n.tag}</Badge>}
+                      {n.is_shared_with_athlete ? (
+                        <Badge className="text-xs gap-1 bg-primary/15 text-primary border-primary/30" variant="outline">
+                          <Share2 className="h-3 w-3" /> Condivisa
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs gap-1 text-muted-foreground">
+                          <EyeOff className="h-3 w-3" /> Privata
+                        </Badge>
+                      )}
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(n.created_at), 'dd MMM yyyy · HH:mm', { locale: it })}
                       </span>
@@ -125,9 +162,16 @@ export function PTNotesTab({ atletaUserId }: Props) {
                     {n.title && <p className="font-semibold">{n.title}</p>}
                     <p className="text-sm whitespace-pre-wrap text-foreground/90">{n.body}</p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => removeNote.mutate(n.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex flex-col items-end gap-2">
+                    <Switch
+                      checked={!!n.is_shared_with_athlete}
+                      onCheckedChange={(v) => toggleShare.mutate({ id: n.id, value: v })}
+                      aria-label="Condividi con atleta"
+                    />
+                    <Button variant="ghost" size="icon" onClick={() => removeNote.mutate(n.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
