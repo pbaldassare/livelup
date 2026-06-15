@@ -424,6 +424,9 @@ export function AtletaProfilePage() {
         </TabsContent>
       </Tabs>
 
+      <AtletaDocumentExpiryBanner />
+      <AtletaSharedPTNotes />
+
       {/* Settings menu */}
       <div className="px-4 mt-6 space-y-2">
         {menuItems.map((item) => (
