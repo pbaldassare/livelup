@@ -543,6 +543,13 @@ const App = () => {
                   <AtletaBookingPage />
                 </AtletaRoute>
               } />
+              <Route path="/app/appuntamenti" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaAppuntamentiPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
               <Route path="/app/coupons" element={
                 <AtletaRoute>
                   <AtletaCouponsPage />
