@@ -98,6 +98,7 @@ import AtletaProgrammaPage from "./pages/atleta/AtletaProgrammaPage";
 import AtletaEserciziPage from "./pages/atleta/AtletaEserciziPage";
 import AtletaCouponsPage from "./pages/atleta/AtletaCouponsPage";
 import AtletaAppuntamentiPage from "./pages/atleta/AtletaAppuntamentiPage";
+import AtletaDocumentsPage from "./pages/atleta/AtletaDocumentsPage";
 
 
 // PT pages
