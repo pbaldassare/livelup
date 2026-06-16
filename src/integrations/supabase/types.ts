@@ -235,7 +235,22 @@ export type Database = {
           user_id?: string
           weight_kg?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "atleta_profiles_referred_by_pt_fkey"
+            columns: ["referred_by_pt"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "atleta_profiles_referred_by_pt_fkey"
+            columns: ["referred_by_pt"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       atleta_pt_subscriptions: {
         Row: {

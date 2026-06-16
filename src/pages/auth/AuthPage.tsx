@@ -27,7 +27,9 @@ export function AuthPage() {
   const [searchParams] = useSearchParams();
   const { signIn, signUp, isAuthenticated, role, isLoading: authLoading, isRoleLoading, user } = useAuth();
   
-  const refPt = searchParams.get('ref');
+  const rawRef = searchParams.get('ref');
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const refPt = rawRef && UUID_RE.test(rawRef) ? rawRef : null;
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(
     searchParams.get('mode') === 'signup' || refPt ? 'signup' : 'login'
   );
