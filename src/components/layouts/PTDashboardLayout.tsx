@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { RequireUserName } from '@/components/auth/RequireUserName';
+import { usePTSurface, mapPTWebToApp } from '@/hooks/usePTSurface';
 // InstallBanner removed: web dashboard is not an installable PWA surface.
 
 interface PTDashboardLayoutProps {
