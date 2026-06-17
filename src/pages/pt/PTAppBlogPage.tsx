@@ -1,11 +1,11 @@
 import PTBlogPage from './PTBlogPage';
+import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 
-// PT APP BLOG PAGE - Blog (Mobile/PWA)
 export function PTAppBlogPage() {
   return (
-    <div className="pb-4 px-2 pt-2">
-      <PTBlogPage />
-    </div>
+    <PTAppPageShell title="Blog" description="Crea e gestisci i tuoi articoli">
+      <PTBlogPage embedded />
+    </PTAppPageShell>
   );
 }
 

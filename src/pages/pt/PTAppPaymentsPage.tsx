@@ -1,11 +1,11 @@
 import PTPaymentsPage from './PTPaymentsPage';
+import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 
-// PT APP PAYMENTS PAGE - Pagamenti (Mobile/PWA)
 export function PTAppPaymentsPage() {
   return (
-    <div className="pb-4 px-2 pt-2">
-      <PTPaymentsPage />
-    </div>
+    <PTAppPageShell title="Pagamenti" description="Abbonamento e storico pagamenti">
+      <PTPaymentsPage embedded />
+    </PTAppPageShell>
   );
 }
 
