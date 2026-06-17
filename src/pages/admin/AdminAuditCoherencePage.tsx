@@ -146,16 +146,26 @@ export default function AdminAuditCoherencePage() {
   const { data: pts = [] } = useQuery({
     queryKey: ['admin-audit-pts'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: roles, error } = await supabase
         .from('user_roles')
-        .select('user_id, profiles:profiles!user_roles_user_id_fkey(first_name, last_name, email)')
+        .select('user_id')
         .eq('role', 'pt');
       if (error) throw error;
-      return (data ?? []).map((r) => ({
-        user_id: r.user_id,
-        name: [r.profiles?.first_name, r.profiles?.last_name].filter(Boolean).join(' ').trim() || r.profiles?.email || r.user_id.slice(0, 8),
-        email: r.profiles?.email ?? '',
-      })).sort((a, b) => a.name.localeCompare(b.name));
+      const ids = (roles ?? []).map((r) => r.user_id);
+      if (ids.length === 0) return [];
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, email')
+        .in('user_id', ids);
+      const pmap = new Map((profs ?? []).map((p) => [p.user_id, p]));
+      return ids.map((id) => {
+        const p = pmap.get(id);
+        return {
+          user_id: id,
+          name: [p?.first_name, p?.last_name].filter(Boolean).join(' ').trim() || p?.email || id.slice(0, 8),
+          email: p?.email ?? '',
+        };
+      }).sort((a, b) => a.name.localeCompare(b.name));
     },
   });
 
