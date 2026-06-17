@@ -51,14 +51,15 @@ export function AppLayout({ children }: AppLayoutProps) {
   // Enable realtime notifications
   useRealtimeNotifications();
 
-  // Navigation items based on role
+  // PT bottom-nav: 4 link primari + un trigger "Più" che apre PTMoreDrawer
+  // con tutte le altre sezioni (Calendario, Esercizi, Template, Coupons,
+  // Pagamenti, Blog, Profilo, Impostazioni, Logout).
   const navigationItems = isPT
     ? [
         { label: 'Home', href: '/pt/app', icon: Home, exact: true },
         { label: 'Atleti', href: '/pt/app/athletes', icon: Users },
         { label: 'Schede', href: '/pt/app/workouts', icon: Dumbbell },
         { label: 'Chat', href: '/pt/app/chat', icon: MessageSquare },
-        { label: 'Profilo', href: '/pt/app/profile', icon: User },
       ]
     : [
         { label: 'Home', href: '/app', icon: Home, exact: true },
