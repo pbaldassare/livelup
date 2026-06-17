@@ -119,14 +119,16 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
     staleTime: 60_000,
   });
 
+  // Surface gate (hook must be called unconditionally, before early returns).
+  const surface = usePTSurface();
+
   if (!ptStatusLoading && ptStatus === 'registrato' && !location.pathname.startsWith('/pt/onboarding')) {
     return <Navigate to="/pt/onboarding" replace />;
   }
 
-  // Surface gate: on mobile viewports or when the PWA is installed, the PT must
-  // land on the dedicated mobile shell (/pt/app/*) — NOT on a shrunk web dashboard.
+  // On mobile viewports or when the PWA is installed, the PT must land on the
+  // dedicated mobile shell (/pt/app/*) — NOT on a shrunk web dashboard.
   // Override available with ?view=web for support sessions.
-  const surface = usePTSurface();
   if (surface === 'app' && !location.pathname.startsWith('/pt/app') && !location.pathname.startsWith('/pt/onboarding')) {
     return <Navigate to={mapPTWebToApp(location.pathname)} replace />;
   }
