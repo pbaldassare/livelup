@@ -40,6 +40,15 @@ export function InstallBanner() {
     }
   };
 
+  // Role + route gate (defense-in-depth):
+  // - The banner is allowed only for Atleta on /app/* and for PT inside the PWA shell at /pt/app/*.
+  // - Admins, unauthenticated users, web dashboards (/admin, /pt without /app) and public pages NEVER see it.
+  const path = location.pathname;
+  const onAtletaPWA = isAtleta && path.startsWith('/app');
+  const onPTPWA = isPT && path.startsWith('/pt/app');
+  const roleAllowed = onAtletaPWA || onPTPWA;
+
+  if (!roleAllowed) return null;
   if (!isVisible || isInstalled) return null;
 
   return (
