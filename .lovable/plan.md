@@ -1,92 +1,70 @@
-# PT App nativa — non più dashboard adattata
+## Problemi rilevati
 
-## Cosa cambia per l'utente
+Analizzando codice + screenshot:
 
-Oggi un PT che apre il sito da telefono (o dalla PWA installata) vede la **dashboard web** ridotta in larghezza: header desktop, KPI a torta, sidebar nascosta. Non è un'app, è un sito stretto.
+1. **404 su `/pt/app/athlete/:id/workouts` e `/pt/app/athlete/:id`** — `PTAppAthletesPage` linka a `athlete` (singolare) ma in `App.tsx` non esistono route `/pt/app/athlete/*`, esiste solo `/pt/app/athletes` (lista). Anche `/pt/app/templates/:id`, `/pt/app/messages` e i sotto-path del calendario (`eventi`/`appuntamenti`) non sono registrati.
+2. **Pagamenti / Coupons / Settings / Esercizi / Blog sovrapposti** — i wrapper `PTApp*Page` riusano 1:1 i componenti web e li avvolgono solo in `<div className="pb-4 px-2 pt-2">`. Risultato:
+   - Il titolo della pagina finisce sotto la status-bar PWA (manca `safe-top`).
+   - Pulsanti azione (`Esporta CSV`) escono fuori dallo schermo a destra.
+   - Tabelle (`DataTable`) e tab desktop sforano in larghezza creando overflow orizzontale (l'unico `overflow-x-hidden` è in `PTDashboardLayout`, non in `AppLayout`).
+   - Il drawer "Più" copre senza dare contesto perché il contenuto sottostante non ha padding-top sicuro.
+3. **`AppLayout` PT manca header mobile** — atterri direttamente sul contenuto, niente titolo di pagina, niente notifiche, niente avatar; ogni pagina si arrangia.
+4. **`mapPTWebToApp`** non copre l'incoerenza singolare/plurale per il detail atleta (link interni usano `/pt/app/athlete/:id`, l'hook mappa `/pt/athletes/:id` → `/pt/app/athletes/:id`).
 
-Dopo questo intervento:
+## Cambiamenti
 
-- Da telefono (`< 768px`) o quando la PWA è in modalità **standalone**, qualsiasi rotta `/pt/*` reindirizza automaticamente alla shell mobile `/pt/app/*`.
-- Da desktop la dashboard web resta identica: nessuna regressione per chi lavora al PC.
-- La shell `/pt/app` viene completata con tutte le funzioni che oggi esistono solo sul web (Esercizi, Template, Coupons, Pagamenti, Blog, Impostazioni), così il PT può davvero lavorare dal telefono.
+### 1. Routing PT-PWA — coprire tutte le destinazioni
 
-```text
-┌─────────────────────┐         ┌─────────────────────┐
-│  Desktop (≥ 768px)  │         │  Mobile / PWA       │
-│   /pt  → web        │         │   /pt  → /pt/app    │
-│   PTDashboardLayout │         │   AppLayout (PWA)   │
-└─────────────────────┘         └─────────────────────┘
-```
+In `src/App.tsx` aggiungere, dentro il blocco `/pt/app/*`:
 
-## Intervento 1 — Redirect intelligente /pt → /pt/app
+- `/pt/app/athlete/:atletaId` → `PTAthleteDetailPage` (riuso pagina web — è già responsive: usa `useParams<{atletaId}>`).
+- `/pt/app/athlete/:atletaId/workouts` → `PTAthleteDetailPage` con `?tab=workouts` (oppure la stessa pagina che già mostra le schede).
+- `/pt/app/templates/:templateId` → `PTTemplateDetailPage`.
+- `/pt/app/messages` → redirect a `/pt/app/chat` (alias legacy).
+- `/pt/app/calendar/eventi` e `/pt/app/calendar/appuntamenti` → `PTAppCalendarPage` con prop `mode` (oppure usa query param interno).
+- Aggiornare `mapPTWebToApp` in `src/hooks/usePTSurface.tsx` per mappare anche `/pt/athletes/:id` → `/pt/app/athlete/:id` (singolare, coerente con i link esistenti) e `/pt/calendar/eventi|appuntamenti` ai nuovi path completi.
+- Aggiornare il file di test `src/hooks/__tests__/usePTSurface.test.tsx` con i nuovi mapping attesi.
 
-Nuovo componente `PTSurfaceRouter` montato a livello di rotta su tutte le pagine `/pt/*` (web), che decide dove far atterrare il PT:
+### 2. Shell mobile uniforme per le pagine PT-PWA
 
-- Mobile o PWA installata → `Navigate` su `/pt/app{stessa-sezione}` (es. `/pt/calendar` → `/pt/app/calendar`).
-- Desktop browser → mostra la dashboard web normale.
+Creare `src/components/app/PTAppPageShell.tsx`:
 
-Trigger di detezione (riusando `useInstallPrompt` e media query esistenti):
+- Header sticky compatto con titolo + descrizione + slot `actions`, `safe-top` e `bg-app-background/95 backdrop-blur` (stesso pattern di `PTAppAthletesPage`).
+- Container `px-4 pb-24` (lascia spazio per la bottom-nav fissa, 16+nav) e `min-h-0`.
+- Wrapper interno `overflow-x-hidden` per impedire spillover di tabelle.
 
-- `window.matchMedia('(display-mode: standalone)').matches` → PWA installata.
-- `window.matchMedia('(max-width: 767px)').matches` → mobile.
-- Override manuale con query `?view=web` per debug da telefono (utile per supporto).
+Refactor dei wrapper esistenti (NON delle pagine web) per usare il nuovo shell:
 
-Il redirect è **client-side** dopo l'idratazione dell'auth (non server-side: la rotta web non sparisce, semplicemente non viene mostrata su mobile).
+- `PTAppPaymentsPage`, `PTAppCouponsPage`, `PTAppBlogPage`, `PTAppSettingsPage`, `PTAppExercisesPage`, `PTAppTemplatesPage` passano da `<div className="pb-4 px-2 pt-2">{<PT*Page />}</div>` a `<PTAppPageShell title=… description=…>{<PT*Page />}</PTAppPageShell>`.
+- Dove la pagina web rende già un `PageHeader` proprio, nasconderlo via prop `hideInnerHeader` (oppure usare un wrapper CSS che nasconde il primo `h1`); preferibilmente accettiamo il duplicato come trade-off momentaneo e nascondiamo il `PageHeader` interno tramite classe `data-pt-app` sul container che applica `[&_.pt-page-header]:hidden` — meno invasivo: i `PT*Page` web ricevono una prop opzionale `embedded?: boolean` (default false) che, se true, salta il `PageHeader` interno e disattiva eventuali container max-width fissi.
 
-## Intervento 2 — Parità feature PWA PT
+### 3. `AppLayout` PT — header mobile + scroll sicuro
 
-Aggiungo alla bottom-nav di `AppLayout` (variante PT) un sesto ingresso "Altro" che apre un drawer con le sezioni avanzate, mantenendo i 5 slot principali ergonomici:
+In `src/components/layouts/AppLayout.tsx`:
 
-- **Bottom-nav (5)**: Home · Atleti · Schede · Chat · Altro
-- **Drawer "Altro"**: Calendario · Esercizi · Template · Coupons · Pagamenti · Blog · Impostazioni · Profilo · Logout
+- Aggiungere `overflow-x-hidden` al container root per evitare che tabelle/grafici sforino.
+- Il `<main>` resta `pb-20 safe-top` ma diventa `min-h-0 overflow-x-hidden`.
+- Nessuna modifica al lato Atleta.
 
-Nuove pagine mobile (wrapper sottili sui componenti già usati nel web, adattati a viewport 390px):
+### 4. Memoria
 
-- `PTAppExercisesPage` → riusa `PTExercisesArchivePage`
-- `PTAppTemplatesPage` → riusa la lista template in `PTWorkoutsPage`
-- `PTAppCouponsPage` → riusa `PTCouponsPage`
-- `PTAppPaymentsPage` → riusa `PTPaymentsPage`
-- `PTAppBlogPage` → riusa `PTBlogPage`
-- `PTAppSettingsPage` → riusa `PTSettingsPage`
+Aggiornare `.lovable/memory/features/pt-pwa-shell.md`:
 
-Tutte registrate sotto `/pt/app/*` e protette dal solito `ProtectedRoute role="pt"`.
-
-## Intervento 3 — Identità visiva mobile PT
-
-La PWA PT deve sembrare un'app, non la dashboard teal stretta. Riuso il design system mobile esistente (`AppLayout` con `data-role="pt"`) e:
-
-- Header mobile dedicato (logo, notifiche, avatar) — non l'header web.
-- Card e liste a piena larghezza, no tabelle desktop.
-- Stesso pattern visivo dell'Atleta PWA ma con accent PT (teal `#0d4f4f` invece di lime).
-- Splash + transizioni Framer Motion già attive in `AppLayout`.
-
-## Dettagli tecnici
-
-- **Nessuna modifica al manifest**: `scope:"/"` resta valido, copre sia `/app` che `/pt/app`.
-- **Service worker invariato**: la cache è role-agnostic, è il router a portare l'utente nella shell corretta.
-- **Nessuna modifica RLS / backend**: le pagine PWA usano gli stessi endpoint Supabase già protetti per il ruolo `pt`.
-- **InstallBanner**: rimane gated come ora (Atleta su `/app`, PT su `/pt/app`).
-- **Memoria progetto aggiornata**: nuova memory `mem://features/pt-pwa-shell` che documenta il redirect e la parità feature.
-
-## File toccati
-
-Nuovi:
-- `src/components/auth/PTSurfaceRouter.tsx` — wrapper di redirect
-- `src/pages/pt/PTAppExercisesPage.tsx`
-- `src/pages/pt/PTAppTemplatesPage.tsx`
-- `src/pages/pt/PTAppCouponsPage.tsx`
-- `src/pages/pt/PTAppPaymentsPage.tsx`
-- `src/pages/pt/PTAppBlogPage.tsx`
-- `src/pages/pt/PTAppSettingsPage.tsx`
-- `src/components/app/PTMoreDrawer.tsx`
-
-Modificati:
-- `src/App.tsx` — avvolge tutte le rotte `/pt/*` (web) in `PTSurfaceRouter`, registra le nuove rotte `/pt/app/*`
-- `src/components/layouts/AppLayout.tsx` — bottom-nav PT con voce "Altro" + drawer
-- `mem://index.md` + nuovo file memory
+- Elenco completo delle route `/pt/app/*` (con `athlete/:id`, `athlete/:id/workouts`, `templates/:id`, `messages` alias, `calendar/eventi|appuntamenti`).
+- Regola: ogni wrapper PT-app DEVE usare `PTAppPageShell`; le pagine web riusate accettano `embedded` per saltare il `PageHeader`.
 
 ## Fuori scope
 
-- Nessuna riscrittura della dashboard web PT (resta intatta per desktop).
-- Nessun cambio al flusso Atleta.
-- Nessuna nuova feature business: è una riorganizzazione di superficie.
+- Nessuna riscrittura completa di `PTPaymentsPage`/`PTCouponsPage` in cards-only — si limita all'integrazione nello shell mobile + horizontal-scroll dove serve.
+- Nessuna modifica al dashboard web o all'esperienza Atleta.
+- Nessuna modifica al manifest/service worker.
+
+## File toccati
+
+- **Creati**: `src/components/app/PTAppPageShell.tsx`.
+- **Modificati**: `src/App.tsx`, `src/components/layouts/AppLayout.tsx`, `src/hooks/usePTSurface.tsx`, `src/hooks/__tests__/usePTSurface.test.tsx`, i 6 wrapper `src/pages/pt/PTApp{Payments,Coupons,Blog,Settings,Exercises,Templates}Page.tsx`, le pagine web `PTPaymentsPage`, `PTCouponsPage`, `PTBlogPage`, `PTSettingsPage`, `PTExercisesArchivePage`, `PTWorkoutsPage` (aggiunta prop opzionale `embedded`), `.lovable/memory/features/pt-pwa-shell.md`.
+
+## Verifica
+
+- `vitest run src/hooks/__tests__/usePTSurface.test.tsx` deve restare verde con i mapping aggiornati.
+- Smoke navigazione manuale: dalla lista atleti → "Schede" non deve dare 404; `/pt/app/payments` mostra titolo + Esporta CSV visibili senza overflow orizzontale; il drawer "Più" apre le sezioni e ogni link atterra su una pagina con header coerente.
