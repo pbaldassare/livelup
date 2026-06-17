@@ -435,6 +435,50 @@ const App = () => {
                   </AppLayout>
                 </PTAppRoute>
               } />
+              {/* PT-PWA extra surfaces — parità feature con la dashboard web */}
+              <Route path="/pt/app/exercises" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppExercisesPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/templates" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppTemplatesPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/coupons" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppCouponsPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/payments" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppPaymentsPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/blog" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppBlogPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/settings" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppSettingsPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+
 
               {/* ============================================= */}
               {/* ATLETA APP ROUTES - Solo ruolo atleta        */}
