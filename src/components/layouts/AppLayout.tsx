@@ -4,19 +4,21 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Home, 
-  Dumbbell, 
-  TrendingUp, 
-  MessageSquare, 
+import {
+  Home,
+  Dumbbell,
+  TrendingUp,
+  MessageSquare,
   User,
   Search,
   Users,
   FileText,
-  CalendarDays
+  CalendarDays,
+  MoreHorizontal,
 } from 'lucide-react';
 import { RequireUserName } from '@/components/auth/RequireUserName';
 import { InstallBanner } from '@/components/pwa/InstallBanner';
+import { PTMoreDrawer } from '@/components/app/PTMoreDrawer';
 
 // =====================================================
 // APP LAYOUT - Mobile/PWA Layout
