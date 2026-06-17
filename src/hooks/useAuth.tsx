@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         console.log('[Auth] event:', event, 'user:', newSession?.user?.email ?? 'none');
 
-        if (event === 'SIGNED_OUT' || !newSession?.user) {
+        if (event === 'SIGNED_OUT') {
           setUser(null);
           setSession(null);
           setRole(null);
@@ -89,20 +89,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        if (!newSession?.user) {
+          // INITIAL_SESSION senza utente
+          setUser(null);
+          setSession(null);
+          setIsLoading(false);
+          return;
+        }
+
         setSession(newSession);
         setUser(newSession.user);
         // Do NOT call resolveRole here — it causes deadlock
       }
     );
 
-    // Safety timeout
-    const timeout = window.setTimeout(() => {
-      if (isMountedRef.current) {
-        console.warn('[Auth] Safety timeout — forcing loading=false');
+    // Bootstrap esplicito della sessione
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMountedRef.current) return;
+      if (data.session?.user) {
+        setSession(data.session);
+        setUser(data.session.user);
+      } else {
         setIsLoading(false);
-        setIsRoleLoading(false);
       }
-    }, 8000);
+    }).catch(() => {
+      if (isMountedRef.current) setIsLoading(false);
+    });
+
+    // Safety timeout: sblocca solo se non c'è ancora un ruolo risolto
+    const timeout = window.setTimeout(() => {
+      if (isMountedRef.current && !roleRef.current) {
+        console.warn('[Auth] Safety timeout — forcing loading=false (no role yet)');
+        setIsLoading(false);
+      }
+    }, 10000);
 
     return () => {
       isMountedRef.current = false;

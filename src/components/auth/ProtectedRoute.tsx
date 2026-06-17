@@ -1,12 +1,10 @@
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRole } from '@/types/roles';
 import { ROLE_ACCESS_MATRIX, getHomeRoute } from '@/types/roles';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 // =====================================================
 // PROTECTED ROUTE
@@ -31,29 +29,11 @@ export function ProtectedRoute({
   const { isAuthenticated, isLoading, isRoleLoading, role } = useAuth();
   const { hasAccess, hasRole } = usePermissions();
   const location = useLocation();
-  const signOutTriggered = useRef(false);
   // Mantiene l'ultimo ruolo "buono" per evitare redirect transitori durante
-  // TOKEN_REFRESHED / SIGNED_IN che riemettono onAuthStateChange mentre un
-  // Dialog (es. anteprima documenti) sta aprendo.
+  // TOKEN_REFRESHED / SIGNED_IN che riemettono onAuthStateChange.
   const lastGoodRoleRef = useRef<AppRole | null>(null);
   if (role) lastGoodRoleRef.current = role;
   const effectiveRole = role ?? lastGoodRoleRef.current;
-
-  // Auto sign-out when role not resolved (long debounce to avoid race conditions)
-  useEffect(() => {
-    if (!effectiveRole && !isRoleLoading && !isLoading && isAuthenticated && !signOutTriggered.current) {
-      const timeout = setTimeout(() => {
-        if (!signOutTriggered.current) {
-          signOutTriggered.current = true;
-          toast.error('Sessione non valida. Effettua nuovamente il login.');
-          supabase.auth.signOut().finally(() => {
-            window.location.href = '/auth';
-          });
-        }
-      }, 5000);
-      return () => clearTimeout(timeout);
-    }
-  }, [effectiveRole, isRoleLoading, isLoading, isAuthenticated]);
 
   // Initial auth loading
   if (isLoading) {
@@ -69,11 +49,15 @@ export function ProtectedRoute({
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // Role still resolving or sign-out in progress
+  // Role still resolving — mostra spinner, nessun logout automatico
   if (!effectiveRole) {
-    return (
-      <LoadingSpinner variant="logo" size="lg" text="Caricamento permessi..." fullScreen />
-    );
+    if (isRoleLoading) {
+      return (
+        <LoadingSpinner variant="logo" size="lg" text="Caricamento permessi..." fullScreen />
+      );
+    }
+    // Auth ok ma nessun ruolo trovato: reindirizza alla login senza forzare signOut
+    return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
   // Check allowed roles — usa effectiveRole per non sbattere fuori durante un refresh token
