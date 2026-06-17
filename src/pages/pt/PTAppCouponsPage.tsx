@@ -1,11 +1,11 @@
 import PTCouponsPage from './PTCouponsPage';
+import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 
-// PT APP COUPONS PAGE - Coupons emessi (Mobile/PWA)
 export function PTAppCouponsPage() {
   return (
-    <div className="pb-4 px-2 pt-2">
-      <PTCouponsPage />
-    </div>
+    <PTAppPageShell title="Coupon" description="Offerte e codici sconto per i tuoi atleti">
+      <PTCouponsPage embedded />
+    </PTAppPageShell>
   );
 }
 

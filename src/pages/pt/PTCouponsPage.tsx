@@ -107,7 +107,7 @@ function genCode(prefix = 'PT') {
   return `${prefix}-${r}`;
 }
 
-export function PTCouponsPage() {
+export function PTCouponsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<0 | 1 | 2>(0); // 0=closed, 1=pick template, 2=form
@@ -443,17 +443,26 @@ export function PTCouponsPage() {
 
   return (
     <div className="space-y-6 animate-in">
-      <DashboardPageHeader
-        title="I Miei Coupon"
-        subtitle="Crea offerte e codici sconto per i tuoi atleti"
-        icon={<Tag className="h-6 w-6" />}
-        breadcrumbs={[{ label: 'Dashboard', href: '/pt' }, { label: 'Coupon' }]}
-        actions={
-          <Button onClick={() => setStep(1)}>
-            <Plus className="mr-2 h-4 w-4" /> Nuovo Coupon
+      {!embedded && (
+        <DashboardPageHeader
+          title="I Miei Coupon"
+          subtitle="Crea offerte e codici sconto per i tuoi atleti"
+          icon={<Tag className="h-6 w-6" />}
+          breadcrumbs={[{ label: 'Dashboard', href: '/pt' }, { label: 'Coupon' }]}
+          actions={
+            <Button onClick={() => setStep(1)}>
+              <Plus className="mr-2 h-4 w-4" /> Nuovo Coupon
+            </Button>
+          }
+        />
+      )}
+      {embedded && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => setStep(1)}>
+            <Plus className="mr-1 h-4 w-4" /> Nuovo
           </Button>
-        }
-      />
+        </div>
+      )}
 
       {/* Catalog of templates: standard (Admin) + own (PT) */}
       <SectionCard

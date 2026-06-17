@@ -46,7 +46,7 @@ interface Payment {
   description: string | null;
 }
 
-export function PTPaymentsPage() {
+export function PTPaymentsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
 
   // Fetch subscription
@@ -146,11 +146,13 @@ export function PTPaymentsPage() {
   return (
     <div className="space-y-6 animate-in">
       <div className="flex items-center justify-between">
-        <PageHeader
-          title="Pagamenti"
-          description="Gestisci il tuo abbonamento e visualizza lo storico pagamenti"
-          icon={CreditCard}
-        />
+        {!embedded && (
+          <PageHeader
+            title="Pagamenti"
+            description="Gestisci il tuo abbonamento e visualizza lo storico pagamenti"
+            icon={CreditCard}
+          />
+        )}
         <Button variant="outline" size="sm" onClick={() => {
           const csvRows = [['Data', 'Descrizione', 'Importo', 'Valuta', 'Stato', 'Pagato il']];
           payments.forEach(p => {

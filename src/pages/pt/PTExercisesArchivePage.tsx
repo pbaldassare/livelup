@@ -62,7 +62,7 @@ const difficultyColor = (level: string) => {
   }
 };
 
-export default function PTExercisesArchivePage() {
+export default function PTExercisesArchivePage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
@@ -123,16 +123,25 @@ export default function PTExercisesArchivePage() {
 
   return (
     <div className="space-y-6">
-      <DashboardPageHeader
-        title="Esercizi"
-        subtitle="Archivio pubblico e i tuoi esercizi personali"
-        actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Crea esercizio
+      {!embedded && (
+        <DashboardPageHeader
+          title="Esercizi"
+          subtitle="Archivio pubblico e i tuoi esercizi personali"
+          actions={
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Crea esercizio
+            </Button>
+          }
+        />
+      )}
+      {embedded && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Crea
           </Button>
-        }
-      />
+        </div>
+      )}
 
       {/* Info banner */}
       <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">

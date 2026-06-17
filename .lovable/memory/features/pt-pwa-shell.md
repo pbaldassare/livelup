@@ -6,23 +6,27 @@ type: feature
 # PT PWA Shell — /pt/app
 
 ## Surface gate
-- `usePTSurface()` (in `src/hooks/usePTSurface.tsx`) decides `web` vs `app`:
-  - `app` if viewport ≤767px OR `display-mode: standalone` OR iOS standalone.
-  - `web` otherwise.
-  - Override with `?view=web` (or `?view=app`) for support sessions.
-- `PTDashboardLayout` runs this gate after the onboarding gate; on `app` surface it `<Navigate>`s to `mapPTWebToApp(pathname)` (e.g. `/pt/calendar/eventi` → `/pt/app/calendar`).
-- Desktop dashboard remains untouched.
+- `usePTSurface()` (in `src/hooks/usePTSurface.tsx`) → `app` if narrow viewport, `display-mode: standalone`, or iOS standalone. Override `?view=web|app`.
+- `PTDashboardLayout` redirects to `mapPTWebToApp(pathname)` on `app` surface.
+- `mapPTWebToApp`: `/pt/athletes/:id` → `/pt/app/athlete/:id` (SINGOLARE — i link interni del PT-PWA usano la forma singolare per il detail).
 
 ## Routes (`/pt/app/*`)
-Existing: `''`, `athletes`, `workouts`, `chat`, `chat/:atletaId`, `calendar`, `profile`.
-Added for parity: `exercises`, `templates`, `coupons`, `payments`, `blog`, `settings` — all thin wrappers that re-render the corresponding `PT*Page` web components inside a mobile-safe container.
+Core: `''`, `athletes`, `athlete/:id`, `athlete/:id/workouts`, `workouts`, `templates`, `templates/:id`, `chat`, `chat/:atletaId`, `calendar`, `profile`.
+Parità con la dashboard web: `exercises`, `coupons`, `payments`, `blog`, `settings`.
+Alias: `messages` → `chat`, `calendar/eventi|appuntamenti` → `calendar`.
+
+## Page shell
+Ogni wrapper PT-app DEVE usare `PTAppPageShell` (`src/components/app/PTAppPageShell.tsx`):
+- header sticky compatto con `safe-top` e backdrop blur,
+- container `px-3 pb-24 overflow-x-hidden` (rispetta bottom-nav + safe area).
+
+Le pagine web riusate (`PTPaymentsPage`, `PTCouponsPage`, `PTBlogPage`, `PTSettingsPage`, `PTExercisesArchivePage`, `PTWorkoutsPage`) accettano la prop opzionale `embedded?: boolean`: quando `true` saltano il proprio `PageHeader`/`DashboardPageHeader` (titolo già reso dalla shell) e mostrano solo l'azione principale compatta.
 
 ## Navigation
-`AppLayout` PT-variant bottom-nav: Home · Atleti · Schede · Chat · **Più**.
-"Più" opens `PTMoreDrawer` (bottom sheet) grouping the rest:
+Bottom-nav: Home · Atleti · Schede · Chat · **Più** (apre `PTMoreDrawer`):
 - Lavoro: Calendario · Esercizi · Template
 - Business: Coupons · Pagamenti · Blog
 - Account: Profilo · Impostazioni · Esci
 
 ## Why
-A shrunk web dashboard is not an app. PT users on phones or with the PWA installed must land in a native-feeling mobile shell, not in the desktop layout squashed under 400px.
+Una dashboard web rimpicciolita non è un'app. PT su smartphone o con PWA installata atterrano sulla shell mobile dedicata; le pagine condivise non duplicano header desktop e non sforano in larghezza.

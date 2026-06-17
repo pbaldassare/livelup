@@ -1,16 +1,12 @@
 import PTWorkoutsPage from './PTWorkoutsPage';
+import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 
-// =====================================================
-// PT APP TEMPLATES PAGE - Schede/Template (Mobile/PWA)
-// Riusa la pagina web. Per ora /pt/app/workouts copre già
-// la creazione/lista; questo wrapper espone gli stessi
-// template sotto il path /pt/app/templates per coerenza.
-// =====================================================
+// /pt/app/templates è un alias visivo della stessa pagina Allenamenti.
 export function PTAppTemplatesPage() {
   return (
-    <div className="pb-4 px-2 pt-2">
-      <PTWorkoutsPage />
-    </div>
+    <PTAppPageShell title="Template" description="Schede di allenamento riutilizzabili">
+      <PTWorkoutsPage embedded />
+    </PTAppPageShell>
   );
 }
 
