@@ -28,6 +28,10 @@ export default defineConfig(({ mode }) => ({
         background_color: "#0a0a0a",
         display: "standalone",
         orientation: "portrait",
+        // Single PWA install per origin. start_url:"/" + scope:"/" cover every shell
+        // (Atleta /app, PT /pt/app, public site). Role-based redirects are performed
+        // client-side by the React router after auth hydration — so the manifest does
+        // NOT need a PT-specific variant and cannot interfere with the web dashboards.
         start_url: "/",
         scope: "/",
         categories: ["fitness", "health", "sports"],
