@@ -128,6 +128,22 @@ export function AppLayout({ children }: AppLayoutProps) {
               </Link>
             );
           })}
+
+          {/* PT-only: "Più" trigger che apre il drawer con le sezioni avanzate */}
+          {isPT && (
+            <PTMoreDrawer
+              trigger={
+                <button
+                  type="button"
+                  className="flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] text-app-muted-foreground transition-colors"
+                  aria-label="Apri altre sezioni"
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                  <span className="text-[10px] font-medium">Più</span>
+                </button>
+              }
+            />
+          )}
         </div>
       </nav>
 
