@@ -68,6 +68,18 @@ export default defineConfig(({ mode }) => ({
             url: "/app/chat",
             icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }],
           },
+          {
+            name: "PT — Atleti",
+            short_name: "Atleti",
+            url: "/pt/app/athletes",
+            icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }],
+          },
+          {
+            name: "PT — Calendario",
+            short_name: "Calendario PT",
+            url: "/pt/app/calendar",
+            icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }],
+          },
         ],
       },
       workbox: {
