@@ -59,13 +59,29 @@ export default defineConfig(({ mode }) => ({
           {
             name: "Allenamenti",
             short_name: "Workout",
+            description: "Apri i tuoi esercizi e schede",
             url: "/app/esercizi",
             icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }],
           },
           {
-            name: "Chat",
-            short_name: "Chat",
-            url: "/app/chat",
+            name: "Programma",
+            short_name: "Programma",
+            description: "Il tuo calendario settimanale",
+            url: "/app/programma",
+            icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }],
+          },
+          {
+            name: "Scopri",
+            short_name: "Scopri",
+            description: "Trova PT, eventi e professionisti",
+            url: "/app/discover",
+            icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }],
+          },
+          {
+            name: "Profilo",
+            short_name: "Profilo",
+            description: "Il tuo profilo atleta",
+            url: "/app/profile",
             icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }],
           },
           {

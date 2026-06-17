@@ -26,7 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { RequireUserName } from '@/components/auth/RequireUserName';
-import { InstallBanner } from '@/components/pwa/InstallBanner';
+// InstallBanner removed: web dashboard is not an installable PWA surface.
 
 interface PTDashboardLayoutProps {
   children: ReactNode;
@@ -266,8 +266,8 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
           </motion.div>
         </main>
       </div>
-      {/* PWA install banner — anche per i PT */}
-      <InstallBanner />
+      {/* InstallBanner intenzionalmente assente: la dashboard web non è una PWA installabile.
+          Il banner di install è mostrato solo nella PWA mobile (AppLayout, /app e /pt/app). */}
     </div>
   );
 }

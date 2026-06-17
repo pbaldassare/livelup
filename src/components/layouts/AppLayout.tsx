@@ -16,6 +16,7 @@ import {
   CalendarDays
 } from 'lucide-react';
 import { RequireUserName } from '@/components/auth/RequireUserName';
+import { InstallBanner } from '@/components/pwa/InstallBanner';
 
 // =====================================================
 // APP LAYOUT - Mobile/PWA Layout
@@ -126,6 +127,10 @@ export function AppLayout({ children }: AppLayoutProps) {
           })}
         </div>
       </nav>
+
+      {/* PWA install banner — mostrato solo dentro la shell mobile/PWA
+          (Atleta /app e PT /pt/app), mai nelle dashboard web né nelle pagine pubbliche. */}
+      <InstallBanner />
     </div>
   );
 }
