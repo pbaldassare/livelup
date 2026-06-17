@@ -266,6 +266,8 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
           </motion.div>
         </main>
       </div>
+      {/* PWA install banner — anche per i PT */}
+      <InstallBanner />
     </div>
   );
 }
