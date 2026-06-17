@@ -16,6 +16,7 @@ import {
   CalendarDays
 } from 'lucide-react';
 import { RequireUserName } from '@/components/auth/RequireUserName';
+import { InstallBanner } from '@/components/pwa/InstallBanner';
 
 // =====================================================
 // APP LAYOUT - Mobile/PWA Layout
