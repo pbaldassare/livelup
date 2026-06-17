@@ -434,8 +434,8 @@ export default function AdminAuditCoherencePage() {
     <div className="space-y-6">
       <DashboardPageHeader
         title="Audit & Coerenza"
-        description="Verifica in tempo reale l'allineamento tra PT, atleti, documenti e appuntamenti. Ogni correzione viene loggata."
-        icon={ShieldCheck}
+        subtitle="Verifica in tempo reale l'allineamento tra PT, atleti, documenti e appuntamenti. Ogni correzione viene loggata."
+        icon={<ShieldCheck className="h-6 w-6" />}
         actions={
           <Button variant="outline" onClick={refreshAll}>
             <RefreshCw className="h-4 w-4 mr-2" /> Aggiorna tutto
