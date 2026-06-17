@@ -98,6 +98,11 @@ const navigationItems = [
     icon: Settings 
   },
   { 
+    label: 'Stato PT', 
+    href: '/admin/pt-readiness', 
+    icon: UserCog 
+  },
+  { 
     label: 'Audit & Coerenza', 
     href: '/admin/audit', 
     icon: ShieldCheck 

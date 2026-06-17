@@ -1,5 +1,5 @@
 import { ReactNode, useState, useRef, useCallback, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { RequireUserName } from '@/components/auth/RequireUserName';
+import { InstallBanner } from '@/components/pwa/InstallBanner';
 
 interface PTDashboardLayoutProps {
   children: ReactNode;
@@ -99,6 +100,27 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
     },
     enabled: !!user?.id,
   });
+
+  // Onboarding gate: nuovi PT (status='registrato') vengono indirizzati
+  // al wizard prima di poter usare la dashboard.
+  const { data: ptStatus, isLoading: ptStatusLoading } = useQuery({
+    queryKey: ['pt-status', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from('pt_profiles')
+        .select('status')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return data?.status ?? null;
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  if (!ptStatusLoading && ptStatus === 'registrato' && !location.pathname.startsWith('/pt/onboarding')) {
+    return <Navigate to="/pt/onboarding" replace />;
+  }
 
   const isActiveRoute = (href: string, exact?: boolean) => {
     if (exact) return location.pathname === href;
@@ -244,6 +266,8 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
           </motion.div>
         </main>
       </div>
+      {/* PWA install banner — anche per i PT */}
+      <InstallBanner />
     </div>
   );
 }
