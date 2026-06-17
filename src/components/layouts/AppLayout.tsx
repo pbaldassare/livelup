@@ -127,6 +127,10 @@ export function AppLayout({ children }: AppLayoutProps) {
           })}
         </div>
       </nav>
+
+      {/* PWA install banner — mostrato solo dentro la shell mobile/PWA
+          (Atleta /app e PT /pt/app), mai nelle dashboard web né nelle pagine pubbliche. */}
+      <InstallBanner />
     </div>
   );
 }
