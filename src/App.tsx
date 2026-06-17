@@ -76,6 +76,12 @@ import PTAppChatPage from "./pages/pt/PTAppChatPage";
 import PTAppChatDetailPage from "./pages/pt/PTAppChatDetailPage";
 import PTAppCalendarPage from "./pages/pt/PTAppCalendarPage";
 import PTAppProfilePage from "./pages/pt/PTAppProfilePage";
+import PTAppExercisesPage from "./pages/pt/PTAppExercisesPage";
+import PTAppTemplatesPage from "./pages/pt/PTAppTemplatesPage";
+import PTAppCouponsPage from "./pages/pt/PTAppCouponsPage";
+import PTAppPaymentsPage from "./pages/pt/PTAppPaymentsPage";
+import PTAppBlogPage from "./pages/pt/PTAppBlogPage";
+import PTAppSettingsPage from "./pages/pt/PTAppSettingsPage";
 
 // Atleta App pages (Mobile/PWA)
 import AtletaAppHome from "./pages/atleta/AtletaAppHome";
