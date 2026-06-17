@@ -230,6 +230,13 @@ const App = () => {
                   </AdminLayout>
                 </AdminRoute>
               } />
+              <Route path="/admin/audit" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminAuditCoherencePage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
               <Route path="/admin/courses" element={
                 <AdminRoute>
                   <AdminLayout>
