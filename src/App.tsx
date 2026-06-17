@@ -493,8 +493,7 @@ const App = () => {
                   </AppLayout>
                 </PTAppRoute>
               } />
-              {/* Alias plurale per coerenza con la dashboard web */}
-              <Route path="/pt/app/athletes/:atletaId" element={<Navigate to="/pt/app/athlete/:atletaId" replace />} />
+              {/* (alias plurale rimosso: i link interni usano la forma singolare /pt/app/athlete/:id) */}
               {/* Template detail */}
               <Route path="/pt/app/templates/:templateId" element={
                 <PTAppRoute>
