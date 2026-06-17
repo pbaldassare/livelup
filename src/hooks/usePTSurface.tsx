@@ -66,10 +66,10 @@ export function usePTSurface(): PTSurface {
 export function mapPTWebToApp(pathname: string): string {
   // Exact mapping for known routes
   if (pathname === '/pt' || pathname === '/pt/') return '/pt/app';
+  // Athlete detail: i link interni usano la forma singolare /pt/app/athlete/:id
   if (pathname.startsWith('/pt/athletes/')) {
-    // detail page: keep the id but route through app shell
     const rest = pathname.replace('/pt/athletes/', '');
-    return `/pt/app/athletes/${rest}`;
+    return `/pt/app/athlete/${rest}`;
   }
   if (pathname.startsWith('/pt/athletes')) return '/pt/app/athletes';
   if (pathname.startsWith('/pt/workouts')) return '/pt/app/workouts';
@@ -89,3 +89,4 @@ export function mapPTWebToApp(pathname: string): string {
   if (pathname.startsWith('/pt/onboarding')) return pathname;
   return '/pt/app';
 }
+

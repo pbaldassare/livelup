@@ -124,7 +124,7 @@ describe('mapPTWebToApp', () => {
     ['/pt', '/pt/app'],
     ['/pt/', '/pt/app'],
     ['/pt/athletes', '/pt/app/athletes'],
-    ['/pt/athletes/abc-123', '/pt/app/athletes/abc-123'],
+    ['/pt/athletes/abc-123', '/pt/app/athlete/abc-123'],
     ['/pt/workouts', '/pt/app/workouts'],
     ['/pt/templates/tpl-1', '/pt/app/templates/tpl-1'],
     ['/pt/templates', '/pt/app/templates'],
@@ -140,6 +140,7 @@ describe('mapPTWebToApp', () => {
   ])('maps %s → %s', (input, expected) => {
     expect(mapPTWebToApp(input)).toBe(expected);
   });
+
 
   it('keeps /pt/onboarding untouched (shared between surfaces)', () => {
     expect(mapPTWebToApp('/pt/onboarding')).toBe('/pt/onboarding');
