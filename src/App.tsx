@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SplashScreen } from "@/components/common/SplashScreen";
-import { InstallBanner } from "@/components/pwa/InstallBanner";
+// InstallBanner is mounted inside AppLayout (PWA-only), not globally.
 import { PWAUpdatePrompt } from "@/components/pwa/PWAUpdatePrompt";
 import { TourProvider } from "@/components/AppTourContext";
 import AppTour from "@/components/AppTour";
