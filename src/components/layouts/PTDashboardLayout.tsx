@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { RequireUserName } from '@/components/auth/RequireUserName';
+import { usePTSurface, mapPTWebToApp } from '@/hooks/usePTSurface';
 // InstallBanner removed: web dashboard is not an installable PWA surface.
 
 interface PTDashboardLayoutProps {
@@ -118,8 +119,18 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
     staleTime: 60_000,
   });
 
+  // Surface gate (hook must be called unconditionally, before early returns).
+  const surface = usePTSurface();
+
   if (!ptStatusLoading && ptStatus === 'registrato' && !location.pathname.startsWith('/pt/onboarding')) {
     return <Navigate to="/pt/onboarding" replace />;
+  }
+
+  // On mobile viewports or when the PWA is installed, the PT must land on the
+  // dedicated mobile shell (/pt/app/*) — NOT on a shrunk web dashboard.
+  // Override available with ?view=web for support sessions.
+  if (surface === 'app' && !location.pathname.startsWith('/pt/app') && !location.pathname.startsWith('/pt/onboarding')) {
+    return <Navigate to={mapPTWebToApp(location.pathname)} replace />;
   }
 
   const isActiveRoute = (href: string, exact?: boolean) => {

@@ -4,19 +4,21 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Home, 
-  Dumbbell, 
-  TrendingUp, 
-  MessageSquare, 
+import {
+  Home,
+  Dumbbell,
+  TrendingUp,
+  MessageSquare,
   User,
   Search,
   Users,
   FileText,
-  CalendarDays
+  CalendarDays,
+  MoreHorizontal,
 } from 'lucide-react';
 import { RequireUserName } from '@/components/auth/RequireUserName';
 import { InstallBanner } from '@/components/pwa/InstallBanner';
+import { PTMoreDrawer } from '@/components/app/PTMoreDrawer';
 
 // =====================================================
 // APP LAYOUT - Mobile/PWA Layout
@@ -49,14 +51,15 @@ export function AppLayout({ children }: AppLayoutProps) {
   // Enable realtime notifications
   useRealtimeNotifications();
 
-  // Navigation items based on role
+  // PT bottom-nav: 4 link primari + un trigger "Più" che apre PTMoreDrawer
+  // con tutte le altre sezioni (Calendario, Esercizi, Template, Coupons,
+  // Pagamenti, Blog, Profilo, Impostazioni, Logout).
   const navigationItems = isPT
     ? [
         { label: 'Home', href: '/pt/app', icon: Home, exact: true },
         { label: 'Atleti', href: '/pt/app/athletes', icon: Users },
         { label: 'Schede', href: '/pt/app/workouts', icon: Dumbbell },
         { label: 'Chat', href: '/pt/app/chat', icon: MessageSquare },
-        { label: 'Profilo', href: '/pt/app/profile', icon: User },
       ]
     : [
         { label: 'Home', href: '/app', icon: Home, exact: true },
@@ -125,6 +128,22 @@ export function AppLayout({ children }: AppLayoutProps) {
               </Link>
             );
           })}
+
+          {/* PT-only: "Più" trigger che apre il drawer con le sezioni avanzate */}
+          {isPT && (
+            <PTMoreDrawer
+              trigger={
+                <button
+                  type="button"
+                  className="flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] text-app-muted-foreground transition-colors"
+                  aria-label="Apri altre sezioni"
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                  <span className="text-[10px] font-medium">Più</span>
+                </button>
+              }
+            />
+          )}
         </div>
       </nav>
 

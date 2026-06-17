@@ -1,83 +1,92 @@
-# Predisposizione completa per i Personal Trainer
+# PT App nativa — non più dashboard adattata
 
-Tre interventi coordinati: report di stato, PWA installabile anche per i PT, onboarding guidato al primo accesso.
+## Cosa cambia per l'utente
 
----
+Oggi un PT che apre il sito da telefono (o dalla PWA installata) vede la **dashboard web** ridotta in larghezza: header desktop, KPI a torta, sidebar nascosta. Non è un'app, è un sito stretto.
 
-## 1) Audit completo stato PT (pagina admin "Stato PT")
+Dopo questo intervento:
 
-Pagina `/admin/pt-readiness` con report in tempo reale che dimostra che cosa è già predisposto e cosa manca.
+- Da telefono (`< 768px`) o quando la PWA è in modalità **standalone**, qualsiasi rotta `/pt/*` reindirizza automaticamente alla shell mobile `/pt/app/*`.
+- Da desktop la dashboard web resta identica: nessuna regressione per chi lavora al PC.
+- La shell `/pt/app` viene completata con tutte le funzioni che oggi esistono solo sul web (Esercizi, Template, Coupons, Pagamenti, Blog, Impostazioni), così il PT può davvero lavorare dal telefono.
 
-Sezioni:
-- **Rotte e accesso**: elenco di tutte le `/pt/*` registrate in `src/App.tsx`, con guard di ruolo verificato (`RoleRoute` + `has_role`). Mostra ✓/✗ per ciascuna.
-- **Feature PT vs Atleta**: tabella di parità funzionale (Workout, Calendario/Appuntamenti, Chat, Atleti, Esercizi, Template, Pacchetti, Coupons, Eventi, Blog, Recensioni, Documenti, Notifiche, Export). Per ognuna: pagina PT presente, endpoint usato, RLS verificata.
-- **Permessi backend**: chiama l'edge function `admin-audit` (action `pt_readiness` nuova) che verifica per ogni PT: ruolo `pt` in `user_roles`, riga in `pt_profiles`, stato (`registrato` / `attivo` / `sospeso`), numero atleti attivi vs `max_athletes`, pacchetti attivi.
-- **PWA**: stato manifest, scope, presenza icone, ultimo build SW.
-- **Onboarding**: per ogni PT mostra completamento profilo (bio, certificazioni, location, gallery, pacchetti) con percentuale.
+```text
+┌─────────────────────┐         ┌─────────────────────┐
+│  Desktop (≥ 768px)  │         │  Mobile / PWA       │
+│   /pt  → web        │         │   /pt  → /pt/app    │
+│   PTDashboardLayout │         │   AppLayout (PWA)   │
+└─────────────────────┘         └─────────────────────┘
+```
 
-Ogni riga "non conforme" ha un link diretto alla pagina di fix.
+## Intervento 1 — Redirect intelligente /pt → /pt/app
 
----
+Nuovo componente `PTSurfaceRouter` montato a livello di rotta su tutte le pagine `/pt/*` (web), che decide dove far atterrare il PT:
 
-## 2) Abilitare la PWA anche per i PT
+- Mobile o PWA installata → `Navigate` su `/pt/app{stessa-sezione}` (es. `/pt/calendar` → `/pt/app/calendar`).
+- Desktop browser → mostra la dashboard web normale.
 
-Oggi la PWA è ottimizzata per l'atleta (`/app`). Estendere all'area `/pt`:
+Trigger di detezione (riusando `useInstallPrompt` e media query esistenti):
 
-- **Manifest dinamico per ruolo**: due manifest separati
-  - `public/manifest.webmanifest` (atleta — già esistente, nero/lime)
-  - `public/manifest-pt.webmanifest` (PT — teal `#0d4f4f`, `start_url: /pt`, `scope: /pt`, `name: "LIVELLAPP PT"`, `short_name: "LIVELLAPP PT"`)
-- **Tag manifest condizionale**: componente `<DynamicManifest />` montato in `RootLayout` che, in base al ruolo dell'utente loggato e al path, inietta `<link rel="manifest">` corretto e aggiorna `theme-color`.
-- **Icone PT** (`public/icons/pt-*.png`): 192/512/maskable in palette teal.
-- **Service worker**: già gestito dal wrapper guarded — verificare che il navigation fallback NON cachi `/auth/*` e `/~oauth`, e che `/pt` sia nello scope precache.
-- **Install prompt PT**: il banner "Installa l'app" oggi presente solo in `/app` viene mostrato anche su `/pt` quando l'utente loggato ha ruolo `pt` e non è già in standalone.
+- `window.matchMedia('(display-mode: standalone)').matches` → PWA installata.
+- `window.matchMedia('(max-width: 767px)').matches` → mobile.
+- Override manuale con query `?view=web` per debug da telefono (utile per supporto).
 
-Risultato: un PT che apre `/pt` da mobile può installare l'app come icona separata con identità teal "LIVELLAPP PT".
+Il redirect è **client-side** dopo l'idratazione dell'auth (non server-side: la rotta web non sparisce, semplicemente non viene mostrata su mobile).
 
----
+## Intervento 2 — Parità feature PWA PT
 
-## 3) Onboarding/Setup iniziale PT
+Aggiungo alla bottom-nav di `AppLayout` (variante PT) un sesto ingresso "Altro" che apre un drawer con le sezioni avanzate, mantenendo i 5 slot principali ergonomici:
 
-Wizard al primo login del PT (quando `pt_profiles.status = 'registrato'`), ispirato all'`AthleteOnboardingWizard` esistente.
+- **Bottom-nav (5)**: Home · Atleti · Schede · Chat · Altro
+- **Drawer "Altro"**: Calendario · Esercizi · Template · Coupons · Pagamenti · Blog · Impostazioni · Profilo · Logout
 
-Componente `src/components/pt/onboarding/PTOnboardingWizard.tsx` con 6 step (Framer Motion):
+Nuove pagine mobile (wrapper sottili sui componenti già usati nel web, adattati a viewport 390px):
 
-1. **Benvenuto** — video/illustrazione, breve presentazione di cosa potrà fare.
-2. **Profilo professionale** — nome, foto, bio (min 80 caratteri), tipologia (`pt_types`).
-3. **Specializzazioni & Certificazioni** — multiselect da catalogo (`pt_specializations`, `pt_certifications`), upload PDF certificato opzionale.
-4. **Dove lavori** — Google Places autocomplete → salva città, indirizzo, lat/lng, raggio operativo, modalità (online/in presenza/entrambi).
-5. **Pacchetti e disponibilità** — proposta di 3 pacchetti template (single session / 4 sessioni / mensile), modificabili. Slot settimanali base (`pt_availability`).
-6. **Pronto!** — riepilogo + CTA "Vai alla dashboard". Lo status passa a `in_attesa_approvazione` (o `attivo` se admin ha disattivato la moderazione in `platform_settings`).
+- `PTAppExercisesPage` → riusa `PTExercisesArchivePage`
+- `PTAppTemplatesPage` → riusa la lista template in `PTWorkoutsPage`
+- `PTAppCouponsPage` → riusa `PTCouponsPage`
+- `PTAppPaymentsPage` → riusa `PTPaymentsPage`
+- `PTAppBlogPage` → riusa `PTBlogPage`
+- `PTAppSettingsPage` → riusa `PTSettingsPage`
 
-Gate: in `PTLayout`, se `pt_profiles.status === 'registrato'` ridirigi a `/pt/onboarding`. Il wizard è skippabile solo per gli step opzionali (3 e 5); 2 e 4 obbligatori per pubblicare il profilo.
+Tutte registrate sotto `/pt/app/*` e protette dal solito `ProtectedRoute role="pt"`.
 
-Persistenza: ogni step salva subito su DB (autosave) così l'utente può riprendere dove ha lasciato.
+## Intervento 3 — Identità visiva mobile PT
 
----
+La PWA PT deve sembrare un'app, non la dashboard teal stretta. Riuso il design system mobile esistente (`AppLayout` con `data-role="pt"`) e:
+
+- Header mobile dedicato (logo, notifiche, avatar) — non l'header web.
+- Card e liste a piena larghezza, no tabelle desktop.
+- Stesso pattern visivo dell'Atleta PWA ma con accent PT (teal `#0d4f4f` invece di lime).
+- Splash + transizioni Framer Motion già attive in `AppLayout`.
 
 ## Dettagli tecnici
 
-**Nuovi file**
-- `src/pages/admin/AdminPTReadinessPage.tsx`
-- `supabase/functions/admin-audit/index.ts` (aggiunta action `pt_readiness`)
-- `src/components/pwa/DynamicManifest.tsx`
-- `public/manifest-pt.webmanifest` + `public/icons/pt-{192,512,maskable}.png` (generate via imagegen)
-- `src/components/pt/onboarding/PTOnboardingWizard.tsx` + step files
-- `src/pages/pt/PTOnboardingPage.tsx` (rotta `/pt/onboarding`)
+- **Nessuna modifica al manifest**: `scope:"/"` resta valido, copre sia `/app` che `/pt/app`.
+- **Service worker invariato**: la cache è role-agnostic, è il router a portare l'utente nella shell corretta.
+- **Nessuna modifica RLS / backend**: le pagine PWA usano gli stessi endpoint Supabase già protetti per il ruolo `pt`.
+- **InstallBanner**: rimane gated come ora (Atleta su `/app`, PT su `/pt/app`).
+- **Memoria progetto aggiornata**: nuova memory `mem://features/pt-pwa-shell` che documenta il redirect e la parità feature.
 
-**File modificati**
-- `src/App.tsx` — registra `/admin/pt-readiness` e `/pt/onboarding`
-- `src/components/layouts/AdminLayout.tsx` — voce sidebar "Stato PT"
-- `src/components/layouts/PTLayout.tsx` — redirect onboarding su status `registrato`
-- `src/components/InstallPrompt.tsx` — abilita anche su `/pt`
+## File toccati
 
-**DB**: nessuna nuova tabella. Si riusano `pt_profiles`, `pt_profile_specializations`, `pt_profile_certifications`, `pt_availability`, `pt_packages`, `platform_settings`.
+Nuovi:
+- `src/components/auth/PTSurfaceRouter.tsx` — wrapper di redirect
+- `src/pages/pt/PTAppExercisesPage.tsx`
+- `src/pages/pt/PTAppTemplatesPage.tsx`
+- `src/pages/pt/PTAppCouponsPage.tsx`
+- `src/pages/pt/PTAppPaymentsPage.tsx`
+- `src/pages/pt/PTAppBlogPage.tsx`
+- `src/pages/pt/PTAppSettingsPage.tsx`
+- `src/components/app/PTMoreDrawer.tsx`
 
-**Sicurezza**: tutte le letture audit passano dall'edge function `admin-audit` con check admin server-side (già esistente). Il wizard PT scrive solo su tabelle dell'utente loggato, protette da RLS `auth.uid() = user_id`.
+Modificati:
+- `src/App.tsx` — avvolge tutte le rotte `/pt/*` (web) in `PTSurfaceRouter`, registra le nuove rotte `/pt/app/*`
+- `src/components/layouts/AppLayout.tsx` — bottom-nav PT con voce "Altro" + drawer
+- `mem://index.md` + nuovo file memory
 
----
+## Fuori scope
 
-## Cosa vedrai a fine implementazione
-
-- Admin: una pagina che dimostra in un colpo d'occhio che ogni PT ha rotte, permessi, profilo e PWA allineati.
-- PT su mobile: pulsante "Installa app" e icona LIVELLAPP PT teal sulla home dello smartphone.
-- Nuovo PT al primo login: percorso guidato di 6 step che lo porta da "registrato" a profilo pubblicabile in meno di 5 minuti.
+- Nessuna riscrittura della dashboard web PT (resta intatta per desktop).
+- Nessun cambio al flusso Atleta.
+- Nessuna nuova feature business: è una riorganizzazione di superficie.
