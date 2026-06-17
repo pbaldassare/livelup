@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { SectionCard } from '@/components/dashboard/SectionCard';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,243 +22,86 @@ import { toast } from 'sonner';
 
 // =====================================================
 // Admin · Audit & Coerenza
-// Una sola pagina per verificare l'allineamento dati PT↔Atleta,
-// la visibilità dei documenti, la sincronizzazione appuntamenti
-// e la coerenza dei ruoli/permessi. Ogni "Correggi" è loggato.
+// Tutte le operazioni passano dall'edge function `admin-audit`,
+// che verifica server-side JWT + ruolo admin prima di rispondere.
+// Anche chiamando l'endpoint direttamente, un non-admin riceve 403.
 // =====================================================
 
-type AuditAction = {
-  action: string;
-  resource: string;
-  resource_id?: string | null;
-  details?: Record<string, unknown>;
-};
-
-function useAuditLog() {
-  const { user } = useAuth();
-  return async (a: AuditAction) => {
-    if (!user?.id) return;
-    await supabase.from('audit_logs').insert({
-      user_id: user.id,
-      action: a.action,
-      resource: a.resource,
-      resource_id: a.resource_id ?? null,
-      details: (a.details ?? {}) as any,
-    } as any);
-  };
-}
-
-// ---------------- Check primitives ----------------
-
-async function fetchGhostDocs() {
-  const { data, error } = await supabase
-    .from('athlete_documents')
-    .select('id, title, atleta_user_id, doc_type, created_at')
-    .is('file_path', null)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data ?? [];
-}
-
-async function fetchMultiActiveConnections() {
-  // atleti con più di 1 connessione attiva (viola la regola 1 PT per atleta)
-  const { data, error } = await supabase
-    .from('pt_atleta_connections')
-    .select('atleta_user_id, pt_user_id, id, status')
-    .eq('status', 'active');
-  if (error) throw error;
-  const byAtleta = new Map<string, typeof data>();
-  (data ?? []).forEach((row) => {
-    const list = byAtleta.get(row.atleta_user_id) ?? [];
-    list.push(row);
-    byAtleta.set(row.atleta_user_id, list);
+async function callAudit<T = any>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  const { data, error } = await supabase.functions.invoke('admin-audit', {
+    body: { action, ...payload },
   });
-  return Array.from(byAtleta.entries())
-    .filter(([, v]) => v.length > 1)
-    .map(([atleta_user_id, rows]) => ({ atleta_user_id, rows }));
+  if (error) {
+    const msg = (error as any)?.context?.error || error.message || 'Errore richiesta';
+    throw new Error(msg);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data as T;
 }
-
-async function fetchDuplicateAppointments() {
-  const { data, error } = await supabase
-    .from('calendar_events')
-    .select('id, pt_user_id, atleta_user_id, start_datetime, title, category')
-    .eq('category', 'appuntamento')
-    .eq('is_cancelled', false);
-  if (error) throw error;
-  const map = new Map<string, typeof data>();
-  (data ?? []).forEach((ev) => {
-    const key = `${ev.pt_user_id}|${ev.atleta_user_id}|${ev.start_datetime}`;
-    const list = map.get(key) ?? [];
-    list.push(ev);
-    map.set(key, list);
-  });
-  return Array.from(map.values()).filter((v) => v.length > 1);
-}
-
-async function fetchRoleMismatches() {
-  // connessioni in cui l'atleta non ha role='atleta' o il pt non ha role='pt'
-  const [{ data: conns }, { data: roles }] = await Promise.all([
-    supabase.from('pt_atleta_connections').select('id, pt_user_id, atleta_user_id, status'),
-    supabase.from('user_roles').select('user_id, role'),
-  ]);
-  const roleMap = new Map<string, Set<string>>();
-  (roles ?? []).forEach((r) => {
-    const s = roleMap.get(r.user_id) ?? new Set();
-    s.add(r.role);
-    roleMap.set(r.user_id, s);
-  });
-  return (conns ?? []).filter((c) => {
-    const ptRoles = roleMap.get(c.pt_user_id);
-    const atRoles = roleMap.get(c.atleta_user_id);
-    return !ptRoles?.has('pt') || !atRoles?.has('atleta');
-  });
-}
-
-async function fetchMissingProfiles() {
-  // utenti con ruolo pt/atleta ma senza riga in pt_profiles/atleta_profiles
-  const [{ data: roles }, { data: ptProfiles }, { data: atProfiles }] = await Promise.all([
-    supabase.from('user_roles').select('user_id, role'),
-    supabase.from('pt_profiles').select('user_id'),
-    supabase.from('atleta_profiles').select('user_id'),
-  ]);
-  const ptSet = new Set((ptProfiles ?? []).map((p) => p.user_id));
-  const atSet = new Set((atProfiles ?? []).map((p) => p.user_id));
-  return (roles ?? []).filter((r) => {
-    if (r.role === 'pt' && !ptSet.has(r.user_id)) return true;
-    if (r.role === 'atleta' && !atSet.has(r.user_id)) return true;
-    return false;
-  });
-}
-
-// ---------------- Page ----------------
 
 export default function AdminAuditCoherencePage() {
   const qc = useQueryClient();
-  const audit = useAuditLog();
   const [ptId, setPtId] = useState<string>('');
   const [pdfTesting, setPdfTesting] = useState(false);
   const [pdfResults, setPdfResults] = useState<Array<{
     id: string; title: string; ok: boolean; reason?: string;
   }>>([]);
 
-  // --- PTs picker
   const { data: pts = [] } = useQuery({
     queryKey: ['admin-audit-pts'],
     queryFn: async () => {
-      const { data: roles, error } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'pt');
-      if (error) throw error;
-      const ids = (roles ?? []).map((r) => r.user_id);
-      if (ids.length === 0) return [];
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name, email')
-        .in('user_id', ids);
-      const pmap = new Map((profs ?? []).map((p) => [p.user_id, p]));
-      return ids.map((id) => {
-        const p = pmap.get(id);
-        return {
-          user_id: id,
-          name: [p?.first_name, p?.last_name].filter(Boolean).join(' ').trim() || p?.email || id.slice(0, 8),
-          email: p?.email ?? '',
-        };
-      }).sort((a, b) => a.name.localeCompare(b.name));
+      const res = await callAudit<{ pts: Array<{ user_id: string; name: string; email: string }> }>(
+        'list_pts',
+      );
+      return res.pts ?? [];
     },
   });
 
-  // --- PT detail when selected
   const { data: ptDetail } = useQuery({
     queryKey: ['admin-audit-pt-detail', ptId],
     enabled: !!ptId,
-    queryFn: async () => {
-      const [{ data: conns }, { data: events }] = await Promise.all([
-        supabase
-          .from('pt_atleta_connections')
-          .select('atleta_user_id, status, created_at')
-          .eq('pt_user_id', ptId),
-        supabase
-          .from('calendar_events')
-          .select('id, atleta_user_id, category, start_datetime, is_cancelled')
-          .eq('pt_user_id', ptId),
-      ]);
-      const atletaIds = (conns ?? []).map((c) => c.atleta_user_id);
-      const [{ data: docs }, { data: profs }] = await Promise.all([
-        atletaIds.length
-          ? supabase
-              .from('athlete_documents')
-              .select('id, atleta_user_id, file_path, title, doc_type')
-              .in('atleta_user_id', atletaIds)
-          : Promise.resolve({ data: [] as any[] }),
-        atletaIds.length
-          ? supabase
-              .from('profiles')
-              .select('user_id, first_name, last_name, email')
-              .in('user_id', atletaIds)
-          : Promise.resolve({ data: [] as any[] }),
-      ]);
-      const pmap = new Map((profs ?? []).map((p: any) => [p.user_id, p]));
-
-      const byAtleta = (conns ?? []).map((c) => {
-        const p = pmap.get(c.atleta_user_id);
-        const aDocs = (docs ?? []).filter((d: any) => d.atleta_user_id === c.atleta_user_id);
-        const aEvents = (events ?? []).filter((e) => e.atleta_user_id === c.atleta_user_id && !e.is_cancelled);
-        return {
-          atleta_user_id: c.atleta_user_id,
-          name: [p?.first_name, p?.last_name].filter(Boolean).join(' ').trim() || p?.email || c.atleta_user_id.slice(0, 8),
-          email: p?.email ?? '',
-          status: c.status,
-          docsTotal: aDocs.length,
-          docsGhost: aDocs.filter((d: any) => !d.file_path).length,
-          appointments: aEvents.filter((e) => e.category === 'appuntamento').length,
-          events: aEvents.filter((e) => e.category === 'evento').length,
-          docs: aDocs,
-        };
-      });
-
-      return {
-        athletes: byAtleta,
-        eventsTotal: (events ?? []).filter((e) => !e.is_cancelled).length,
-      };
-    },
+    queryFn: async () =>
+      callAudit<{
+        athletes: Array<{
+          atleta_user_id: string;
+          name: string;
+          email: string;
+          status: string;
+          docsTotal: number;
+          docsGhost: number;
+          appointments: number;
+          events: number;
+          docs: Array<{ id: string; file_path: string | null; title: string }>;
+        }>;
+        eventsTotal: number;
+      }>('pt_detail', { pt_user_id: ptId }),
   });
 
-  // --- Coherence checks
-  const ghostQ = useQuery({ queryKey: ['audit-ghost-docs'], queryFn: fetchGhostDocs });
-  const multiActiveQ = useQuery({ queryKey: ['audit-multi-active'], queryFn: fetchMultiActiveConnections });
-  const dupApptQ = useQuery({ queryKey: ['audit-dup-appts'], queryFn: fetchDuplicateAppointments });
-  const roleMismatchQ = useQuery({ queryKey: ['audit-role-mismatch'], queryFn: fetchRoleMismatches });
-  const missingProfilesQ = useQuery({ queryKey: ['audit-missing-profiles'], queryFn: fetchMissingProfiles });
+  const checksQ = useQuery({
+    queryKey: ['audit-checks'],
+    queryFn: () =>
+      callAudit<{
+        ghost: Array<{ id: string; title: string }>;
+        multiActive: Array<{ atleta_user_id: string; rows: Array<{ id: string }> }>;
+        dupAppts: Array<Array<{ id: string }>>;
+        roleMismatch: Array<unknown>;
+        missingProfiles: Array<unknown>;
+      }>('checks'),
+  });
 
-  // --- Audit log
   const { data: logs = [], refetch: refetchLogs } = useQuery({
     queryKey: ['audit-recent-logs'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('audit_logs')
-        .select('id, user_id, action, resource, resource_id, details, created_at')
-        .like('resource', 'audit%')
-        .order('created_at', { ascending: false })
-        .limit(20);
-      return data ?? [];
+      const res = await callAudit<{ logs: any[] }>('recent_logs');
+      return res.logs ?? [];
     },
   });
 
-  // --- Fix mutations
   const fixGhostDocs = useMutation({
-    mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from('athlete_documents').delete().in('id', ids);
-      if (error) throw error;
-      await audit({
-        action: 'fix_ghost_documents',
-        resource: 'audit:athlete_documents',
-        details: { removed_ids: ids, count: ids.length },
-      });
-    },
+    mutationFn: async (ids: string[]) => callAudit('fix_ghost_documents', { ids }),
     onSuccess: (_d, ids) => {
       toast.success(`Eliminati ${ids.length} documenti fantasma`);
-      qc.invalidateQueries({ queryKey: ['audit-ghost-docs'] });
+      qc.invalidateQueries({ queryKey: ['audit-checks'] });
       qc.invalidateQueries({ queryKey: ['admin-audit-pt-detail'] });
       refetchLogs();
     },
@@ -267,58 +109,27 @@ export default function AdminAuditCoherencePage() {
   });
 
   const fixMultiActive = useMutation({
-    mutationFn: async (groups: Array<{ atleta_user_id: string; rows: any[] }>) => {
-      // mantiene il più recente, termina gli altri
-      for (const g of groups) {
-        const sorted = [...g.rows].sort((a, b) => a.id.localeCompare(b.id));
-        const toTerminate = sorted.slice(0, -1).map((r) => r.id);
-        if (toTerminate.length) {
-          await supabase
-            .from('pt_atleta_connections')
-            .update({ status: 'terminated', terminated_at: new Date().toISOString() })
-            .in('id', toTerminate);
-        }
-      }
-      await audit({
-        action: 'fix_multi_active_connections',
-        resource: 'audit:pt_atleta_connections',
-        details: { atleti_corretti: groups.map((g) => g.atleta_user_id) },
-      });
-    },
+    mutationFn: async (groups: Array<{ atleta_user_id: string; rows: Array<{ id: string }> }>) =>
+      callAudit('fix_multi_active', { groups }),
     onSuccess: () => {
       toast.success('Connessioni multiple risolte');
-      qc.invalidateQueries({ queryKey: ['audit-multi-active'] });
+      qc.invalidateQueries({ queryKey: ['audit-checks'] });
       refetchLogs();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const fixDupAppointments = useMutation({
-    mutationFn: async (groups: any[][]) => {
-      const toDelete: string[] = [];
-      for (const g of groups) {
-        const sorted = [...g].sort((a, b) => a.id.localeCompare(b.id));
-        toDelete.push(...sorted.slice(1).map((r) => r.id));
-      }
-      if (toDelete.length) {
-        const { error } = await supabase.from('calendar_events').delete().in('id', toDelete);
-        if (error) throw error;
-      }
-      await audit({
-        action: 'fix_duplicate_appointments',
-        resource: 'audit:calendar_events',
-        details: { removed_ids: toDelete, count: toDelete.length },
-      });
-    },
+    mutationFn: async (groups: Array<Array<{ id: string }>>) =>
+      callAudit('fix_duplicate_appointments', { groups }),
     onSuccess: () => {
       toast.success('Appuntamenti duplicati rimossi');
-      qc.invalidateQueries({ queryKey: ['audit-dup-appts'] });
+      qc.invalidateQueries({ queryKey: ['audit-checks'] });
       refetchLogs();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // --- PDF visibility test (signed URLs + head check)
   const runPdfTest = async () => {
     if (!ptDetail) return;
     setPdfTesting(true);
@@ -327,106 +138,93 @@ export default function AdminAuditCoherencePage() {
     const allDocs = ptDetail.athletes.flatMap((a) => a.docs.filter((d) => !!d.file_path));
     for (const d of allDocs) {
       try {
-        const { data, error } = await supabase.storage
-          .from('athlete-documents')
-          .createSignedUrl(d.file_path!, 60);
-        if (error || !data?.signedUrl) {
-          results.push({ id: d.id, title: d.title, ok: false, reason: error?.message || 'no url' });
-          continue;
-        }
-        // HEAD check
+        const res = await callAudit<{ signedUrl: string }>('sign_document_url', {
+          document_id: d.id,
+        });
         try {
-          const res = await fetch(data.signedUrl, { method: 'HEAD' });
-          results.push({ id: d.id, title: d.title, ok: res.ok, reason: res.ok ? undefined : `HTTP ${res.status}` });
+          const head = await fetch(res.signedUrl, { method: 'HEAD' });
+          results.push({
+            id: d.id,
+            title: d.title,
+            ok: head.ok,
+            reason: head.ok ? undefined : `HTTP ${head.status}`,
+          });
         } catch (e: any) {
           results.push({ id: d.id, title: d.title, ok: false, reason: e?.message || 'fetch error' });
         }
       } catch (e: any) {
-        results.push({ id: d.id, title: d.title, ok: false, reason: e?.message || 'exception' });
+        results.push({ id: d.id, title: d.title, ok: false, reason: e?.message || 'sign error' });
       }
     }
     setPdfResults(results);
     setPdfTesting(false);
-    await audit({
-      action: 'test_pdf_visibility',
-      resource: 'audit:storage',
-      resource_id: ptId,
-      details: {
-        pt_user_id: ptId,
-        tested: results.length,
-        failed: results.filter((r) => !r.ok).length,
-      },
-    });
     refetchLogs();
     if (results.length === 0) toast.info('Nessun PDF da testare per questo PT');
     else toast.success(`Test completato: ${results.filter((r) => r.ok).length}/${results.length} OK`);
   };
 
   const refreshAll = () => {
-    qc.invalidateQueries({ queryKey: ['audit-ghost-docs'] });
-    qc.invalidateQueries({ queryKey: ['audit-multi-active'] });
-    qc.invalidateQueries({ queryKey: ['audit-dup-appts'] });
-    qc.invalidateQueries({ queryKey: ['audit-role-mismatch'] });
-    qc.invalidateQueries({ queryKey: ['audit-missing-profiles'] });
+    qc.invalidateQueries({ queryKey: ['audit-checks'] });
     qc.invalidateQueries({ queryKey: ['admin-audit-pt-detail'] });
     refetchLogs();
   };
 
+  const cdata = checksQ.data;
   const checks = [
     {
       key: 'ghost',
       label: 'Documenti fantasma',
       desc: 'Record in athlete_documents senza file allegato.',
       icon: FileWarning,
-      count: ghostQ.data?.length ?? 0,
-      loading: ghostQ.isLoading,
-      onFix: () => fixGhostDocs.mutate((ghostQ.data ?? []).map((d) => d.id)),
+      count: cdata?.ghost.length ?? 0,
+      loading: checksQ.isLoading,
+      onFix: () => fixGhostDocs.mutate((cdata?.ghost ?? []).map((d) => d.id)),
       fixing: fixGhostDocs.isPending,
-      severity: (ghostQ.data?.length ?? 0) > 0 ? 'warn' : 'ok',
+      severity: (cdata?.ghost.length ?? 0) > 0 ? 'warn' : 'ok',
     },
     {
       key: 'multi',
       label: 'Atleti con più PT attivi',
       desc: 'Viola la regola "1 PT per atleta".',
       icon: Users,
-      count: multiActiveQ.data?.length ?? 0,
-      loading: multiActiveQ.isLoading,
-      onFix: () => fixMultiActive.mutate(multiActiveQ.data ?? []),
+      count: cdata?.multiActive.length ?? 0,
+      loading: checksQ.isLoading,
+      onFix: () => fixMultiActive.mutate(cdata?.multiActive ?? []),
       fixing: fixMultiActive.isPending,
-      severity: (multiActiveQ.data?.length ?? 0) > 0 ? 'error' : 'ok',
+      severity: (cdata?.multiActive.length ?? 0) > 0 ? 'error' : 'ok',
     },
     {
       key: 'dup',
       label: 'Appuntamenti duplicati',
       desc: 'Stesso PT, atleta e orario di inizio.',
       icon: CalendarClock,
-      count: dupApptQ.data?.length ?? 0,
-      loading: dupApptQ.isLoading,
-      onFix: () => fixDupAppointments.mutate(dupApptQ.data ?? []),
+      count: cdata?.dupAppts.length ?? 0,
+      loading: checksQ.isLoading,
+      onFix: () => fixDupAppointments.mutate(cdata?.dupAppts ?? []),
       fixing: fixDupAppointments.isPending,
-      severity: (dupApptQ.data?.length ?? 0) > 0 ? 'warn' : 'ok',
+      severity: (cdata?.dupAppts.length ?? 0) > 0 ? 'warn' : 'ok',
     },
     {
       key: 'roles',
       label: 'Ruoli incoerenti su connessioni',
       desc: 'PT o atleta nella connessione senza il ruolo corretto.',
       icon: ShieldCheck,
-      count: roleMismatchQ.data?.length ?? 0,
-      loading: roleMismatchQ.isLoading,
+      count: cdata?.roleMismatch.length ?? 0,
+      loading: checksQ.isLoading,
       onFix: null,
       fixing: false,
-      severity: (roleMismatchQ.data?.length ?? 0) > 0 ? 'error' : 'ok',
+      severity: (cdata?.roleMismatch.length ?? 0) > 0 ? 'error' : 'ok',
     },
     {
       key: 'profiles',
       label: 'Profili mancanti',
       desc: 'Utenti con ruolo pt/atleta ma senza pt_profiles/atleta_profiles.',
       icon: Database,
-      count: missingProfilesQ.data?.length ?? 0,
-      loading: missingProfilesQ.isLoading,
+      count: cdata?.missingProfiles.length ?? 0,
+      loading: checksQ.isLoading,
       onFix: null,
       fixing: false,
-      severity: (missingProfilesQ.data?.length ?? 0) > 0 ? 'warn' : 'ok',
+      severity: (cdata?.missingProfiles.length ?? 0) > 0 ? 'warn' : 'ok',
     },
   ] as const;
 
@@ -443,7 +241,6 @@ export default function AdminAuditCoherencePage() {
         }
       />
 
-      {/* Coherence cards */}
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {checks.map((c) => {
           const Icon = c.icon;
@@ -482,7 +279,6 @@ export default function AdminAuditCoherencePage() {
         })}
       </div>
 
-      {/* PT detail */}
       <SectionCard
         title="Tracciabilità per Personal Trainer"
         subtitle="Seleziona un PT per vedere atleti collegati, documenti e appuntamenti."
@@ -501,11 +297,7 @@ export default function AdminAuditCoherencePage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              disabled={!ptId || pdfTesting}
-              onClick={runPdfTest}
-            >
+            <Button variant="outline" disabled={!ptId || pdfTesting} onClick={runPdfTest}>
               {pdfTesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSearch className="h-4 w-4 mr-2" />}
               Test visibilità PDF
             </Button>
@@ -600,7 +392,6 @@ export default function AdminAuditCoherencePage() {
         </div>
       </SectionCard>
 
-      {/* Audit log */}
       <SectionCard
         title="Log azioni recenti"
         subtitle="Ultime 20 verifiche e correzioni effettuate da questo pannello."
