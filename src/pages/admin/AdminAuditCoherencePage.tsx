@@ -177,7 +177,7 @@ export default function AdminAuditCoherencePage() {
       const [{ data: conns }, { data: events }] = await Promise.all([
         supabase
           .from('pt_atleta_connections')
-          .select('atleta_user_id, status, created_at, profiles:profiles!pt_atleta_connections_atleta_user_id_fkey(first_name, last_name, email)')
+          .select('atleta_user_id, status, created_at')
           .eq('pt_user_id', ptId),
         supabase
           .from('calendar_events')
@@ -185,23 +185,33 @@ export default function AdminAuditCoherencePage() {
           .eq('pt_user_id', ptId),
       ]);
       const atletaIds = (conns ?? []).map((c) => c.atleta_user_id);
-      const { data: docs } = atletaIds.length
-        ? await supabase
-            .from('athlete_documents')
-            .select('id, atleta_user_id, file_path, title, doc_type')
-            .in('atleta_user_id', atletaIds)
-        : { data: [] as any[] };
+      const [{ data: docs }, { data: profs }] = await Promise.all([
+        atletaIds.length
+          ? supabase
+              .from('athlete_documents')
+              .select('id, atleta_user_id, file_path, title, doc_type')
+              .in('atleta_user_id', atletaIds)
+          : Promise.resolve({ data: [] as any[] }),
+        atletaIds.length
+          ? supabase
+              .from('profiles')
+              .select('user_id, first_name, last_name, email')
+              .in('user_id', atletaIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const pmap = new Map((profs ?? []).map((p: any) => [p.user_id, p]));
 
       const byAtleta = (conns ?? []).map((c) => {
-        const aDocs = (docs ?? []).filter((d) => d.atleta_user_id === c.atleta_user_id);
+        const p = pmap.get(c.atleta_user_id);
+        const aDocs = (docs ?? []).filter((d: any) => d.atleta_user_id === c.atleta_user_id);
         const aEvents = (events ?? []).filter((e) => e.atleta_user_id === c.atleta_user_id && !e.is_cancelled);
         return {
           atleta_user_id: c.atleta_user_id,
-          name: [c.profiles?.first_name, c.profiles?.last_name].filter(Boolean).join(' ').trim() || c.profiles?.email || c.atleta_user_id.slice(0, 8),
-          email: c.profiles?.email ?? '',
+          name: [p?.first_name, p?.last_name].filter(Boolean).join(' ').trim() || p?.email || c.atleta_user_id.slice(0, 8),
+          email: p?.email ?? '',
           status: c.status,
           docsTotal: aDocs.length,
-          docsGhost: aDocs.filter((d) => !d.file_path).length,
+          docsGhost: aDocs.filter((d: any) => !d.file_path).length,
           appointments: aEvents.filter((e) => e.category === 'appuntamento').length,
           events: aEvents.filter((e) => e.category === 'evento').length,
           docs: aDocs,
