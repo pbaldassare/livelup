@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { X, Download, Share, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
 
 export function InstallBanner() {
   const { isInstallable, isInstalled, isIOS, install, dismissBanner, canShowPrompt } = useInstallPrompt();
+  const { isAtleta, isPT } = usePermissions();
+  const location = useLocation();
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
 
@@ -36,6 +40,15 @@ export function InstallBanner() {
     }
   };
 
+  // Role + route gate (defense-in-depth):
+  // - The banner is allowed only for Atleta on /app/* and for PT inside the PWA shell at /pt/app/*.
+  // - Admins, unauthenticated users, web dashboards (/admin, /pt without /app) and public pages NEVER see it.
+  const path = location.pathname;
+  const onAtletaPWA = isAtleta && path.startsWith('/app');
+  const onPTPWA = isPT && path.startsWith('/pt/app');
+  const roleAllowed = onAtletaPWA || onPTPWA;
+
+  if (!roleAllowed) return null;
   if (!isVisible || isInstalled) return null;
 
   return (
