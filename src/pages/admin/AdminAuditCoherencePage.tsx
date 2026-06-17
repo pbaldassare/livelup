@@ -44,8 +44,8 @@ function useAuditLog() {
       action: a.action,
       resource: a.resource,
       resource_id: a.resource_id ?? null,
-      details: a.details ?? {},
-    });
+      details: (a.details ?? {}) as any,
+    } as any);
   };
 }
 
