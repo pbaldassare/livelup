@@ -68,7 +68,7 @@ interface Certificate {
   created_at: string;
 }
 
-export function PTSettingsPage() {
+export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isLocating, setIsLocating] = useState(false);
@@ -358,7 +358,10 @@ export function PTSettingsPage() {
 
   return (
     <div className="space-y-6 animate-in">
-      <PageHeader title="Impostazioni" description="Gestisci il tuo profilo pubblico e le preferenze" icon={Settings} actions={saveButton} />
+      {!embedded && (
+        <PageHeader title="Impostazioni" description="Gestisci il tuo profilo pubblico e le preferenze" icon={Settings} actions={saveButton} />
+      )}
+      {embedded && <div className="flex justify-end">{saveButton}</div>}
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="flex-wrap h-auto gap-1">

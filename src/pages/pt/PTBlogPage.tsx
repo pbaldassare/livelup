@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { toast } from 'sonner';
 
-export function PTBlogPage() {
+export function PTBlogPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -109,17 +109,26 @@ export function PTBlogPage() {
 
   return (
     <div className="space-y-6 animate-in">
-      <PageHeader
-        title="Blog"
-        description="Crea e gestisci i tuoi articoli"
-        icon={BookOpen}
-        actions={
-          <Button onClick={() => { setEditingPost(null); setForm({ title: '', content: '', tags: '', cover_image_url: '' }); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nuovo Articolo
+      {!embedded && (
+        <PageHeader
+          title="Blog"
+          description="Crea e gestisci i tuoi articoli"
+          icon={BookOpen}
+          actions={
+            <Button onClick={() => { setEditingPost(null); setForm({ title: '', content: '', tags: '', cover_image_url: '' }); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nuovo Articolo
+            </Button>
+          }
+        />
+      )}
+      {embedded && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => { setEditingPost(null); setForm({ title: '', content: '', tags: '', cover_image_url: '' }); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-1" /> Nuovo
           </Button>
-        }
-      />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>

@@ -114,7 +114,7 @@ interface Workout {
   created_at: string;
 }
 
-export function PTWorkoutsPage() {
+export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -718,12 +718,15 @@ export function PTWorkoutsPage() {
 
   return (
     <div className="space-y-6 animate-in">
-      <PageHeader
-        title="Allenamenti"
-        description="Crea e gestisci schede di allenamento"
-        icon={Dumbbell}
-        actions={createButton}
-      />
+      {!embedded && (
+        <PageHeader
+          title="Allenamenti"
+          description="Crea e gestisci schede di allenamento"
+          icon={Dumbbell}
+          actions={createButton}
+        />
+      )}
+      {embedded && <div className="flex justify-end">{createButton}</div>}
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
