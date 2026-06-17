@@ -46,6 +46,7 @@ import AdminCouponTemplatesPage from "./pages/admin/AdminCouponTemplatesPage";
 import AdminSupportPage from "./pages/admin/AdminSupportPage";
 import AdminTicketDetailPage from "./pages/admin/AdminTicketDetailPage";
 import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
+import AdminAuditCoherencePage from "./pages/admin/AdminAuditCoherencePage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminCoursesPage from "./pages/admin/AdminCoursesPage";
 import AdminMessagesPage from "./pages/admin/AdminMessagesPage";
