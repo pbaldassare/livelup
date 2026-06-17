@@ -72,6 +72,98 @@ Deno.serve(async (req) => {
 
   try {
     switch (action) {
+      case 'pt_readiness': {
+        // Stato di "predisposizione" di tutti i PT: profilo, status, atleti,
+        // pacchetti, completamento profilo (per onboarding).
+        const [rolesRes, profsRes, ptProfRes, connsRes, pkgsRes] = await Promise.all([
+          admin.from('user_roles').select('user_id').eq('role', 'pt'),
+          admin.from('profiles').select('user_id, first_name, last_name, email, avatar_url'),
+          admin
+            .from('pt_profiles')
+            .select(
+              'user_id, status, bio, specializations, certifications, experience_years, location_city, hourly_rate, max_athletes, is_discoverable, offers_online, offers_in_person, latitude, longitude',
+            ),
+          admin.from('pt_atleta_connections').select('pt_user_id, status').eq('status', 'active'),
+          admin.from('pt_packages').select('pt_user_id, is_active').eq('is_active', true),
+        ]);
+        const ids = (rolesRes.data ?? []).map((r) => r.user_id);
+        const pmap = new Map((profsRes.data ?? []).map((p: any) => [p.user_id, p]));
+        const ptMap = new Map((ptProfRes.data ?? []).map((p: any) => [p.user_id, p]));
+        const connCount = new Map<string, number>();
+        (connsRes.data ?? []).forEach((c: any) =>
+          connCount.set(c.pt_user_id, (connCount.get(c.pt_user_id) ?? 0) + 1),
+        );
+        const pkgCount = new Map<string, number>();
+        (pkgsRes.data ?? []).forEach((p: any) =>
+          pkgCount.set(p.pt_user_id, (pkgCount.get(p.pt_user_id) ?? 0) + 1),
+        );
+
+        const checklist = (pt: any, prof: any) => {
+          const items = {
+            profile_row: !!pt,
+            full_name: !!(prof?.first_name && prof?.last_name),
+            bio: !!(pt?.bio && pt.bio.length >= 40),
+            specializations: Array.isArray(pt?.specializations) && pt.specializations.length > 0,
+            certifications: Array.isArray(pt?.certifications) && pt.certifications.length > 0,
+            location: !!pt?.location_city,
+            pricing: pt?.hourly_rate != null && Number(pt?.hourly_rate) > 0,
+            avatar: !!prof?.avatar_url,
+            discoverable: !!pt?.is_discoverable,
+          };
+          const total = Object.keys(items).length;
+          const done = Object.values(items).filter(Boolean).length;
+          return { items, percent: Math.round((done / total) * 100) };
+        };
+
+        const pts = ids
+          .map((id) => {
+            const prof: any = pmap.get(id);
+            const pt: any = ptMap.get(id);
+            const cl = checklist(pt, prof);
+            const status: string = pt?.status ?? 'missing';
+            return {
+              user_id: id,
+              name:
+                [prof?.first_name, prof?.last_name].filter(Boolean).join(' ').trim() ||
+                prof?.email ||
+                id.slice(0, 8),
+              email: prof?.email ?? '',
+              status,
+              active_athletes: connCount.get(id) ?? 0,
+              max_athletes: pt?.max_athletes ?? 50,
+              active_packages: pkgCount.get(id) ?? 0,
+              has_profile_row: !!pt,
+              completion_percent: cl.percent,
+              checklist: cl.items,
+              needs_onboarding: status === 'registrato' || cl.percent < 60,
+              needs_approval: status === 'in_attesa_approvazione',
+              ready: status === 'attivo' && cl.percent >= 80,
+            };
+          })
+          .sort((a, b) => a.completion_percent - b.completion_percent);
+
+        const summary = {
+          total: pts.length,
+          ready: pts.filter((p) => p.ready).length,
+          onboarding: pts.filter((p) => p.needs_onboarding).length,
+          awaiting_approval: pts.filter((p) => p.needs_approval).length,
+          suspended: pts.filter((p) => p.status === 'sospeso').length,
+          missing_profile: pts.filter((p) => !p.has_profile_row).length,
+          avg_completion:
+            pts.length > 0
+              ? Math.round(pts.reduce((a, p) => a + p.completion_percent, 0) / pts.length)
+              : 0,
+        };
+
+        await logAudit({
+          action: 'pt_readiness_report',
+          resource: 'audit:pt_readiness',
+          details: { total: summary.total, ready: summary.ready },
+        });
+
+        return json({ pts, summary });
+      }
+
       case 'list_pts': {
         const { data: roles } = await admin.from('user_roles').select('user_id').eq('role', 'pt');
         const ids = (roles ?? []).map((r) => r.user_id);
