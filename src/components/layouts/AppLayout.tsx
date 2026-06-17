@@ -80,11 +80,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div 
-      className="min-h-screen bg-app-background flex flex-col" 
+      className="min-h-screen bg-app-background flex flex-col overflow-x-hidden" 
       data-role={roleClass}
     >
       {/* Main content area - leaves space for bottom nav */}
-      <main className="flex-1 pb-20 safe-top text-app-foreground">
+      <main className="flex-1 pb-20 safe-top text-app-foreground min-h-0 overflow-x-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
