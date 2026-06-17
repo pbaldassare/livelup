@@ -97,6 +97,11 @@ const navigationItems = [
     icon: Settings 
   },
   { 
+    label: 'Audit & Coerenza', 
+    href: '/admin/audit', 
+    icon: ShieldCheck 
+  },
+  { 
     label: 'Sitemap', 
     href: '/admin/sitemap', 
     icon: Map 
