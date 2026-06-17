@@ -17,7 +17,8 @@ import {
   Map,
   Dumbbell,
   Library,
-  Layers
+  Layers,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -95,6 +96,11 @@ const navigationItems = [
     label: 'Impostazioni', 
     href: '/admin/settings', 
     icon: Settings 
+  },
+  { 
+    label: 'Audit & Coerenza', 
+    href: '/admin/audit', 
+    icon: ShieldCheck 
   },
   { 
     label: 'Sitemap', 
