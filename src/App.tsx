@@ -478,6 +478,35 @@ const App = () => {
                   </AppLayout>
                 </PTAppRoute>
               } />
+              {/* Athlete detail nella PWA — riusa la pagina web (responsive) */}
+              <Route path="/pt/app/athlete/:atletaId" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAthleteDetailPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/athlete/:atletaId/workouts" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAthleteDetailPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              {/* Alias plurale per coerenza con la dashboard web */}
+              <Route path="/pt/app/athletes/:atletaId" element={<Navigate to="/pt/app/athlete/:atletaId" replace />} />
+              {/* Template detail */}
+              <Route path="/pt/app/templates/:templateId" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTTemplateDetailPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              {/* Legacy/web aliases dentro la PWA */}
+              <Route path="/pt/app/messages" element={<Navigate to="/pt/app/chat" replace />} />
+              <Route path="/pt/app/calendar/eventi" element={<Navigate to="/pt/app/calendar" replace />} />
+              <Route path="/pt/app/calendar/appuntamenti" element={<Navigate to="/pt/app/calendar" replace />} />
 
 
               {/* ============================================= */}
