@@ -485,7 +485,7 @@ export default function AdminAuditCoherencePage() {
       {/* PT detail */}
       <SectionCard
         title="Tracciabilità per Personal Trainer"
-        description="Seleziona un PT per vedere atleti collegati, documenti e appuntamenti."
+        subtitle="Seleziona un PT per vedere atleti collegati, documenti e appuntamenti."
       >
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -603,7 +603,7 @@ export default function AdminAuditCoherencePage() {
       {/* Audit log */}
       <SectionCard
         title="Log azioni recenti"
-        description="Ultime 20 verifiche e correzioni effettuate da questo pannello."
+        subtitle="Ultime 20 verifiche e correzioni effettuate da questo pannello."
       >
         {logs.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">Nessuna azione registrata.</p>
