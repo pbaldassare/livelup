@@ -2,7 +2,8 @@
 // TIPI DATABASE - Generati da schema BLOCCO 2
 // =====================================================
 
-import type { Database } from '@/integrations/supabase/types';
+import type { Database, Json } from '@/integrations/supabase/types';
+import type { ProtocolParams } from '@/lib/protocols/registry';
 
 // =====================================================
 // TIPI ENUM
@@ -45,6 +46,30 @@ export type AtletaProfileUpdate = Database['public']['Tables']['atleta_profiles'
 
 // Connection
 export type PTAtletaConnection = Database['public']['Tables']['pt_atleta_connections']['Row'];
+
+// =====================================================
+// WORKOUT JSON COLUMNS & LOG TYPES
+// =====================================================
+
+/** Protocol configuration stored in `protocol_params` JSON columns. */
+export type ProtocolConfig = ProtocolParams;
+
+/** Per-set prescription stored in `sets_data` JSON columns. */
+export interface SetData {
+  reps: number | null;
+  weight: number | null;
+  rest_seconds: number | null;
+}
+
+export type WorkoutLogInsert = Database['public']['Tables']['workout_logs']['Insert'];
+export type TemplateExerciseInsert = Database['public']['Tables']['template_exercises']['Insert'];
+export type TemplateExerciseUpdate = Database['public']['Tables']['template_exercises']['Update'];
+export type WorkoutRowUpdate = Database['public']['Tables']['workouts']['Update'];
+
+/** Cast structured app types to Supabase `Json` columns without `as any`. */
+export function toJson<T>(value: T): Json {
+  return value as Json;
+}
 
 // =====================================================
 // TIPI CUSTOM (non ancora in types.ts)

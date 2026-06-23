@@ -22,7 +22,11 @@ import { AtletaTimedRoundsPlayer } from '@/components/app/AtletaTimedRoundsPlaye
 import { NextExercisePreview } from '@/components/app/NextExercisePreview';
 import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
+import { WorkoutProgressBar } from '@/components/app/WorkoutProgressBar';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
+import { logExerciseSet } from '@/lib/api/workouts';
+import { useAdvanceExercise } from '@/hooks/useAdvanceExercise';
+import type { ProtocolConfig, SetData, WorkoutRowUpdate } from '@/types/database';
 
 // =====================================================
 // GUIDED WORKOUT FLOW
@@ -42,8 +46,8 @@ export interface GWExercise {
   rest_seconds?: number | null;
   notes?: string | null;
   protocol_type?: string | null;
-  protocol_params?: Record<string, unknown> | null;
-  sets_data?: unknown;
+  protocol_params?: ProtocolConfig | null;
+  sets_data?: SetData[] | null;
   exercises: {
     name: string;
     category?: string | null;
@@ -78,6 +82,7 @@ interface State {
   reps: number;
   duration: number; // secondi (per esercizi a tempo)
   weight: number;
+  rpe: number;
   restSeconds: number;
   restTotal: number;
   restStartedAt: number | null;
@@ -95,7 +100,8 @@ type Action =
   | { type: 'SET_REPS'; v: number }
   | { type: 'SET_DURATION'; v: number }
   | { type: 'SET_WEIGHT'; v: number }
-  | { type: 'COMPLETE_SET' }
+  | { type: 'SET_RPE'; v: number }
+  | { type: 'MARK_SET_COMPLETED'; exerciseId: string; setNumber: number }
   | { type: 'AFTER_SAVE'; rest: number }
   | { type: 'TICK_REST' }
   | { type: 'ADJUST_REST'; delta: number }
@@ -116,6 +122,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, duration: Math.max(0, action.v) };
     case 'SET_WEIGHT':
       return { ...state, weight: Math.max(0, action.v) };
+    case 'SET_RPE':
+      return { ...state, rpe: Math.min(10, Math.max(6, action.v)) };
     case 'AFTER_SAVE':
       return {
         ...state,
@@ -156,8 +164,17 @@ function reducer(state: State, action: Action): State {
       };
     case 'CLEAR_TRANSITION':
       return { ...state, transitionMessage: null };
-    case 'COMPLETE_SET':
-      return state;
+    case 'MARK_SET_COMPLETED':
+      return {
+        ...state,
+        completed: {
+          ...state.completed,
+          [action.exerciseId]: [
+            ...(state.completed[action.exerciseId] || []),
+            action.setNumber,
+          ],
+        },
+      };
     case 'FINISH':
       return { ...state, flow: 'finished' };
     default:
@@ -187,6 +204,7 @@ export function GuidedWorkoutFlow({
     reps: parseInitialReps(initialExercise),
     duration: Number(initialExercise?.prescribed_duration_seconds || 0),
     weight: Number(initialExercise?.prescribed_weight || 0),
+    rpe: 7,
     restSeconds: initialExercise?.rest_seconds || 60,
     restTotal: initialExercise?.rest_seconds || 60,
     restStartedAt: null,
@@ -243,7 +261,7 @@ export function GuidedWorkoutFlow({
       startedRef.current = true;
       supabase
         .from('workouts')
-        .update({ status: 'in_corso' as any })
+        .update({ status: 'in_corso' } satisfies Pick<WorkoutRowUpdate, 'status'>)
         .eq('id', workoutId)
         .in('status', ['attivo', 'in_sospeso'])
         .then(() => {
@@ -258,17 +276,6 @@ export function GuidedWorkoutFlow({
     dispatch({ type: 'SET_DURATION', v: Number(currentExercise?.prescribed_duration_seconds || 0) });
     dispatch({ type: 'SET_WEIGHT', v: Number(currentExercise?.prescribed_weight || 0) });
   }, [state.exerciseIndex, currentExercise]);
-
-  // Rest timer ticking
-  useEffect(() => {
-    if (state.flow !== 'rest') return;
-    if (state.restSeconds <= 0) {
-      handleRestEnd();
-      return;
-    }
-    const t = setTimeout(() => dispatch({ type: 'TICK_REST' }), 1000);
-    return () => clearTimeout(t);
-  }, [state.flow, state.restSeconds]);
 
   // Auto-clear transition messages
   useEffect(() => {
@@ -287,6 +294,7 @@ export function GuidedWorkoutFlow({
       durationSeconds: number;
       weight: number;
       restPlanned: number;
+      rpe?: number;
     }) => {
       if (ptOnBehalfMode) {
         // PT executing the session in person on the athlete's behalf.
@@ -297,30 +305,40 @@ export function GuidedWorkoutFlow({
           _reps_completed: payload.reps || null,
           _weight_used: payload.weight || null,
           _duration_seconds: payload.durationSeconds || null,
-          _rpe: null,
+          _rpe: payload.rpe ?? null,
           _notes: `rest_planned:${payload.restPlanned}`,
         });
         if (error) throw error;
         return;
       }
 
-      await supabase
-        .from('workout_logs')
-        .delete()
-        .eq('workout_exercise_id', payload.workoutExerciseId)
-        .eq('set_number', payload.setNumber);
-
-      const { error } = await supabase.from('workout_logs').insert({
-        workout_exercise_id: payload.workoutExerciseId,
-        set_number: payload.setNumber,
-        reps_completed: payload.reps || null,
-        duration_seconds: payload.durationSeconds || null,
-        weight_used: payload.weight || null,
-        is_completed: true,
+      await logExerciseSet({
+        workoutExerciseId: payload.workoutExerciseId,
+        setNumber: payload.setNumber,
+        repsCompleted: payload.reps || undefined,
+        durationSeconds: payload.durationSeconds || undefined,
+        weightUsed: payload.weight || undefined,
+        rpe: payload.rpe,
         notes: `rest_planned:${payload.restPlanned}`,
       });
-      if (error) throw error;
     },
+  });
+
+  const advanceAfterProtocol = useAdvanceExercise({
+    exerciseIndex: state.exerciseIndex,
+    exercises,
+    skipped: state.skipped,
+    onFinish: () => dispatch({ type: 'FINISH' }),
+    onGoToNext: (nextIdx) =>
+      dispatch({
+        type: 'GOTO_NEXT',
+        payload: {
+          exerciseIndex: nextIdx,
+          setNumber: 1,
+          flow: 'ready',
+          transitionMessage: 'Prossimo esercizio',
+        },
+      }),
   });
 
   const advance = useCallback(
@@ -374,6 +392,17 @@ export function GuidedWorkoutFlow({
     advance(true);
   }, [advance]);
 
+  // Rest timer ticking
+  useEffect(() => {
+    if (state.flow !== 'rest') return;
+    if (state.restSeconds <= 0) {
+      handleRestEnd();
+      return;
+    }
+    const t = setTimeout(() => dispatch({ type: 'TICK_REST' }), 1000);
+    return () => clearTimeout(t);
+  }, [state.flow, state.restSeconds, handleRestEnd]);
+
   const handleCompleteSet = async () => {
     if (!currentExercise) return;
     try {
@@ -385,13 +414,14 @@ export function GuidedWorkoutFlow({
         durationSeconds: isTimedExercise(currentExercise) ? state.duration : 0,
         weight: state.weight,
         restPlanned,
+        rpe: state.rpe,
       });
 
-      // segna completato localmente
-      state.completed[currentExercise.id] = [
-        ...(state.completed[currentExercise.id] || []),
-        state.setNumber,
-      ];
+      dispatch({
+        type: 'MARK_SET_COMPLETED',
+        exerciseId: currentExercise.id,
+        setNumber: state.setNumber,
+      });
 
       const isLastSet = state.setNumber >= totalSetsForCurrent;
       const isLastExercise = state.exerciseIndex >= exercises.length - 1;
@@ -467,34 +497,20 @@ export function GuidedWorkoutFlow({
       }
     : null;
 
+  const rampingNote = getRampingCoachNote(currentExercise.protocol_params);
+
   // Branch dedicato EMOM: player a round con timer, alternanza blocchi in loop.
   if (currentExercise.protocol_type === 'EMOM') {
     return (
       <>
       <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
-        {/* Top progress bar */}
-        <div className="px-4 pt-4 pb-2">
-          <div className="flex gap-1">
-            {exercises.map((ex, idx) => {
-              const isCurrent = idx === state.exerciseIndex;
-              const isDone = idx < state.exerciseIndex || !!state.skipped[ex.id];
-              return (
-                <div
-                  key={ex.id}
-                  className={cn(
-                    'flex-1 h-1 rounded-full',
-                    isDone ? 'bg-app-accent' : isCurrent ? 'bg-app-accent/50' : 'bg-app-muted',
-                  )}
-                />
-              );
-            })}
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-app-muted-foreground">
-              Esercizio {state.exerciseIndex + 1}/{exercises.length}
-            </span>
-          </div>
-        </div>
+        <WorkoutProgressBar
+          exercises={exercises}
+          exerciseIndex={state.exerciseIndex}
+          skipped={state.skipped}
+          current={state.exerciseIndex + 1}
+          total={exercises.length}
+        />
 
         <AtletaEmomPlayer
           key={currentExercise.id}
@@ -504,17 +520,7 @@ export function GuidedWorkoutFlow({
           onShowDetails={openDetails}
           onFinished={async () => {
             try {
-              const params = (currentExercise.protocol_params ?? {}) as Record<string, unknown>;
-              const rounds =
-                typeof params.rounds === 'number' && params.rounds > 0
-                  ? Math.floor(params.rounds)
-                  : 0;
-              const roundDuration =
-                typeof params.round_duration === 'number' && params.round_duration > 0
-                  ? Math.floor(params.round_duration)
-                  : typeof params.duration_minutes === 'number'
-                    ? Math.floor(params.duration_minutes * 60)
-                    : 0;
+              const { rounds, roundDuration } = getEmomLogMetrics(currentExercise.protocol_params);
               await saveSet.mutateAsync({
                 workoutExerciseId: currentExercise.id,
                 setNumber: 1,
@@ -523,34 +529,11 @@ export function GuidedWorkoutFlow({
                 weight: 0,
                 restPlanned: 0,
               });
-            } catch (e: any) {
-              toast.error(e?.message || 'Errore salvataggio EMOM');
+            } catch (e: unknown) {
+              const message = e instanceof Error ? e.message : 'Errore salvataggio EMOM';
+              toast.error(message);
             }
-            // EMOM è un protocollo single-log: forziamo il passaggio al
-            // prossimo esercizio (o la fine workout) bypassando la logica
-            // di setNumber/totalSets che vale solo per protocolli set-based.
-            const isLastExercise = state.exerciseIndex >= exercises.length - 1;
-            if (isLastExercise) {
-              dispatch({ type: 'FINISH' });
-              return;
-            }
-            let nextIdx = state.exerciseIndex + 1;
-            while (nextIdx < exercises.length && state.skipped[exercises[nextIdx].id]) {
-              nextIdx++;
-            }
-            if (nextIdx >= exercises.length) {
-              dispatch({ type: 'FINISH' });
-              return;
-            }
-            dispatch({
-              type: 'GOTO_NEXT',
-              payload: {
-                exerciseIndex: nextIdx,
-                setNumber: 1,
-                flow: 'ready',
-                transitionMessage: 'Prossimo esercizio',
-              },
-            });
+            advanceAfterProtocol();
           }}
         />
       </div>
@@ -565,28 +548,13 @@ export function GuidedWorkoutFlow({
     return (
       <>
       <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
-        <div className="px-4 pt-4 pb-2">
-          <div className="flex gap-1">
-            {exercises.map((ex, idx) => {
-              const isCurrent = idx === state.exerciseIndex;
-              const isDone = idx < state.exerciseIndex || !!state.skipped[ex.id];
-              return (
-                <div
-                  key={ex.id}
-                  className={cn(
-                    'flex-1 h-1 rounded-full',
-                    isDone ? 'bg-app-accent' : isCurrent ? 'bg-app-accent/50' : 'bg-app-muted',
-                  )}
-                />
-              );
-            })}
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-app-muted-foreground">
-              Esercizio {state.exerciseIndex + 1}/{exercises.length}
-            </span>
-          </div>
-        </div>
+        <WorkoutProgressBar
+          exercises={exercises}
+          exerciseIndex={state.exerciseIndex}
+          skipped={state.skipped}
+          current={state.exerciseIndex + 1}
+          total={exercises.length}
+        />
 
         <AtletaTimedRoundsPlayer
           key={currentExercise.id}
@@ -605,32 +573,12 @@ export function GuidedWorkoutFlow({
                 weight: 0,
                 restPlanned: 0,
               });
-            } catch (e: any) {
-              toast.error(e?.message || `Errore salvataggio ${protocolLabel}`);
+            } catch (e: unknown) {
+              const message =
+                e instanceof Error ? e.message : `Errore salvataggio ${protocolLabel}`;
+              toast.error(message);
             }
-            // Single-log + auto-advance identico a EMOM
-            const isLastExercise = state.exerciseIndex >= exercises.length - 1;
-            if (isLastExercise) {
-              dispatch({ type: 'FINISH' });
-              return;
-            }
-            let nextIdx = state.exerciseIndex + 1;
-            while (nextIdx < exercises.length && state.skipped[exercises[nextIdx].id]) {
-              nextIdx++;
-            }
-            if (nextIdx >= exercises.length) {
-              dispatch({ type: 'FINISH' });
-              return;
-            }
-            dispatch({
-              type: 'GOTO_NEXT',
-              payload: {
-                exerciseIndex: nextIdx,
-                setNumber: 1,
-                flow: 'ready',
-                transitionMessage: 'Prossimo esercizio',
-              },
-            });
+            advanceAfterProtocol();
           }}
         />
       </div>
@@ -642,37 +590,14 @@ export function GuidedWorkoutFlow({
   return (
     <>
     <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
-      {/* Top progress bar */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex gap-1">
-          {exercises.map((ex, idx) => {
-            const isCurrent = idx === state.exerciseIndex;
-            const isDone =
-              idx < state.exerciseIndex || !!state.skipped[ex.id];
-            return (
-              <div
-                key={ex.id}
-                className={cn(
-                  'flex-1 h-1 rounded-full',
-                  isDone
-                    ? 'bg-app-accent'
-                    : isCurrent
-                    ? 'bg-app-accent/50'
-                    : 'bg-app-muted'
-                )}
-              />
-            );
-          })}
-        </div>
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-app-muted-foreground">
-            Esercizio {state.exerciseIndex + 1}/{exercises.length}
-          </span>
-          <span className="text-xs text-app-muted-foreground">
-            Serie {Math.min(state.setNumber, totalSetsForCurrent)}/{totalSetsForCurrent}
-          </span>
-        </div>
-      </div>
+      <WorkoutProgressBar
+        exercises={exercises}
+        exerciseIndex={state.exerciseIndex}
+        skipped={state.skipped}
+        current={state.exerciseIndex + 1}
+        total={exercises.length}
+        label={`Serie ${Math.min(state.setNumber, totalSetsForCurrent)}/${totalSetsForCurrent}`}
+      />
 
       {/* Main dynamic area */}
       <div className="flex-1 relative">
@@ -701,11 +626,11 @@ export function GuidedWorkoutFlow({
                 Serie {state.setNumber} di {totalSetsForCurrent}
               </p>
 
-              {currentExercise.protocol_type === 'RAMPING' && typeof (currentExercise.protocol_params as any)?.note === 'string' && (currentExercise.protocol_params as any).note.trim() !== '' && (
+              {rampingNote && (
                 <div className="w-full max-w-xs mb-4 rounded-xl border border-app-border bg-app-card/60 px-4 py-3 text-left">
                   <p className="text-xs text-app-muted-foreground mb-1">Note del coach</p>
                   <p className="text-sm text-app-foreground whitespace-pre-line">
-                    {(currentExercise.protocol_params as any).note}
+                    {rampingNote}
                   </p>
                 </div>
               )}
@@ -783,6 +708,7 @@ export function GuidedWorkoutFlow({
                   step={2.5}
                   onChange={(v) => dispatch({ type: 'SET_WEIGHT', v })}
                 />
+                <RpeSelector value={state.rpe} onChange={(v) => dispatch({ type: 'SET_RPE', v })} />
               </div>
 
               <Button
@@ -956,6 +882,64 @@ function parseInitialReps(ex?: GWExercise): number {
   if (!ex) return 0;
   if (ex.prescribed_reps_min) return ex.prescribed_reps_min;
   return 10;
+}
+
+function getRampingCoachNote(params: ProtocolConfig | null | undefined): string | null {
+  const note = params?.note;
+  if (typeof note !== 'string' || note.trim() === '') return null;
+  return note;
+}
+
+function getEmomLogMetrics(params: ProtocolConfig | null | undefined) {
+  const p = params ?? {};
+  const rounds =
+    typeof p.rounds === 'number' && p.rounds > 0 ? Math.floor(p.rounds) : 0;
+  const roundDuration =
+    typeof p.round_duration === 'number' && p.round_duration > 0
+      ? Math.floor(p.round_duration)
+      : typeof p.duration_minutes === 'number'
+        ? Math.floor(p.duration_minutes * 60)
+        : 0;
+  return { rounds, roundDuration };
+}
+
+const RPE_LABELS: Record<number, string> = {
+  6: 'Facile',
+  7: 'Moderato',
+  8: 'Impegnativo',
+  9: 'Molto duro',
+  10: 'Massimale',
+};
+
+function RpeSelector({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-app-foreground font-medium">RPE (sforzo percepito)</span>
+        <span className="text-sm text-app-accent font-semibold">{value}/10</span>
+      </div>
+      <div className="flex gap-1.5">
+        {[6, 7, 8, 9, 10].map((val) => (
+          <button
+            key={val}
+            type="button"
+            onClick={() => onChange(val)}
+            className={cn(
+              'flex-1 py-2 rounded-lg text-sm font-medium transition-colors',
+              value === val
+                ? 'bg-app-accent text-app-accent-foreground'
+                : 'bg-app-muted text-app-muted-foreground hover:bg-app-muted/80',
+            )}
+          >
+            {val}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-app-muted-foreground text-center">
+        {RPE_LABELS[value] || ''}
+      </p>
+    </div>
+  );
 }
 
 function formatRepsLabel(ex: GWExercise): string {

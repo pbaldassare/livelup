@@ -4,7 +4,6 @@
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';
-import type { Workout, WorkoutExercise, WorkoutLog } from '@/types/database';
 
 // =====================================================
 // CREA WORKOUT
@@ -212,7 +211,7 @@ export async function completeWorkout(workoutId: string, feedback?: {
       rating: feedback?.rating,
     })
     .eq('id', workoutId)
-    .eq('status', 'attivo')
+    .in('status', ['attivo', 'in_corso'])
     .select()
     .single();
 
@@ -238,16 +237,19 @@ export async function logExerciseSet(params: {
 }) {
   const { data, error } = await supabase
     .from('workout_logs')
-    .insert({
-      workout_exercise_id: params.workoutExerciseId,
-      set_number: params.setNumber,
-      reps_completed: params.repsCompleted,
-      weight_used: params.weightUsed,
-      duration_seconds: params.durationSeconds,
-      is_completed: true,
-      rpe: params.rpe,
-      notes: params.notes,
-    })
+    .upsert(
+      {
+        workout_exercise_id: params.workoutExerciseId,
+        set_number: params.setNumber,
+        reps_completed: params.repsCompleted,
+        weight_used: params.weightUsed,
+        duration_seconds: params.durationSeconds,
+        is_completed: true,
+        rpe: params.rpe,
+        notes: params.notes,
+      },
+      { onConflict: 'workout_exercise_id,set_number' },
+    )
     .select()
     .single();
 
@@ -352,26 +354,41 @@ export async function importTemplateFromAI(params: {
   }
 
   try {
-    // 2. Risolvi exercise_id per ognuno (lookup case-insensitive, crea se manca)
+    // 2. Risolvi exercise_id — batch lookup case-insensitive, poi crea i mancanti
+    const trimmedNames = exercises.map((ex) => {
+      const name = ex.name?.trim();
+      if (!name) throw new Error('Esercizio senza nome');
+      return name;
+    });
+
+    const uniqueNames = [...new Set(trimmedNames)];
+    const ilikeOrFilter = uniqueNames
+      .map((name) => {
+        const escaped = /[,.()]/.test(name) ? `"${name.replace(/"/g, '""')}"` : name;
+        return `name.ilike.${escaped}`;
+      })
+      .join(',');
+
+    const { data: matches, error: findErr } = await supabase
+      .from('exercises')
+      .select('id, name, is_public, created_by')
+      .or(ilikeOrFilter);
+
+    if (findErr) throw new Error('Errore ricerca esercizio: ' + findErr.message);
+
+    const exerciseIdByLowerName = new Map<string, string>();
+    for (const row of matches ?? []) {
+      if (!row.is_public && row.created_by !== ptUserId) continue;
+      const key = row.name.trim().toLowerCase();
+      if (!exerciseIdByLowerName.has(key)) {
+        exerciseIdByLowerName.set(key, row.id);
+      }
+    }
+
     const exerciseIds: string[] = [];
 
-    for (const ex of exercises) {
-      const name = ex.name?.trim();
-      if (!name) {
-        throw new Error('Esercizio senza nome');
-      }
-
-      // Lookup esistente (case-insensitive)
-      const { data: found, error: findErr } = await supabase
-        .from('exercises')
-        .select('id')
-        .ilike('name', name)
-        .limit(1)
-        .maybeSingle();
-
-      if (findErr) throw new Error('Errore ricerca esercizio: ' + findErr.message);
-
-      let exerciseId = found?.id as string | undefined;
+    for (const name of trimmedNames) {
+      let exerciseId = exerciseIdByLowerName.get(name.toLowerCase());
 
       if (!exerciseId) {
         const { data: created, error: createErr } = await supabase
@@ -388,6 +405,7 @@ export async function importTemplateFromAI(params: {
           throw new Error('Errore creazione esercizio: ' + (createErr?.message ?? 'unknown'));
         }
         exerciseId = created.id;
+        exerciseIdByLowerName.set(name.toLowerCase(), exerciseId);
       }
 
       exerciseIds.push(exerciseId);

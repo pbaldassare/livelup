@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -34,20 +34,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Plus,
   Trash2,
   GripVertical,
   Dumbbell,
   ChevronDown,
-  MoveRight,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
@@ -80,6 +71,13 @@ import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
 import { Link } from 'react-router-dom';
+import {
+  type ProtocolConfig,
+  type SetData,
+  type TemplateExerciseInsert,
+  type TemplateExerciseUpdate,
+  toJson,
+} from '@/types/database';
 
 // =====================================================
 // TEMPLATE EXERCISE BUILDER
@@ -110,9 +108,9 @@ interface TemplateExercise {
   notes: string | null;
   tempo: string | null;
   prescribed_duration_seconds?: number | null;
-  sets_data?: any;
+  sets_data?: SetData[] | null;
   protocol_type?: string | null;
-  protocol_params?: any;
+  protocol_params?: ProtocolConfig | null;
   block_id?: string | null;
   exercise?: Exercise;
 }
@@ -186,21 +184,6 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     enabled: !!templateId,
   });
 
-  // Lista circuiti del template (per il menu "Sposta in...")
-  const { data: allCircuits = [] } = useQuery({
-    queryKey: ['template-blocks', templateId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('template_blocks')
-        .select('id, name, order_index')
-        .eq('template_id', templateId)
-        .order('order_index');
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!templateId,
-  });
-
   // Lista COMPLETA degli esercizi del template (tutti i blocchi/circuiti).
   // Usata per popolare il dropdown EMOM, indipendentemente dal block_id corrente.
   const { data: allTemplateExerciseOptions = [] } = useQuery({
@@ -213,9 +196,9 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       if (error) throw error;
       const seen = new Set<string>();
       const out: { id: string; name: string }[] = [];
-      for (const row of (data ?? []) as any[]) {
-        const name: string = row.exercises?.name ?? '';
-        const id: string = row.exercise_id;
+      for (const row of data ?? []) {
+        const name = row.exercises?.name ?? '';
+        const id = row.exercise_id;
         const key = name.trim().toLowerCase();
         if (!key || seen.has(key)) continue;
         seen.add(key);
@@ -237,28 +220,28 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       const repsVal = 10;
       const rest = 60;
 
-      const sets_data: SetItem[] = Array.from({ length: sets }).map(() => ({
+      const sets_data: SetData[] = Array.from({ length: sets }).map(() => ({
         reps: repsVal,
         weight: null,
         rest_seconds: rest,
       }));
 
-      const { error } = await supabase
-        .from('template_exercises')
-        .insert({
-          template_id: templateId,
-          exercise_id: exercise.id,
-          order_index: maxOrder,
-          sets,
-          reps_min: repsVal,
-          reps_max: null,
-          rest_seconds: rest,
-          prescribed_duration_seconds: null,
-          sets_data: sets_data as any,
-          block_id: blockId ?? null,
-          protocol_type: 'SET',
-          protocol_params: {},
-        } as any);
+      const insertRow: TemplateExerciseInsert = {
+        template_id: templateId,
+        exercise_id: exercise.id,
+        order_index: maxOrder,
+        sets,
+        reps_min: repsVal,
+        reps_max: null,
+        rest_seconds: rest,
+        prescribed_duration_seconds: null,
+        sets_data: toJson(sets_data),
+        block_id: blockId ?? null,
+        protocol_type: 'SET',
+        protocol_params: toJson({}),
+      };
+
+      const { error } = await supabase.from('template_exercises').insert(insertRow);
 
       if (error) throw error;
     },
@@ -279,9 +262,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   const updateProtocolMutation = useMutation({
     mutationFn: async ({ id, type }: { id: string; type: ProtocolType }) => {
       const params = getDefaultParamsForProtocol(type);
+      const updateRow: TemplateExerciseUpdate = {
+        protocol_type: type,
+        protocol_params: toJson(params),
+      };
       const { error } = await supabase
         .from('template_exercises')
-        .update({ protocol_type: type, protocol_params: params as any } as any)
+        .update(updateRow)
         .eq('id', id);
       if (error) throw error;
     },
@@ -291,31 +278,17 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
 
   // Aggiorna un parametro del protocol_params (per protocolli non-SET)
   const updateProtocolParamMutation = useMutation({
-    mutationFn: async ({ id, params }: { id: string; params: any }) => {
+    mutationFn: async ({ id, params }: { id: string; params: ProtocolConfig }) => {
+      const updateRow: TemplateExerciseUpdate = {
+        protocol_params: toJson(params),
+      };
       const { error } = await supabase
         .from('template_exercises')
-        .update({ protocol_params: params } as any)
+        .update(updateRow)
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-  });
-
-  // Sposta esercizio in un altro circuito (o fuori circuito)
-  const moveToCircuitMutation = useMutation({
-    mutationFn: async ({ id, targetBlockId }: { id: string; targetBlockId: string | null }) => {
-      const { error } = await supabase
-        .from('template_exercises')
-        .update({ block_id: targetBlockId } as any)
-        .eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['template-exercises', templateId] });
-      queryClient.invalidateQueries({ queryKey: ['template-blocks-counts', templateId] });
-      toast.success('Esercizio spostato');
-    },
-    onError: () => toast.error('Errore spostamento'),
   });
 
   // Update exercise (campi piatti / note / tempo)
@@ -333,19 +306,48 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     },
   });
 
+  const debounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => () => {
+    Object.values(debounceTimersRef.current).forEach(clearTimeout);
+  }, []);
+
+  const scheduleExerciseFieldUpdate = useCallback(
+    (id: string, data: { notes?: string | null; tempo?: string | null }) => {
+      const field = data.notes !== undefined ? 'notes' : 'tempo';
+      const key = `${id}:${field}`;
+      if (debounceTimersRef.current[key]) clearTimeout(debounceTimersRef.current[key]);
+      debounceTimersRef.current[key] = setTimeout(() => {
+        updateExerciseMutation.mutate({ id, ...data });
+        delete debounceTimersRef.current[key];
+      }, 500);
+    },
+    [updateExerciseMutation],
+  );
+
+  const patchExerciseInCache = useCallback(
+    (id: string, patch: Partial<Pick<TemplateExercise, 'notes' | 'tempo'>>) => {
+      queryClient.setQueryData<TemplateExercise[]>(queryKey, (old) =>
+        (old || []).map((item) => (item.id === id ? { ...item, ...patch } : item)),
+      );
+    },
+    [queryClient, queryKey],
+  );
+
   // Mutation per aggiornare i sets_data (set eterogenei) + riassunto nei campi piatti
   const updateSetsMutation = useMutation({
-    mutationFn: async ({ id, sets_data }: { id: string; sets_data: SetItem[] }) => {
+    mutationFn: async ({ id, sets_data }: { id: string; sets_data: SetData[] }) => {
       const summary = summarizeSets(sets_data);
+      const updateRow: TemplateExerciseUpdate = {
+        sets_data: toJson(sets_data),
+        sets: summary.sets,
+        reps_min: summary.reps_min,
+        reps_max: summary.reps_max,
+        rest_seconds: summary.rest_seconds,
+      };
       const { error } = await supabase
         .from('template_exercises')
-        .update({
-          sets_data: sets_data as any,
-          sets: summary.sets,
-          reps_min: summary.reps_min,
-          reps_max: summary.reps_max,
-          rest_seconds: summary.rest_seconds,
-        } as any)
+        .update(updateRow)
         .eq('id', id);
       if (error) throw error;
     },
@@ -387,19 +389,26 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
 
   // Reorder mutation for drag and drop
   const reorderMutation = useMutation({
-    mutationFn: async (reorderedExercises: { id: string; order_index: number }[]) => {
-      // Update all exercises with new order indices
-      const updates = reorderedExercises.map(({ id, order_index }) =>
-        supabase.from('template_exercises').update({ order_index }).eq('id', id)
+    mutationFn: async ({
+      updates,
+    }: {
+      updates: { id: string; order_index: number }[];
+      previousOrder: TemplateExercise[];
+    }) => {
+      const results = await Promise.all(
+        updates.map(({ id, order_index }) =>
+          supabase.from('template_exercises').update({ order_index }).eq('id', id),
+        ),
       );
-      
-      await Promise.all(updates);
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    },
+    onError: (_e, { previousOrder }) => {
+      queryClient.setQueryData(queryKey, previousOrder);
+      toast.error('Errore durante il riordinamento');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
-    },
-    onError: () => {
-      toast.error('Errore durante il riordinamento');
     },
   });
 
@@ -411,6 +420,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     const destinationIndex = result.destination.index;
 
     if (sourceIndex === destinationIndex) return;
+
+    const previousOrder = templateExercises;
 
     // Create a new array with the reordered items
     const reordered = Array.from(templateExercises);
@@ -425,11 +436,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
 
     // Optimistically update the cache
     queryClient.setQueryData(queryKey,
-      reordered.map((item, index) => ({ ...item, order_index: index }))
+      reordered.map((item, index) => ({ ...item, order_index: index })),
     );
 
     // Persist to database
-    reorderMutation.mutate(updates);
+    reorderMutation.mutate({ updates, previousOrder });
   };
 
   // Filter exercises not already in template
@@ -628,7 +639,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     );
                                   }
                                   if (ptype === 'TOP_SET_BACKOFF') {
-                                    const rawParams = (te.protocol_params as any) || {};
+                                    const rawParams = te.protocol_params ?? {};
                                     const params = normalizeTopSetBackoff(rawParams);
                                     const backoffEnabled = params.backoff_enabled !== false;
 
@@ -1103,10 +1114,9 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                                   const newParts = [...(te.tempo || '0-0-0-0').split('-')];
                                                   while (newParts.length < 4) newParts.push('0');
                                                   newParts[i] = e.target.value || '0';
-                                                  updateExerciseMutation.mutate({
-                                                    id: te.id,
-                                                    tempo: newParts.join('-'),
-                                                  });
+                                                  const tempo = newParts.join('-');
+                                                  patchExerciseInCache(te.id, { tempo });
+                                                  scheduleExerciseFieldUpdate(te.id, { tempo });
                                                 }}
                                                 className="h-8 text-center px-1"
                                               />
@@ -1123,10 +1133,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       <Textarea
                                         placeholder="Aggiungi istruzioni specifiche per l'atleta..."
                                         value={te.notes ?? ''}
-                                        onChange={(e) => updateExerciseMutation.mutate({
-                                          id: te.id,
-                                          notes: e.target.value || null,
-                                        })}
+                                        onChange={(e) => {
+                                          const notes = e.target.value || null;
+                                          patchExerciseInCache(te.id, { notes });
+                                          scheduleExerciseFieldUpdate(te.id, { notes });
+                                        }}
                                         className="min-h-[60px] text-sm resize-none"
                                       />
                                     </div>

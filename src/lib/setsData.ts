@@ -3,11 +3,9 @@
 // con fallback retro-compatibile dai campi piatti.
 // =====================================================
 
-export interface SetItem {
-  reps: number | null;
-  weight: number | null;
-  rest_seconds: number | null;
-}
+import type { SetData } from '@/types/database';
+
+export type SetItem = SetData;
 
 export interface FlatExerciseFields {
   sets?: number | null;
