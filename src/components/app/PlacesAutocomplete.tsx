@@ -249,6 +249,13 @@ export function PlacesAutocomplete({
         className="w-[var(--radix-popover-trigger-width)] p-0 bg-app-card border-app-border" 
         align="start"
         sideOffset={4}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onInteractOutside={(e) => {
+          // keep focus on the input while typing
+          const target = e.target as HTMLElement | null;
+          if (target && target.tagName === 'INPUT') e.preventDefault();
+        }}
       >
         <Command className="bg-transparent">
           <CommandList>
