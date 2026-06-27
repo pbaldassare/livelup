@@ -63,6 +63,10 @@ export function AtletaCoursesPage() {
   const enrollMutation = useMutation({
     mutationFn: async (courseId: string) => {
       if (!user?.id) throw new Error('Not auth');
+      const course = courses.find((c) => c.id === courseId);
+      if (course && !course.is_free) {
+        throw new Error('paid_not_available');
+      }
       const { error } = await supabase.from('course_enrollments').insert({ course_id: courseId, user_id: user.id });
       if (error) throw error;
     },
@@ -70,7 +74,13 @@ export function AtletaCoursesPage() {
       queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
       toast.success('Iscritto al corso!');
     },
-    onError: () => toast.error('Errore iscrizione'),
+    onError: (err: Error) => {
+      if (err.message === 'paid_not_available') {
+        toast.info('I pagamenti online sono in arrivo. Contatta il tuo trainer per acquistare il corso.');
+      } else {
+        toast.error('Errore iscrizione');
+      }
+    },
   });
 
   const getEnrollment = (courseId: string) => enrollments.find(e => e.course_id === courseId);
@@ -94,9 +104,21 @@ export function AtletaCoursesPage() {
         )}
 
         {!enrollment && (
-          <Button className="w-full" onClick={() => enrollMutation.mutate(selectedCourse.id)}>
-            {selectedCourse.is_free ? 'Inizia Corso Gratuito' : `Acquista - €${selectedCourse.price}`}
-          </Button>
+          selectedCourse.is_free ? (
+            <Button className="w-full" onClick={() => enrollMutation.mutate(selectedCourse.id)}>
+              Inizia Corso Gratuito
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <Button className="w-full" disabled>
+                Pagamento in arrivo
+              </Button>
+              <p className="text-xs text-center text-app-muted-foreground">
+                L&apos;acquisto online dei corsi a pagamento sarà disponibile a breve.
+                Contatta il tuo trainer per informazioni.
+              </p>
+            </div>
+          )
         )}
 
         <div className="space-y-2">

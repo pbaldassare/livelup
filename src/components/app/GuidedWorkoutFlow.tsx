@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AtletaEmomPlayer } from '@/components/app/AtletaEmomPlayer';
 import { AtletaTimedRoundsPlayer } from '@/components/app/AtletaTimedRoundsPlayer';
+import { AtletaAmrapPlayer } from '@/components/app/AtletaAmrapPlayer';
+import { AtletaSupersetPlayer } from '@/components/app/AtletaSupersetPlayer';
 import { NextExercisePreview } from '@/components/app/NextExercisePreview';
 import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
@@ -576,6 +578,90 @@ export function GuidedWorkoutFlow({
             } catch (e: unknown) {
               const message =
                 e instanceof Error ? e.message : `Errore salvataggio ${protocolLabel}`;
+              toast.error(message);
+            }
+            advanceAfterProtocol();
+          }}
+        />
+      </div>
+      {detailSheet}
+      </>
+    );
+  }
+
+  // Branch dedicato AMRAP: timer globale + round manuali.
+  if (currentExercise.protocol_type === 'AMRAP') {
+    return (
+      <>
+      <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
+        <WorkoutProgressBar
+          exercises={exercises}
+          exerciseIndex={state.exerciseIndex}
+          skipped={state.skipped}
+          current={state.exerciseIndex + 1}
+          total={exercises.length}
+        />
+
+        <AtletaAmrapPlayer
+          key={currentExercise.id}
+          exerciseName={currentExercise.exercises.name}
+          protocolParams={currentExercise.protocol_params ?? null}
+          notes={currentExercise.notes ?? null}
+          onShowDetails={openDetails}
+          onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
+            try {
+              await saveSet.mutateAsync({
+                workoutExerciseId: currentExercise.id,
+                setNumber: 1,
+                reps: roundsCompleted,
+                durationSeconds: totalDurationSeconds,
+                weight: 0,
+                restPlanned: 0,
+              });
+            } catch (e: unknown) {
+              const message = e instanceof Error ? e.message : 'Errore salvataggio AMRAP';
+              toast.error(message);
+            }
+            advanceAfterProtocol();
+          }}
+        />
+      </div>
+      {detailSheet}
+      </>
+    );
+  }
+
+  // Branch dedicato SUPERSET: ciclo esercizi × supersets con recuperi.
+  if (currentExercise.protocol_type === 'SUPERSET') {
+    return (
+      <>
+      <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
+        <WorkoutProgressBar
+          exercises={exercises}
+          exerciseIndex={state.exerciseIndex}
+          skipped={state.skipped}
+          current={state.exerciseIndex + 1}
+          total={exercises.length}
+        />
+
+        <AtletaSupersetPlayer
+          key={currentExercise.id}
+          exerciseName={currentExercise.exercises.name}
+          protocolParams={currentExercise.protocol_params ?? null}
+          notes={currentExercise.notes ?? null}
+          onShowDetails={openDetails}
+          onFinished={async () => {
+            try {
+              await saveSet.mutateAsync({
+                workoutExerciseId: currentExercise.id,
+                setNumber: 1,
+                reps: 1,
+                durationSeconds: 0,
+                weight: 0,
+                restPlanned: 0,
+              });
+            } catch (e: unknown) {
+              const message = e instanceof Error ? e.message : 'Errore salvataggio SUPERSET';
               toast.error(message);
             }
             advanceAfterProtocol();

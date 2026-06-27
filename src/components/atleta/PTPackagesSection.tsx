@@ -319,6 +319,11 @@ export function PTPackagesSection({ ptUserId, isConnected }: PTPackagesSectionPr
                     )}
                     {activeSubscription ? 'Abbonamento attivo' : 'Richiedi acquisto'}
                   </Button>
+                  {!activeSubscription && (
+                    <p className="text-xs text-center text-app-muted-foreground">
+                      Invia una richiesta al trainer — nessun pagamento automatico.
+                    </p>
+                  )}
                 </div>
               );
             })}

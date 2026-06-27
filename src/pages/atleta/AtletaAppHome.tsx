@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { MobileNav } from '@/components/app/MobileNav';
 import { AppHeader } from '@/components/app/AppHeader';
 import { CoachCard } from '@/components/app/CoachCard';
 import { motion } from 'framer-motion';
@@ -202,8 +201,6 @@ export function AtletaAppHome() {
           </>
         )}
       </main>
-
-      <MobileNav role="atleta" />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   Users,
   FileText,
   CalendarDays,
+  CalendarClock,
   MoreHorizontal,
 } from 'lucide-react';
 import { RequireUserName } from '@/components/auth/RequireUserName';
@@ -64,7 +65,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     : [
         { label: 'Home', href: '/app', icon: Home, exact: true },
         { label: 'Programma', href: '/app/programma', icon: CalendarDays },
-        { label: 'Esercizi', href: '/app/esercizi', icon: Dumbbell },
+        { label: 'Appuntam.', href: '/app/appuntamenti', icon: CalendarClock },
         { label: 'Scopri', href: '/app/discover', icon: Search },
         { label: 'Profilo', href: '/app/profile', icon: User },
       ];

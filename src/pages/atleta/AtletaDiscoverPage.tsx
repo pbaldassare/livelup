@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -876,7 +876,25 @@ function PTSearchSection({ isConnected = false, ptName }: PTSearchSectionProps) 
 
 export function AtletaDiscoverPage() {
   const { isConnected, ptName } = useAtletaStatus();
-  const [activeCategory, setActiveCategory] = useState<'pt' | 'events' | 'professionals'>('pt');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const initialCategory =
+    tabParam === 'events' || tabParam === 'professionals' || tabParam === 'pt'
+      ? tabParam
+      : 'pt';
+  const [activeCategory, setActiveCategory] = useState<'pt' | 'events' | 'professionals'>(initialCategory);
+
+  useEffect(() => {
+    if (tabParam === 'events' || tabParam === 'professionals' || tabParam === 'pt') {
+      setActiveCategory(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleCategoryChange = (value: string) => {
+    const category = value as 'pt' | 'events' | 'professionals';
+    setActiveCategory(category);
+    setSearchParams({ tab: category }, { replace: true });
+  };
 
   return (
     <div className="min-h-screen bg-app-background pb-24" data-tour="discover-page">
@@ -885,7 +903,7 @@ export function AtletaDiscoverPage() {
         <h1 className="text-xl font-bold text-app-foreground">Scopri</h1>
         
         {/* Category Tabs */}
-        <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as 'pt' | 'events' | 'professionals')}>
+        <Tabs value={activeCategory} onValueChange={handleCategoryChange}>
           <TabsList className="w-full bg-app-muted">
             <TabsTrigger 
               value="pt" 

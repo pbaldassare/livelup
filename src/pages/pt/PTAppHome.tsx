@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePTAppStats } from '@/hooks/usePTAppStats';
 import { usePTHomeData, type PTHomeAthlete, type PTHomeAlert } from '@/hooks/usePTHomeData';
 import { AppHeader } from '@/components/app/AppHeader';
-import { MobileNav } from '@/components/app/MobileNav';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -212,8 +211,6 @@ export function PTAppHome() {
           </div>
         </section>
       </main>
-
-      <MobileNav role="pt" />
     </div>
   );
 }

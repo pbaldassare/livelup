@@ -33,6 +33,9 @@ import { it } from 'date-fns/locale';
 // Design: dark theme, lime accent
 // =====================================================
 
+/** Pagamenti online non ancora attivi — nessun CTA fuorviante. */
+const PAYMENTS_ENABLED = false;
+
 interface Subscription {
   id: string;
   status: string;
@@ -103,12 +106,18 @@ export function AtletaSubscriptionPage() {
 
   // Upgrade mutation
   const upgradeMutation = useMutation({
-    mutationFn: async (planId: string) => {
-      // In a real app, this would redirect to Stripe Checkout
-      toast.info('Integrazione pagamenti in arrivo!');
+    mutationFn: async (_planId: string) => {
+      if (!PAYMENTS_ENABLED) {
+        throw new Error('payments_unavailable');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['atleta-subscription'] });
+    },
+    onError: (err: Error) => {
+      if (err.message === 'payments_unavailable') {
+        toast.info('I pagamenti online saranno disponibili a breve.');
+      }
     },
   });
 
@@ -250,6 +259,17 @@ export function AtletaSubscriptionPage() {
               {/* Available Plans */}
               <div className="space-y-4">
                 <h2 className="text-lg font-bold text-white">Piani disponibili</h2>
+
+                {!PAYMENTS_ENABLED && (
+                  <Alert className="bg-yellow-500/10 border-yellow-500/20">
+                    <Clock className="h-4 w-4 text-yellow-400" />
+                    <AlertTitle className="text-yellow-400">Pagamenti in arrivo</AlertTitle>
+                    <AlertDescription className="text-yellow-300/80">
+                      Puoi consultare i piani, ma l&apos;upgrade online non è ancora disponibile.
+                      Contatta il supporto per informazioni sull&apos;abbonamento.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 
                 {plans.length === 0 ? (
                   <Card className="bg-gray-900/60 border-white/10">
@@ -313,14 +333,20 @@ export function AtletaSubscriptionPage() {
                             }`}
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!PAYMENTS_ENABLED) return;
                               upgradeMutation.mutate(plan.id);
                             }}
-                            disabled={upgradeMutation.isPending}
-                          >
-                            {subscription?.subscription_type === plan.name.toLowerCase() 
-                              ? 'Piano attuale' 
-                              : 'Scegli questo piano'
+                            disabled={
+                              upgradeMutation.isPending ||
+                              !PAYMENTS_ENABLED ||
+                              subscription?.subscription_type === plan.name.toLowerCase()
                             }
+                          >
+                            {!PAYMENTS_ENABLED
+                              ? 'Pagamenti in arrivo'
+                              : subscription?.subscription_type === plan.name.toLowerCase()
+                                ? 'Piano attuale'
+                                : 'Scegli questo piano'}
                           </Button>
                         </CardFooter>
                       </Card>
@@ -332,7 +358,7 @@ export function AtletaSubscriptionPage() {
               {/* Security Note */}
               <div className="flex items-center gap-2 text-xs text-white/40 justify-center">
                 <Shield className="h-4 w-4" />
-                <span>Pagamenti sicuri con Stripe</span>
+                <span>I pagamenti online saranno gestiti in modo sicuro quando attivi</span>
               </div>
             </TabsContent>
           </Tabs>
