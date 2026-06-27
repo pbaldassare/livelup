@@ -95,8 +95,18 @@ export function CreatePublicEventDialog({
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
 
-      const startDatetime = new Date(`${startDate}T${startTime}:00`).toISOString();
-      const endDatetime = new Date(`${startDate}T${endTime}:00`).toISOString();
+      // Timezone-safe: build a Date from local input, then convert to UTC ISO
+      // (browser uses user's local TZ for the constructor → stored as UTC, displayed via toLocale*/date-fns in local TZ)
+      const startLocal = new Date(`${startDate}T${startTime}:00`);
+      const endLocal = new Date(`${startDate}T${endTime}:00`);
+      if (isNaN(startLocal.getTime()) || isNaN(endLocal.getTime())) {
+        throw new Error('Data o ora non valide');
+      }
+      if (endLocal <= startLocal) {
+        throw new Error("L'orario di fine deve essere dopo l'inizio");
+      }
+      const startDatetime = startLocal.toISOString();
+      const endDatetime = endLocal.toISOString();
 
       const { error } = await supabase.from('calendar_events').insert([{
         creator_user_id: user.id,
@@ -116,10 +126,12 @@ export function CreatePublicEventDialog({
         is_closed_number: isClosedNumber,
         max_participants: isClosedNumber && maxParticipants ? Number(maxParticipants) : null,
         cover_image_url: coverImageUrl,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }]);
 
       if (error) throw error;
     },
+
     onSuccess: () => {
       toast.success('Evento creato con successo! 🎉');
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
