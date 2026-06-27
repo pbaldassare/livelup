@@ -331,13 +331,25 @@ export function CreatePublicEventDialog({
             </Label>
             <PlacesAutocomplete
               value={locationSearch}
-              onChange={setLocationSearch}
+              onChange={(v) => {
+                setLocationSearch(v);
+                // se l'utente modifica il testo dopo aver selezionato, invalida la scelta
+                if (location && v !== location && !location.startsWith(v)) {
+                  setLocation('');
+                  setLocationLat(null);
+                  setLocationLng(null);
+                }
+              }}
               onPlaceSelect={handlePlaceSelect}
               placeholder="Cerca indirizzo o luogo..."
+              types={['geocode']}
             />
-            {location && (
-              <p className="text-sm text-muted-foreground">📍 {location}</p>
+            {location && locationLat != null ? (
+              <p className="text-sm text-emerald-600">✓ {location}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Seleziona un indirizzo dai suggerimenti per confermarlo</p>
             )}
+
           </div>
 
           <Separator />
