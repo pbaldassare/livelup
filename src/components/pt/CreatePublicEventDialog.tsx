@@ -170,8 +170,13 @@ export function CreatePublicEventDialog({
       toast.error('Inserisci un titolo per l\'evento');
       return;
     }
+    if (!location || locationLat == null || locationLng == null) {
+      toast.error('Seleziona un luogo dai suggerimenti (deve essere un indirizzo valido)');
+      return;
+    }
     createEventMutation.mutate();
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
