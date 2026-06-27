@@ -95,8 +95,18 @@ export function CreatePublicEventDialog({
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
 
-      const startDatetime = new Date(`${startDate}T${startTime}:00`).toISOString();
-      const endDatetime = new Date(`${startDate}T${endTime}:00`).toISOString();
+      // Timezone-safe: build a Date from local input, then convert to UTC ISO
+      // (browser uses user's local TZ for the constructor → stored as UTC, displayed via toLocale*/date-fns in local TZ)
+      const startLocal = new Date(`${startDate}T${startTime}:00`);
+      const endLocal = new Date(`${startDate}T${endTime}:00`);
+      if (isNaN(startLocal.getTime()) || isNaN(endLocal.getTime())) {
+        throw new Error('Data o ora non valide');
+      }
+      if (endLocal <= startLocal) {
+        throw new Error("L'orario di fine deve essere dopo l'inizio");
+      }
+      const startDatetime = startLocal.toISOString();
+      const endDatetime = endLocal.toISOString();
 
       const { error } = await supabase.from('calendar_events').insert([{
         creator_user_id: user.id,
@@ -118,8 +128,10 @@ export function CreatePublicEventDialog({
         cover_image_url: coverImageUrl,
       }]);
 
+
       if (error) throw error;
     },
+
     onSuccess: () => {
       toast.success('Evento creato con successo! 🎉');
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
@@ -158,8 +170,13 @@ export function CreatePublicEventDialog({
       toast.error('Inserisci un titolo per l\'evento');
       return;
     }
+    if (!location || locationLat == null || locationLng == null) {
+      toast.error('Seleziona un luogo dai suggerimenti (deve essere un indirizzo valido)');
+      return;
+    }
     createEventMutation.mutate();
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -314,13 +331,25 @@ export function CreatePublicEventDialog({
             </Label>
             <PlacesAutocomplete
               value={locationSearch}
-              onChange={setLocationSearch}
+              onChange={(v) => {
+                setLocationSearch(v);
+                // se l'utente modifica il testo dopo aver selezionato, invalida la scelta
+                if (location && v !== location && !location.startsWith(v)) {
+                  setLocation('');
+                  setLocationLat(null);
+                  setLocationLng(null);
+                }
+              }}
               onPlaceSelect={handlePlaceSelect}
               placeholder="Cerca indirizzo o luogo..."
+              types={['geocode']}
             />
-            {location && (
-              <p className="text-sm text-muted-foreground">📍 {location}</p>
+            {location && locationLat != null ? (
+              <p className="text-sm text-emerald-600">✓ {location}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Seleziona un indirizzo dai suggerimenti per confermarlo</p>
             )}
+
           </div>
 
           <Separator />
