@@ -1,14 +1,16 @@
 import { addDays, format, isSameDay, isToday, parseISO, startOfWeek } from 'date-fns';
 import { it } from 'date-fns/locale';
-import type { CalendarEventRow, AthleteLite } from './types';
+import type { CalendarEventRow, AthleteLite, EventParticipantCounts } from './types';
 import { HOUR_END, HOUR_HEIGHT, HOUR_START } from './types';
 
 interface CalendarWeekViewProps {
   date: Date;
   events: CalendarEventRow[];
   athletesById: Record<string, AthleteLite>;
+  participantCountsByEventId?: Record<string, EventParticipantCounts>;
   mode: 'eventi' | 'appuntamenti';
   onEventClick: (e: CalendarEventRow) => void;
+  onParticipantsClick?: (e: CalendarEventRow) => void;
   onSlotClick: (start: Date) => void;
 }
 
@@ -24,7 +26,7 @@ function heightPx(start: Date, end: Date | null) {
   return Math.max(24, (ms / 3_600_000) * HOUR_HEIGHT);
 }
 
-export function CalendarWeekView({ date, events, athletesById, mode, onEventClick, onSlotClick }: CalendarWeekViewProps) {
+export function CalendarWeekView({ date, events, athletesById, participantCountsByEventId, mode, onEventClick, onParticipantsClick, onSlotClick }: CalendarWeekViewProps) {
   const weekStart = startOfWeek(date, { weekStartsOn: 1 });
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const colorBase =
@@ -94,6 +96,19 @@ export function CalendarWeekView({ date, events, athletesById, mode, onEventClic
                     <div className="text-[10px] opacity-80 truncate">
                       {format(start, 'HH:mm')}{end && `–${format(end, 'HH:mm')}`}
                     </div>
+                    {mode === 'eventi' && participantCountsByEventId?.[ev.id]?.registered != null && (
+                      <button
+                        type="button"
+                        className="text-[10px] opacity-90 truncate hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onParticipantsClick?.(ev);
+                        }}
+                      >
+                        👥 {participantCountsByEventId[ev.id].registered}
+                        {participantCountsByEventId[ev.id].waitlist > 0 && ` (+${participantCountsByEventId[ev.id].waitlist})`}
+                      </button>
+                    )}
                     {athlete && (
                       <div className="text-[10px] opacity-80 truncate">{athlete.full_name}</div>
                     )}

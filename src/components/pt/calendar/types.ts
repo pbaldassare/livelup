@@ -32,6 +32,11 @@ export interface AthleteLite {
   avatar_url: string | null;
 }
 
+export interface EventParticipantCounts {
+  registered: number;
+  waitlist: number;
+}
+
 export const HOUR_START = 6;
 export const HOUR_END = 23;
 export const HOUR_HEIGHT = 56; // px per ora

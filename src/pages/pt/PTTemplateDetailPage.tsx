@@ -65,7 +65,6 @@ export function PTTemplateDetailPage() {
     },
     enabled: !!templateId,
   });
-  const exerciseCount = exerciseStats.total;
 
   if (isLoading) {
     return <PageLoader text="Caricamento template..." />;
@@ -92,137 +91,137 @@ export function PTTemplateDetailPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in">
+    <div className="space-y-4 animate-in">
       <DashboardPageHeader
         title={template.title}
         subtitle="Gestisci gli esercizi del template"
-        icon={<FileText className="h-6 w-6" />}
+        icon={<FileText className="h-5 w-5" />}
         breadcrumbs={[
           { label: 'Dashboard', href: '/pt' },
           { label: 'Allenamenti', href: '/pt/workouts' },
           { label: template.title },
         ]}
         actions={
-          <Button variant="outline" onClick={() => navigate('/pt/workouts')}>
+          <Button variant="outline" size="sm" onClick={() => navigate('/pt/workouts')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Indietro
           </Button>
         }
       />
 
-      {/* Banner: scheda vuota */}
       {exerciseStats.total === 0 && (
-        <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4">
-          <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-medium text-warning">Questa scheda è vuota</p>
-            <p className="text-muted-foreground">
-              Aggiungi almeno un esercizio (libero o dentro un circuito) per poterla assegnare a un atleta.
-            </p>
-          </div>
+        <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
+          <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+          <p>
+            <span className="font-medium text-warning">Scheda vuota — </span>
+            <span className="text-muted-foreground">
+              aggiungi almeno un esercizio per poterla assegnare.
+            </span>
+          </p>
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-4">
-        {/* Template Info Sidebar */}
+      <div className="grid gap-4 lg:grid-cols-4">
         <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-lg">Informazioni</CardTitle>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-base">Informazioni</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Difficoltà</p>
-              <Badge className={getDifficultyColor(template.difficulty_level)}>
-                {template.difficulty_level}
-              </Badge>
-            </div>
+          <CardContent className="px-4 pb-4 pt-0 space-y-3">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm items-center">
+              <dt className="text-muted-foreground whitespace-nowrap">Livello</dt>
+              <dd>
+                {template.difficulty_level && template.difficulty_level !== 'nessuno' ? (
+                  <Badge className={`${getDifficultyColor(template.difficulty_level)} text-xs`}>
+                    {template.difficulty_level}
+                  </Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground italic">Non specificato</span>
+                )}
+              </dd>
 
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Gruppi muscolari</p>
-              {template.muscle_groups && template.muscle_groups.length > 0 ? (
-                <div className="flex flex-wrap gap-1">
-                  {template.muscle_groups.map((m: string) => (
-                    <Badge key={m} variant="secondary" className="text-xs capitalize">
-                      {m}
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground italic">Non specificati</p>
+              <dt className="text-muted-foreground">Gruppi</dt>
+              <dd>
+                {template.muscle_groups && template.muscle_groups.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {template.muscle_groups.map((m: string) => (
+                      <Badge key={m} variant="secondary" className="text-[10px] px-1.5 py-0 capitalize">
+                        {m}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground italic">—</span>
+                )}
+              </dd>
+
+              {template.category && (
+                <>
+                  <dt className="text-muted-foreground">Categoria</dt>
+                  <dd>
+                    <Badge variant="outline" className="text-xs">{template.category}</Badge>
+                  </dd>
+                </>
               )}
-            </div>
 
-            {template.category && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Categoria</p>
-                <Badge variant="outline">{template.category}</Badge>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                Durata stimata
-              </p>
-              <p className="font-medium">
+              <dt className="text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5" />
+                Durata
+              </dt>
+              <dd className="font-medium text-sm">
                 {template.estimated_duration ? `${template.estimated_duration} min` : 'N/A'}
-              </p>
-            </div>
+              </dd>
 
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <BarChart3 className="h-4 w-4" />
+              <dt className="text-muted-foreground flex items-center gap-1">
+                <BarChart3 className="h-3.5 w-3.5" />
                 Esercizi
-              </p>
-              <p className="font-medium">{exerciseStats.total} esercizi</p>
-              <p className="text-xs text-muted-foreground">
-                {exerciseStats.standalone} fuori circuito · {exerciseStats.inCircuits} nei circuiti
-              </p>
-            </div>
-
-            <Separator />
+              </dt>
+              <dd className="text-sm">
+                <span className="font-medium">{exerciseStats.total}</span>
+                <span className="text-muted-foreground text-xs ml-1">
+                  ({exerciseStats.standalone} liberi · {exerciseStats.inCircuits} circuiti)
+                </span>
+              </dd>
+            </dl>
 
             {template.description && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Descrizione</p>
-                <p className="text-sm">{template.description}</p>
-              </div>
+              <>
+                <Separator />
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Descrizione</p>
+                  <p className="text-sm leading-snug">{template.description}</p>
+                </div>
+              </>
             )}
 
             {template.tags && template.tags.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Tag className="h-4 w-4" />
-                  Tags
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {template.tags.map((tag, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
+              <div className="flex flex-wrap gap-1 items-center">
+                <Tag className="h-3.5 w-3.5 text-muted-foreground mr-0.5" />
+                {template.tags.map((tag, i) => (
+                  <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">
+                    {tag}
+                  </Badge>
+                ))}
               </div>
             )}
 
             <Separator />
 
-            <div className="text-xs text-muted-foreground">
-              <p>Creato il {format(new Date(template.created_at), 'dd MMM yyyy', { locale: it })}</p>
-              <p>Aggiornato il {format(new Date(template.updated_at), 'dd MMM yyyy', { locale: it })}</p>
-            </div>
+            <p className="text-[11px] text-muted-foreground leading-tight">
+              Creato {format(new Date(template.created_at), 'dd MMM yyyy', { locale: it })}
+              {' · '}
+              Aggiornato {format(new Date(template.updated_at), 'dd MMM yyyy', { locale: it })}
+            </p>
           </CardContent>
         </Card>
 
-        {/* Exercise Builder */}
         <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Esercizi e protocolli</CardTitle>
-            <CardDescription>
-              Aggiungi gli esercizi in ordine. Imposta il protocollo (Set, EMOM, AMRAP, Superset, HIIT...) direttamente su ogni esercizio.
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-base">Esercizi e protocolli</CardTitle>
+            <CardDescription className="text-xs">
+              Aggiungi esercizi in ordine e imposta protocollo (Set, EMOM, AMRAP, Superset, HIIT…).
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-4 pt-0">
             <TemplateExerciseBuilder templateId={template.id} />
           </CardContent>
         </Card>

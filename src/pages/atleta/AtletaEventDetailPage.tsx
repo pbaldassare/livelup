@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { promoteWaitlistIfSlot, registerForEvent } from '@/lib/api/eventParticipants';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -133,24 +134,28 @@ export function AtletaEventDetailPage() {
     enabled: !!eventId,
   });
 
-  // Check if current user is registered
-  const { data: isRegistered } = useQuery({
+  // Check registration status (registered or waitlist)
+  const { data: registrationStatus = 'none' } = useQuery({
     queryKey: ['event-registration', eventId, user?.id],
     queryFn: async () => {
-      if (!eventId || !user) return false;
+      if (!eventId || !user) return 'none' as const;
 
       const { data } = await supabase
         .from('event_participants')
-        .select('id')
+        .select('id, status')
         .eq('event_id', eventId)
         .eq('user_id', user.id)
-        .eq('status', 'registered')
+        .in('status', ['registered', 'waitlist'])
         .maybeSingle();
 
-      return !!data;
+      if (!data) return 'none' as const;
+      return data.status as 'registered' | 'waitlist';
     },
     enabled: !!eventId && !!user,
   });
+
+  const isRegistered = registrationStatus === 'registered';
+  const isWaitlist = registrationStatus === 'waitlist';
 
   // Fetch comments with real-time subscription
   const { data: comments } = useQuery({
@@ -192,20 +197,20 @@ export function AtletaEventDetailPage() {
 
     setIsRegistering(true);
     try {
-      if (isRegistered) {
+      if (isRegistered || isWaitlist) {
         await supabase
           .from('event_participants')
           .delete()
           .eq('event_id', eventId)
           .eq('user_id', user.id);
+        await promoteWaitlistIfSlot(eventId);
         toast.success('Iscrizione annullata');
-      } else {
-        await supabase.from('event_participants').insert({
-          event_id: eventId,
-          user_id: user.id,
-          status: 'registered',
+      } else if (event) {
+        const status = await registerForEvent(eventId, user.id, {
+          is_closed_number: event.is_closed_number ?? false,
+          max_participants: event.max_participants ?? null,
         });
-        toast.success('Iscrizione confermata! 🎉');
+        toast.success(status === 'waitlist' ? 'Sei in lista d\'attesa' : 'Iscrizione confermata! 🎉');
       }
       queryClient.invalidateQueries({ queryKey: ['event-registration', eventId] });
       queryClient.invalidateQueries({ queryKey: ['event-participants', eventId] });
@@ -412,7 +417,9 @@ export function AtletaEventDetailPage() {
             'w-full h-12 text-lg font-semibold',
             isRegistered
               ? 'bg-app-muted text-app-foreground hover:bg-app-muted/80'
-              : 'bg-app-accent text-app-accent-foreground hover:bg-app-accent/90'
+              : isWaitlist
+                ? 'bg-amber-500/20 text-app-foreground hover:bg-amber-500/30'
+                : 'bg-app-accent text-app-accent-foreground hover:bg-app-accent/90'
           )}
         >
           {isRegistering ? (
@@ -422,6 +429,10 @@ export function AtletaEventDetailPage() {
               <Check className="h-5 w-5 mr-2" />
               Iscritto
             </>
+          ) : isWaitlist ? (
+            'In lista d\'attesa — Annulla'
+          ) : event.is_closed_number && event.max_participants != null && (participants?.length ?? 0) >= event.max_participants ? (
+            'Lista d\'attesa'
           ) : (
             'Partecipa'
           )}

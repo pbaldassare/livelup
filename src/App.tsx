@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SplashScreen } from "@/components/common/SplashScreen";
 // InstallBanner is mounted inside AppLayout (PWA-only), not globally.
@@ -35,6 +35,7 @@ import PTDiscoveryPage from "./pages/public/PTDiscoveryPage";
 import PTProfilePage from "./pages/public/PTProfilePage";
 import BlogPostPage from "./pages/public/BlogPostPage";
 import InstallPage from "./pages/public/InstallPage";
+import UtenteAppPreviewPage from "./pages/dev/UtenteAppPreviewPage";
 
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -59,8 +60,11 @@ import PTDashboard from "./pages/pt/PTDashboard";
 import PTAthletesPage from "./pages/pt/PTAthletesPage";
 import PTAthleteDetailPage from "./pages/pt/PTAthleteDetailPage";
 import PTWorkoutsPage from "./pages/pt/PTWorkoutsPage";
+import PTAssistantPage from "./pages/pt/PTAssistantPage";
 import PTTemplateDetailPage from "./pages/pt/PTTemplateDetailPage";
 import PTCalendarPage from "./pages/pt/PTCalendarPage";
+import PTEventDetailPage from "./pages/pt/PTEventDetailPage";
+import PTEventsManagePage from "./pages/pt/PTEventsManagePage";
 import PTMessagesPage from "./pages/pt/PTMessagesPage";
 import PTPaymentsPage from "./pages/pt/PTPaymentsPage";
 import PTSettingsPage from "./pages/pt/PTSettingsPage";
@@ -114,6 +118,11 @@ import PTOnboardingPage from "./pages/pt/PTOnboardingPage";
 
 const queryClient = new QueryClient();
 
+function RedirectPTCalendarEventToManage() {
+  const { eventId } = useParams<{ eventId: string }>();
+  return <Navigate to={`/pt/events/${eventId}`} replace />;
+}
+
 // =====================================================
 // APP ROUTER
 // Separazione rigida routing per ruolo
@@ -165,6 +174,8 @@ const App = () => {
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/install" element={<InstallPage />} />
+              {/* Dev: anteprima localhost app atleta (cornice mobile) */}
+              <Route path="/utente" element={<UtenteAppPreviewPage />} />
               
               {/* Public PT Discovery page */}
               <Route path="/pts" element={<PTDiscoveryPage />} />
@@ -318,6 +329,13 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/assistant" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAssistantPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
               <Route path="/pt/templates/:templateId" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>
@@ -333,6 +351,21 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/events" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTEventsManagePage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/events/:eventId" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTEventDetailPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/calendar/eventi/:eventId" element={<RedirectPTCalendarEventToManage />} />
               <Route path="/pt/calendar/appuntamenti" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>

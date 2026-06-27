@@ -1,17 +1,18 @@
 import { addDays, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { it } from 'date-fns/locale';
-import type { CalendarEventRow, AthleteLite } from './types';
+import type { CalendarEventRow, AthleteLite, EventParticipantCounts } from './types';
 
 interface CalendarMonthViewProps {
   date: Date;
   events: CalendarEventRow[];
   athletesById: Record<string, AthleteLite>;
+  participantCountsByEventId?: Record<string, EventParticipantCounts>;
   mode: 'eventi' | 'appuntamenti';
   onEventClick: (e: CalendarEventRow) => void;
   onDayClick: (d: Date) => void;
 }
 
-export function CalendarMonthView({ date, events, athletesById, mode, onEventClick, onDayClick }: CalendarMonthViewProps) {
+export function CalendarMonthView({ date, events, athletesById, participantCountsByEventId, mode, onEventClick, onDayClick }: CalendarMonthViewProps) {
   const monthStart = startOfMonth(date);
   const monthEnd = endOfMonth(date);
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -75,6 +76,9 @@ export function CalendarMonthView({ date, events, athletesById, mode, onEventCli
                     >
                       <span className="font-semibold">{format(start, 'HH:mm')}</span>{' '}
                       <span>{athlete?.full_name ?? ev.title}</span>
+                      {mode === 'eventi' && participantCountsByEventId?.[ev.id]?.registered != null && (
+                        <span className="opacity-80"> · 👥{participantCountsByEventId[ev.id].registered}</span>
+                      )}
                     </button>
                   );
                 })}

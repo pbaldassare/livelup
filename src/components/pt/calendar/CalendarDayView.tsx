@@ -1,15 +1,17 @@
 import { format, isSameDay, parseISO, startOfDay } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Clock, MapPin, User } from 'lucide-react';
-import type { CalendarEventRow, AthleteLite } from './types';
+import type { CalendarEventRow, AthleteLite, EventParticipantCounts } from './types';
 import { HOUR_END, HOUR_HEIGHT, HOUR_START } from './types';
 
 interface CalendarDayViewProps {
   date: Date;
   events: CalendarEventRow[];
   athletesById: Record<string, AthleteLite>;
+  participantCountsByEventId?: Record<string, EventParticipantCounts>;
   mode: 'eventi' | 'appuntamenti';
   onEventClick: (e: CalendarEventRow) => void;
+  onParticipantsClick?: (e: CalendarEventRow) => void;
   onSlotClick: (start: Date) => void;
 }
 
@@ -25,7 +27,7 @@ function heightPx(start: Date, end: Date | null) {
   return Math.max(28, (ms / 3_600_000) * HOUR_HEIGHT);
 }
 
-export function CalendarDayView({ date, events, athletesById, mode, onEventClick, onSlotClick }: CalendarDayViewProps) {
+export function CalendarDayView({ date, events, athletesById, participantCountsByEventId, mode, onEventClick, onParticipantsClick, onSlotClick }: CalendarDayViewProps) {
   const dayEvents = events.filter((e) => isSameDay(parseISO(e.start_datetime), date));
   const colorBase =
     mode === 'appuntamenti'
@@ -81,7 +83,19 @@ export function CalendarDayView({ date, events, athletesById, mode, onEventClick
                   <span className="truncate">{athlete.full_name}</span>
                 </div>
               )}
-              {ev.location && !athlete && (
+              {mode === 'eventi' && participantCountsByEventId?.[ev.id] != null && (
+                <button
+                  type="button"
+                  className="mt-0.5 text-[11px] opacity-90 hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onParticipantsClick?.(ev);
+                  }}
+                >
+                  👥 {participantCountsByEventId[ev.id].registered} iscritti
+                </button>
+              )}
+              {ev.location && (
                 <div className="mt-0.5 flex items-center gap-1 text-[11px] opacity-80 truncate">
                   <MapPin className="h-3 w-3 shrink-0" />
                   <span className="truncate">{ev.location}</span>

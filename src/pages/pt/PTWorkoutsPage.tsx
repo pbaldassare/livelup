@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { MultiSelectSearch } from '@/components/common/MultiSelectSearch';
 
-import { InlineEditText, InlineEditSelect } from '@/components/dashboard/InlineEditCells';
+import { InlineEditSelect } from '@/components/dashboard/InlineEditCells';
 import { 
   Dumbbell, 
   Plus, 
@@ -47,6 +47,9 @@ import {
   type ImportedTemplate,
 } from '@/components/pt/ReviewImportedTemplateDialog';
 import { Sliders, Upload } from 'lucide-react';
+
+/** Import AI da file — nascosto finché la feature non è pronta in produzione. */
+const SHOW_IMPORT_SCHEDA = false;
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,6 +83,7 @@ const TEMPLATE_CATEGORIES = [
 
 const MUSCLE_GROUP_OPTIONS = [
   { id: 'petto', name: 'Petto' },
+  { id: 'full body', name: 'Full Body' },
   { id: 'schiena', name: 'Schiena' },
   { id: 'gambe', name: 'Gambe' },
   { id: 'spalle', name: 'Spalle' },
@@ -88,7 +92,6 @@ const MUSCLE_GROUP_OPTIONS = [
   { id: 'glutei', name: 'Glutei' },
   { id: 'addominali', name: 'Addominali' },
   { id: 'cardio', name: 'Cardio' },
-  { id: 'full body', name: 'Full Body' },
 ];
 
 interface WorkoutTemplate {
@@ -132,6 +135,11 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
   const [deleteExerciseId, setDeleteExerciseId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [editExercisesDialogOpen, setEditExercisesDialogOpen] = useState(false);
+  const [editTemplateDialog, setEditTemplateDialog] = useState<{
+    id: string;
+    title: string;
+    description: string;
+  } | null>(null);
   const [newTemplate, setNewTemplate] = useState<{
     title: string;
     description: string;
@@ -142,7 +150,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
   }>({
     title: '',
     description: '',
-    difficulty_level: 'intermedio',
+    difficulty_level: '',
     category: '',
     estimated_duration: 60,
     muscle_groups: [],
@@ -193,7 +201,6 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     mutationFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
       if (!newTemplate.title.trim()) throw new Error('Inserisci un titolo');
-      if (newTemplate.muscle_groups.length === 0) throw new Error('Seleziona almeno un gruppo muscolare');
 
       // 1. Crea la scheda
       const { data: created, error } = await supabase
@@ -202,7 +209,12 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           pt_user_id: user.id,
           title: newTemplate.title.trim(),
           description: newTemplate.description || null,
-          difficulty_level: newTemplate.difficulty_level as 'principiante' | 'intermedio' | 'avanzato',
+          difficulty_level: (newTemplate.difficulty_level || 'nessuno') as
+            | 'principiante'
+            | 'intermedio'
+            | 'avanzato'
+            | 'agonista'
+            | 'nessuno',
           category: newTemplate.category || null,
           estimated_duration: newTemplate.estimated_duration,
           muscle_groups: newTemplate.muscle_groups,
@@ -237,7 +249,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
       setNewTemplate({
         title: '',
         description: '',
-        difficulty_level: 'intermedio',
+        difficulty_level: '',
         category: '',
         estimated_duration: 60,
         muscle_groups: [],
@@ -340,18 +352,60 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     },
   });
 
-  // Update template mutation (inline edit)
+  // Update template mutation (inline edit + dialog)
   const updateTemplateMutation = useMutation({
-    mutationFn: async ({ id, field, value }: { id: string; field: 'title' | 'difficulty_level' | 'category'; value: string }) => {
+    mutationFn: async ({
+      id,
+      field,
+      value,
+    }: {
+      id: string;
+      field: 'title' | 'difficulty_level' | 'category' | 'description';
+      value: string;
+    }) => {
+      const payload =
+        field === 'description'
+          ? { description: value.trim() || null, updated_at: new Date().toISOString() }
+          : { [field]: value, updated_at: new Date().toISOString() };
       const { error } = await supabase
         .from('workout_templates')
-        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .update(payload)
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
       toast.success('Scheda aggiornata');
+    },
+    onError: () => {
+      toast.error('Errore durante l\'aggiornamento');
+    },
+  });
+
+  const saveEditTemplateDialogMutation = useMutation({
+    mutationFn: async ({
+      id,
+      title,
+      description,
+    }: {
+      id: string;
+      title: string;
+      description: string;
+    }) => {
+      const { error } = await supabase
+        .from('workout_templates')
+        .update({
+          title: title.trim(),
+          description: description.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
+      toast.success('Scheda aggiornata');
+      setEditTemplateDialog(null);
     },
     onError: () => {
       toast.error('Errore durante l\'aggiornamento');
@@ -386,6 +440,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
 
   // Difficulty options for inline edit
   const difficultyOptions = [
+    { value: 'nessuno', label: 'Non specificato' },
     { value: 'principiante', label: 'Principiante' },
     { value: 'intermedio', label: 'Intermedio' },
     { value: 'avanzato', label: 'Avanzato' },
@@ -404,17 +459,34 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
   const activeWorkouts = workouts.filter(w => w.status === 'attivo').length;
   const completedWorkouts = workouts.filter(w => w.status === 'completato').length;
 
+  const saveEditTemplateDialog = () => {
+    if (!editTemplateDialog) return;
+    const title = editTemplateDialog.title.trim();
+    if (!title) {
+      toast.error('Inserisci un titolo');
+      return;
+    }
+    saveEditTemplateDialogMutation.mutate({
+      id: editTemplateDialog.id,
+      title,
+      description: editTemplateDialog.description,
+    });
+  };
+
   const templateColumns: Column<WorkoutTemplate>[] = [
     {
       key: 'title',
       header: 'Titolo',
       cell: (template) => (
         <div className="min-w-[200px]">
-          <InlineEditText
-            value={template.title}
-            onSave={(value) => updateTemplateMutation.mutate({ id: template.id, field: 'title', value })}
-            placeholder="Nome template..."
-          />
+          <button
+            type="button"
+            onClick={() => navigate(`/pt/templates/${template.id}`)}
+            className="font-medium text-left hover:text-primary hover:underline px-2 py-0.5 rounded -mx-2 w-full truncate"
+            title="Apri scheda"
+          >
+            {template.title}
+          </button>
           <p className="text-sm text-muted-foreground line-clamp-1 px-2">
             {template.description || 'Nessuna descrizione'}
           </p>
@@ -423,26 +495,30 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     },
     {
       key: 'difficulty',
-      header: 'Difficoltà',
+      header: 'Livello',
       cell: (template) => (
-        <InlineEditSelect
-          value={template.difficulty_level}
-          options={difficultyOptions}
-          onSave={(value) => updateTemplateMutation.mutate({ id: template.id, field: 'difficulty_level', value })}
-          placeholder="Seleziona..."
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <InlineEditSelect
+            value={template.difficulty_level}
+            options={difficultyOptions}
+            onSave={(value) => updateTemplateMutation.mutate({ id: template.id, field: 'difficulty_level', value })}
+            placeholder="Seleziona..."
+          />
+        </div>
       ),
     },
     {
       key: 'category',
       header: 'Categoria',
       cell: (template) => (
-        <InlineEditSelect
-          value={template.category}
-          options={TEMPLATE_CATEGORIES}
-          onSave={(value) => updateTemplateMutation.mutate({ id: template.id, field: 'category', value })}
-          placeholder="Seleziona..."
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <InlineEditSelect
+            value={template.category}
+            options={TEMPLATE_CATEGORIES}
+            onSave={(value) => updateTemplateMutation.mutate({ id: template.id, field: 'category', value })}
+            placeholder="Seleziona..."
+          />
+        </div>
       ),
     },
     {
@@ -456,18 +532,26 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
 
   const templateActions = (template: WorkoutTemplate) => (
     <div className="flex items-center gap-2">
-      <Button 
-        size="sm" 
+      <Button
+        size="sm"
         variant="ghost"
-        onClick={() => navigate(`/pt/templates/${template.id}`)}
-        title="Gestisci esercizi"
+        title="Modifica nome e descrizione"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditTemplateDialog({
+            id: template.id,
+            title: template.title,
+            description: template.description ?? '',
+          });
+        }}
       >
-        <Eye className="h-4 w-4" />
+        <Pencil className="h-4 w-4" />
       </Button>
       <Button 
         size="sm" 
         variant="ghost"
-        onClick={() => {
+        onClick={(e) => {
+          e.stopPropagation();
           setSelectedTemplateId(template.id);
           setIsAssignDialogOpen(true);
         }}
@@ -479,7 +563,10 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
         size="sm" 
         variant="ghost" 
         title="Duplica"
-        onClick={() => duplicateTemplateMutation.mutate(template.id)}
+        onClick={(e) => {
+          e.stopPropagation();
+          duplicateTemplateMutation.mutate(template.id);
+        }}
         disabled={duplicateTemplateMutation.isPending}
       >
         <Copy className="h-4 w-4" />
@@ -488,7 +575,10 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
         size="sm" 
         variant="ghost" 
         className="text-destructive"
-        onClick={() => deleteTemplateMutation.mutate(template.id)}
+        onClick={(e) => {
+          e.stopPropagation();
+          deleteTemplateMutation.mutate(template.id);
+        }}
         title="Elimina"
       >
         <Trash2 className="h-4 w-4" />
@@ -551,13 +641,16 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
         <CalendarDays className="h-4 w-4 mr-2" />
         Nuovo Programma
       </Button>
-      <Button
-        variant="outline"
-        onClick={() => setIsImportDialogOpen(true)}
-      >
-        <Upload className="h-4 w-4 mr-2" />
-        Importa scheda
-      </Button>
+      {SHOW_IMPORT_SCHEDA && (
+        <Button
+          variant="outline"
+          onClick={() => setIsImportDialogOpen(true)}
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Importa scheda
+        </Button>
+      )}
+      {SHOW_IMPORT_SCHEDA && (
       <ImportTemplateDialog
         open={isImportDialogOpen}
         onOpenChange={setIsImportDialogOpen}
@@ -597,6 +690,8 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           }
         }}
       />
+      )}
+      {SHOW_IMPORT_SCHEDA && (
       <ReviewImportedTemplateDialog
         open={isReviewDialogOpen}
         onOpenChange={setIsReviewDialogOpen}
@@ -624,6 +719,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           }
         }}
       />
+      )}
 
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -654,7 +750,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
               </div>
 
               <div className="space-y-2">
-                <Label>Gruppi muscolari coinvolti <span className="text-destructive">*</span></Label>
+                <Label>Gruppi muscolari coinvolti (opzionale)</Label>
                 <MultiSelectSearch
                   options={MUSCLE_GROUP_OPTIONS}
                   selected={newTemplate.muscle_groups}
@@ -664,13 +760,13 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="difficulty">Difficoltà <span className="text-destructive">*</span></Label>
+                <Label htmlFor="livello">Livello (opzionale)</Label>
                 <Select
-                  value={newTemplate.difficulty_level}
+                  value={newTemplate.difficulty_level || undefined}
                   onValueChange={(v) => setNewTemplate({ ...newTemplate, difficulty_level: v })}
                 >
-                  <SelectTrigger id="difficulty">
-                    <SelectValue />
+                  <SelectTrigger id="livello">
+                    <SelectValue placeholder="Seleziona livello..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="principiante">Principiante</SelectItem>
@@ -704,7 +800,6 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
               onClick={() => createTemplateMutation.mutate()}
               disabled={
                 !newTemplate.title.trim() ||
-                newTemplate.muscle_groups.length === 0 ||
                 createTemplateMutation.isPending
               }
             >
@@ -826,6 +921,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                 isLoading={templatesLoading}
                 emptyMessage="Nessuna scheda creata. Crea la tua prima scheda!"
                 actions={templateActions}
+                onRowClick={(template) => navigate(`/pt/templates/${template.id}`)}
               />
             </TabsContent>
             <TabsContent value="programs" className="mt-4">
@@ -938,6 +1034,61 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Modifica scheda (titolo + descrizione) */}
+      <Dialog
+        open={!!editTemplateDialog}
+        onOpenChange={(open) => {
+          if (!open) setEditTemplateDialog(null);
+        }}
+      >
+        <DialogContent className="max-w-md w-[calc(100%-2rem)]">
+          <DialogHeader>
+            <DialogTitle>Modifica scheda</DialogTitle>
+            <DialogDescription>
+              Aggiorna titolo e descrizione. Per esercizi e protocolli apri la scheda cliccando sul nome.
+            </DialogDescription>
+          </DialogHeader>
+          {editTemplateDialog && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-template-title">Titolo scheda</Label>
+                <Input
+                  id="edit-template-title"
+                  autoFocus
+                  value={editTemplateDialog.title}
+                  onChange={(e) =>
+                    setEditTemplateDialog({ ...editTemplateDialog, title: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-template-description">Descrizione (opzionale)</Label>
+                <Textarea
+                  id="edit-template-description"
+                  value={editTemplateDialog.description}
+                  onChange={(e) =>
+                    setEditTemplateDialog({ ...editTemplateDialog, description: e.target.value })
+                  }
+                  placeholder="Breve descrizione..."
+                  className="min-h-[80px]"
+                />
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setEditTemplateDialog(null)}>
+              Annulla
+            </Button>
+            <Button
+              onClick={saveEditTemplateDialog}
+              disabled={saveEditTemplateDialogMutation.isPending || !editTemplateDialog?.title.trim()}
+            >
+              {saveEditTemplateDialogMutation.isPending ? 'Salvataggio…' : 'Salva'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Assign Workout Dialog */}
       <AssignWorkoutDialog

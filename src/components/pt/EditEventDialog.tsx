@@ -31,6 +31,8 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { EventParticipantsPanel } from '@/components/pt/EventParticipantsPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -44,7 +46,9 @@ import {
   ImagePlus,
   X,
   Trash2,
+  ExternalLink,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { ImageUpload } from '@/components/common/ImageUpload';
 
@@ -72,9 +76,10 @@ interface EditEventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event: CalendarEvent;
+  initialTab?: 'details' | 'participants';
 }
 
-export function EditEventDialog({ open, onOpenChange, event }: EditEventDialogProps) {
+export function EditEventDialog({ open, onOpenChange, event, initialTab = 'details' }: EditEventDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -214,14 +219,29 @@ export function EditEventDialog({ open, onOpenChange, event }: EditEventDialogPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Modifica Evento
+          <DialogTitle className="flex items-center justify-between gap-2 pr-6">
+            <span className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Modifica Evento
+            </span>
+            <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" asChild>
+              <Link to={`/pt/events/${event.id}`} onClick={() => onOpenChange(false)}>
+                <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                Pagina evento
+              </Link>
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
+        <Tabs defaultValue={initialTab} key={`${event.id}-${initialTab}`} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="details">Dettagli</TabsTrigger>
+            <TabsTrigger value="participants">Iscritti</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="details" className="mt-4">
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Cover Image */}
           <div className="space-y-2">
@@ -488,6 +508,23 @@ export function EditEventDialog({ open, onOpenChange, event }: EditEventDialogPr
             </Button>
           </DialogFooter>
         </form>
+          </TabsContent>
+
+          <TabsContent value="participants" className="mt-4">
+            <EventParticipantsPanel
+              eventId={event.id}
+              eventTitle={title || event.title}
+              isClosedNumber={isClosedNumber}
+              maxParticipants={isClosedNumber && maxParticipants ? Number(maxParticipants) : null}
+              compact
+            />
+            <DialogFooter className="mt-4 sm:justify-start">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Chiudi
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

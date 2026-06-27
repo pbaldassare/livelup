@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { promoteWaitlistIfSlot, registerForEvent } from '@/lib/api/eventParticipants';
 import { toast } from 'sonner';
 import { 
   Users, 
@@ -63,8 +64,13 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [isRegistered, setIsRegistered] = useState(event.is_registered);
+  const [registrationStatus, setRegistrationStatus] = useState<'none' | 'registered' | 'waitlist'>(
+    event.is_registered ? 'registered' : 'none',
+  );
   const [participantCount, setParticipantCount] = useState(event.participant_count);
+
+  const isRegistered = registrationStatus === 'registered';
+  const isWaitlist = registrationStatus === 'waitlist';
 
   const isFull = event.is_closed_number && event.max_participants != null && participantCount >= event.max_participants;
 
@@ -92,8 +98,7 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
 
     setIsLoading(true);
     try {
-      if (isRegistered) {
-        // Cancel registration
+      if (isRegistered || isWaitlist) {
         const { error } = await supabase
           .from('event_participants')
           .delete()
@@ -101,27 +106,21 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
           .eq('user_id', user.id);
 
         if (error) throw error;
-        
-        setIsRegistered(false);
-        setParticipantCount(prev => Math.max(0, prev - 1));
+
+        await promoteWaitlistIfSlot(event.id);
+        setRegistrationStatus('none');
+        if (isRegistered) setParticipantCount(prev => Math.max(0, prev - 1));
         toast.success('Iscrizione annullata');
       } else {
-        // Register
-        const { error } = await supabase
-          .from('event_participants')
-          .insert({
-            event_id: event.id,
-            user_id: user.id,
-            status: 'registered'
-          });
-
-        if (error) throw error;
-        
-        setIsRegistered(true);
-        setParticipantCount(prev => prev + 1);
-        toast.success('Iscrizione confermata! 🎉');
+        const status = await registerForEvent(event.id, user.id, {
+          is_closed_number: event.is_closed_number ?? false,
+          max_participants: event.max_participants ?? null,
+        });
+        setRegistrationStatus(status);
+        if (status === 'registered') setParticipantCount(prev => prev + 1);
+        toast.success(status === 'waitlist' ? 'Sei in lista d\'attesa' : 'Iscrizione confermata! 🎉');
       }
-      
+
       onRegistrationChange?.();
     } catch (error) {
       console.error('Registration error:', error);
@@ -230,13 +229,13 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
             e.stopPropagation();
             handleRegistration();
           }}
-          disabled={isLoading || (isFull && !isRegistered)}
+          disabled={isLoading}
           className={cn(
             "w-full",
-            isRegistered 
-              ? "bg-app-muted text-app-foreground hover:bg-app-muted/80" 
-              : isFull
-                ? "bg-muted text-muted-foreground cursor-not-allowed"
+            isRegistered
+              ? "bg-app-muted text-app-foreground hover:bg-app-muted/80"
+              : isWaitlist
+                ? "bg-amber-500/20 text-app-foreground hover:bg-amber-500/30"
                 : "bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
           )}
         >
@@ -247,8 +246,10 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
               <Check className="h-4 w-4 mr-2" />
               Iscritto
             </>
+          ) : isWaitlist ? (
+            'In lista d\'attesa — Annulla'
           ) : isFull ? (
-            'Posti esauriti'
+            'Lista d\'attesa'
           ) : (
             'Partecipa'
           )}
