@@ -123,6 +123,7 @@ export function CreatePublicEventDialog({
     onSuccess: () => {
       toast.success('Evento creato con successo! 🎉');
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-events-manage'] });
       queryClient.invalidateQueries({ queryKey: ['public-events'] });
       queryClient.invalidateQueries({ queryKey: ['pt-calendar'] });
       onOpenChange(false);
