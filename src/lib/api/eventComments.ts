@@ -6,6 +6,7 @@ export type EventCommentRow = {
   user_id: string;
   content: string;
   created_at: string;
+  parent_comment_id: string | null;
   profile: {
     first_name: string | null;
     last_name: string | null;
@@ -13,15 +14,19 @@ export type EventCommentRow = {
   } | null;
 };
 
+export type EventCommentThread = EventCommentRow & {
+  replies: EventCommentRow[];
+};
+
 export function commentAuthorName(c: EventCommentRow): string {
   const n = [c.profile?.first_name, c.profile?.last_name].filter(Boolean).join(' ').trim();
   return n || 'Utente';
 }
 
-export async function loadEventComments(eventId: string): Promise<EventCommentRow[]> {
+export async function loadEventComments(eventId: string): Promise<EventCommentThread[]> {
   const { data, error } = await supabase
     .from('event_comments')
-    .select('id, event_id, user_id, content, created_at')
+    .select('id, event_id, user_id, content, created_at, parent_comment_id')
     .eq('event_id', eventId)
     .order('created_at', { ascending: true });
 
@@ -37,10 +42,27 @@ export async function loadEventComments(eventId: string): Promise<EventCommentRo
   if (profErr) throw profErr;
   const byUser = Object.fromEntries((profiles || []).map((p) => [p.user_id, p]));
 
-  return data.map((row) => ({
+  const rows: EventCommentRow[] = data.map((row) => ({
     ...row,
     profile: byUser[row.user_id] ?? null,
   }));
+
+  // Build 1-level tree: roots + their replies
+  const roots: EventCommentThread[] = [];
+  const byId: Record<string, EventCommentThread> = {};
+  for (const r of rows) {
+    if (!r.parent_comment_id) {
+      const t: EventCommentThread = { ...r, replies: [] };
+      byId[r.id] = t;
+      roots.push(t);
+    }
+  }
+  for (const r of rows) {
+    if (r.parent_comment_id && byId[r.parent_comment_id]) {
+      byId[r.parent_comment_id].replies.push(r);
+    }
+  }
+  return roots;
 }
 
 export async function countEventComments(eventIds: string[]): Promise<Record<string, number>> {
@@ -61,7 +83,12 @@ export async function countEventComments(eventIds: string[]): Promise<Record<str
   return out;
 }
 
-export async function postEventComment(eventId: string, userId: string, content: string): Promise<void> {
+export async function postEventComment(
+  eventId: string,
+  userId: string,
+  content: string,
+  parentCommentId?: string | null,
+): Promise<void> {
   const trimmed = content.trim();
   if (!trimmed) throw new Error('Il commento è vuoto');
 
@@ -69,6 +96,7 @@ export async function postEventComment(eventId: string, userId: string, content:
     event_id: eventId,
     user_id: userId,
     content: trimmed,
+    parent_comment_id: parentCommentId ?? null,
   });
   if (error) throw error;
 }
