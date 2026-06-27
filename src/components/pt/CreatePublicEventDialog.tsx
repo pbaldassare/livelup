@@ -126,8 +126,8 @@ export function CreatePublicEventDialog({
         is_closed_number: isClosedNumber,
         max_participants: isClosedNumber && maxParticipants ? Number(maxParticipants) : null,
         cover_image_url: coverImageUrl,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }]);
+
 
       if (error) throw error;
     },
