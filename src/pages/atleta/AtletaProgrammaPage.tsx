@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarClock, ChevronRight } from 'lucide-react';
 import { AtletaCalendarView } from '@/components/app/AtletaCalendarView';
+import { AtletaWorkoutList } from '@/components/app/AtletaWorkoutList';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -65,6 +66,11 @@ export function AtletaProgrammaPage() {
         </button>
       </div>
       <AtletaCalendarView />
+
+      {/* Lista allenamenti Programma / Completati (come pagina Allenamenti) */}
+      <div className="px-4 pt-2 pb-4">
+        <AtletaWorkoutList />
+      </div>
     </div>
   );
 }

@@ -39,6 +39,7 @@ import {
   GripVertical,
   Dumbbell,
   ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
@@ -70,6 +71,7 @@ import { normalizeAmrapParams } from '@/lib/protocols/amrap';
 import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
+import { categorizeArchiveExercises, type ArchiveExerciseRow } from '@/lib/protocolExerciseArchive';
 import { Link } from 'react-router-dom';
 import {
   type ProtocolConfig,
@@ -126,6 +128,16 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+
+  const toggleCollapsed = useCallback((id: string) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   // Cache key — separato per blocco
   const queryKey = ['template-exercises', templateId, blockId ?? 'no-block'];
@@ -208,6 +220,33 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     },
     enabled: !!templateId,
   });
+
+  // Archivio completo (globali + privati PT, via RLS) per i dropdown dei protocolli
+  const { data: archiveExerciseRows = [] } = useQuery({
+    queryKey: ['protocol-exercise-archive', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [] as ArchiveExerciseRow[];
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('id, name, is_public, created_by')
+        .order('name');
+      if (error) throw error;
+      return (data ?? []) as ArchiveExerciseRow[];
+    },
+    enabled: !!user?.id,
+  });
+
+  const protocolExerciseArchive = useMemo(() => {
+    if (!user?.id || !favIds) {
+      return { favoriteOptions: [], mineOptions: [], globalOptions: [] };
+    }
+    const workoutIds = new Set(allTemplateExerciseOptions.map((o) => o.id));
+    return categorizeArchiveExercises(archiveExerciseRows, {
+      userId: user.id,
+      favIds,
+      excludeIds: workoutIds,
+    });
+  }, [archiveExerciseRows, allTemplateExerciseOptions, user?.id, favIds]);
 
   // Add exercise mutation — default SET, 3 set generici
   const addExerciseMutation = useMutation({
@@ -582,12 +621,25 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                               {/* Exercise Info */}
                               <div className="flex-1 min-w-0 space-y-3">
                                 <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <p className="font-medium truncate">{te.exercise?.name}</p>
-                                    <p className="text-sm text-muted-foreground truncate">
-                                      {te.exercise?.category} • {te.exercise?.muscle_groups.join(', ')}
-                                    </p>
-                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleCollapsed(te.id)}
+                                    className="flex min-w-0 items-start gap-2 text-left"
+                                    aria-expanded={!collapsedIds.has(te.id)}
+                                    title={collapsedIds.has(te.id) ? 'Espandi' : 'Comprimi'}
+                                  >
+                                    {collapsedIds.has(te.id) ? (
+                                      <ChevronRight className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="font-medium truncate">{te.exercise?.name}</p>
+                                      <p className="text-sm text-muted-foreground truncate">
+                                        {te.exercise?.category} • {te.exercise?.muscle_groups.join(', ')}
+                                      </p>
+                                    </div>
+                                  </button>
                                   <div className="flex items-center gap-2 shrink-0">
                                     {/* Selettore Protocollo */}
                                     <Select
@@ -626,7 +678,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                 </div>
 
                                 {/* Render condizionale per protocollo */}
-                                {(() => {
+                                {!collapsedIds.has(te.id) && (() => {
                                   const ptype = ((te.protocol_type as ProtocolType) || 'SET');
                                   if (ptype === 'SET') {
                                     return (
@@ -857,12 +909,14 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       params as Record<string, unknown>,
                                       fallbackName,
                                     );
-                                    // Opzioni dropdown = TUTTI gli esercizi del template (qualsiasi blocco)
-                                    const exerciseSuggestions = allTemplateExerciseOptions;
+                                    // Opzioni dropdown = workout + archivio completo
                                     return (
                                       <EmomBlocksEditor
                                         value={emomValue}
-                                        exerciseOptions={exerciseSuggestions}
+                                        workoutExerciseOptions={allTemplateExerciseOptions}
+                                        favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
+                                        mineExerciseOptions={protocolExerciseArchive.mineOptions}
+                                        globalExerciseOptions={protocolExerciseArchive.globalOptions}
                                         onChange={(next) => {
                                           updateProtocolParamMutation.mutate({
                                             id: te.id,
@@ -881,7 +935,10 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     return (
                                       <AmrapEditor
                                         value={amrapValue}
-                                        exerciseOptions={allTemplateExerciseOptions}
+                                        workoutExerciseOptions={allTemplateExerciseOptions}
+                                        favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
+                                        mineExerciseOptions={protocolExerciseArchive.mineOptions}
+                                        globalExerciseOptions={protocolExerciseArchive.globalOptions}
                                         onChange={(next) => {
                                           updateProtocolParamMutation.mutate({
                                             id: te.id,
@@ -900,7 +957,10 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     return (
                                       <SupersetEditor
                                         value={supersetValue}
-                                        exerciseOptions={allTemplateExerciseOptions}
+                                        workoutExerciseOptions={allTemplateExerciseOptions}
+                                        favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
+                                        mineExerciseOptions={protocolExerciseArchive.mineOptions}
+                                        globalExerciseOptions={protocolExerciseArchive.globalOptions}
                                         onChange={(next) => {
                                           updateProtocolParamMutation.mutate({
                                             id: te.id,
@@ -920,7 +980,10 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       <TimedRoundsEditor
                                         value={trValue}
                                         title={ptype}
-                                        exerciseOptions={allTemplateExerciseOptions}
+                                        workoutExerciseOptions={allTemplateExerciseOptions}
+                                        favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
+                                        mineExerciseOptions={protocolExerciseArchive.mineOptions}
+                                        globalExerciseOptions={protocolExerciseArchive.globalOptions}
                                         onChange={(next) => {
                                           updateProtocolParamMutation.mutate({
                                             id: te.id,
@@ -1088,6 +1151,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                 })()}
 
                                 {/* Avanzate: tempo + note (collassate) */}
+                                {!collapsedIds.has(te.id) && (
                                 <Collapsible>
                                   <CollapsibleTrigger asChild>
                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
@@ -1143,6 +1207,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     </div>
                                   </CollapsibleContent>
                                 </Collapsible>
+                                )}
 
                               </div>
                             </div>

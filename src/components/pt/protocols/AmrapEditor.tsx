@@ -6,21 +6,10 @@
 // - Nessuna scrittura automatica: ogni edit chiama onChange esplicitamente
 // =====================================================
 
-import { Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { cn } from '@/lib/utils';
 import {
   type AmrapParams,
   type AmrapExercise,
@@ -28,16 +17,18 @@ import {
   syncExercisesCount,
   formatAmrapDurationSeconds,
 } from '@/lib/protocols/amrap';
+import {
+  ProtocolExerciseCombobox,
+  type ProtocolExerciseOption,
+  type ProtocolExercisePickerProps,
+} from '@/components/pt/protocols/ProtocolExerciseCombobox';
 
-export interface AmrapExerciseOption {
-  id: string;
-  name: string;
-}
+export type AmrapExerciseOption = ProtocolExerciseOption;
 
-interface AmrapEditorProps {
+interface AmrapEditorProps extends ProtocolExercisePickerProps {
   value: AmrapParams;
   onChange: (next: AmrapParams) => void;
-  /** Esercizi del template corrente (TUTTI, non solo del blocco/circuito). */
+  /** @deprecated */
   exerciseOptions?: AmrapExerciseOption[];
 }
 
@@ -57,7 +48,16 @@ function commit(
   onChange(merged);
 }
 
-export function AmrapEditor({ value, onChange, exerciseOptions = [] }: AmrapEditorProps) {
+export function AmrapEditor({
+  value,
+  onChange,
+  workoutExerciseOptions = [],
+  favoriteExerciseOptions = [],
+  mineExerciseOptions = [],
+  globalExerciseOptions = [],
+  exerciseOptions,
+}: AmrapEditorProps) {
+  const workoutOpts = workoutExerciseOptions.length > 0 ? workoutExerciseOptions : (exerciseOptions ?? []);
   const updateExercise = (idx: number, patch: Partial<AmrapExercise>) => {
     const exercises = value.exercises.map((e, i) => (i === idx ? { ...e, ...patch } : e));
     commit(value, { exercises }, onChange);
@@ -77,7 +77,7 @@ export function AmrapEditor({ value, onChange, exerciseOptions = [] }: AmrapEdit
   const durationLabel = formatAmrapDurationSeconds(value.duration_seconds);
 
   return (
-    <div className="rounded-md border bg-muted/20 p-3 space-y-4">
+    <div className="rounded-md border bg-muted/20 p-2.5 space-y-3">
       <p className="text-xs font-medium text-muted-foreground">Configurazione AMRAP</p>
 
       {/* Parametri globali */}
@@ -122,23 +122,26 @@ export function AmrapEditor({ value, onChange, exerciseOptions = [] }: AmrapEdit
       </div>
 
       {/* Lista esercizi */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {value.exercises.map((ex, eIdx) => (
           <div
             key={ex.id}
-            className="grid grid-cols-12 gap-2 items-end rounded-md border border-dashed bg-background p-2"
+            className="grid grid-cols-12 gap-1.5 items-end rounded-md border border-dashed bg-background p-1.5"
           >
-            <div className="col-span-12 md:col-span-6 space-y-1">
+            <div className="col-span-12 md:col-span-6 space-y-0.5">
               <Label className="text-[10px] text-muted-foreground">Esercizio</Label>
-              <ExerciseCombobox
+              <ProtocolExerciseCombobox
                 value={ex.name}
-                options={exerciseOptions}
+                workoutExerciseOptions={workoutOpts}
+                favoriteExerciseOptions={favoriteExerciseOptions}
+                mineExerciseOptions={mineExerciseOptions}
+                globalExerciseOptions={globalExerciseOptions}
                 onChange={(opt) =>
                   updateExercise(eIdx, { name: opt.name, exercise_id: opt.id })
                 }
               />
             </div>
-            <div className="col-span-6 md:col-span-2 space-y-1">
+            <div className="col-span-6 md:col-span-2 space-y-0.5">
               <Label className="text-[10px] text-muted-foreground">Reps</Label>
               <Input
                 type="number"
@@ -153,7 +156,7 @@ export function AmrapEditor({ value, onChange, exerciseOptions = [] }: AmrapEdit
                 className="h-8"
               />
             </div>
-            <div className="col-span-5 md:col-span-3 space-y-1">
+            <div className="col-span-5 md:col-span-3 space-y-0.5">
               <Label className="text-[10px] text-muted-foreground">Kg</Label>
               <Input
                 type="number"
@@ -202,108 +205,5 @@ export function AmrapEditor({ value, onChange, exerciseOptions = [] }: AmrapEdit
         globale.
       </p>
     </div>
-  );
-}
-
-// =====================================================
-// ExerciseCombobox — autocomplete sui soli esercizi del template.
-// Mantiene fallback "personalizzato" per non rompere righe legacy.
-// =====================================================
-interface ExerciseComboboxProps {
-  value: string;
-  options: AmrapExerciseOption[];
-  onChange: (opt: { id?: string; name: string }) => void;
-}
-
-function ExerciseCombobox({ value, options, onChange }: ExerciseComboboxProps) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-
-  const uniqueOptions = (() => {
-    const seen = new Set<string>();
-    const out: AmrapExerciseOption[] = [];
-    for (const o of options) {
-      const k = o.name.trim().toLowerCase();
-      if (!k || seen.has(k)) continue;
-      seen.add(k);
-      out.push(o);
-    }
-    return out;
-  })();
-
-  const q = search.trim().toLowerCase();
-  const filtered = q ? uniqueOptions.filter((o) => o.name.toLowerCase().includes(q)) : uniqueOptions;
-  const showFreeOption = q.length > 0 && !uniqueOptions.some((o) => o.name.toLowerCase() === q);
-
-  return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setSearch(''); }}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn('h-8 w-full justify-between font-normal', !value && 'text-muted-foreground')}
-        >
-          <span className="truncate">{value || 'Seleziona esercizio'}</span>
-          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput
-            placeholder="Cerca esercizio…"
-            value={search}
-            onValueChange={setSearch}
-            className="h-9"
-          />
-          <CommandList>
-            {filtered.length === 0 && !showFreeOption && (
-              <CommandEmpty>
-                {uniqueOptions.length === 0
-                  ? "Nessun esercizio nel workout. Aggiungili nel tab Esercizi."
-                  : 'Nessun esercizio trovato'}
-              </CommandEmpty>
-            )}
-            {filtered.length > 0 && (
-              <CommandGroup heading="Esercizi del workout">
-                {filtered.map((o) => (
-                  <CommandItem
-                    key={o.id || o.name}
-                    value={o.name}
-                    onSelect={() => {
-                      onChange({ id: o.id, name: o.name });
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-3.5 w-3.5',
-                        value === o.name ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                    {o.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-            {showFreeOption && (
-              <CommandGroup heading="Personalizzato">
-                <CommandItem
-                  value={`__free__${search}`}
-                  onSelect={() => {
-                    onChange({ name: search.trim() });
-                    setOpen(false);
-                  }}
-                >
-                  <Plus className="mr-2 h-3.5 w-3.5" />
-                  Usa "{search.trim()}"
-                </CommandItem>
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
   );
 }

@@ -19,7 +19,6 @@ import {
   Tag,
   Library,
   Bot,
-  ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -41,8 +40,7 @@ const navigationItems = [
   { label: 'Allenamenti', href: '/pt/workouts', icon: Dumbbell },
   { label: 'Assistente', href: '/pt/assistant', icon: Bot },
   { label: 'Archivio Esercizi', href: '/pt/exercises', icon: Library },
-  { label: 'Gestione eventi', href: '/pt/events', icon: ClipboardList },
-  { label: 'Cal. Eventi', href: '/pt/calendar/eventi', icon: Calendar },
+  { label: 'Eventi', href: '/pt/events', icon: Calendar },
   { label: 'Cal. Appuntamenti', href: '/pt/calendar/appuntamenti', icon: Calendar },
   { label: 'Messaggi', href: '/pt/messages', icon: MessageSquare },
   { label: 'Pagamenti', href: '/pt/payments', icon: CreditCard },

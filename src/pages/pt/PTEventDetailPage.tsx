@@ -139,7 +139,7 @@ export default function PTEventDetailPage() {
         <Button variant="ghost" size="sm" className="mb-2 -ml-2" asChild>
           <Link to="/pt/events">
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Gestione eventi
+            Eventi
           </Link>
         </Button>
         <h1 className="text-2xl font-bold tracking-tight">{event.title}</h1>

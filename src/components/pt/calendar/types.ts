@@ -2,6 +2,7 @@
 
 export type CalendarMode = 'eventi' | 'appuntamenti';
 export type CalendarView = 'day' | 'week' | 'month';
+export type EventsPanel = 'calendar' | 'list';
 
 export interface CalendarEventRow {
   id: string;

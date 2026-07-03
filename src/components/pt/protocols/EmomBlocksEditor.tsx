@@ -7,21 +7,10 @@
 // - Nessuna scrittura automatica: ogni edit chiama onChange esplicitamente.
 // =====================================================
 
-import { Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { cn } from '@/lib/utils';
 import {
   type EmomParams,
   type EmomBlock,
@@ -32,16 +21,18 @@ import {
   autoBlockLabel,
   formatRoundDurationSeconds,
 } from '@/lib/protocols/emom';
+import {
+  ProtocolExerciseCombobox,
+  type ProtocolExerciseOption,
+  type ProtocolExercisePickerProps,
+} from '@/components/pt/protocols/ProtocolExerciseCombobox';
 
-export interface EmomExerciseOption {
-  id: string;     // exercise_id
-  name: string;
-}
+export type EmomExerciseOption = ProtocolExerciseOption;
 
-interface EmomBlocksEditorProps {
+interface EmomBlocksEditorProps extends ProtocolExercisePickerProps {
   value: EmomParams;
   onChange: (next: EmomParams) => void;
-  /** Esercizi del template corrente (TUTTI, non solo quelli del blocco/circuito). */
+  /** @deprecated */
   exerciseOptions?: EmomExerciseOption[];
 }
 
@@ -66,8 +57,13 @@ function commit(
 export function EmomBlocksEditor({
   value,
   onChange,
-  exerciseOptions = [],
+  workoutExerciseOptions = [],
+  favoriteExerciseOptions = [],
+  mineExerciseOptions = [],
+  globalExerciseOptions = [],
+  exerciseOptions,
 }: EmomBlocksEditorProps) {
+  const workoutOpts = workoutExerciseOptions.length > 0 ? workoutExerciseOptions : (exerciseOptions ?? []);
   const updateBlock = (idx: number, patch: Partial<EmomBlock>) => {
     const blocks = value.blocks.map((b, i) => (i === idx ? { ...b, ...patch } : b));
     commit(value, { blocks }, onChange);
@@ -116,7 +112,7 @@ export function EmomBlocksEditor({
   const durationLabel = formatRoundDurationSeconds(value.round_duration);
 
   return (
-    <div className="rounded-md border bg-muted/20 p-3 space-y-4">
+    <div className="rounded-md border bg-muted/20 p-2.5 space-y-3">
       <p className="text-xs font-medium text-muted-foreground">Configurazione EMOM</p>
 
       {/* Parametri globali */}
@@ -176,11 +172,11 @@ export function EmomBlocksEditor({
       </div>
 
       {/* Blocchi */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {value.blocks.map((block, bIdx) => {
           const defaultLabel = autoBlockLabel(bIdx);
           return (
-            <div key={block.id} className="rounded-md border bg-background p-3 space-y-3">
+            <div key={block.id} className="rounded-md border bg-background p-2 space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-foreground/80 shrink-0 w-16">
                   {defaultLabel}
@@ -204,17 +200,20 @@ export function EmomBlocksEditor({
                 </Button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {block.exercises.map((ex, eIdx) => (
                   <div
                     key={ex.id}
-                    className="grid grid-cols-12 gap-2 items-end rounded-md border border-dashed bg-muted/20 p-2"
+                    className="grid grid-cols-12 gap-1.5 items-end rounded-md border border-dashed bg-muted/20 p-1.5"
                   >
-                    <div className="col-span-12 md:col-span-8 space-y-1">
+                    <div className="col-span-12 md:col-span-8 space-y-0.5">
                       <Label className="text-[10px] text-muted-foreground">Esercizio</Label>
-                      <ExerciseCombobox
+                      <ProtocolExerciseCombobox
                         value={ex.name}
-                        options={exerciseOptions}
+                        workoutExerciseOptions={workoutOpts}
+                        favoriteExerciseOptions={favoriteExerciseOptions}
+                        mineExerciseOptions={mineExerciseOptions}
+                        globalExerciseOptions={globalExerciseOptions}
                         onChange={(opt) =>
                           updateExercise(bIdx, eIdx, {
                             name: opt.name,
@@ -223,7 +222,7 @@ export function EmomBlocksEditor({
                         }
                       />
                     </div>
-                    <div className="col-span-9 md:col-span-3 space-y-1">
+                    <div className="col-span-9 md:col-span-3 space-y-0.5">
                       <Label className="text-[10px] text-muted-foreground">Ripetizioni</Label>
                       <Input
                         type="number"
@@ -275,116 +274,5 @@ export function EmomBlocksEditor({
         Aggiungi blocco
       </Button>
     </div>
-  );
-}
-
-// =====================================================
-// ExerciseCombobox — autocomplete sui soli esercizi del template.
-// Mantiene fallback "personalizzato" per non rompere righe legacy.
-// =====================================================
-interface ExerciseComboboxProps {
-  value: string;
-  options: EmomExerciseOption[];
-  onChange: (opt: { id?: string; name: string }) => void;
-}
-
-function ExerciseCombobox({ value, options, onChange }: ExerciseComboboxProps) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-
-  // Deduplica per nome (case-insensitive)
-  const uniqueOptions = (() => {
-    const seen = new Set<string>();
-    const out: EmomExerciseOption[] = [];
-    for (const o of options) {
-      const k = o.name.trim().toLowerCase();
-      if (!k || seen.has(k)) continue;
-      seen.add(k);
-      out.push(o);
-    }
-    return out;
-  })();
-
-  const q = search.trim().toLowerCase();
-  const filtered = q
-    ? uniqueOptions.filter((o) => o.name.toLowerCase().includes(q))
-    : uniqueOptions;
-
-  const showFreeOption =
-    q.length > 0 && !uniqueOptions.some((o) => o.name.toLowerCase() === q);
-
-  return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setSearch(''); }}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn(
-            'h-8 w-full justify-between font-normal',
-            !value && 'text-muted-foreground',
-          )}
-        >
-          <span className="truncate">{value || 'Seleziona esercizio'}</span>
-          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput
-            placeholder="Cerca esercizio…"
-            value={search}
-            onValueChange={setSearch}
-            className="h-9"
-          />
-          <CommandList>
-            {filtered.length === 0 && !showFreeOption && (
-              <CommandEmpty>
-                {uniqueOptions.length === 0
-                  ? "Nessun esercizio nel workout. Aggiungili nel tab Esercizi."
-                  : 'Nessun esercizio trovato'}
-              </CommandEmpty>
-            )}
-            {filtered.length > 0 && (
-              <CommandGroup heading="Esercizi del workout">
-                {filtered.map((o) => (
-                  <CommandItem
-                    key={o.id || o.name}
-                    value={o.name}
-                    onSelect={() => {
-                      onChange({ id: o.id, name: o.name });
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-3.5 w-3.5',
-                        value === o.name ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                    {o.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-            {showFreeOption && (
-              <CommandGroup heading="Personalizzato">
-                <CommandItem
-                  value={`__free__${search}`}
-                  onSelect={() => {
-                    onChange({ name: search.trim() });
-                    setOpen(false);
-                  }}
-                >
-                  <Plus className="mr-2 h-3.5 w-3.5" />
-                  Usa "{search.trim()}"
-                </CommandItem>
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
   );
 }

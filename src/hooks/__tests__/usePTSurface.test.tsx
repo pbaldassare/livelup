@@ -130,6 +130,8 @@ describe('mapPTWebToApp', () => {
     ['/pt/templates', '/pt/app/templates'],
     ['/pt/calendar', '/pt/app/calendar'],
     ['/pt/calendar/eventi', '/pt/app/calendar'],
+    ['/pt/events', '/pt/app/calendar'],
+    ['/pt/events/abc-123', '/pt/app/calendar'],
     ['/pt/calendar/appuntamenti', '/pt/app/calendar'],
     ['/pt/messages', '/pt/app/chat'],
     ['/pt/exercises', '/pt/app/exercises'],

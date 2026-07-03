@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.create-user]
 verify_jwt = false
 
+[functions.pt-create-athlete]
+verify_jwt = false
+
 [functions.delete-user]
 verify_jwt = false
 

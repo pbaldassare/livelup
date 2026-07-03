@@ -64,7 +64,7 @@ const PT_FEATURES: Array<{
   { key: 'athletes', label: 'Atleti', webRoute: '/pt/athletes', pwaRoute: '/pt/app/athletes', icon: UserCog },
   { key: 'workouts', label: 'Allenamenti', webRoute: '/pt/workouts', pwaRoute: '/pt/app/workouts', icon: BookOpenCheck },
   { key: 'exercises', label: 'Archivio esercizi', webRoute: '/pt/exercises', icon: Layers },
-  { key: 'calendar_events', label: 'Calendario eventi', webRoute: '/pt/calendar/eventi', pwaRoute: '/pt/app/calendar', icon: ImageIcon },
+  { key: 'calendar_events', label: 'Eventi', webRoute: '/pt/events', pwaRoute: '/pt/app/calendar', icon: ImageIcon },
   { key: 'calendar_appts', label: 'Appuntamenti', webRoute: '/pt/calendar/appuntamenti', icon: ImageIcon },
   { key: 'chat', label: 'Chat', webRoute: '/pt/messages', pwaRoute: '/pt/app/chat', icon: ImageIcon },
   { key: 'payments', label: 'Pagamenti', webRoute: '/pt/payments', icon: DollarSign },

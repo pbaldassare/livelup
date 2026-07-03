@@ -37,9 +37,11 @@ import {
   History,
   Download,
   Link2,
-  Copy
+  Copy,
+  UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
 
 // =====================================================
 // PT ATHLETES PAGE - CRM Atleti con paginazione
@@ -75,6 +77,7 @@ export function PTAthletesPage() {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'active');
   const [selectedAthlete, setSelectedAthlete] = useState<AtletaConnection | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [addAthleteOpen, setAddAthleteOpen] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -264,6 +267,10 @@ export function PTAthletesPage() {
         ]}
         actions={
           <div className="flex gap-2">
+            <Button size="sm" onClick={() => setAddAthleteOpen(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Aggiungi atleta
+            </Button>
             <Button variant="outline" size="sm" onClick={() => {
               const link = `${window.location.origin}/auth?mode=signup&ref=${user?.id || ''}`;
               navigator.clipboard.writeText(link);
@@ -461,6 +468,8 @@ export function PTAthletesPage() {
           />
         </div>
       </SectionCard>
+
+      <AddAthleteDialog open={addAthleteOpen} onOpenChange={setAddAthleteOpen} />
 
       {/* Detail Sheet */}
       <DetailSheet

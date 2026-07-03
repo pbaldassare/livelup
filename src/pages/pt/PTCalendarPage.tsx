@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,7 +10,13 @@ import { CalendarMonthView } from '@/components/pt/calendar/CalendarMonthView';
 import { NewAppointmentDialog } from '@/components/pt/calendar/NewAppointmentDialog';
 import { EditEventDialog } from '@/components/pt/EditEventDialog';
 import { CreatePublicEventDialog } from '@/components/pt/CreatePublicEventDialog';
-import type { CalendarEventRow, CalendarView, AthleteLite } from '@/components/pt/calendar/types';
+import { EventsListPanel } from '@/components/pt/events/EventsListPanel';
+import type {
+  CalendarEventRow,
+  CalendarView,
+  AthleteLite,
+  EventsPanel,
+} from '@/components/pt/calendar/types';
 import {
   endOfMonth,
   endOfWeek,
@@ -19,6 +25,8 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
+
+const EVENTS_PANEL_KEY = 'pt-events-panel';
 
 export interface PTCalendarPageProps {
   mode?: 'eventi' | 'appuntamenti';
@@ -33,8 +41,19 @@ export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
   const [newSlot, setNewSlot] = useState<Date | null>(null);
   const [editing, setEditing] = useState<CalendarEventRow | null>(null);
   const [editTab, setEditTab] = useState<'details' | 'participants'>('details');
+  const [eventsPanel, setEventsPanel] = useState<EventsPanel>(() => {
+    if (typeof window === 'undefined') return 'calendar';
+    const stored = localStorage.getItem(EVENTS_PANEL_KEY);
+    return stored === 'list' ? 'list' : 'calendar';
+  });
 
   const isAppuntamenti = mode === 'appuntamenti';
+
+  useEffect(() => {
+    if (!isAppuntamenti) {
+      localStorage.setItem(EVENTS_PANEL_KEY, eventsPanel);
+    }
+  }, [eventsPanel, isAppuntamenti]);
 
   const range = useMemo(() => {
     if (view === 'day') {
@@ -68,7 +87,7 @@ export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
       if (error) throw error;
       return (data || []) as CalendarEventRow[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && (isAppuntamenti || eventsPanel === 'calendar'),
   });
 
   const eventIds = useMemo(() => events.map((e) => e.id), [events]);
@@ -76,7 +95,7 @@ export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
   const { data: participantCountsByEventId = {} } = useQuery({
     queryKey: ['event-participant-counts', eventIds.join(',')],
     queryFn: () => countEventParticipants(eventIds),
-    enabled: !isAppuntamenti && eventIds.length > 0,
+    enabled: !isAppuntamenti && eventIds.length > 0 && eventsPanel === 'calendar',
   });
 
   const { data: athletes = [] } = useQuery({
@@ -157,39 +176,47 @@ export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
           setNewOpen(true);
         }}
         newLabel={isAppuntamenti ? 'Nuovo appuntamento' : 'Nuovo evento'}
+        eventsPanel={isAppuntamenti ? undefined : eventsPanel}
+        onEventsPanelChange={isAppuntamenti ? undefined : setEventsPanel}
       >
-        {view === 'day' && (
-          <CalendarDayView
-            date={selectedDate}
-            events={filteredEvents}
-            athletesById={athletesById}
-            mode={mode}
-            onEventClick={(e) => openEvent(e)}
-            onSlotClick={handleSlotClick}
-            {...calendarCountProps}
-          />
-        )}
-        {view === 'week' && (
-          <CalendarWeekView
-            date={selectedDate}
-            events={filteredEvents}
-            athletesById={athletesById}
-            mode={mode}
-            onEventClick={(e) => openEvent(e)}
-            onSlotClick={handleSlotClick}
-            {...calendarCountProps}
-          />
-        )}
-        {view === 'month' && (
-          <CalendarMonthView
-            date={selectedDate}
-            events={filteredEvents}
-            athletesById={athletesById}
-            mode={mode}
-            onEventClick={(e) => openEvent(e)}
-            onDayClick={handleDayClick}
-            {...calendarCountProps}
-          />
+        {!isAppuntamenti && eventsPanel === 'list' ? (
+          <EventsListPanel />
+        ) : (
+          <>
+            {view === 'day' && (
+              <CalendarDayView
+                date={selectedDate}
+                events={filteredEvents}
+                athletesById={athletesById}
+                mode={mode}
+                onEventClick={(e) => openEvent(e)}
+                onSlotClick={handleSlotClick}
+                {...calendarCountProps}
+              />
+            )}
+            {view === 'week' && (
+              <CalendarWeekView
+                date={selectedDate}
+                events={filteredEvents}
+                athletesById={athletesById}
+                mode={mode}
+                onEventClick={(e) => openEvent(e)}
+                onSlotClick={handleSlotClick}
+                {...calendarCountProps}
+              />
+            )}
+            {view === 'month' && (
+              <CalendarMonthView
+                date={selectedDate}
+                events={filteredEvents}
+                athletesById={athletesById}
+                mode={mode}
+                onEventClick={(e) => openEvent(e)}
+                onDayClick={handleDayClick}
+                {...calendarCountProps}
+              />
+            )}
+          </>
         )}
       </CalendarShell>
 
@@ -201,10 +228,7 @@ export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
           initialDate={newSlot}
         />
       ) : (
-        <CreatePublicEventDialog
-          open={newOpen}
-          onOpenChange={setNewOpen}
-        />
+        <CreatePublicEventDialog open={newOpen} onOpenChange={setNewOpen} />
       )}
 
       {editing && (
