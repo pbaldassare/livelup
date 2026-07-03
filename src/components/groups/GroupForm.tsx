@@ -60,6 +60,7 @@ export function GroupForm({ userId, onSubmit, isSubmitting }: GroupFormProps) {
           placeholder="Es. Calisthenics Milano Nord"
           maxLength={80}
           required
+          className="bg-app-muted border-app-border text-app-foreground placeholder:text-app-muted-foreground"
         />
       </div>
 
@@ -84,7 +85,8 @@ export function GroupForm({ userId, onSubmit, isSubmitting }: GroupFormProps) {
             setLatitude(place.geometry.location.lat);
             setLongitude(place.geometry.location.lng);
           }}
-          placeholder="Cerca città o zona..."
+          placeholder="Cerca indirizzo, città o zona..."
+          types={['geocode']}
         />
       </div>
 
@@ -101,6 +103,7 @@ export function GroupForm({ userId, onSubmit, isSubmitting }: GroupFormProps) {
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Di cosa si occupa il gruppo?"
           rows={3}
+          className="bg-app-muted border-app-border text-app-foreground placeholder:text-app-muted-foreground"
         />
       </div>
 

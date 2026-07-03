@@ -1,0 +1,47 @@
+-- =====================================================
+-- Estensione catalogo discipline (pt_types)
+-- Idempotente: name è UNIQUE, ON CONFLICT DO NOTHING
+-- =====================================================
+
+INSERT INTO public.pt_types (name, sort_order) VALUES
+  ('HIIT', 11),
+  ('Kettlebell', 12),
+  ('TRX', 13),
+  ('Stretching & Mobility', 14),
+  ('Ginnastica Posturale', 15),
+  ('Running', 16),
+  ('Trail Running', 17),
+  ('Ciclismo', 18),
+  ('Triathlon', 19),
+  ('Nuoto', 20),
+  ('Boxe', 21),
+  ('Kickboxing', 22),
+  ('MMA', 23),
+  ('Arti Marziali', 24),
+  ('Karate', 25),
+  ('Judo', 26),
+  ('Muay Thai', 27),
+  ('Danza', 28),
+  ('Zumba', 29),
+  ('Spinning', 30),
+  ('Aerobica', 31),
+  ('Calcio', 32),
+  ('Basket', 33),
+  ('Pallavolo', 34),
+  ('Rugby', 35),
+  ('Tennis', 36),
+  ('Padel', 37),
+  ('Atletica Leggera', 38),
+  ('Arrampicata', 39),
+  ('Trekking', 40),
+  ('Sci', 41),
+  ('Snowboard', 42),
+  ('Ginnastica Artistica', 43),
+  ('EMS - Elettrostimolazione', 44),
+  ('Preparazione Atletica', 45),
+  ('Allenamento Femminile', 46),
+  ('Pre & Post Parto', 47),
+  ('Terza Età', 48),
+  ('Weightlifting', 49),
+  ('Strongman', 50)
+ON CONFLICT (name) DO NOTHING;

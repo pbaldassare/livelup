@@ -94,7 +94,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
           </TabsList>
 
           <TabsContent value="mine" className="space-y-4">
-            {mineLoading && <ListSkeleton count={3} />}
+            {mineLoading && <ListSkeleton count={3} type="chat" />}
             {!mineLoading && myGroups.length === 0 && (
               <div className="text-center py-12 space-y-3">
                 <Users className="h-12 w-12 mx-auto text-app-muted-foreground" />
@@ -119,7 +119,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Cerca per nome..."
-                  className="pl-9"
+                  className="pl-9 bg-app-muted border-app-border text-app-foreground placeholder:text-app-muted-foreground"
                 />
               </div>
 
@@ -162,7 +162,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
               </div>
             </div>
 
-            {discoverLoading && <ListSkeleton count={3} />}
+            {discoverLoading && <ListSkeleton count={3} type="chat" />}
             {!discoverLoading && discoverGroups.length === 0 && (
               <p className="text-center text-app-muted-foreground py-8">
                 Nessun gruppo trovato

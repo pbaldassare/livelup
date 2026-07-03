@@ -81,7 +81,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
   if (isLoading) {
     return (
       <div className="p-4">
-        <ListSkeleton count={2} />
+        <ListSkeleton count={2} type="chat" />
       </div>
     );
   }
@@ -139,7 +139,11 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
 
           <div className="flex flex-wrap gap-1">
             {group.disciplines.map((d) => (
-              <Badge key={d.id} variant="outline">
+              <Badge
+                key={d.id}
+                variant="outline"
+                className="border-app-accent/30 text-app-accent bg-app-accent/10"
+              >
                 {d.name}
               </Badge>
             ))}

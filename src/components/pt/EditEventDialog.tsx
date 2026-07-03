@@ -387,6 +387,7 @@ export function EditEventDialog({ open, onOpenChange, event, initialTab = 'detai
               onChange={setLocationSearch}
               onPlaceSelect={handlePlaceSelect}
               placeholder="Cerca indirizzo o luogo..."
+              types={['geocode']}
             />
             {location && (
               <p className="text-sm text-muted-foreground">📍 {location}</p>

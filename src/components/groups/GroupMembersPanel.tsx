@@ -109,7 +109,10 @@ export function GroupMembersPanel({
                   <span className="text-app-muted-foreground font-normal"> (tu)</span>
                 )}
               </p>
-              <Badge variant="outline" className="text-[10px] gap-1 mt-0.5">
+              <Badge
+                variant="outline"
+                className="text-[10px] gap-1 mt-0.5 border-app-border text-app-foreground"
+              >
                 <RoleIcon className="h-3 w-3" />
                 {roleLabel(m.role)}
               </Badge>

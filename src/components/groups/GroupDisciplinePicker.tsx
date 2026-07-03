@@ -43,10 +43,10 @@ export function GroupDisciplinePicker({
             disabled={disabled}
             onClick={() => toggle(d.id)}
             className={cn(
-              'rounded-full border px-3 py-1 text-xs transition-colors',
+              'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
               selected
-                ? 'border-app-accent bg-app-accent/20 text-app-accent'
-                : 'border-app-border text-app-muted-foreground hover:border-app-accent/50',
+                ? 'border-app-accent bg-app-accent text-app-accent-foreground'
+                : 'border-app-border bg-app-muted text-app-foreground hover:border-app-accent/60',
               disabled && 'opacity-50 cursor-not-allowed',
             )}
           >
@@ -60,7 +60,10 @@ export function GroupDisciplinePicker({
         </p>
       )}
       {value.length > 0 && (
-        <Badge variant="outline" className="text-xs">
+        <Badge
+          variant="outline"
+          className="text-xs border-app-accent/40 text-app-accent bg-app-accent/10"
+        >
           {value.length} selezionate
         </Badge>
       )}

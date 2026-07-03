@@ -158,6 +158,7 @@ function ChannelThread({
             placeholder={
               channel === 'announcements' ? 'Scrivi un annuncio...' : 'Scrivi un messaggio...'
             }
+            className="bg-app-muted border-app-border text-app-foreground placeholder:text-app-muted-foreground"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

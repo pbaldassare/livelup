@@ -59,12 +59,19 @@ export function GroupCard({ group, basePath, className }: GroupCardProps) {
           )}
           <div className="flex flex-wrap gap-1">
             {group.disciplines.slice(0, 3).map((d) => (
-              <Badge key={d.id} variant="outline" className="text-[10px]">
+              <Badge
+                key={d.id}
+                variant="outline"
+                className="text-[10px] border-app-accent/30 text-app-accent bg-app-accent/10"
+              >
                 {d.name}
               </Badge>
             ))}
             {group.disciplines.length > 3 && (
-              <Badge variant="outline" className="text-[10px]">
+              <Badge
+                variant="outline"
+                className="text-[10px] border-app-border text-app-foreground"
+              >
                 +{group.disciplines.length - 3}
               </Badge>
             )}
