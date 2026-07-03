@@ -179,7 +179,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       return data.map(te => ({
         ...te,
         exercise: te.exercises
-      })) as TemplateExercise[];
+      })) as unknown as TemplateExercise[];
     },
     enabled: !!templateId,
   });

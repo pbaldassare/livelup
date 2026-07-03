@@ -99,6 +99,7 @@ export function SentenceBuilder({ intent, catalog, forms, onFieldChange, lock }:
                       </span>
                     );
                   }
+                  if (part.kind !== 'field') return null;
                   const step = getStepByKey(intent, part.key, catalog);
                   if (!step) return null;
                   return (
