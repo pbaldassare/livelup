@@ -1,28 +1,21 @@
-## Obiettivo
-Trasformare i commenti evento in un thread "domanda → risposta": ogni commento può avere una risposta nidificata sotto, visivamente collegata.
+## Problema
+La creazione gruppi fallisce perché nel database Lovable Cloud non esistono le tabelle `public.groups`, `group_disciplines`, `group_members`, `group_messages`. Le migration sono presenti nel repo ma non sono mai state applicate.
 
-## Modello dati
-- Aggiungere colonna `parent_comment_id uuid` su `event_comments` (FK self-ref, ON DELETE CASCADE).
-- Indice su `parent_comment_id`.
-- Le policy RLS esistenti rimangono valide (stesso `event_id`).
+## Piano
+1. Applicare la migration `supabase/migrations/20260703140000_groups.sql`:
+   - crea enum: `group_visibility`, `group_status`, `group_member_role`, `group_member_status`, `group_channel`
+   - crea tabelle `groups`, `group_disciplines`, `group_members`, `group_messages` con FK, indici, GRANT su `authenticated`/`service_role`
+   - abilita RLS + policy (owner, membri, admin) e trigger di supporto
+   - crea bucket storage `group-images` se referenziato
+2. Applicare la migration `supabase/migrations/20260703150000_more_disciplines.sql` per popolare/estendere `pt_types` con le discipline extra usate dal picker.
+3. Verificare post-migration con query:
+   - `to_regclass('public.groups')` non null
+   - `SELECT count(*) FROM pt_types`
+4. La rigenerazione dei tipi Supabase (`src/integrations/supabase/types.ts`) avviene automaticamente da Lovable dopo l'approvazione della migration — nessuna modifica manuale al file.
+5. Nessuna modifica al codice applicativo: `src/lib/api/groups.ts`, `GroupForm`, `GroupCreatePage` sono già allineati allo schema.
 
-## Backend API (`src/lib/api/eventComments.ts`)
-- `EventCommentRow` include `parent_comment_id`.
-- `loadEventComments` ritorna struttura ad albero: array di root con `replies: EventCommentRow[]` (1 livello di profondità).
-- `postEventComment(eventId, userId, content, parentId?)` accetta parent opzionale.
+## Verifica finale
+- Ricaricare la PWA e creare un gruppo di test dalla pagina `/app/groups/new` → deve riuscire e reindirizzare al dettaglio.
 
-## UI (`EventCommentsPanel` su `PTEventDetailPage` + lato atleta `AtletaEventDetailPage`)
-- Ogni commento root mostra:
-  - Header autore + testo (come ora).
-  - Pulsante "Rispondi" (solo organizzatore evento, oppure tutti — vedi domanda sotto).
-  - Eventuali repliche annidate sotto, indentate con bordo sinistro accent, badge "Risposta".
-- Cliccando "Rispondi" appare inline una textarea + bottoni Invia/Annulla; submit invia con `parent_comment_id`.
-- Form principale in cima resta per nuovi commenti root.
-- Limite: 1 livello di nesting (le repliche non possono essere ulteriormente risposte) per evitare thread profondi.
-
-## Regole
-- Eliminazione di un root cancella in cascade le repliche (DB).
-- Notifiche: quando viene postata una risposta, notifica anche l'autore del commento parent (oltre al creatore evento) — riusare trigger esistente esteso.
-
-## Domanda aperta
-Chi può rispondere: **solo l'organizzatore** (PT creatore evento) come nello screenshot ("Scrivi una risposta come organizzatore"), o **tutti** gli utenti possono rispondere a qualunque commento? Procedo con: solo organizzatore può usare "Rispondi" su commenti altrui; tutti possono scrivere commenti root.
+## Note tecniche
+Le migration verranno lanciate come singolo blocco tramite lo strumento migration (richiede la tua approvazione). Se una delle enum o tabelle risultasse già parzialmente creata da un tentativo precedente, la migration verrà adattata con `IF NOT EXISTS` / drop condizionale prima di rieseguirla.

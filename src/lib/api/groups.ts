@@ -65,11 +65,13 @@ async function attachMyMembership(
     .eq('user_id', userId)
     .in('group_id', ids);
 
-  const byGroup = new Map(
-    (memberships || []).map((m: { group_id: string; role: GroupMemberRole; status: string }) => [
-      m.group_id,
-      m,
-    ]),
+  const typedMemberships = (memberships || []) as {
+    group_id: string;
+    role: GroupMemberRole;
+    status: string;
+  }[];
+  const byGroup = new Map<string, { group_id: string; role: GroupMemberRole; status: string }>(
+    typedMemberships.map((m) => [m.group_id, m]),
   );
 
   return groups.map((g) => {
