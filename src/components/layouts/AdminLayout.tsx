@@ -18,7 +18,8 @@ import {
   Dumbbell,
   Library,
   Layers,
-  ShieldCheck
+  ShieldCheck,
+  UsersRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -65,6 +66,12 @@ const navigationItems = [
     href: '/admin/messages', 
     icon: MessageSquare,
     tourId: 'admin-nav-messages',
+  },
+  { 
+    label: 'Gruppi', 
+    href: '/admin/groups', 
+    icon: UsersRound,
+    tourId: 'admin-nav-groups',
   },
   { 
     label: 'Coupon', 

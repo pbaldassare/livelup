@@ -39,7 +39,8 @@ import {
   CalendarDays,
   Dumbbell,
   Calendar,
-  Briefcase
+  Briefcase,
+  UsersRound,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -901,6 +902,22 @@ export function AtletaDiscoverPage() {
       {/* Header */}
       <div className="sticky top-0 z-40 bg-app-background/95 backdrop-blur border-b border-app-border p-4 space-y-3">
         <h1 className="text-xl font-bold text-app-foreground">Scopri</h1>
+
+        <Link
+          to="/app/groups"
+          className="flex items-center gap-3 rounded-xl border border-app-border bg-app-card p-3 hover:border-app-accent/40 transition-colors"
+        >
+          <div className="h-10 w-10 rounded-full bg-app-accent/20 flex items-center justify-center">
+            <UsersRound className="h-5 w-5 text-app-accent" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-app-foreground">Gruppi sportivi</p>
+            <p className="text-xs text-app-muted-foreground truncate">
+              Crea o unisciti a community per disciplina e zona
+            </p>
+          </div>
+          <ChevronRight className="h-5 w-5 text-app-muted-foreground shrink-0" />
+        </Link>
         
         {/* Category Tabs */}
         <Tabs value={activeCategory} onValueChange={handleCategoryChange}>

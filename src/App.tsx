@@ -54,6 +54,7 @@ import AdminCoursesPage from "./pages/admin/AdminCoursesPage";
 import AdminMessagesPage from "./pages/admin/AdminMessagesPage";
 import AdminSitemapPage from "./pages/admin/AdminSitemapPage";
 import AdminExercisesPage from "./pages/admin/AdminExercisesPage";
+import AdminGroupsPage from "./pages/admin/AdminGroupsPage";
 
 // PT Dashboard pages (Web)
 import PTDashboard from "./pages/pt/PTDashboard";
@@ -64,7 +65,6 @@ import PTAssistantPage from "./pages/pt/PTAssistantPage";
 import PTTemplateDetailPage from "./pages/pt/PTTemplateDetailPage";
 import PTCalendarPage from "./pages/pt/PTCalendarPage";
 import PTEventDetailPage from "./pages/pt/PTEventDetailPage";
-import PTEventsManagePage from "./pages/pt/PTEventsManagePage";
 import PTMessagesPage from "./pages/pt/PTMessagesPage";
 import PTPaymentsPage from "./pages/pt/PTPaymentsPage";
 import PTSettingsPage from "./pages/pt/PTSettingsPage";
@@ -112,6 +112,11 @@ import AtletaCouponsPage from "./pages/atleta/AtletaCouponsPage";
 import AtletaAppuntamentiPage from "./pages/atleta/AtletaAppuntamentiPage";
 import AtletaDocumentsPage from "./pages/atleta/AtletaDocumentsPage";
 
+// Gruppi (condivisi atleta + PT)
+import { GroupsHubPage } from "./pages/groups/GroupsHubPage";
+import { GroupCreatePage } from "./pages/groups/GroupCreatePage";
+import { GroupDetailPage } from "./pages/groups/GroupDetailPage";
+import { GroupJoinPage } from "./pages/groups/GroupJoinPage";
 
 // PT pages
 import PTOnboardingPage from "./pages/pt/PTOnboardingPage";
@@ -297,6 +302,13 @@ const App = () => {
                   </AdminLayout>
                 </AdminRoute>
               } />
+              <Route path="/admin/groups" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminGroupsPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
 
               {/* ============================================= */}
               {/* PT DASHBOARD ROUTES - Solo ruolo pt (web)    */}
@@ -343,18 +355,12 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
-              <Route path="/pt/calendar" element={<Navigate to="/pt/calendar/eventi" replace />} />
-              <Route path="/pt/calendar/eventi" element={
-                <PTDashboardRoute>
-                  <PTDashboardLayout>
-                    <PTCalendarPage mode="eventi" />
-                  </PTDashboardLayout>
-                </PTDashboardRoute>
-              } />
+              <Route path="/pt/calendar" element={<Navigate to="/pt/events" replace />} />
+              <Route path="/pt/calendar/eventi" element={<Navigate to="/pt/events" replace />} />
               <Route path="/pt/events" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>
-                    <PTEventsManagePage />
+                    <PTCalendarPage mode="eventi" />
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
@@ -536,6 +542,34 @@ const App = () => {
                 </PTAppRoute>
               } />
               {/* Legacy/web aliases dentro la PWA */}
+              <Route path="/pt/app/groups" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <GroupsHubPage basePath="/pt/app/groups" />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/groups/new" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <GroupCreatePage basePath="/pt/app/groups" />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/groups/join/:token" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <GroupJoinPage basePath="/pt/app/groups" />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/groups/:groupId" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <GroupDetailPage basePath="/pt/app/groups" />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
               <Route path="/pt/app/messages" element={<Navigate to="/pt/app/chat" replace />} />
               <Route path="/pt/app/calendar/eventi" element={<Navigate to="/pt/app/calendar" replace />} />
               <Route path="/pt/app/calendar/appuntamenti" element={<Navigate to="/pt/app/calendar" replace />} />
@@ -699,6 +733,34 @@ const App = () => {
               <Route path="/app/coupons" element={
                 <AtletaRoute>
                   <AtletaCouponsPage />
+                </AtletaRoute>
+              } />
+              <Route path="/app/groups" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <GroupsHubPage basePath="/app/groups" />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/groups/new" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <GroupCreatePage basePath="/app/groups" />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/groups/join/:token" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <GroupJoinPage basePath="/app/groups" />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/groups/:groupId" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <GroupDetailPage basePath="/app/groups" />
+                  </AppLayout>
                 </AtletaRoute>
               } />
 
