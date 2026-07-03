@@ -1111,6 +1111,169 @@ export type Database = {
         }
         Relationships: []
       }
+      group_disciplines: {
+        Row: {
+          group_id: string
+          pt_type_id: string
+        }
+        Insert: {
+          group_id: string
+          pt_type_id: string
+        }
+        Update: {
+          group_id?: string
+          pt_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_disciplines_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_disciplines_pt_type_id_fkey"
+            columns: ["pt_type_id"]
+            isOneToOne: false
+            referencedRelation: "pt_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          role: Database["public"]["Enums"]["group_member_role"]
+          status: Database["public"]["Enums"]["group_member_status"]
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["group_member_role"]
+          status?: Database["public"]["Enums"]["group_member_status"]
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["group_member_role"]
+          status?: Database["public"]["Enums"]["group_member_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_messages: {
+        Row: {
+          attachment_type: string | null
+          attachment_url: string | null
+          channel: Database["public"]["Enums"]["group_channel"]
+          content: string
+          created_at: string
+          group_id: string
+          id: string
+          sender_user_id: string
+        }
+        Insert: {
+          attachment_type?: string | null
+          attachment_url?: string | null
+          channel?: Database["public"]["Enums"]["group_channel"]
+          content: string
+          created_at?: string
+          group_id: string
+          id?: string
+          sender_user_id: string
+        }
+        Update: {
+          attachment_type?: string | null
+          attachment_url?: string | null
+          channel?: Database["public"]["Enums"]["group_channel"]
+          content?: string
+          created_at?: string
+          group_id?: string
+          id?: string
+          sender_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          invite_token: string
+          is_official: boolean
+          latitude: number | null
+          location_name: string | null
+          longitude: number | null
+          members_count: number
+          name: string
+          owner_user_id: string
+          policy_accepted_at: string
+          status: Database["public"]["Enums"]["group_status"]
+          updated_at: string
+          visibility: Database["public"]["Enums"]["group_visibility"]
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          invite_token?: string
+          is_official?: boolean
+          latitude?: number | null
+          location_name?: string | null
+          longitude?: number | null
+          members_count?: number
+          name: string
+          owner_user_id: string
+          policy_accepted_at?: string
+          status?: Database["public"]["Enums"]["group_status"]
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["group_visibility"]
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          invite_token?: string
+          is_official?: boolean
+          latitude?: number | null
+          location_name?: string | null
+          longitude?: number | null
+          members_count?: number
+          name?: string
+          owner_user_id?: string
+          policy_accepted_at?: string
+          status?: Database["public"]["Enums"]["group_status"]
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["group_visibility"]
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           attachment_type: string | null
@@ -3001,6 +3164,17 @@ export type Database = {
       }
     }
     Functions: {
+      admin_set_group_official: {
+        Args: { _group_id: string; _is_official: boolean }
+        Returns: undefined
+      }
+      admin_set_group_status: {
+        Args: {
+          _group_id: string
+          _status: Database["public"]["Enums"]["group_status"]
+        }
+        Returns: undefined
+      }
       are_connected: {
         Args: { _atleta_user_id: string; _pt_user_id: string }
         Returns: boolean
@@ -3015,6 +3189,10 @@ export type Database = {
       }
       can_pt_accept_athletes: {
         Args: { _pt_user_id: string }
+        Returns: boolean
+      }
+      can_view_group: {
+        Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
       can_view_profile_basic: {
@@ -3054,6 +3232,7 @@ export type Database = {
         Args: { _atleta_user_id: string }
         Returns: string
       }
+      get_group_by_invite_token: { Args: { _token: string }; Returns: Json }
       get_my_role: { Args: never; Returns: string }
       get_pt_stats: {
         Args: { _pt_user_id: string }
@@ -3108,8 +3287,17 @@ export type Database = {
         Args: { _atleta_user_id: string; _pt_user_id: string }
         Returns: boolean
       }
+      is_group_admin: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_group_member: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_premium: { Args: { _user_id: string }; Returns: boolean }
       is_pt: { Args: { _user_id: string }; Returns: boolean }
+      join_group: { Args: { _group_id: string }; Returns: Json }
       pt_save_workout_log: {
         Args: {
           _duration_seconds?: number
@@ -3142,6 +3330,11 @@ export type Database = {
         | "avanzato"
         | "agonista"
         | "nessuno"
+      group_channel: "general" | "announcements"
+      group_member_role: "owner" | "admin" | "member"
+      group_member_status: "active" | "banned"
+      group_status: "active" | "suspended" | "pending_review"
+      group_visibility: "public" | "private"
       package_type:
         | "sessioni"
         | "mensile"
@@ -3327,6 +3520,11 @@ export const Constants = {
         "agonista",
         "nessuno",
       ],
+      group_channel: ["general", "announcements"],
+      group_member_role: ["owner", "admin", "member"],
+      group_member_status: ["active", "banned"],
+      group_status: ["active", "suspended", "pending_review"],
+      group_visibility: ["public", "private"],
       package_type: [
         "sessioni",
         "mensile",
