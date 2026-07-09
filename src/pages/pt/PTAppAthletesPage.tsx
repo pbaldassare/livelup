@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AthleteSubscriptionsTab } from '@/components/pt/AthleteSubscriptionsTab';
+import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
 import { 
   Users, 
   Search, 
@@ -31,8 +32,19 @@ import { cn } from '@/lib/utils';
 
 export function PTAppAthletesPage() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('active');
   const [searchQuery, setSearchQuery] = useState('');
+  const [addAthleteOpen, setAddAthleteOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('invite') !== '1') return;
+    setAddAthleteOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('invite');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al mount con ?invite=1
+  }, []);
 
   // Fetch connections
   const { data: connections, isLoading } = useQuery({
@@ -94,7 +106,13 @@ export function PTAppAthletesPage() {
       <div className="sticky top-0 z-40 bg-background border-b border-border p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">I miei atleti</h1>
-          <Badge variant="secondary">{activeCount}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{activeCount}</Badge>
+            <Button size="sm" onClick={() => setAddAthleteOpen(true)}>
+              <UserPlus className="h-4 w-4 mr-1" />
+              Invita
+            </Button>
+          </div>
         </div>
 
         <div className="relative">
@@ -151,6 +169,8 @@ export function PTAppAthletesPage() {
           <AthleteSubscriptionsTab />
         </TabsContent>
       </Tabs>
+
+      <AddAthleteDialog open={addAthleteOpen} onOpenChange={setAddAthleteOpen} />
     </div>
   );
 }

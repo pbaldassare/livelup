@@ -1,6 +1,8 @@
-import { Link } from 'react-router-dom';
+import { useState, useCallback, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -16,11 +18,10 @@ import {
   Settings,
   User,
   LogOut,
-  X,
   UsersRound,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 interface PTMoreDrawerProps {
   trigger: ReactNode;
@@ -45,21 +46,48 @@ const SECTIONS: Array<{ label: string; href: string; icon: typeof Calendar; grou
 // =====================================================
 export function PTMoreDrawer({ trigger }: PTMoreDrawerProps) {
   const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const groups = Array.from(new Set(SECTIONS.map((s) => s.group)));
 
+  const goTo = useCallback(
+    (href: string) => {
+      setOpen(false);
+      navigate(href);
+    },
+    [navigate],
+  );
+
+  const handleSignOut = useCallback(async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setOpen(false);
+    try {
+      await signOut();
+      navigate('/auth', { replace: true });
+    } finally {
+      setLoggingOut(false);
+    }
+  }, [signOut, navigate, loggingOut]);
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent
         side="bottom"
-        className="bg-app-card border-app-border text-app-foreground rounded-t-3xl max-h-[85vh] overflow-y-auto"
+        className={cn(
+          'z-[60] bg-app-card border-app-border text-app-foreground rounded-t-3xl',
+          'max-h-[85vh] overflow-y-auto pb-24 safe-bottom',
+        )}
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <SheetHeader className="text-left">
+        <SheetHeader className="text-left pr-10">
           <SheetTitle className="text-app-foreground">Altro</SheetTitle>
         </SheetHeader>
 
-        <div className="mt-4 space-y-6 pb-6">
+        <div className="mt-4 space-y-6">
           {groups.map((group) => (
             <div key={group}>
               <p className="text-xs font-medium text-app-muted-foreground uppercase tracking-wider px-2 mb-2">
@@ -67,25 +95,31 @@ export function PTMoreDrawer({ trigger }: PTMoreDrawerProps) {
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {SECTIONS.filter((s) => s.group === group).map((s) => (
-                  <Link
-                    key={s.href}
-                    to={s.href}
-                    className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-app-background border border-app-border hover:border-app-accent/40 transition-colors"
-                  >
-                    <s.icon className="h-5 w-5 text-app-accent" />
-                    <span className="text-xs font-medium text-center leading-tight">{s.label}</span>
-                  </Link>
+                  <SheetClose key={s.href} asChild>
+                    <button
+                      type="button"
+                      onClick={() => goTo(s.href)}
+                      className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-app-background border border-app-border hover:border-app-accent/40 active:scale-[0.98] transition-colors"
+                    >
+                      <s.icon className="h-5 w-5 text-app-accent" />
+                      <span className="text-xs font-medium text-center leading-tight text-app-foreground">
+                        {s.label}
+                      </span>
+                    </button>
+                  </SheetClose>
                 ))}
               </div>
             </div>
           ))}
 
           <button
-            onClick={() => signOut()}
-            className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border border-app-border text-app-muted-foreground hover:text-destructive transition-colors"
+            type="button"
+            disabled={loggingOut}
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border border-app-border text-app-muted-foreground hover:text-destructive hover:border-destructive/30 active:scale-[0.99] transition-colors disabled:opacity-50"
           >
             <LogOut className="h-4 w-4" />
-            <span className="text-sm font-medium">Esci</span>
+            <span className="text-sm font-medium">{loggingOut ? 'Uscita…' : 'Esci'}</span>
           </button>
         </div>
       </SheetContent>

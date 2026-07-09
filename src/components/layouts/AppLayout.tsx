@@ -101,7 +101,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       </main>
 
       {/* Bottom navigation - mobile style */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-app-border bg-app-card/95 backdrop-blur safe-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-app-border bg-app-card/95 backdrop-blur safe-bottom">
         <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
           {navigationItems.map((item) => {
             const isActive = isActiveRoute(item.href, item.exact);

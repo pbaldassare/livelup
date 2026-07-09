@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -47,6 +47,7 @@ import {
   type ImportedTemplate,
 } from '@/components/pt/ReviewImportedTemplateDialog';
 import { Sliders, Upload } from 'lucide-react';
+import { usePTRoutes } from '@/hooks/usePTRoutes';
 
 /** Import AI da file — nascosto finché la feature non è pronta in produzione. */
 const SHOW_IMPORT_SCHEDA = false;
@@ -120,6 +121,8 @@ interface Workout {
 export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { routes } = usePTRoutes(embedded);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('templates');
@@ -155,6 +158,14 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     estimated_duration: 60,
     muscle_groups: [],
   });
+
+  const tabFromUrl = searchParams.get('tab');
+  useEffect(() => {
+    const allowed = ['templates', 'programs', 'assigned', 'exercises', 'protocols'];
+    if (tabFromUrl && allowed.includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   // Fetch templates
   const { data: templates = [], isLoading: templatesLoading } = useQuery({
@@ -254,7 +265,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
         estimated_duration: 60,
         muscle_groups: [],
       });
-      navigate(`/pt/templates/${created.id}`);
+      navigate(routes.template(created.id));
     },
     onError: (e: any) => {
       toast.error(e?.message || 'Errore durante la creazione della scheda');
@@ -481,7 +492,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
         <div className="min-w-[200px]">
           <button
             type="button"
-            onClick={() => navigate(`/pt/templates/${template.id}`)}
+            onClick={() => navigate(routes.template(template.id))}
             className="font-medium text-left hover:text-primary hover:underline px-2 py-0.5 rounded -mx-2 w-full truncate"
             title="Apri scheda"
           >
@@ -921,7 +932,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                 isLoading={templatesLoading}
                 emptyMessage="Nessuna scheda creata. Crea la tua prima scheda!"
                 actions={templateActions}
-                onRowClick={(template) => navigate(`/pt/templates/${template.id}`)}
+                onRowClick={(template) => navigate(routes.template(template.id))}
               />
             </TabsContent>
             <TabsContent value="programs" className="mt-4">
@@ -946,7 +957,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate('/pt/exercises')}
+                  onClick={() => navigate(routes.exercises)}
                 >
                   <Library className="h-4 w-4 mr-2" />
                   Sfoglia Archivio
@@ -961,7 +972,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                   <p className="text-sm mt-1 max-w-md mx-auto">
                     Vai nell'Archivio Esercizi e aggiungi i tuoi preferiti per usarli nelle schede.
                   </p>
-                  <Button className="mt-4" onClick={() => navigate('/pt/exercises')}>
+                  <Button className="mt-4" onClick={() => navigate(routes.exercises)}>
                     <Library className="h-4 w-4 mr-2" />
                     Vai all'Archivio
                   </Button>

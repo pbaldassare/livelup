@@ -42,6 +42,8 @@ import {
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { usePTRoutes } from '@/hooks/usePTRoutes';
+import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 
 // =====================================================
 // PT ATHLETE DETAIL PAGE
@@ -51,6 +53,7 @@ import { toast } from 'sonner';
 export function PTAthleteDetailPage() {
   const { atletaId } = useParams<{ atletaId: string }>();
   const navigate = useNavigate();
+  const { isApp, routes } = usePTRoutes();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -207,7 +210,7 @@ export function PTAthleteDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <p className="text-muted-foreground">Atleta non trovato</p>
-        <Button variant="link" onClick={() => navigate('/pt/athletes')}>
+        <Button variant="link" onClick={() => navigate(routes.athletes)}>
           Torna alla lista atleti
         </Button>
       </div>
@@ -220,24 +223,26 @@ export function PTAthleteDetailPage() {
   const activeWorkouts = workouts.filter(w => w.status === 'attivo').length;
   const completedWorkouts = workouts.filter(w => w.status === 'completato').length;
 
-  return (
+  const pageBody = (
     <div className="space-y-6 animate-in">
+      {!isApp && (
       <DashboardPageHeader
         title={fullName}
         subtitle="Dettaglio atleta e storico allenamenti"
         icon={<User className="h-6 w-6" />}
         breadcrumbs={[
-          { label: 'Dashboard', href: '/pt' },
-          { label: 'Atleti', href: '/pt/athletes' },
+          { label: 'Dashboard', href: routes.home },
+          { label: 'Atleti', href: routes.athletes },
           { label: fullName },
         ]}
         actions={
-          <Button variant="outline" onClick={() => navigate('/pt/athletes')}>
+          <Button variant="outline" onClick={() => navigate(routes.athletes)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Indietro
           </Button>
         }
       />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Profile Card */}
@@ -258,7 +263,11 @@ export function PTAthleteDetailPage() {
           <CardContent className="space-y-4">
             {/* Quick Actions */}
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" className="w-full">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => atletaId && navigate(routes.chat(atletaId))}
+              >
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Chat
               </Button>
@@ -555,6 +564,24 @@ export function PTAthleteDetailPage() {
       />
     </div>
   );
+
+  if (isApp) {
+    return (
+      <PTAppPageShell
+        title={fullName}
+        description="Dettaglio atleta"
+        actions={
+          <Button variant="ghost" size="sm" onClick={() => navigate(routes.athletes)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        }
+      >
+        {pageBody}
+      </PTAppPageShell>
+    );
+  }
+
+  return pageBody;
 }
 
 export default PTAthleteDetailPage;

@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { usePTRoutes } from '@/hooks/usePTRoutes';
+import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 
 // =====================================================
 // PT TEMPLATE DETAIL PAGE
@@ -29,6 +31,7 @@ export function PTTemplateDetailPage() {
   const { templateId } = useParams<{ templateId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isApp, routes } = usePTRoutes();
 
   // Fetch template
   const { data: template, isLoading } = useQuery({
@@ -74,7 +77,7 @@ export function PTTemplateDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <p className="text-muted-foreground">Template non trovato</p>
-        <Button variant="link" onClick={() => navigate('/pt/workouts')}>
+        <Button variant="link" onClick={() => navigate(routes.templates)}>
           Torna ai template
         </Button>
       </div>
@@ -90,24 +93,26 @@ export function PTTemplateDetailPage() {
     }
   };
 
-  return (
+  const pageBody = (
     <div className="space-y-4 animate-in">
+      {!isApp && (
       <DashboardPageHeader
         title={template.title}
         subtitle="Gestisci gli esercizi del template"
         icon={<FileText className="h-5 w-5" />}
         breadcrumbs={[
-          { label: 'Dashboard', href: '/pt' },
-          { label: 'Allenamenti', href: '/pt/workouts' },
+          { label: 'Dashboard', href: routes.home },
+          { label: 'Allenamenti', href: routes.templates },
           { label: template.title },
         ]}
         actions={
-          <Button variant="outline" size="sm" onClick={() => navigate('/pt/workouts')}>
+          <Button variant="outline" size="sm" onClick={() => navigate(routes.templates)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Indietro
           </Button>
         }
       />
+      )}
 
       {exerciseStats.total === 0 && (
         <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
@@ -228,6 +233,25 @@ export function PTTemplateDetailPage() {
       </div>
     </div>
   );
+
+  if (isApp) {
+    return (
+      <PTAppPageShell
+        title={template.title}
+        description="Gestisci gli esercizi del template"
+        actions={
+          <Button variant="ghost" size="sm" onClick={() => navigate(routes.templates)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        }
+        flush
+      >
+        {pageBody}
+      </PTAppPageShell>
+    );
+  }
+
+  return pageBody;
 }
 
 export default PTTemplateDetailPage;
