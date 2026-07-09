@@ -20,7 +20,7 @@ export type CreateAthleteInput = {
 };
 
 export async function findAtletaByEmail(email: string): Promise<AtletaLookupResult> {
-  const { data, error } = await supabase.rpc('find_atleta_by_email_for_pt', {
+  const { data, error } = await (supabase.rpc as any)('find_atleta_by_email_for_pt', {
     _email: email.trim(),
   });
 
