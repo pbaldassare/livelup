@@ -95,6 +95,4 @@ export interface CreateGroupInput extends GroupFormInput {
   policyAccepted: boolean;
 }
 
-export interface UpdateGroupInput extends GroupFormInput {
-  policyAccepted?: never;
-}
+export type UpdateGroupInput = GroupFormInput;
