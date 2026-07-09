@@ -1219,6 +1219,7 @@ export type Database = {
       }
       groups: {
         Row: {
+          address_line: string | null
           created_at: string
           description: string | null
           id: string
@@ -1231,12 +1232,14 @@ export type Database = {
           members_count: number
           name: string
           owner_user_id: string
+          place_label: string | null
           policy_accepted_at: string
           status: Database["public"]["Enums"]["group_status"]
           updated_at: string
           visibility: Database["public"]["Enums"]["group_visibility"]
         }
         Insert: {
+          address_line?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1249,12 +1252,14 @@ export type Database = {
           members_count?: number
           name: string
           owner_user_id: string
+          place_label?: string | null
           policy_accepted_at?: string
           status?: Database["public"]["Enums"]["group_status"]
           updated_at?: string
           visibility?: Database["public"]["Enums"]["group_visibility"]
         }
         Update: {
+          address_line?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1267,6 +1272,7 @@ export type Database = {
           members_count?: number
           name?: string
           owner_user_id?: string
+          place_label?: string | null
           policy_accepted_at?: string
           status?: Database["public"]["Enums"]["group_status"]
           updated_at?: string
@@ -3216,6 +3222,7 @@ export type Database = {
       }
       create_group_with_disciplines: {
         Args: {
+          _address_line?: string
           _description?: string
           _discipline_ids?: string[]
           _image_url?: string
@@ -3223,10 +3230,12 @@ export type Database = {
           _location_name?: string
           _longitude?: number
           _name: string
+          _place_label?: string
           _policy_accepted?: boolean
           _visibility?: Database["public"]["Enums"]["group_visibility"]
         }
         Returns: {
+          address_line: string | null
           created_at: string
           description: string | null
           id: string
@@ -3239,6 +3248,7 @@ export type Database = {
           members_count: number
           name: string
           owner_user_id: string
+          place_label: string | null
           policy_accepted_at: string
           status: Database["public"]["Enums"]["group_status"]
           updated_at: string
