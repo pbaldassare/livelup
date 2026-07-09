@@ -12,7 +12,6 @@ import {
   Minus,
   Timer as TimerIcon,
   Dumbbell,
-  ChevronsRight,
   PartyPopper,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -21,13 +20,18 @@ import { AtletaEmomPlayer } from '@/components/app/AtletaEmomPlayer';
 import { AtletaTimedRoundsPlayer } from '@/components/app/AtletaTimedRoundsPlayer';
 import { AtletaAmrapPlayer } from '@/components/app/AtletaAmrapPlayer';
 import { AtletaSupersetPlayer } from '@/components/app/AtletaSupersetPlayer';
-import { NextExercisePreview } from '@/components/app/NextExercisePreview';
+import { WorkoutRestScreen } from '@/components/app/WorkoutRestScreen';
 import { ExerciseHeader } from '@/components/app/ExerciseHeader';
+import {
+  buildNextPreviewInfo,
+  findNextExercise,
+  findNextExerciseIndex,
+  PROTOCOL_TRANSITION_REST_SECONDS,
+} from '@/lib/workout/nextExercise';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
 import { WorkoutProgressBar } from '@/components/app/WorkoutProgressBar';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
 import { logExerciseSet } from '@/lib/api/workouts';
-import { useAdvanceExercise } from '@/hooks/useAdvanceExercise';
 import type { ProtocolConfig, SetData, WorkoutRowUpdate } from '@/types/database';
 
 // =====================================================
@@ -107,6 +111,9 @@ interface State {
   // completed sets restored + added during session
   completed: Record<string, number[]>;
   transitionMessage: string | null;
+  /** Recupero con anteprima dopo un blocco protocollo (AMRAP, EMOM, …) */
+  protocolTransition: boolean;
+  pendingExerciseIndex: number | null;
 }
 
 type Action =
@@ -124,6 +131,7 @@ type Action =
   | { type: 'ADD_EXTRA_SET'; exerciseId: string }
   | { type: 'SKIP_EXERCISE'; exerciseId: string }
   | { type: 'CLEAR_TRANSITION' }
+  | { type: 'START_PROTOCOL_TRANSITION'; rest: number; nextIndex: number }
   | { type: 'FINISH' };
 
 function reducer(state: State, action: Action): State {
@@ -162,6 +170,18 @@ function reducer(state: State, action: Action): State {
         exerciseIndex: action.payload.exerciseIndex,
         setNumber: action.payload.setNumber,
         transitionMessage: action.payload.transitionMessage ?? null,
+        protocolTransition: false,
+        pendingExerciseIndex: null,
+      };
+    case 'START_PROTOCOL_TRANSITION':
+      return {
+        ...state,
+        flow: 'rest',
+        restSeconds: action.rest,
+        restTotal: action.rest,
+        restStartedAt: Date.now(),
+        protocolTransition: true,
+        pendingExerciseIndex: action.nextIndex,
       };
     case 'ADD_EXTRA_SET':
       return {
@@ -226,6 +246,8 @@ export function GuidedWorkoutFlow({
     skipped: {},
     completed: initialCompletedSets,
     transitionMessage: null,
+    protocolTransition: false,
+    pendingExerciseIndex: null,
   });
 
   const currentExercise = exercises[state.exerciseIndex];
@@ -339,23 +361,6 @@ export function GuidedWorkoutFlow({
     },
   });
 
-  const advanceAfterProtocol = useAdvanceExercise({
-    exerciseIndex: state.exerciseIndex,
-    exercises,
-    skipped: state.skipped,
-    onFinish: () => dispatch({ type: 'FINISH' }),
-    onGoToNext: (nextIdx) =>
-      dispatch({
-        type: 'GOTO_NEXT',
-        payload: {
-          exerciseIndex: nextIdx,
-          setNumber: 1,
-          flow: 'ready',
-          transitionMessage: 'Prossimo esercizio',
-        },
-      }),
-  });
-
   const advance = useCallback(
     (afterCompletion: boolean) => {
       if (!currentExercise) return;
@@ -403,9 +408,34 @@ export function GuidedWorkoutFlow({
     [state, exercises, totalSetsForCurrent, currentExercise]
   );
 
+  const goAfterProtocol = useCallback(() => {
+    const nextIdx = findNextExerciseIndex(exercises, state.exerciseIndex, state.skipped);
+    if (nextIdx == null) {
+      dispatch({ type: 'FINISH' });
+      return;
+    }
+    const rest = Math.max(
+      15,
+      currentExercise?.rest_seconds ?? PROTOCOL_TRANSITION_REST_SECONDS,
+    );
+    dispatch({ type: 'START_PROTOCOL_TRANSITION', rest, nextIndex: nextIdx });
+  }, [exercises, state.exerciseIndex, state.skipped, currentExercise]);
+
   const handleRestEnd = useCallback(() => {
+    if (state.protocolTransition && state.pendingExerciseIndex != null) {
+      dispatch({
+        type: 'GOTO_NEXT',
+        payload: {
+          exerciseIndex: state.pendingExerciseIndex,
+          setNumber: 1,
+          flow: 'ready',
+          transitionMessage: 'Prossimo esercizio',
+        },
+      });
+      return;
+    }
     advance(true);
-  }, [advance]);
+  }, [advance, state.protocolTransition, state.pendingExerciseIndex]);
 
   // Rest timer ticking
   useEffect(() => {
@@ -489,33 +519,52 @@ export function GuidedWorkoutFlow({
   }
 
   const repsLabel = formatRepsLabel(currentExercise);
-  const restProgress =
-    state.restTotal > 0 ? ((state.restTotal - state.restSeconds) / state.restTotal) * 100 : 0;
 
-  // Find next non-skipped exercise (for last-rest preview card)
-  const nextExercise = (() => {
-    let i = state.exerciseIndex + 1;
-    while (i < exercises.length && state.skipped[exercises[i].id]) i++;
-    return i < exercises.length ? exercises[i] : null;
-  })();
+  const nextExercise = findNextExercise(exercises, state.exerciseIndex, state.skipped);
   const isLastSetOfCurrent = state.setNumber >= totalSetsForCurrent;
-  const showNextPreview =
-    state.flow === 'rest' && isLastSetOfCurrent && !!nextExercise;
-  const nextMeta = exerciseMeta(nextExercise);
-  const nextPreviewInfo = nextExercise
-    ? {
-        name: nextMeta.name,
-        category: nextMeta.category,
-        imageUrl: nextMeta.image_url,
-        sets: nextExercise.prescribed_sets ?? null,
-        repsLabel: formatRepsLabel(nextExercise),
-        protocolType: nextExercise.protocol_type ?? null,
-      }
-    : null;
+  const isBeforeNextExercise = isLastSetOfCurrent || state.protocolTransition;
+  const nextPreviewInfo = nextExercise ? buildNextPreviewInfo(nextExercise) : null;
 
   const rampingNote = getRampingCoachNote(currentExercise.protocol_params);
 
-  // Branch dedicato EMOM: player a round con timer, alternanza blocchi in loop.
+  // Recupero unificato (serie intermedie, ultimo set, transizione post-protocollo)
+  if (state.flow === 'rest') {
+    const restSubtitle =
+      !isBeforeNextExercise && totalSetsForCurrent > 0
+        ? `Prossima: serie ${Math.min(state.setNumber + 1, totalSetsForCurrent)}`
+        : undefined;
+
+    return (
+      <>
+        <div className="min-h-[calc(100dvh-0px)] bg-app-background flex flex-col">
+          <WorkoutProgressBar
+            exercises={exercises}
+            exerciseIndex={state.exerciseIndex}
+            skipped={state.skipped}
+            current={state.exerciseIndex + 1}
+            total={exercises.length}
+            label={
+              isBeforeNextExercise
+                ? 'Preparati'
+                : `Serie ${Math.min(state.setNumber, totalSetsForCurrent)}/${totalSetsForCurrent}`
+            }
+          />
+          <WorkoutRestScreen
+            restSeconds={state.restSeconds}
+            restTotal={state.restTotal}
+            showNextPreview={isBeforeNextExercise && !!nextPreviewInfo}
+            next={nextPreviewInfo}
+            subtitle={restSubtitle}
+            onAdjustRest={(delta) => dispatch({ type: 'ADJUST_REST', delta })}
+            onSkipRest={() => dispatch({ type: 'SKIP_REST' })}
+          />
+        </div>
+        {detailSheet}
+      </>
+    );
+  }
+
+  // Branch dedicato EMOM
   if (currentExercise.protocol_type === 'EMOM') {
     return (
       <>
@@ -549,7 +598,7 @@ export function GuidedWorkoutFlow({
               const message = e instanceof Error ? e.message : 'Errore salvataggio EMOM';
               toast.error(message);
             }
-            advanceAfterProtocol();
+            goAfterProtocol();
           }}
         />
       </div>
@@ -594,7 +643,7 @@ export function GuidedWorkoutFlow({
                 e instanceof Error ? e.message : `Errore salvataggio ${protocolLabel}`;
               toast.error(message);
             }
-            advanceAfterProtocol();
+            goAfterProtocol();
           }}
         />
       </div>
@@ -636,7 +685,7 @@ export function GuidedWorkoutFlow({
               const message = e instanceof Error ? e.message : 'Errore salvataggio AMRAP';
               toast.error(message);
             }
-            advanceAfterProtocol();
+            goAfterProtocol();
           }}
         />
       </div>
@@ -678,7 +727,7 @@ export function GuidedWorkoutFlow({
               const message = e instanceof Error ? e.message : 'Errore salvataggio SUPERSET';
               toast.error(message);
             }
-            advanceAfterProtocol();
+            goAfterProtocol();
           }}
         />
       </div>
@@ -822,86 +871,6 @@ export function GuidedWorkoutFlow({
             </motion.div>
           )}
 
-          {state.flow === 'rest' && (
-            <motion.div
-              key={`rest-${state.exerciseIndex}-${state.setNumber}`}
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              className="absolute inset-0 flex flex-col items-center justify-center px-6 py-8"
-            >
-              <p className="text-sm text-app-muted-foreground mb-4 uppercase tracking-wider">
-                Recupero
-              </p>
-
-              <div className="relative w-56 h-56 mb-6">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 140 140">
-                  <circle
-                    cx="70"
-                    cy="70"
-                    r="60"
-                    fill="none"
-                    stroke="hsl(var(--app-muted))"
-                    strokeWidth="6"
-                  />
-                  <circle
-                    cx="70"
-                    cy="70"
-                    r="60"
-                    fill="none"
-                    stroke="hsl(var(--app-accent))"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    strokeDasharray={2 * Math.PI * 60}
-                    strokeDashoffset={
-                      2 * Math.PI * 60 - (restProgress / 100) * (2 * Math.PI * 60)
-                    }
-                    className="transition-all duration-300"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-5xl font-bold text-app-foreground tabular-nums">
-                    {formatTime(state.restSeconds)}
-                  </span>
-                  <span className="text-xs text-app-muted-foreground mt-1">
-                    {isLastSetOfCurrent
-                      ? nextExercise
-                        ? 'Prossimo esercizio in arrivo'
-                        : 'Ultima serie completata'
-                      : `Prossima: serie ${Math.min(state.setNumber + 1, totalSetsForCurrent)}`}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 mb-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => dispatch({ type: 'ADJUST_REST', delta: -15 })}
-                  className="rounded-full border-app-border text-app-foreground hover:bg-app-muted"
-                >
-                  −15s
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => dispatch({ type: 'ADJUST_REST', delta: 15 })}
-                  className="rounded-full border-app-border text-app-foreground hover:bg-app-muted"
-                >
-                  +15s
-                </Button>
-              </div>
-
-              <button
-                onClick={() => dispatch({ type: 'SKIP_REST' })}
-                className="text-sm text-app-muted-foreground hover:text-app-foreground transition-colors flex items-center gap-1"
-              >
-                <ChevronsRight className="h-4 w-4" />
-                Salta recupero
-              </button>
-            </motion.div>
-          )}
-
           {state.flow === 'finished' && (
             <motion.div
               key="finished"
@@ -922,9 +891,6 @@ export function GuidedWorkoutFlow({
           )}
         </AnimatePresence>
 
-        {/* Next exercise slide-up preview (last rest only) */}
-        <NextExercisePreview show={showNextPreview} next={nextPreviewInfo} />
-
         {/* Transition micro-feedback */}
         <AnimatePresence>
           {state.transitionMessage && (
@@ -941,7 +907,7 @@ export function GuidedWorkoutFlow({
       </div>
 
       {/* Secondary actions bar */}
-      {state.flow !== 'finished' && (
+      {state.flow !== 'finished' && state.flow !== 'rest' && (
         <div className="border-t border-app-border bg-app-card/40 px-4 py-3 flex items-center justify-between gap-3">
           <button
             onClick={handleSkipExercise}
@@ -951,8 +917,7 @@ export function GuidedWorkoutFlow({
             Salta esercizio
           </button>
 
-          {state.flow === 'rest' &&
-            state.setNumber >= totalSetsForCurrent && (
+          {state.setNumber >= totalSetsForCurrent && (
               <button
                 onClick={handleAddExtraSet}
                 className="text-xs text-app-accent hover:underline flex items-center gap-1"
@@ -1048,12 +1013,6 @@ function formatRepsLabel(ex: GWExercise): string {
   }
   if (ex.prescribed_reps_min) return `${ex.prescribed_reps_min}`;
   return '—';
-}
-
-function formatTime(secs: number) {
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
