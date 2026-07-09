@@ -42,6 +42,8 @@ import { ActivityHistory } from '@/components/app/ActivityHistory';
 import { AtletaReviewsHistory } from '@/components/reviews/AtletaReviewsHistory';
 import { ProfilePageSkeleton } from '@/components/skeletons';
 import { cn } from '@/lib/utils';
+import { ThemePreferencePicker } from '@/components/settings/ThemePreferencePicker';
+import { Palette } from 'lucide-react';
 
 // =====================================================
 // ATLETA PROFILE PAGE - Design reference: Ladder_iOS_117/118
@@ -428,6 +430,20 @@ export function AtletaProfilePage() {
 
       <AtletaDocumentExpiryBanner />
       <AtletaSharedPTNotes />
+
+      {/* Theme */}
+      <div className="px-4 mt-6">
+        <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">
+          Aspetto
+        </h2>
+        <div className="bg-app-card rounded-xl border border-app-border p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <Palette className="h-5 w-5 text-app-muted-foreground" />
+            <span className="font-medium text-app-foreground">Tema</span>
+          </div>
+          <ThemePreferencePicker compact />
+        </div>
+      </div>
 
       {/* Settings menu */}
       <div className="px-4 mt-6 space-y-2">

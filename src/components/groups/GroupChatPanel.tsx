@@ -189,12 +189,18 @@ export function GroupChatPanel({ groupId, userId, myRole }: GroupChatPanelProps)
 
   return (
     <Tabs defaultValue="general" className="w-full">
-      <TabsList className="w-full grid grid-cols-2">
-        <TabsTrigger value="general" className="gap-1">
+      <TabsList className="w-full grid grid-cols-2 bg-app-muted border border-app-border p-1">
+        <TabsTrigger
+          value="general"
+          className="gap-1 data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
+        >
           <MessageCircle className="h-4 w-4" />
           Generale
         </TabsTrigger>
-        <TabsTrigger value="announcements" className="gap-1">
+        <TabsTrigger
+          value="announcements"
+          className="gap-1 data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
+        >
           <Megaphone className="h-4 w-4" />
           Annunci
           {admin && (

@@ -12,6 +12,7 @@ import type {
   GroupSearchFilters,
   GroupStatus,
   GroupWithDetails,
+  UpdateGroupInput,
 } from '@/types/groups';
 
 // Client tipizzato manualmente fino a rigenerazione types.ts
@@ -102,6 +103,96 @@ export async function getDisciplines() {
 // CRUD GRUPPI
 // =====================================================
 
+function groupLocationPayload(input: Pick<
+  CreateGroupInput | UpdateGroupInput,
+  'placeLabel' | 'addressLine' | 'locationName' | 'latitude' | 'longitude'
+>) {
+  return {
+    place_label: input.placeLabel?.trim() || null,
+    address_line: input.addressLine?.trim() || null,
+    location_name: input.locationName?.trim() || null,
+    latitude: input.latitude ?? null,
+    longitude: input.longitude ?? null,
+  };
+}
+
+function isMissingPlaceColumnsError(message?: string): boolean {
+  if (!message) return false;
+  return (
+    message.includes('place_label') ||
+    message.includes('address_line') ||
+    message.includes("'groups' in the schema cache")
+  );
+}
+
+/** Unisce i campi luogo in location_name quando le colonne nuove non esistono ancora sul backend */
+function legacyLocationName(loc: ReturnType<typeof groupLocationPayload>): string | null {
+  const parts = [loc.place_label, loc.address_line, loc.location_name].filter(
+    (p): p is string => !!p && p.length > 0,
+  );
+  const seen = new Set<string>();
+  const unique = parts.filter((p) => {
+    const key = p.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique.length > 0 ? unique.join(' · ') : null;
+}
+
+export async function updateGroup(
+  groupId: string,
+  patch: Partial<{
+    name: string;
+    description: string | null;
+    image_url: string | null;
+    place_label: string | null;
+    address_line: string | null;
+    location_name: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    visibility: 'public' | 'private';
+  }>,
+) {
+  const { data, error } = await db()
+    .from('groups')
+    .update(patch)
+    .eq('id', groupId)
+    .select()
+    .single();
+
+  if (!error) return data as GroupRow;
+
+  if (!isMissingPlaceColumnsError(error.message)) {
+    throw new Error(error.message);
+  }
+
+  const { place_label, address_line, location_name, latitude, longitude, ...rest } = patch;
+  const legacyPatch = {
+    ...rest,
+    location_name:
+      legacyLocationName({
+        place_label: place_label ?? null,
+        address_line: address_line ?? null,
+        location_name: location_name ?? null,
+        latitude: latitude ?? null,
+        longitude: longitude ?? null,
+      }) ?? location_name ?? null,
+    latitude: latitude ?? null,
+    longitude: longitude ?? null,
+  };
+
+  const { data: legacyData, error: legacyError } = await db()
+    .from('groups')
+    .update(legacyPatch)
+    .eq('id', groupId)
+    .select()
+    .single();
+
+  if (legacyError) throw new Error(legacyError.message);
+  return legacyData as GroupRow;
+}
+
 export async function createGroup(_userId: string, input: CreateGroupInput) {
   if (!input.policyAccepted) {
     throw new Error('Devi accettare le policy di LivelApp per creare un gruppo');
@@ -111,16 +202,19 @@ export async function createGroup(_userId: string, input: CreateGroupInput) {
     throw new Error('Seleziona almeno una disciplina');
   }
 
+  const loc = groupLocationPayload(input);
   const payload = {
     _name: input.name.trim(),
     _description: input.description?.trim() || null,
     _image_url: input.imageUrl || null,
-    _location_name: input.locationName?.trim() || null,
-    _latitude: input.latitude ?? null,
-    _longitude: input.longitude ?? null,
+    _location_name: loc.location_name,
+    _latitude: loc.latitude,
+    _longitude: loc.longitude,
     _visibility: input.visibility,
     _discipline_ids: input.disciplineIds,
     _policy_accepted: input.policyAccepted,
+    _place_label: loc.place_label,
+    _address_line: loc.address_line,
   };
 
   const { data: rpcGroup, error: rpcError } = await supabase.rpc(
@@ -132,31 +226,72 @@ export async function createGroup(_userId: string, input: CreateGroupInput) {
     return rpcGroup as GroupRow;
   }
 
+  const rpcPlaceColumnError = isMissingPlaceColumnsError(rpcError?.message);
   const rpcUnavailable =
     rpcError?.code === 'PGRST202' ||
     rpcError?.message?.includes('create_group_with_disciplines') ||
-    rpcError?.message?.includes('Could not find the function');
+    rpcError?.message?.includes('Could not find the function') ||
+    rpcPlaceColumnError;
 
-  if (!rpcUnavailable) {
-    throw new Error(rpcError?.message || 'Creazione gruppo non riuscita');
+  if (!rpcUnavailable && rpcError) {
+    throw new Error(rpcError.message || 'Creazione gruppo non riuscita');
   }
 
-  // Fallback: due step (richiede policy group_disciplines_insert_owner sul backend)
-  const { data: group, error } = await db()
+  if (rpcPlaceColumnError) {
+    const legacyLoc = legacyLocationName(loc);
+    const { data: rpcLegacy, error: rpcLegacyErr } = await supabase.rpc(
+      'create_group_with_disciplines',
+      {
+        _name: input.name.trim(),
+        _description: input.description?.trim() || null,
+        _image_url: input.imageUrl || null,
+        _location_name: legacyLoc,
+        _latitude: loc.latitude,
+        _longitude: loc.longitude,
+        _visibility: input.visibility,
+        _discipline_ids: input.disciplineIds,
+        _policy_accepted: input.policyAccepted,
+      },
+    );
+    if (!rpcLegacyErr && rpcLegacy) return rpcLegacy as GroupRow;
+  }
+
+  const insertPayload = {
+    owner_user_id: _userId,
+    name: input.name.trim(),
+    description: input.description?.trim() || null,
+    image_url: input.imageUrl || null,
+    ...loc,
+    visibility: input.visibility,
+    policy_accepted_at: new Date().toISOString(),
+  };
+
+  let { data: group, error } = await db()
     .from('groups')
-    .insert({
-      owner_user_id: _userId,
-      name: input.name.trim(),
-      description: input.description?.trim() || null,
-      image_url: input.imageUrl || null,
-      location_name: input.locationName?.trim() || null,
-      latitude: input.latitude ?? null,
-      longitude: input.longitude ?? null,
-      visibility: input.visibility,
-      policy_accepted_at: new Date().toISOString(),
-    })
+    .insert(insertPayload)
     .select()
     .single();
+
+  if (error && isMissingPlaceColumnsError(error.message)) {
+    const legacyLoc = legacyLocationName(loc);
+    const retry = await db()
+      .from('groups')
+      .insert({
+        owner_user_id: _userId,
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        image_url: input.imageUrl || null,
+        location_name: legacyLoc,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        visibility: input.visibility,
+        policy_accepted_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    group = retry.data;
+    error = retry.error;
+  }
 
   if (error) throw new Error(error.message);
 
@@ -170,26 +305,22 @@ export async function createGroup(_userId: string, input: CreateGroupInput) {
   return group as GroupRow;
 }
 
-export async function updateGroup(
-  groupId: string,
-  patch: Partial<{
-    name: string;
-    description: string;
-    image_url: string;
-    location_name: string;
-    latitude: number;
-    longitude: number;
-    visibility: 'public' | 'private';
-  }>,
-) {
-  const { data, error } = await db()
-    .from('groups')
-    .update(patch)
-    .eq('id', groupId)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data as GroupRow;
+export async function saveGroupEdit(groupId: string, input: UpdateGroupInput) {
+  if (!input.name.trim()) throw new Error('Il nome del gruppo è obbligatorio');
+  if (input.disciplineIds.length === 0) {
+    throw new Error('Seleziona almeno una disciplina');
+  }
+
+  const loc = groupLocationPayload(input);
+  await updateGroup(groupId, {
+    name: input.name.trim(),
+    description: input.description?.trim() || null,
+    image_url: input.imageUrl ?? null,
+    ...loc,
+    visibility: input.visibility,
+  });
+  await setGroupDisciplines(groupId, input.disciplineIds);
+  return getGroup(groupId);
 }
 
 export async function setGroupDisciplines(groupId: string, disciplineIds: string[]) {

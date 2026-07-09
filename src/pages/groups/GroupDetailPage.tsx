@@ -25,9 +25,11 @@ import {
   UserPlus,
   Lock,
   Globe,
+  Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ListSkeleton } from '@/components/skeletons';
+import { formatGroupLocation } from '@/lib/groups/location';
 
 interface GroupDetailPageProps {
   basePath: string;
@@ -95,6 +97,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
   }
 
   const isAdmin = group.my_role === 'owner' || group.my_role === 'admin';
+  const location = formatGroupLocation(group);
 
   return (
     <div className="min-h-screen bg-app-background pb-24">
@@ -130,11 +133,16 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
             )}
           </div>
 
-          {group.location_name && (
-            <p className="text-sm text-app-muted-foreground flex items-center gap-1">
-              <MapPin className="h-4 w-4" />
-              {group.location_name}
-            </p>
+          {location.primary && (
+            <div className="text-sm text-app-muted-foreground">
+              <p className="flex items-center gap-1">
+                <MapPin className="h-4 w-4 shrink-0" />
+                <span>{location.primary}</span>
+              </p>
+              {location.secondary && (
+                <p className="pl-5 text-xs mt-0.5">{location.secondary}</p>
+              )}
+            </div>
           )}
 
           <div className="flex flex-wrap gap-1">
@@ -185,17 +193,32 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
                 Copia link invito
               </Button>
             )}
+            {isAdmin && (
+              <Button
+                variant="outline"
+                onClick={() => navigate(`${basePath}/${group.id}/edit`)}
+              >
+                <Pencil className="h-4 w-4 mr-1" />
+                Modifica
+              </Button>
+            )}
           </div>
         </div>
 
         {group.is_member ? (
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="w-full grid grid-cols-2">
-              <TabsTrigger value="chat" className="gap-1">
+            <TabsList className="w-full grid grid-cols-2 bg-app-muted border border-app-border p-1">
+              <TabsTrigger
+                value="chat"
+                className="gap-1 data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
+              >
                 <MessageCircle className="h-4 w-4" />
                 Chat
               </TabsTrigger>
-              <TabsTrigger value="members" className="gap-1">
+              <TabsTrigger
+                value="members"
+                className="gap-1 data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
+              >
                 <Users className="h-4 w-4" />
                 Membri
               </TabsTrigger>

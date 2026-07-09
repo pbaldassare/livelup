@@ -14,6 +14,8 @@ export interface GroupRow {
   name: string;
   description: string | null;
   image_url: string | null;
+  place_label: string | null;
+  address_line: string | null;
   location_name: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -74,14 +76,25 @@ export interface GroupSearchFilters {
   maxDistanceKm?: number;
 }
 
-export interface CreateGroupInput {
+/** Campi condivisi tra creazione e modifica */
+export interface GroupFormInput {
   name: string;
   description?: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
+  placeLabel?: string;
+  addressLine?: string;
   locationName?: string;
-  latitude?: number;
-  longitude?: number;
+  latitude?: number | null;
+  longitude?: number | null;
   visibility: GroupVisibility;
   disciplineIds: string[];
+  policyAccepted?: boolean;
+}
+
+export interface CreateGroupInput extends GroupFormInput {
   policyAccepted: boolean;
+}
+
+export interface UpdateGroupInput extends GroupFormInput {
+  policyAccepted?: never;
 }

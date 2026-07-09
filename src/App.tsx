@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { SplashScreen } from "@/components/common/SplashScreen";
 // InstallBanner is mounted inside AppLayout (PWA-only), not globally.
 import { PWAUpdatePrompt } from "@/components/pwa/PWAUpdatePrompt";
+import { ThemeProvider } from 'next-themes';
 import { TourProvider } from "@/components/AppTourContext";
 import AppTour from "@/components/AppTour";
 import AppTourPrompt from "@/components/AppTourPrompt";
@@ -115,6 +116,7 @@ import AtletaDocumentsPage from "./pages/atleta/AtletaDocumentsPage";
 // Gruppi (condivisi atleta + PT)
 import { GroupsHubPage } from "./pages/groups/GroupsHubPage";
 import { GroupCreatePage } from "./pages/groups/GroupCreatePage";
+import { GroupEditPage } from "./pages/groups/GroupEditPage";
 import { GroupDetailPage } from "./pages/groups/GroupDetailPage";
 import { GroupJoinPage } from "./pages/groups/GroupJoinPage";
 
@@ -146,6 +148,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="livellapp-theme">
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -442,6 +445,13 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/groups/:groupId/edit" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <GroupEditPage basePath="/pt/groups" />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
               <Route path="/pt/groups/:groupId" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>
@@ -588,6 +598,13 @@ const App = () => {
                 <PTAppRoute>
                   <AppLayout>
                     <GroupJoinPage basePath="/pt/app/groups" />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/groups/:groupId/edit" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <GroupEditPage basePath="/pt/app/groups" />
                   </AppLayout>
                 </PTAppRoute>
               } />
@@ -784,6 +801,13 @@ const App = () => {
                   </AppLayout>
                 </AtletaRoute>
               } />
+              <Route path="/app/groups/:groupId/edit" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <GroupEditPage basePath="/app/groups" />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
               <Route path="/app/groups/:groupId" element={
                 <AtletaRoute>
                   <AppLayout>
@@ -816,6 +840,7 @@ const App = () => {
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };

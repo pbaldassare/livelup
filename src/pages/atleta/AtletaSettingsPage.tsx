@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import { useTour } from '@/components/AppTourContext';
 import { safeRemove } from '@/lib/safeStorage';
+import { ThemePreferencePicker } from '@/components/settings/ThemePreferencePicker';
+import { Palette } from 'lucide-react';
 
 // =====================================================
 // ATLETA SETTINGS PAGE - Impostazioni e Privacy
@@ -175,6 +177,24 @@ export function AtletaSettingsPage() {
           </div>
         </section>
 
+        {/* Appearance */}
+        <section>
+          <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">
+            Aspetto
+          </h2>
+          <div className="bg-app-card rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Palette className="h-5 w-5 text-app-muted-foreground shrink-0" />
+              <div>
+                <p className="font-medium text-app-foreground">Tema</p>
+                <p className="text-sm text-app-muted-foreground">
+                  Chiaro, scuro o in base al dispositivo
+                </p>
+              </div>
+            </div>
+            <ThemePreferencePicker />
+          </div>
+        </section>
 
         {/* Tour Section */}
         <section>

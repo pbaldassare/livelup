@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Users, Lock, Globe } from 'lucide-react';
 import type { GroupWithDetails } from '@/types/groups';
 import { OfficialBadge } from './OfficialBadge';
+import { formatGroupLocation, formatGroupLocationLine } from '@/lib/groups/location';
 import { cn } from '@/lib/utils';
 
 interface GroupCardProps {
@@ -13,6 +14,8 @@ interface GroupCardProps {
 }
 
 export function GroupCard({ group, basePath, className }: GroupCardProps) {
+  const locationLine = formatGroupLocationLine(group);
+
   return (
     <Link to={`${basePath}/${group.id}`}>
       <Card
@@ -48,10 +51,10 @@ export function GroupCard({ group, basePath, className }: GroupCardProps) {
         </div>
         <CardContent className="p-3 space-y-2">
           <h3 className="font-semibold text-app-foreground line-clamp-1">{group.name}</h3>
-          {group.location_name && (
+          {locationLine && (
             <p className="text-xs text-app-muted-foreground flex items-center gap-1">
               <MapPin className="h-3 w-3 shrink-0" />
-              <span className="truncate">{group.location_name}</span>
+              <span className="truncate">{locationLine}</span>
               {group.distance_km != null && (
                 <span className="shrink-0">· {group.distance_km.toFixed(1)} km</span>
               )}

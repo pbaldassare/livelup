@@ -40,8 +40,12 @@ export function GroupCreatePage({ basePath }: GroupCreatePageProps) {
       <div className="p-4 max-w-lg mx-auto">
         <GroupForm
           userId={user.id}
+          mode="create"
           onSubmit={async (input) => {
-            await mutation.mutateAsync(input);
+            await mutation.mutateAsync({
+              ...input,
+              policyAccepted: input.policyAccepted === true,
+            });
           }}
           isSubmitting={mutation.isPending}
         />
