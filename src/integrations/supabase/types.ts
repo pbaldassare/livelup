@@ -3214,6 +3214,43 @@ export type Database = {
         Args: { _user_id: string }
         Returns: number
       }
+      create_group_with_disciplines: {
+        Args: {
+          _description?: string
+          _discipline_ids?: string[]
+          _image_url?: string
+          _latitude?: number
+          _location_name?: string
+          _longitude?: number
+          _name: string
+          _policy_accepted?: boolean
+          _visibility?: Database["public"]["Enums"]["group_visibility"]
+        }
+        Returns: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          invite_token: string
+          is_official: boolean
+          latitude: number | null
+          location_name: string | null
+          longitude: number | null
+          members_count: number
+          name: string
+          owner_user_id: string
+          policy_accepted_at: string
+          status: Database["public"]["Enums"]["group_status"]
+          updated_at: string
+          visibility: Database["public"]["Enums"]["group_visibility"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "groups"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_admin_stats: {
         Args: never
         Returns: {
