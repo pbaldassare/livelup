@@ -19,6 +19,7 @@ import {
   Tag,
   Library,
   Bot,
+  UsersRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -41,6 +42,7 @@ const navigationItems = [
   { label: 'Assistente', href: '/pt/assistant', icon: Bot },
   { label: 'Archivio Esercizi', href: '/pt/exercises', icon: Library },
   { label: 'Eventi', href: '/pt/events', icon: Calendar },
+  { label: 'Gruppi', href: '/pt/groups', icon: UsersRound },
   { label: 'Cal. Appuntamenti', href: '/pt/calendar/appuntamenti', icon: Calendar },
   { label: 'Messaggi', href: '/pt/messages', icon: MessageSquare },
   { label: 'Pagamenti', href: '/pt/payments', icon: CreditCard },

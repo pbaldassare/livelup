@@ -33,9 +33,14 @@ export function GroupForm({ userId, onSubmit, isSubmitting }: GroupFormProps) {
   const [visibility, setVisibility] = useState<GroupVisibility>('public');
   const [disciplineIds, setDisciplineIds] = useState<string[]>([]);
   const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [nameTouched, setNameTouched] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      setNameTouched(true);
+      return;
+    }
     await onSubmit({
       name,
       description,
@@ -56,12 +61,19 @@ export function GroupForm({ userId, onSubmit, isSubmitting }: GroupFormProps) {
         <Input
           id="group-name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (e.target.value.trim()) setNameTouched(false);
+          }}
+          onBlur={() => setNameTouched(true)}
           placeholder="Es. Calisthenics Milano Nord"
           maxLength={80}
           required
           className="bg-app-muted border-app-border text-app-foreground placeholder:text-app-muted-foreground"
         />
+        {nameTouched && !name.trim() && (
+          <p className="text-xs text-destructive">Il nome del gruppo è obbligatorio</p>
+        )}
       </div>
 
       <div className="space-y-2">

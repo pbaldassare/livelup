@@ -102,7 +102,7 @@ export async function getDisciplines() {
 // CRUD GRUPPI
 // =====================================================
 
-export async function createGroup(userId: string, input: CreateGroupInput) {
+export async function createGroup(_userId: string, input: CreateGroupInput) {
   if (!input.policyAccepted) {
     throw new Error('Devi accettare le policy di LivelApp per creare un gruppo');
   }
@@ -111,10 +111,41 @@ export async function createGroup(userId: string, input: CreateGroupInput) {
     throw new Error('Seleziona almeno una disciplina');
   }
 
+  const payload = {
+    _name: input.name.trim(),
+    _description: input.description?.trim() || null,
+    _image_url: input.imageUrl || null,
+    _location_name: input.locationName?.trim() || null,
+    _latitude: input.latitude ?? null,
+    _longitude: input.longitude ?? null,
+    _visibility: input.visibility,
+    _discipline_ids: input.disciplineIds,
+    _policy_accepted: input.policyAccepted,
+  };
+
+  const { data: rpcGroup, error: rpcError } = await supabase.rpc(
+    'create_group_with_disciplines',
+    payload,
+  );
+
+  if (!rpcError && rpcGroup) {
+    return rpcGroup as GroupRow;
+  }
+
+  const rpcUnavailable =
+    rpcError?.code === 'PGRST202' ||
+    rpcError?.message?.includes('create_group_with_disciplines') ||
+    rpcError?.message?.includes('Could not find the function');
+
+  if (!rpcUnavailable) {
+    throw new Error(rpcError?.message || 'Creazione gruppo non riuscita');
+  }
+
+  // Fallback: due step (richiede policy group_disciplines_insert_owner sul backend)
   const { data: group, error } = await db()
     .from('groups')
     .insert({
-      owner_user_id: userId,
+      owner_user_id: _userId,
       name: input.name.trim(),
       description: input.description?.trim() || null,
       image_url: input.imageUrl || null,
@@ -429,6 +460,6 @@ export async function adminSetGroupOfficial(groupId: string, isOfficial: boolean
   if (error) throw new Error(error.message);
 }
 
-export function getGroupInviteUrl(inviteToken: string) {
-  return `${window.location.origin}/app/groups/join/${inviteToken}`;
+export function getGroupInviteUrl(inviteToken: string, basePath = '/app/groups') {
+  return `${window.location.origin}${basePath}/join/${inviteToken}`;
 }

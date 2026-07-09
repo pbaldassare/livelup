@@ -73,7 +73,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
 
   const copyInviteLink = () => {
     if (!group?.invite_token) return;
-    const url = getGroupInviteUrl(group.invite_token);
+    const url = getGroupInviteUrl(group.invite_token, basePath);
     navigator.clipboard.writeText(url);
     toast.success('Link copiato negli appunti');
   };

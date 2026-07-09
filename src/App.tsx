@@ -421,6 +421,34 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/groups" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <GroupsHubPage basePath="/pt/groups" />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/groups/new" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <GroupCreatePage basePath="/pt/groups" />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/groups/join/:token" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <GroupJoinPage basePath="/pt/groups" />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/groups/:groupId" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <GroupDetailPage basePath="/pt/groups" />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
 
               {/* ============================================= */}
               {/* PT APP ROUTES - Solo ruolo pt (mobile/PWA)   */}
