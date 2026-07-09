@@ -52,14 +52,14 @@ interface WorkoutExercise {
   rest_seconds?: number;
   notes?: string;
   block_id?: string | null;
-  exercises: {
+  exercises?: {
     name: string;
     category: string;
     video_url?: string;
     image_url?: string;
     instructions?: string;
     muscle_groups?: string[];
-  };
+  } | null;
 }
 
 interface WorkoutBlock {
@@ -107,7 +107,7 @@ export function AtletaWorkoutDetailPage() {
   const [pendingMarkExercise, setPendingMarkExercise] = useState<WorkoutExercise | null>(null);
 
   // Fetch workout with exercises + blocks
-  const { data: workout, isLoading } = useQuery({
+  const { data: workout, isLoading, isError, error } = useQuery({
     queryKey: ['workout-detail', workoutId],
     queryFn: async () => {
       if (!workoutId) return null;
@@ -139,7 +139,7 @@ export function AtletaWorkoutDetailPage() {
   });
 
   // Fetch existing logs for resume
-  const { data: existingLogs } = useQuery({
+  const { data: existingLogs, isFetched: logsFetched } = useQuery({
     queryKey: ['workout-logs', workoutId],
     queryFn: async () => {
       if (!workoutId) return [];
@@ -195,6 +195,14 @@ export function AtletaWorkoutDetailPage() {
       }
     }
   }, [existingLogs, workout?.workout_exercises]);
+
+  // Auto-avvia il flow se l'allenamento è già in corso (es. da Home "Continua")
+  useEffect(() => {
+    if (!workout || isLoading || isWorkoutStarted || !logsFetched) return;
+    if (workout.status === 'in_corso' || workout.status === 'in_sospeso') {
+      setIsWorkoutStarted(true);
+    }
+  }, [workout, isLoading, isWorkoutStarted, logsFetched]);
 
   // Fetch PT profile for coach avatar
   const { data: ptProfile } = useQuery({
@@ -464,6 +472,23 @@ export function AtletaWorkoutDetailPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-app-background p-4">
+        <div className="text-center pt-20">
+          <Dumbbell className="h-12 w-12 mx-auto text-app-muted-foreground mb-4" />
+          <h2 className="text-xl font-bold text-app-foreground mb-2">Errore caricamento</h2>
+          <p className="text-sm text-app-muted-foreground mb-4">
+            {(error as Error)?.message || 'Impossibile caricare l\'allenamento.'}
+          </p>
+          <Button onClick={() => navigate('/app')} className="bg-app-accent text-app-accent-foreground">
+            Torna alla Home
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
+
   if (!workout) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-app-background p-4">
@@ -613,6 +638,28 @@ export function AtletaWorkoutDetailPage() {
   // Pre-workout screen
   if (!isWorkoutStarted) {
     const hasExistingLogs = existingLogs && existingLogs.length > 0;
+    const isResumeStatus = workout.status === 'in_corso' || workout.status === 'in_sospeso';
+    const startLabel = hasExistingLogs || isResumeStatus
+      ? 'Continua allenamento'
+      : 'Inizia allenamento';
+
+    if (totalExercises === 0) {
+      return (
+        <motion.div variants={pageVariants} initial="initial" animate="animate" className="min-h-screen bg-app-background p-4">
+          <div className="text-center pt-20">
+            <Dumbbell className="h-12 w-12 mx-auto text-app-muted-foreground mb-4" />
+            <h2 className="text-xl font-bold text-app-foreground mb-2">Nessun esercizio</h2>
+            <p className="text-sm text-app-muted-foreground mb-4">
+              Questo allenamento non contiene esercizi. Contatta il tuo coach.
+            </p>
+            <Button onClick={() => navigate('/app')} className="bg-app-accent text-app-accent-foreground">
+              Torna alla Home
+            </Button>
+          </div>
+        </motion.div>
+      );
+    }
+
     return (
       <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="min-h-screen bg-app-background">
         <div className="sticky top-0 z-50 bg-app-background/95 backdrop-blur">
@@ -643,6 +690,12 @@ export function AtletaWorkoutDetailPage() {
               <div className="inline-flex items-center gap-2 bg-app-accent/10 text-app-accent px-3 py-1 rounded-full text-sm font-medium mt-2">
                 <Play className="h-3 w-3" />
                 Hai progressi salvati
+              </div>
+            )}
+            {isResumeStatus && !hasExistingLogs && (
+              <div className="inline-flex items-center gap-2 bg-app-accent/10 text-app-accent px-3 py-1 rounded-full text-sm font-medium mt-2">
+                <Play className="h-3 w-3" />
+                Allenamento in corso
               </div>
             )}
           </motion.div>
@@ -809,7 +862,7 @@ export function AtletaWorkoutDetailPage() {
               className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
             >
               <Play className="h-5 w-5 mr-2" />
-              {hasExistingLogs ? 'Riprendi Allenamento' : 'Inizia Allenamento'}
+              {startLabel}
             </Button>
           </motion.div>
         </div>

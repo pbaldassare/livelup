@@ -35,14 +35,14 @@ interface SheetExercise {
   sets_data?: unknown;
   protocol_type?: string | null;
   protocol_params?: Record<string, unknown> | null;
-  exercises: {
+  exercises?: {
     name: string;
     category?: string;
     video_url?: string;
     image_url?: string;
     instructions?: string;
     muscle_groups?: string[];
-  };
+  } | null;
 }
 
 interface Props {
@@ -117,6 +117,8 @@ export function AtletaExerciseDetailSheet({
   if (!exercise) return null;
 
   const ex = exercise.exercises;
+  if (!ex) return null;
+
   const youtubeId = ex.video_url ? getYouTubeVideoId(ex.video_url) : null;
   const vimeoId = ex.video_url ? getVimeoVideoId(ex.video_url) : null;
   const isUploadedVideo = ex.video_url ? isVideoFileUrl(ex.video_url) : false;

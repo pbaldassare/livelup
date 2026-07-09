@@ -50,13 +50,25 @@ export interface GWExercise {
   protocol_type?: string | null;
   protocol_params?: ProtocolConfig | null;
   sets_data?: SetData[] | null;
-  exercises: {
+  exercises?: {
     name: string;
     category?: string | null;
     image_url?: string | null;
     video_url?: string | null;
     instructions?: string | null;
     muscle_groups?: string[] | null;
+  } | null;
+}
+
+function exerciseMeta(ex?: GWExercise | null) {
+  const joined = ex?.exercises;
+  return {
+    name: joined?.name ?? 'Esercizio',
+    category: joined?.category ?? null,
+    image_url: joined?.image_url ?? null,
+    video_url: joined?.video_url ?? null,
+    instructions: joined?.instructions ?? null,
+    muscle_groups: joined?.muscle_groups ?? null,
   };
 }
 
@@ -221,6 +233,7 @@ export function GuidedWorkoutFlow({
   // Detail sheet for the clickable exercise header
   const [detailOpen, setDetailOpen] = useState(false);
   const openDetails = useCallback(() => setDetailOpen(true), []);
+  const currentMeta = exerciseMeta(currentExercise);
   const detailSheet = currentExercise ? (
     <AtletaExerciseDetailSheet
       open={detailOpen}
@@ -238,12 +251,12 @@ export function GuidedWorkoutFlow({
         protocol_type: currentExercise.protocol_type ?? null,
         protocol_params: currentExercise.protocol_params ?? null,
         exercises: {
-          name: currentExercise.exercises.name,
-          category: currentExercise.exercises.category ?? undefined,
-          video_url: currentExercise.exercises.video_url ?? undefined,
-          image_url: currentExercise.exercises.image_url ?? undefined,
-          instructions: currentExercise.exercises.instructions ?? undefined,
-          muscle_groups: currentExercise.exercises.muscle_groups ?? undefined,
+          name: currentMeta.name,
+          category: currentMeta.category ?? undefined,
+          video_url: currentMeta.video_url ?? undefined,
+          image_url: currentMeta.image_url ?? undefined,
+          instructions: currentMeta.instructions ?? undefined,
+          muscle_groups: currentMeta.muscle_groups ?? undefined,
         },
       }}
       completedSetsForEx={state.completed[currentExercise.id] ?? []}
@@ -488,11 +501,12 @@ export function GuidedWorkoutFlow({
   const isLastSetOfCurrent = state.setNumber >= totalSetsForCurrent;
   const showNextPreview =
     state.flow === 'rest' && isLastSetOfCurrent && !!nextExercise;
+  const nextMeta = exerciseMeta(nextExercise);
   const nextPreviewInfo = nextExercise
     ? {
-        name: nextExercise.exercises.name,
-        category: nextExercise.exercises.category ?? null,
-        imageUrl: nextExercise.exercises.image_url ?? null,
+        name: nextMeta.name,
+        category: nextMeta.category,
+        imageUrl: nextMeta.image_url,
         sets: nextExercise.prescribed_sets ?? null,
         repsLabel: formatRepsLabel(nextExercise),
         protocolType: nextExercise.protocol_type ?? null,
@@ -516,7 +530,7 @@ export function GuidedWorkoutFlow({
 
         <AtletaEmomPlayer
           key={currentExercise.id}
-          exerciseName={currentExercise.exercises.name}
+          exerciseName={currentMeta.name}
           protocolParams={currentExercise.protocol_params ?? null}
           notes={currentExercise.notes ?? null}
           onShowDetails={openDetails}
@@ -561,7 +575,7 @@ export function GuidedWorkoutFlow({
         <AtletaTimedRoundsPlayer
           key={currentExercise.id}
           protocolLabel={protocolLabel}
-          exerciseName={currentExercise.exercises.name}
+          exerciseName={currentMeta.name}
           protocolParams={currentExercise.protocol_params ?? null}
           notes={currentExercise.notes ?? null}
           onShowDetails={openDetails}
@@ -604,7 +618,7 @@ export function GuidedWorkoutFlow({
 
         <AtletaAmrapPlayer
           key={currentExercise.id}
-          exerciseName={currentExercise.exercises.name}
+          exerciseName={currentMeta.name}
           protocolParams={currentExercise.protocol_params ?? null}
           notes={currentExercise.notes ?? null}
           onShowDetails={openDetails}
@@ -646,7 +660,7 @@ export function GuidedWorkoutFlow({
 
         <AtletaSupersetPlayer
           key={currentExercise.id}
-          exerciseName={currentExercise.exercises.name}
+          exerciseName={currentMeta.name}
           protocolParams={currentExercise.protocol_params ?? null}
           notes={currentExercise.notes ?? null}
           onShowDetails={openDetails}
@@ -700,7 +714,7 @@ export function GuidedWorkoutFlow({
                 <Dumbbell className="h-8 w-8 text-app-accent" />
               </div>
               <ExerciseHeader
-                name={currentExercise.exercises.name}
+                name={currentMeta.name}
                 protocolType={currentExercise.protocol_type ?? 'standard'}
                 notes={currentExercise.notes ?? null}
                 onShowDetails={openDetails}
@@ -760,7 +774,7 @@ export function GuidedWorkoutFlow({
               className="absolute inset-0 flex flex-col items-center justify-center px-6 py-8"
             >
               <ExerciseHeader
-                name={currentExercise.exercises.name}
+                name={currentMeta.name}
                 protocolType={currentExercise.protocol_type ?? 'standard'}
                 notes={currentExercise.notes ?? null}
                 onShowDetails={openDetails}
@@ -950,7 +964,7 @@ export function GuidedWorkoutFlow({
 
           <div className="text-xs text-app-muted-foreground flex items-center gap-1">
             <TimerIcon className="h-3.5 w-3.5" />
-            {currentExercise.exercises.category || 'Esercizio'}
+            {currentMeta.category || 'Esercizio'}
           </div>
         </div>
       )}
