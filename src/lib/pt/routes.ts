@@ -7,6 +7,7 @@ export const ptRoutes = {
   web: {
     home: '/pt',
     athletes: '/pt/athletes',
+    athletesInvite: '/pt/athletes?invite=1',
     athlete: (id: string) => `/pt/athletes/${id}`,
     athleteWorkouts: (id: string) => `/pt/athletes/${id}?tab=workouts`,
     workouts: '/pt/workouts',
