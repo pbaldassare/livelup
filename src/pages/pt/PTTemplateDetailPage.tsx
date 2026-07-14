@@ -126,8 +126,8 @@ export function PTTemplateDetailPage() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-4">
-        <Card className="lg:col-span-1">
+      <div className={isApp ? 'flex flex-col gap-4' : 'grid gap-4 lg:grid-cols-4'}>
+        <Card className={isApp ? undefined : 'lg:col-span-1'}>
           <CardHeader className="py-3 px-4">
             <CardTitle className="text-base">Informazioni</CardTitle>
           </CardHeader>
@@ -219,7 +219,7 @@ export function PTTemplateDetailPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3">
+        <Card className={isApp ? undefined : 'lg:col-span-3'}>
           <CardHeader className="py-3 px-4">
             <CardTitle className="text-base">Esercizi e protocolli</CardTitle>
             <CardDescription className="text-xs">

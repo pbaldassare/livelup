@@ -59,7 +59,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     ? [
         { label: 'Home', href: '/pt/app', icon: Home, exact: true },
         { label: 'Atleti', href: '/pt/app/athletes', icon: Users },
-        { label: 'Schede', href: '/pt/app/workouts', icon: Dumbbell },
+        { label: 'Schede', href: '/pt/app/templates', icon: Dumbbell },
         { label: 'Chat', href: '/pt/app/chat', icon: MessageSquare },
       ]
     : [

@@ -136,7 +136,7 @@ const sections: Section[] = [
       { name: 'Home', path: '/pt/app', icon: Home },
       { name: 'Atleti', path: '/pt/app/athletes', icon: Users },
       { name: 'Calendario', path: '/pt/app/calendar', icon: Calendar },
-      { name: 'Schede', path: '/pt/app/workouts', icon: Dumbbell },
+      { name: 'Schede', path: '/pt/app/templates', icon: Dumbbell },
       { name: 'Chat', path: '/pt/app/chat', icon: MessageSquare },
       { name: 'Chat Dettaglio', path: '/pt/app/chat/:atletaId', icon: MessageSquare },
       { name: 'Profilo', path: '/pt/app/profile', icon: UserCog },

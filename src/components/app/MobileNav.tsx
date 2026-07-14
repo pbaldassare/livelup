@@ -32,7 +32,7 @@ const ptNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/pt/app', tourId: 'nav-pt-home' },
   { icon: Users, label: 'Atleti', path: '/pt/app/athletes', tourId: 'nav-pt-athletes' },
   { icon: Calendar, label: 'Calendario', path: '/pt/app/calendar', tourId: 'nav-pt-calendar' },
-  { icon: Dumbbell, label: 'Schede', path: '/pt/app/workouts', tourId: 'nav-pt-workouts' },
+  { icon: Dumbbell, label: 'Schede', path: '/pt/app/templates', tourId: 'nav-pt-workouts' },
   { icon: User, label: 'Profilo', path: '/pt/app/profile', tourId: 'nav-pt-profile' },
 ];
 

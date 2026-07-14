@@ -25,7 +25,7 @@ export const ptRoutes = {
     athletesInvite: '/pt/app/athletes?invite=1',
     athlete: (id: string) => `/pt/app/athlete/${id}`,
     athleteWorkouts: (id: string) => `/pt/app/athlete/${id}/workouts`,
-    workouts: '/pt/app/workouts',
+    workouts: '/pt/app/templates',
     workoutsTab: (tab: string) => `/pt/app/templates?tab=${tab}`,
     template: (id: string) => `/pt/app/templates/${id}`,
     templates: '/pt/app/templates',

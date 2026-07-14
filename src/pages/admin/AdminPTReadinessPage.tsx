@@ -62,7 +62,7 @@ const PT_FEATURES: Array<{
 }> = [
   { key: 'dashboard', label: 'Dashboard', webRoute: '/pt', pwaRoute: '/pt/app', icon: UserCog },
   { key: 'athletes', label: 'Atleti', webRoute: '/pt/athletes', pwaRoute: '/pt/app/athletes', icon: UserCog },
-  { key: 'workouts', label: 'Allenamenti', webRoute: '/pt/workouts', pwaRoute: '/pt/app/workouts', icon: BookOpenCheck },
+  { key: 'workouts', label: 'Allenamenti', webRoute: '/pt/workouts', pwaRoute: '/pt/app/templates', icon: BookOpenCheck },
   { key: 'exercises', label: 'Archivio esercizi', webRoute: '/pt/exercises', icon: Layers },
   { key: 'calendar_events', label: 'Eventi', webRoute: '/pt/events', pwaRoute: '/pt/app/calendar', icon: ImageIcon },
   { key: 'calendar_appts', label: 'Appuntamenti', webRoute: '/pt/calendar/appuntamenti', icon: ImageIcon },

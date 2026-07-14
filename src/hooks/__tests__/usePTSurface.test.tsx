@@ -125,7 +125,7 @@ describe('mapPTWebToApp', () => {
     ['/pt/', '/pt/app'],
     ['/pt/athletes', '/pt/app/athletes'],
     ['/pt/athletes/abc-123', '/pt/app/athlete/abc-123'],
-    ['/pt/workouts', '/pt/app/workouts'],
+    ['/pt/workouts', '/pt/app/templates'],
     ['/pt/templates/tpl-1', '/pt/app/templates/tpl-1'],
     ['/pt/templates', '/pt/app/templates'],
     ['/pt/calendar', '/pt/app/calendar'],
@@ -211,7 +211,7 @@ describe('Surface gate redirect (e2e-style)', () => {
     const cases: Array<[string, string]> = [
       ['/pt', '/pt/app'],
       ['/pt/athletes', '/pt/app/athletes'],
-      ['/pt/workouts', '/pt/app/workouts'],
+      ['/pt/workouts', '/pt/app/templates'],
       ['/pt/messages', '/pt/app/chat'],
       ['/pt/coupons', '/pt/app/coupons'],
       ['/pt/payments', '/pt/app/payments'],

@@ -113,7 +113,7 @@ export const PT_TOUR_STEPS: TourStep[] = [
   { selector: "pt-athletes-page", title: "Gestione atleti 👥", description: "Visualizza tutti i tuoi atleti, il loro stato e le schede assegnate. Tap su un atleta per i dettagli.", page: "/pt/app/athletes", action: { type: "navigate", target: "/pt/app/athletes", delay: 500 } },
 
   // Workouts page
-  { selector: "pt-workouts-page", title: "Template e schede 📋", description: "Crea template riutilizzabili e assegna schede personalizzate. Ogni esercizio ha serie, ripetizioni e tempo di recupero.", page: "/pt/app/workouts", action: { type: "navigate", target: "/pt/app/workouts", delay: 500 } },
+  { selector: "pt-workouts-page", title: "Template e schede 📋", description: "Crea template riutilizzabili e assegna schede personalizzate. Ogni esercizio ha serie, ripetizioni e tempo di recupero.", page: "/pt/app/templates", action: { type: "navigate", target: "/pt/app/templates", delay: 500 } },
 
   // Calendar page
   { selector: "pt-calendar-page", title: "Il tuo calendario 📅", description: "Gestisci disponibilità, crea eventi e sessioni. Gli atleti possono prenotare nelle fasce libere.", page: "/pt/app/calendar", action: { type: "navigate", target: "/pt/app/calendar", delay: 500 } },

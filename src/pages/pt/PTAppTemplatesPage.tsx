@@ -5,7 +5,9 @@ import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 export function PTAppTemplatesPage() {
   return (
     <PTAppPageShell title="Template" description="Schede di allenamento riutilizzabili">
-      <PTWorkoutsPage embedded />
+      <div data-tour="pt-workouts-page">
+        <PTWorkoutsPage embedded />
+      </div>
     </PTAppPageShell>
   );
 }

@@ -72,7 +72,7 @@ export function mapPTWebToApp(pathname: string): string {
     return `/pt/app/athlete/${rest}`;
   }
   if (pathname.startsWith('/pt/athletes')) return '/pt/app/athletes';
-  if (pathname.startsWith('/pt/workouts')) return '/pt/app/workouts';
+  if (pathname.startsWith('/pt/workouts')) return '/pt/app/templates';
   if (pathname.startsWith('/pt/templates/')) {
     const rest = pathname.replace('/pt/templates/', '');
     return `/pt/app/templates/${rest}`;

@@ -38,6 +38,7 @@ import {
   CalendarDays,
   Pencil,
   Video,
+  ChevronRight,
 } from 'lucide-react';
 import { ProgramsTab } from '@/components/pt/ProgramsTab';
 import { ProtocolsTab } from '@/components/pt/ProtocolsTab';
@@ -121,7 +122,7 @@ interface Workout {
 export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { routes } = usePTRoutes(embedded);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
@@ -166,6 +167,17 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
       setActiveTab(tabFromUrl);
     }
   }, [tabFromUrl]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'templates') {
+      next.delete('tab');
+    } else {
+      next.set('tab', tab);
+    }
+    setSearchParams(next, { replace: true });
+  };
 
   // Fetch templates
   const { data: templates = [], isLoading: templatesLoading } = useQuery({
@@ -634,7 +646,15 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
 
   const workoutActions = (workout: Workout) => (
     <div className="flex items-center gap-2">
-      <Button size="sm" variant="ghost">
+      <Button
+        size="sm"
+        variant="ghost"
+        title="Vai all'atleta"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(routes.athlete(workout.atleta_user_id));
+        }}
+      >
         <Eye className="h-4 w-4" />
       </Button>
     </div>
@@ -645,7 +665,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
       <Button
         variant="outline"
         onClick={() => {
-          setActiveTab('programs');
+          handleTabChange('programs');
           toast.info('Apri la tab Programmi per creare un nuovo programma');
         }}
       >
@@ -902,7 +922,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="flex-wrap h-auto">
               <TabsTrigger value="templates" className="gap-2">
                 <FileText className="h-4 w-4" />
@@ -926,26 +946,121 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
               </TabsTrigger>
             </TabsList>
             <TabsContent value="templates" className="mt-4">
-              <DataTable
-                columns={templateColumns}
-                data={filteredTemplates}
-                isLoading={templatesLoading}
-                emptyMessage="Nessuna scheda creata. Crea la tua prima scheda!"
-                actions={templateActions}
-                onRowClick={(template) => navigate(routes.template(template.id))}
-              />
+              {embedded ? (
+                templatesLoading ? (
+                  <p className="text-muted-foreground text-center py-8">Caricamento...</p>
+                ) : filteredTemplates.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    Nessuna scheda creata. Crea la tua prima scheda!
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredTemplates.map((template) => (
+                      <Card
+                        key={template.id}
+                        className="overflow-hidden hover:border-primary/30 transition-colors"
+                      >
+                        <CardContent className="p-4">
+                          <button
+                            type="button"
+                            className="w-full text-left"
+                            onClick={() => navigate(routes.template(template.id))}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold truncate">{template.title}</p>
+                                <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">
+                                  {template.description || 'Nessuna descrizione'}
+                                </p>
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {template.difficulty_level && template.difficulty_level !== 'nessuno' && (
+                                    <Badge variant="secondary" className="text-xs capitalize">
+                                      {template.difficulty_level}
+                                    </Badge>
+                                  )}
+                                  {template.category && (
+                                    <Badge variant="outline" className="text-xs">{template.category}</Badge>
+                                  )}
+                                  {template.estimated_duration && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {template.estimated_duration} min
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                            </div>
+                          </button>
+                          <div className="flex items-center gap-1 mt-3 pt-3 border-t border-border">
+                            {templateActions(template)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <DataTable
+                  columns={templateColumns}
+                  data={filteredTemplates}
+                  isLoading={templatesLoading}
+                  emptyMessage="Nessuna scheda creata. Crea la tua prima scheda!"
+                  actions={templateActions}
+                  onRowClick={(template) => navigate(routes.template(template.id))}
+                />
+              )}
             </TabsContent>
             <TabsContent value="programs" className="mt-4">
               <ProgramsTab layout="grid" />
             </TabsContent>
             <TabsContent value="assigned" className="mt-4">
-              <DataTable
-                columns={workoutColumns}
-                data={filteredWorkouts}
-                isLoading={workoutsLoading}
-                emptyMessage="Nessun allenamento assegnato"
-                actions={workoutActions}
-              />
+              {embedded ? (
+                workoutsLoading ? (
+                  <p className="text-muted-foreground text-center py-8">Caricamento...</p>
+                ) : filteredWorkouts.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">Nessun allenamento assegnato</p>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredWorkouts.map((workout) => (
+                      <Card
+                        key={workout.id}
+                        className="overflow-hidden hover:border-primary/30 transition-colors cursor-pointer"
+                        onClick={() => navigate(routes.athlete(workout.atleta_user_id))}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold truncate">{workout.title}</p>
+                              <p className="text-sm text-muted-foreground mt-0.5">
+                                {workout.scheduled_date
+                                  ? new Date(workout.scheduled_date).toLocaleDateString('it-IT')
+                                  : 'Non programmato'}
+                              </p>
+                              {workout.due_date && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Scadenza: {new Date(workout.due_date).toLocaleDateString('it-IT')}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-2 shrink-0">
+                              <StatusBadge status={workout.status} />
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <DataTable
+                  columns={workoutColumns}
+                  data={filteredWorkouts}
+                  isLoading={workoutsLoading}
+                  emptyMessage="Nessun allenamento assegnato"
+                  actions={workoutActions}
+                />
+              )}
             </TabsContent>
             <TabsContent value="exercises" className="mt-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
