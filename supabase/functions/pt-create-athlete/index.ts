@@ -15,12 +15,13 @@ interface CreateAthleteRequest {
   goals?: string[]
 }
 
-function randomPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%'
+function tempPassword(): string {
+  // Password temporanea leggibile: 12 caratteri alfanumerici + 1 simbolo
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
   let out = ''
-  const bytes = crypto.getRandomValues(new Uint8Array(24))
+  const bytes = crypto.getRandomValues(new Uint8Array(12))
   for (const b of bytes) out += chars[b % chars.length]
-  return out
+  return out + '!'
 }
 
 serve(async (req) => {
@@ -109,9 +110,10 @@ serve(async (req) => {
       })
     }
 
+    const generatedPassword = tempPassword()
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: normalizedEmail,
-      password: randomPassword(),
+      password: generatedPassword,
       email_confirm: true,
       user_metadata: { role: 'atleta' },
     })
@@ -210,12 +212,21 @@ serve(async (req) => {
       data: { pt_user_id: ptUserId, connection_id: connection.id },
     })
 
-    const siteUrl = Deno.env.get('SITE_URL') || Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovable.app') || ''
-    await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: normalizedEmail,
-      options: siteUrl ? { redirectTo: `${siteUrl}/auth?mode=recovery` } : undefined,
-    })
+    // Invia email di benvenuto con password temporanea
+    try {
+      await supabaseAdmin.functions.invoke('send-athlete-welcome-email', {
+        body: {
+          email: normalizedEmail,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          tempPassword: generatedPassword,
+          ptName,
+        },
+      })
+    } catch (emailErr) {
+      console.error('Welcome email failed', emailErr)
+    }
+
 
     return new Response(
       JSON.stringify({
