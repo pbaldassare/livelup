@@ -36,7 +36,20 @@ export const ptRoutes = {
   },
 } as const;
 
-export type PTRouteSet = typeof ptRoutes.app;
+export type PTRouteSet = {
+  home: string;
+  athletes: string;
+  athletesInvite: string;
+  athlete: (id: string) => string;
+  athleteWorkouts: (id: string) => string;
+  workouts: string;
+  workoutsTab: (tab: string) => string;
+  template: (id: string) => string;
+  templates: string;
+  exercises: string;
+  chat: (atletaId?: string) => string;
+  calendar: string;
+};
 
 export function ptRoutesForPath(pathname: string): PTRouteSet {
   return pathname.startsWith('/pt/app') ? ptRoutes.app : ptRoutes.web;
