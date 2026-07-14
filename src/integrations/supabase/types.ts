@@ -3261,6 +3261,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      find_atleta_by_email_for_pt: { Args: { _email: string }; Returns: Json }
       get_admin_stats: {
         Args: never
         Returns: {
