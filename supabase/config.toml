@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.pt-create-athlete]
 verify_jwt = false
 
+[functions.send-athlete-welcome-email]
+verify_jwt = false
+
 [functions.delete-user]
 verify_jwt = false
 
