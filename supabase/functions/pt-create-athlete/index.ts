@@ -15,12 +15,13 @@ interface CreateAthleteRequest {
   goals?: string[]
 }
 
-function randomPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%'
+function tempPassword(): string {
+  // Password temporanea leggibile: 12 caratteri alfanumerici + 1 simbolo
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
   let out = ''
-  const bytes = crypto.getRandomValues(new Uint8Array(24))
+  const bytes = crypto.getRandomValues(new Uint8Array(12))
   for (const b of bytes) out += chars[b % chars.length]
-  return out
+  return out + '!'
 }
 
 serve(async (req) => {
