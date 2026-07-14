@@ -212,12 +212,21 @@ serve(async (req) => {
       data: { pt_user_id: ptUserId, connection_id: connection.id },
     })
 
-    const siteUrl = Deno.env.get('SITE_URL') || Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovable.app') || ''
-    await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: normalizedEmail,
-      options: siteUrl ? { redirectTo: `${siteUrl}/auth?mode=recovery` } : undefined,
-    })
+    // Invia email di benvenuto con password temporanea
+    try {
+      await supabaseAdmin.functions.invoke('send-athlete-welcome-email', {
+        body: {
+          email: normalizedEmail,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          tempPassword: generatedPassword,
+          ptName,
+        },
+      })
+    } catch (emailErr) {
+      console.error('Welcome email failed', emailErr)
+    }
+
 
     return new Response(
       JSON.stringify({
