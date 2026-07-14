@@ -110,9 +110,10 @@ serve(async (req) => {
       })
     }
 
+    const generatedPassword = tempPassword()
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: normalizedEmail,
-      password: randomPassword(),
+      password: generatedPassword,
       email_confirm: true,
       user_metadata: { role: 'atleta' },
     })
