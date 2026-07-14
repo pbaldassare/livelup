@@ -907,7 +907,7 @@ export function GuidedWorkoutFlow({
       </div>
 
       {/* Secondary actions bar */}
-      {state.flow !== 'finished' && state.flow !== 'rest' && (
+      {state.flow !== 'finished' && (
         <div className="border-t border-app-border bg-app-card/40 px-4 py-3 flex items-center justify-between gap-3">
           <button
             onClick={handleSkipExercise}
