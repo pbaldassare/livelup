@@ -2223,6 +2223,7 @@ export type Database = {
           gallery_photos: string[] | null
           hourly_rate: number | null
           id: string
+          is_active: boolean
           is_discoverable: boolean | null
           level: Database["public"]["Enums"]["pt_level"] | null
           location_address: string | null
@@ -2254,6 +2255,7 @@ export type Database = {
           gallery_photos?: string[] | null
           hourly_rate?: number | null
           id?: string
+          is_active?: boolean
           is_discoverable?: boolean | null
           level?: Database["public"]["Enums"]["pt_level"] | null
           location_address?: string | null
@@ -2285,6 +2287,7 @@ export type Database = {
           gallery_photos?: string[] | null
           hourly_rate?: number | null
           id?: string
+          is_active?: boolean
           is_discoverable?: boolean | null
           level?: Database["public"]["Enums"]["pt_level"] | null
           location_address?: string | null
@@ -3345,6 +3348,7 @@ export type Database = {
       }
       is_premium: { Args: { _user_id: string }; Returns: boolean }
       is_pt: { Args: { _user_id: string }; Returns: boolean }
+      is_pt_active: { Args: { _user_id: string }; Returns: boolean }
       join_group: { Args: { _group_id: string }; Returns: Json }
       pt_save_workout_log: {
         Args: {
