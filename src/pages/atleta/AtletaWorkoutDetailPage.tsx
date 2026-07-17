@@ -992,6 +992,77 @@ export function AtletaWorkoutDetailPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Riordina esercizi (solo schede libere) */}
+        <Dialog open={reorderOpen} onOpenChange={setReorderOpen}>
+          <DialogContent className="bg-app-card border-app-border max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-app-foreground">Riordina esercizi</DialogTitle>
+              <DialogDescription className="text-app-muted-foreground">
+                Trascina o usa le frecce per organizzare gli esercizi nell'ordine che preferisci.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {reorderList.map((ex, idx) => (
+                <div
+                  key={ex.id}
+                  className="flex items-center gap-2 rounded-lg border border-app-border bg-app-background p-2"
+                >
+                  <span className="w-6 text-center text-xs font-semibold text-app-muted-foreground tabular-nums">
+                    {idx + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-app-foreground truncate">
+                      {ex.exercises?.name || 'Esercizio'}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={idx === 0}
+                      onClick={() => {
+                        const next = [...reorderList];
+                        [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                        setReorderList(next);
+                      }}
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={idx === reorderList.length - 1}
+                      onClick={() => {
+                        const next = [...reorderList];
+                        [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+                        setReorderList(next);
+                      }}
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setReorderOpen(false)}>
+                Annulla
+              </Button>
+              <Button
+                onClick={() => reorderMutation.mutate(reorderList.map((e) => e.id))}
+                disabled={reorderMutation.isPending}
+                className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+              >
+                {reorderMutation.isPending ? 'Salvataggio…' : 'Salva ordine'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </motion.div>
     );
   }
