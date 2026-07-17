@@ -5,17 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { ExerciseCatalog, useCreateExerciseCatalog, useUpdateExerciseCatalog } from '@/hooks/useExerciseCatalogs';
+import { useCreateExerciseCatalog, type ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
 
 interface CreateCatalogDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Se presente, il dialog opera in modalità modifica su questo catalogo. */
-  editCatalog?: ExerciseCatalog | null;
+  /** Chiamato con il catalogo appena creato (es. per aggiungerci subito un esercizio). */
+  onCreated?: (catalog: ExerciseCatalog) => void;
 }
 
 const EMOJI_PRESETS = [
-  '🗂️', '💪', '🏋️', '🔥', '⚡', '🏃', '🧘', '🤸', '🥇', '🎯', '⭐', '🩱',
+  '­ƒùé´©Å', '­ƒÆ¬', '­ƒÅï´©Å', '­ƒöÑ', 'ÔÜí', '­ƒÅâ', '­ƒºÿ', '­ƒñ©', '­ƒÑç', '­ƒÄ»', 'Ô¡É', '­ƒ®▒',
 ];
 
 const emptyForm = {
@@ -24,42 +24,31 @@ const emptyForm = {
   description: '',
 };
 
-export function CreateCatalogDialog({ open, onOpenChange, editCatalog }: CreateCatalogDialogProps) {
+export function CreateCatalogDialog({ open, onOpenChange, onCreated }: CreateCatalogDialogProps) {
   const [form, setForm] = useState(emptyForm);
   const createCatalog = useCreateExerciseCatalog();
-  const updateCatalog = useUpdateExerciseCatalog();
-  const isEditing = !!editCatalog;
-  const mutation = isEditing ? updateCatalog : createCatalog;
 
   useEffect(() => {
-    if (open) {
-      setForm(
-        editCatalog
-          ? { name: editCatalog.name, emoji: editCatalog.emoji, description: editCatalog.description ?? '' }
-          : emptyForm,
-      );
-    }
-  }, [open, editCatalog]);
+    if (open) setForm(emptyForm);
+  }, [open]);
 
-  const handleSave = () => {
-    if (isEditing && editCatalog) {
-      updateCatalog.mutate(
-        { id: editCatalog.id, name: form.name, emoji: form.emoji, description: form.description },
-        { onSuccess: () => onOpenChange(false) },
-      );
-    } else {
-      createCatalog.mutate(
-        { name: form.name, emoji: form.emoji, description: form.description },
-        { onSuccess: () => onOpenChange(false) },
-      );
-    }
+  const handleCreate = () => {
+    createCatalog.mutate(
+      { name: form.name, emoji: form.emoji, description: form.description },
+      {
+        onSuccess: (catalog) => {
+          onOpenChange(false);
+          onCreated?.(catalog);
+        },
+      },
+    );
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md w-[calc(100%-2rem)]">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Modifica catalogo' : 'Crea catalogo'}</DialogTitle>
+          <DialogTitle>Crea catalogo</DialogTitle>
           <DialogDescription>
             Un catalogo raggruppa esercizi omogenei (es. per attrezzo, disciplina o obiettivo).
           </DialogDescription>
@@ -82,7 +71,7 @@ export function CreateCatalogDialog({ open, onOpenChange, editCatalog }: CreateC
               <Input
                 value={form.emoji}
                 onChange={(e) => setForm((p) => ({ ...p, emoji: e.target.value }))}
-                placeholder="🗂️"
+                placeholder="­ƒùé´©Å"
                 className="w-16 text-center text-lg"
                 maxLength={4}
               />
@@ -120,10 +109,10 @@ export function CreateCatalogDialog({ open, onOpenChange, editCatalog }: CreateC
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annulla</Button>
           <Button
-            onClick={handleSave}
-            disabled={!form.name.trim() || mutation.isPending}
+            onClick={handleCreate}
+            disabled={!form.name.trim() || createCatalog.isPending}
           >
-            {mutation.isPending ? 'Salvataggio...' : isEditing ? 'Salva modifiche' : 'Crea catalogo'}
+            {createCatalog.isPending ? 'Creazione...' : 'Crea catalogo'}
           </Button>
         </div>
       </DialogContent>

@@ -12,15 +12,14 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Search, Video, Library, Info, Star, Dumbbell, Plus } from 'lucide-react';
+import { Search, Video, Library, Info, Star, Dumbbell, Plus, FolderPlus } from 'lucide-react';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
 import { CreateExerciseDialog } from '@/components/pt/CreateExerciseDialog';
 import { CreateCatalogDialog } from '@/components/pt/CreateCatalogDialog';
-import { CatalogDetailDialog } from '@/components/pt/CatalogDetailDialog';
-import { ExerciseCatalogPicker } from '@/components/pt/ExerciseCatalogPicker';
+import { ExerciseCatalogAssignPopover } from '@/components/pt/ExerciseCatalogAssignPopover';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
-import { useExerciseCatalogs, ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
+import { useExerciseCatalogs } from '@/hooks/useExerciseCatalogs';
 import { cn } from '@/lib/utils';
 
 type Exercise = {
@@ -37,12 +36,13 @@ type Exercise = {
   created_by: string | null;
 };
 
-type SourceFilter = 'all' | 'archivio' | 'miei';
+type SourceFilter = 'all' | 'archivio' | 'miei' | 'preferiti';
 
 const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
   { value: 'all', label: 'Tutti' },
   { value: 'archivio', label: 'Archivio' },
   { value: 'miei', label: 'I miei' },
+  { value: 'preferiti', label: 'Preferiti' },
 ];
 
 const DIFFICULTY_OPTIONS = [
@@ -73,11 +73,9 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [muscleFilter, setMuscleFilter] = useState<string>('all');
-  const [favoriteFilter, setFavoriteFilter] = useState<'all' | 'favorites'>('all');
   const [selected, setSelected] = useState<Exercise | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createCatalogOpen, setCreateCatalogOpen] = useState(false);
-  const [detailCatalog, setDetailCatalog] = useState<ExerciseCatalog | null>(null);
 
   const { data: favIds } = useFavoriteIds();
   const { data: catalogs = [] } = useExerciseCatalogs();
@@ -94,7 +92,7 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
       } else if (sourceFilter === 'miei') {
         q = q.eq('created_by', user.id).eq('is_public', false);
       }
-      // 'all': RLS returns (public exercises) ∪ (own private exercises) automatically
+      // 'all' / 'preferiti': RLS returns (public exercises) ∪ (own private exercises) automatically
 
       const { data, error } = await q.order('category').order('name');
       if (error) throw error;
@@ -121,7 +119,7 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
     const matchesDiff = difficultyFilter === 'all' || ex.difficulty_level === difficultyFilter;
     const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
     const matchesMuscle = muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
-    const matchesFav = favoriteFilter === 'all' || (favIds?.has(ex.id) ?? false);
+    const matchesFav = sourceFilter !== 'preferiti' || (favIds?.has(ex.id) ?? false);
     return matchesSearch && matchesDiff && matchesCat && matchesMuscle && matchesFav;
   });
 
@@ -135,15 +133,24 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
           title="Esercizi"
           subtitle="Archivio pubblico e i tuoi esercizi personali"
           actions={
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Crea esercizio
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setCreateCatalogOpen(true)}>
+                <FolderPlus className="h-4 w-4 mr-2" />
+                Crea catalogo
+              </Button>
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Crea esercizio
+              </Button>
+            </div>
           }
         />
       )}
       {embedded && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={() => setCreateCatalogOpen(true)}>
+            <FolderPlus className="h-4 w-4 mr-1" /> Catalogo
+          </Button>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4 mr-1" /> Crea
           </Button>
@@ -151,16 +158,10 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
       )}
 
       {catalogs.length > 0 && (
-        <div className='flex flex-wrap items-center gap-1.5'>
-          <span className='text-xs text-muted-foreground mr-1'>I tuoi cataloghi:</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-1">I tuoi cataloghi:</span>
           {catalogs.map((c) => (
-            <Badge
-              key={c.id}
-              variant='outline'
-              className='gap-1 text-xs font-normal cursor-pointer hover:bg-muted transition-colors'
-              title={c.description || undefined}
-              onClick={() => setDetailCatalog(c)}
-            >
+            <Badge key={c.id} variant="outline" className="gap-1 text-xs font-normal" title={c.description || undefined}>
               <span>{c.emoji}</span>
               {c.name}
             </Badge>
@@ -215,15 +216,6 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                 className="pl-9"
               />
             </div>
-            <Select value={favoriteFilter} onValueChange={(v: 'all' | 'favorites') => setFavoriteFilter(v)}>
-              <SelectTrigger className="w-full lg:w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tutti</SelectItem>
-                <SelectItem value="favorites">⭐ Solo preferiti ({favIds?.size ?? 0})</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
               <SelectTrigger className="w-full lg:w-[180px]">
                 <SelectValue placeholder="Difficoltà" />
@@ -277,6 +269,13 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                     Clicca su <strong>Crea esercizio</strong> per aggiungerne uno.
                   </p>
                 </>
+              ) : sourceFilter === 'preferiti' ? (
+                <>
+                  <p className="font-medium">Nessun esercizio preferito</p>
+                  <p className="text-sm mt-1">
+                    Clicca sulla <Star className="inline h-3.5 w-3.5 -mt-0.5" /> su un esercizio per aggiungerlo ai preferiti.
+                  </p>
+                </>
               ) : (
                 <p>Nessun esercizio trovato</p>
               )}
@@ -285,7 +284,8 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-20"></TableHead>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-12"></TableHead>
                   <TableHead className="w-[76px]">Media</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Difficoltà</TableHead>
@@ -327,8 +327,10 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                               )}
                             />
                           </Button>
-                          <ExerciseCatalogPicker exerciseId={ex.id} />
                         </div>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <ExerciseCatalogAssignPopover exerciseId={ex.id} />
                       </TableCell>
                       <TableCell>
                         <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-muted">
@@ -404,12 +406,6 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
       <CreateCatalogDialog
         open={createCatalogOpen}
         onOpenChange={setCreateCatalogOpen}
-      />
-
-      <CatalogDetailDialog
-        catalog={detailCatalog}
-        open={!!detailCatalog}
-        onOpenChange={(o) => !o && setDetailCatalog(null)}
       />
     </div>
   );

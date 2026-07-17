@@ -253,6 +253,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           muscle_groups: newTemplate.muscle_groups,
           template_kind: newTemplate.template_kind,
           is_public: false,
+          template_kind: newTemplate.template_kind,
         } as any)
         .select()
         .single();
