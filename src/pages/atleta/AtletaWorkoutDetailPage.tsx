@@ -18,10 +18,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { 
-  ArrowLeft, 
-  Settings2, 
-  Play, 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import {
+  ArrowLeft,
+  Settings2,
+  Play,
   Clock,
   Dumbbell,
   Trophy,
@@ -31,9 +40,19 @@ import {
   CheckCircle2,
   Repeat,
   ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  TEMPLATE_KIND_BADGE_CLASS,
+  TEMPLATE_KIND_DESCRIPTION,
+  TEMPLATE_KIND_LABEL,
+  canAthleteReorder,
+  normalizeTemplateKind,
+} from '@/lib/pt/templateKinds';
 
 // =====================================================
 // ATLETA WORKOUT DETAIL PAGE - Workout execution
@@ -94,6 +113,8 @@ export function AtletaWorkoutDetailPage() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [exerciseDirection, setExerciseDirection] = useState(1);
   const [showSummary, setShowSummary] = useState(false);
+  const [reorderOpen, setReorderOpen] = useState(false);
+  const [reorderList, setReorderList] = useState<WorkoutExercise[]>([]);
   const [workoutRating, setWorkoutRating] = useState(0);
   const [workoutNotes, setWorkoutNotes] = useState('');
   const [totalVolume, setTotalVolume] = useState(0);
@@ -114,7 +135,7 @@ export function AtletaWorkoutDetailPage() {
       const { data, error } = await supabase
         .from('workouts')
         .select(`
-          id, title, description, status, scheduled_date, notes_pt, pt_user_id,
+          id, title, description, status, scheduled_date, notes_pt, pt_user_id, template_kind,
           workout_blocks (id, order_index, type, name, params),
           workout_exercises (
             id, exercise_id, order_index, prescribed_sets,
@@ -153,6 +174,24 @@ export function AtletaWorkoutDetailPage() {
       return data || [];
     },
     enabled: !!workoutId && !!workout,
+  });
+
+  // Reorder mutation (solo per schede 'libera')
+  const reorderMutation = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      if (!workoutId) throw new Error('Workout id mancante');
+      const { error } = await supabase.rpc('atleta_reorder_workout_exercises', {
+        _workout_id: workoutId,
+        _ordered_exercise_ids: orderedIds,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Ordine aggiornato');
+      queryClient.invalidateQueries({ queryKey: ['workout-detail', workoutId] });
+      setReorderOpen(false);
+    },
+    onError: (e: any) => toast.error(e?.message || 'Errore riordino'),
   });
 
   // Pre-populate completed sets and stats from existing logs
@@ -698,10 +737,46 @@ export function AtletaWorkoutDetailPage() {
                 Allenamento in corso
               </div>
             )}
+
+            {/* Tipologia scheda */}
+            {(() => {
+              const kind = normalizeTemplateKind((workout as any).template_kind);
+              return (
+                <div className={cn(
+                  "mt-3 mx-auto max-w-md rounded-xl border p-3 text-left",
+                  TEMPLATE_KIND_BADGE_CLASS[kind]
+                )}>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={cn("text-[10px]", TEMPLATE_KIND_BADGE_CLASS[kind])}>
+                      Scheda {TEMPLATE_KIND_LABEL[kind]}
+                    </Badge>
+                  </div>
+                  <p className="text-xs mt-1 opacity-90 leading-snug">
+                    {TEMPLATE_KIND_DESCRIPTION[kind]}
+                  </p>
+                </div>
+              );
+            })()}
           </motion.div>
 
           <div className="space-y-4">
-            <h3 className="font-semibold text-app-foreground">Esercizi</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-app-foreground">Esercizi</h3>
+              {canAthleteReorder((workout as any).template_kind) && !hasExistingLogs && !isWorkoutStarted && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setReorderList([...exercises]);
+                    setReorderOpen(true);
+                  }}
+                  className="h-8 gap-1.5"
+                >
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                  Riordina
+                </Button>
+              )}
+            </div>
             {(() => {
               // Raggruppa esercizi per blocco; orfani in blocco virtuale finale
               const blocks = (workout as any).workout_blocks as WorkoutBlock[] | undefined;
@@ -917,6 +992,77 @@ export function AtletaWorkoutDetailPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Riordina esercizi (solo schede libere) */}
+        <Dialog open={reorderOpen} onOpenChange={setReorderOpen}>
+          <DialogContent className="bg-app-card border-app-border max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-app-foreground">Riordina esercizi</DialogTitle>
+              <DialogDescription className="text-app-muted-foreground">
+                Trascina o usa le frecce per organizzare gli esercizi nell'ordine che preferisci.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {reorderList.map((ex, idx) => (
+                <div
+                  key={ex.id}
+                  className="flex items-center gap-2 rounded-lg border border-app-border bg-app-background p-2"
+                >
+                  <span className="w-6 text-center text-xs font-semibold text-app-muted-foreground tabular-nums">
+                    {idx + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-app-foreground truncate">
+                      {ex.exercises?.name || 'Esercizio'}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={idx === 0}
+                      onClick={() => {
+                        const next = [...reorderList];
+                        [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                        setReorderList(next);
+                      }}
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={idx === reorderList.length - 1}
+                      onClick={() => {
+                        const next = [...reorderList];
+                        [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+                        setReorderList(next);
+                      }}
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setReorderOpen(false)}>
+                Annulla
+              </Button>
+              <Button
+                onClick={() => reorderMutation.mutate(reorderList.map((e) => e.id))}
+                disabled={reorderMutation.isPending}
+                className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+              >
+                {reorderMutation.isPending ? 'Salvataggio…' : 'Salva ordine'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </motion.div>
     );
   }

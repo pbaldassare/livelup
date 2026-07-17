@@ -64,6 +64,7 @@ interface WorkoutTemplate {
   id: string;
   title: string;
   difficulty_level: string;
+  template_kind: 'libera' | 'propedeutica' | 'progressiva';
   estimated_duration: number | null;
   exerciseCount: number;
 }
@@ -106,6 +107,7 @@ export function AssignWorkoutDialog({
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [notes, setNotes] = useState('');
+  const [templateKind, setTemplateKind] = useState<'libera' | 'propedeutica' | 'progressiva'>('libera');
 
   // Repetition state
   const [frequency, setFrequency] = useState<Frequency>('once');
@@ -123,6 +125,8 @@ export function AssignWorkoutDialog({
       }
     }
   }, [open, preselectedTemplateId, preselectedAthleteId]);
+
+  // Sync tipologia dal template selezionato (moved below templates query)
 
   // Fetch connected athletes
   const { data: athletes = [] } = useQuery({
@@ -170,6 +174,7 @@ export function AssignWorkoutDialog({
           id,
           title,
           difficulty_level,
+          template_kind,
           estimated_duration,
           template_exercises (id)
         `)
@@ -178,10 +183,11 @@ export function AssignWorkoutDialog({
 
       if (error) throw error;
 
-      return (data || []).map((t) => ({
+      return (data || []).map((t: any) => ({
         id: t.id,
         title: t.title,
         difficulty_level: t.difficulty_level,
+        template_kind: (t.template_kind ?? 'libera') as 'libera' | 'propedeutica' | 'progressiva',
         estimated_duration: t.estimated_duration,
         exerciseCount: t.template_exercises?.length || 0,
       })) as WorkoutTemplate[];
@@ -191,6 +197,16 @@ export function AssignWorkoutDialog({
 
   const selectedAthlete = athletes.find((a) => a.atleta_user_id === selectedAthleteId);
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+
+  // Sync tipologia dal template selezionato (fallback 'libera' per schede custom)
+  useEffect(() => {
+    if (workoutSource === 'template') {
+      setTemplateKind(selectedTemplate?.template_kind ?? 'libera');
+    } else {
+      setTemplateKind('libera');
+    }
+  }, [selectedTemplateId, workoutSource, selectedTemplate?.template_kind]);
+
 
   // Compute generated dates based on frequency
   const generatedDates = useMemo<Date[]>(() => {
@@ -359,6 +375,7 @@ export function AssignWorkoutDialog({
           title,
           description: workoutSource === 'custom' ? notes : undefined,
           templateId,
+          templateKind,
           scheduledDate: date.toISOString(),
           exercises: exercisesPayload,
           blocks: blocksPayload,
@@ -603,6 +620,34 @@ export function AssignWorkoutDialog({
                 />
               </section>
             )}
+
+            {/* === Tipologia scheda === */}
+            <section className="space-y-2 p-4 rounded-lg border border-border bg-muted/20">
+              <Label className="text-sm font-semibold">
+                Tipologia scheda <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={templateKind}
+                onValueChange={(v) => setTemplateKind(v as 'libera' | 'propedeutica' | 'progressiva')}
+              >
+                <SelectTrigger className="h-10 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="libera">Libera — l'atleta può riordinare</SelectItem>
+                  <SelectItem value="propedeutica">Propedeutica — ordine consigliato</SelectItem>
+                  <SelectItem value="progressiva">Progressiva — un esercizio alla volta</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {templateKind === 'libera' &&
+                  'L\'atleta potrà cambiare l\'ordine degli esercizi.'}
+                {templateKind === 'propedeutica' &&
+                  'Ordine consigliato dal Coach. L\'atleta può passare all\'esercizio successivo anche senza completare tutti i set.'}
+                {templateKind === 'progressiva' &&
+                  'L\'atleta deve completare tutti i set di un esercizio prima di passare al successivo.'}
+              </p>
+            </section>
 
             {/* === Ripetizione === */}
             <section className="space-y-3 p-4 rounded-lg border border-border bg-muted/20">
