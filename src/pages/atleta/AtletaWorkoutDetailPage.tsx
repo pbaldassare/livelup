@@ -355,7 +355,7 @@ export function AtletaWorkoutDetailPage() {
     [exercises],
   );
 
-  const reorderMutation = useMutation({
+  const reorderFreeMutation = useMutation({
     mutationFn: async (orderedIds: string[]) => {
       if (!workoutId) throw new Error('Workout mancante');
       await reorderWorkoutFreeExercises(workoutId, orderedIds);
@@ -376,7 +376,7 @@ export function AtletaWorkoutDetailPage() {
     if (next < 0 || next >= freeExerciseIds.length) return;
     const nextOrder = [...freeExerciseIds];
     [nextOrder[idx], nextOrder[next]] = [nextOrder[next], nextOrder[idx]];
-    reorderMutation.mutate(nextOrder);
+    reorderFreeMutation.mutate(nextOrder);
   };
 
   const formatTime = (secs: number) => {
@@ -873,7 +873,6 @@ export function AtletaWorkoutDetailPage() {
                   </span>
                 )}
               </div>
-              )}
             </div>
             {(() => {
               // Raggruppa esercizi per blocco; orfani in blocco virtuale finale
@@ -945,7 +944,7 @@ export function AtletaWorkoutDetailPage() {
                                 <button
                                   type="button"
                                   aria-label="Sposta su"
-                                  disabled={freeIdx === 0 || reorderMutation.isPending}
+                                  disabled={freeIdx === 0 || reorderFreeMutation.isPending}
                                   onClick={() => moveFreeExercise(ex.id, -1)}
                                   className="p-1.5 rounded-md text-app-muted-foreground hover:text-app-foreground hover:bg-app-muted disabled:opacity-30"
                                 >
@@ -954,7 +953,7 @@ export function AtletaWorkoutDetailPage() {
                                 <button
                                   type="button"
                                   aria-label="Sposta giù"
-                                  disabled={freeIdx === freeExerciseIds.length - 1 || reorderMutation.isPending}
+                                  disabled={freeIdx === freeExerciseIds.length - 1 || reorderFreeMutation.isPending}
                                   onClick={() => moveFreeExercise(ex.id, 1)}
                                   className="p-1.5 rounded-md text-app-muted-foreground hover:text-app-foreground hover:bg-app-muted disabled:opacity-30"
                                 >
