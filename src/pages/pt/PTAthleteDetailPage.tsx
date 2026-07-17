@@ -22,6 +22,8 @@ import { PTNotesTab } from '@/components/pt/athlete-detail/PTNotesTab';
 import { DocumentsTab } from '@/components/pt/athlete-detail/DocumentsTab';
 import { ProgressTab } from '@/components/pt/athlete-detail/ProgressTab';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
+import { TEMPLATE_KIND_LABEL, TEMPLATE_KIND_BADGE_CLASS, normalizeTemplateKind } from '@/lib/pt/templateKinds';
+import { cn } from '@/lib/utils';
 import {
   User,
   ArrowLeft,
@@ -444,7 +446,17 @@ export function PTAthleteDetailPage() {
                             </p>
                           </div>
                         </div>
-                        <DashboardStatusBadge status={workout.status} size="sm" />
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const kind = normalizeTemplateKind((workout as any).template_kind);
+                            return (
+                              <Badge variant="outline" className={cn('text-xs', TEMPLATE_KIND_BADGE_CLASS[kind])}>
+                                {TEMPLATE_KIND_LABEL[kind]}
+                              </Badge>
+                            );
+                          })()}
+                          <DashboardStatusBadge status={workout.status} size="sm" />
+                        </div>
                       </div>
                     ))}
                   </div>
