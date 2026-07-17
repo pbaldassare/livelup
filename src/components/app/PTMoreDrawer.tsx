@@ -19,6 +19,8 @@ import {
   User,
   LogOut,
   UsersRound,
+  Users,
+  UserPlus,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -28,6 +30,8 @@ interface PTMoreDrawerProps {
 }
 
 const SECTIONS: Array<{ label: string; href: string; icon: typeof Calendar; group: string }> = [
+  { group: 'Rapide', label: 'Atleti', href: '/pt/app/athletes', icon: Users },
+  { group: 'Rapide', label: 'Invita atleta', href: '/pt/app/athletes?invite=1', icon: UserPlus },
   { group: 'Community', label: 'Gruppi', href: '/pt/app/groups', icon: UsersRound },
   { group: 'Lavoro', label: 'Calendario', href: '/pt/app/calendar', icon: Calendar },
   { group: 'Lavoro', label: 'Esercizi', href: '/pt/app/exercises', icon: Library },
