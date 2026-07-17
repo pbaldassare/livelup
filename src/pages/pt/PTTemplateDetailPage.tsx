@@ -1,6 +1,21 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  TEMPLATE_KIND_BADGE_CLASS,
+  TEMPLATE_KIND_DESCRIPTION,
+  TEMPLATE_KIND_LABEL,
+  normalizeTemplateKind,
+  type TemplateKind,
+} from '@/lib/pt/templateKinds';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { TemplateExerciseBuilder } from '@/components/pt/TemplateExerciseBuilder';
@@ -32,6 +47,24 @@ export function PTTemplateDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isApp, routes } = usePTRoutes();
+  const queryClient = useQueryClient();
+
+  const updateKindMutation = useMutation({
+    mutationFn: async (kind: TemplateKind) => {
+      if (!templateId) throw new Error('Template id mancante');
+      const { error } = await supabase
+        .from('workout_templates')
+        .update({ template_kind: kind } as any)
+        .eq('id', templateId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Tipologia aggiornata');
+      queryClient.invalidateQueries({ queryKey: ['pt-template-detail', templateId] });
+      queryClient.invalidateQueries({ queryKey: ['pt-templates'] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Errore aggiornamento tipologia'),
+  });
 
   // Fetch template
   const { data: template, isLoading } = useQuery({
@@ -132,6 +165,36 @@ export function PTTemplateDetailPage() {
             <CardTitle className="text-base">Informazioni</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-0 space-y-3">
+            {/* Tipologia scheda */}
+            <div className="space-y-1.5 rounded-md border border-border bg-muted/20 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Tipologia</span>
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] ${TEMPLATE_KIND_BADGE_CLASS[normalizeTemplateKind((template as any).template_kind)]}`}
+                >
+                  {TEMPLATE_KIND_LABEL[normalizeTemplateKind((template as any).template_kind)]}
+                </Badge>
+              </div>
+              <Select
+                value={normalizeTemplateKind((template as any).template_kind)}
+                onValueChange={(v) => updateKindMutation.mutate(v as TemplateKind)}
+                disabled={updateKindMutation.isPending}
+              >
+                <SelectTrigger className="h-9 bg-background text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="libera">Libera</SelectItem>
+                  <SelectItem value="propedeutica">Propedeutica</SelectItem>
+                  <SelectItem value="progressiva">Progressiva</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                {TEMPLATE_KIND_DESCRIPTION[normalizeTemplateKind((template as any).template_kind)]}
+              </p>
+            </div>
+
             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm items-center">
               <dt className="text-muted-foreground whitespace-nowrap">Livello</dt>
               <dd>

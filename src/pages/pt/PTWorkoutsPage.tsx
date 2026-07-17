@@ -151,6 +151,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     category: string;
     estimated_duration: number;
     muscle_groups: string[];
+    template_kind: 'libera' | 'propedeutica' | 'progressiva';
   }>({
     title: '',
     description: '',
@@ -158,6 +159,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     category: '',
     estimated_duration: 60,
     muscle_groups: [],
+    template_kind: 'libera',
   });
 
   const tabFromUrl = searchParams.get('tab');
@@ -241,6 +243,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           category: newTemplate.category || null,
           estimated_duration: newTemplate.estimated_duration,
           muscle_groups: newTemplate.muscle_groups,
+          template_kind: newTemplate.template_kind,
           is_public: false,
         } as any)
         .select()
@@ -276,6 +279,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
         category: '',
         estimated_duration: 60,
         muscle_groups: [],
+        template_kind: 'libera',
       });
       navigate(routes.template(created.id));
     },
@@ -326,9 +330,10 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           difficulty_level: originalTemplate.difficulty_level,
           category: originalTemplate.category,
           estimated_duration: originalTemplate.estimated_duration,
+          template_kind: (originalTemplate as any).template_kind ?? 'libera',
           is_public: false,
           tags: originalTemplate.tags,
-        })
+        } as any)
         .select()
         .single();
       
@@ -788,6 +793,27 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                   onChange={(v) => setNewTemplate({ ...newTemplate, muscle_groups: v })}
                   placeholder="Seleziona gruppi muscolari..."
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="template_kind">
+                  Tipologia scheda <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={newTemplate.template_kind}
+                  onValueChange={(v) =>
+                    setNewTemplate({ ...newTemplate, template_kind: v as 'libera' | 'propedeutica' | 'progressiva' })
+                  }
+                >
+                  <SelectTrigger id="template_kind">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="libera">Libera — l'atleta può riordinare</SelectItem>
+                    <SelectItem value="propedeutica">Propedeutica — ordine consigliato</SelectItem>
+                    <SelectItem value="progressiva">Progressiva — completa un esercizio alla volta</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

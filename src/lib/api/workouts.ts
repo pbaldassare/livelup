@@ -15,6 +15,7 @@ export async function createWorkout(params: {
   title: string;
   description?: string;
   templateId?: string;
+  templateKind?: 'libera' | 'propedeutica' | 'progressiva';
   scheduledDate?: string;
   dueDate?: string;
   exercises: Array<{
@@ -44,7 +45,7 @@ export async function createWorkout(params: {
   }>;
 }) {
   const {
-    atletaUserId, ptUserId, title, description, templateId,
+    atletaUserId, ptUserId, title, description, templateId, templateKind,
     scheduledDate, dueDate, exercises, blocks,
   } = params;
 
@@ -57,6 +58,7 @@ export async function createWorkout(params: {
       title,
       description,
       template_id: templateId,
+      template_kind: templateKind ?? 'libera',
       scheduled_date: scheduledDate,
       due_date: dueDate,
       status: 'attivo',

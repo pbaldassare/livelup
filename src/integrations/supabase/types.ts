@@ -3079,6 +3079,7 @@ export type Database = {
       }
       workouts: {
         Row: {
+          athlete_reordered_at: string | null
           atleta_user_id: string
           completed_at: string | null
           created_at: string
@@ -3097,6 +3098,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          athlete_reordered_at?: string | null
           atleta_user_id: string
           completed_at?: string | null
           created_at?: string
@@ -3115,6 +3117,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          athlete_reordered_at?: string | null
           atleta_user_id?: string
           completed_at?: string | null
           created_at?: string
