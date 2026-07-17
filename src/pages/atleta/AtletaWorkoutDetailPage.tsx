@@ -43,15 +43,21 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+  GripVertical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { reorderWorkoutFreeExercises } from '@/lib/api/workouts';
 import {
   TEMPLATE_KIND_BADGE_CLASS,
   TEMPLATE_KIND_DESCRIPTION,
   TEMPLATE_KIND_LABEL,
   canAthleteReorder,
+  allowsAthleteReorder,
   normalizeTemplateKind,
+  requiresFullCompletion,
 } from '@/lib/pt/templateKinds';
 
 // =====================================================
@@ -135,7 +141,8 @@ export function AtletaWorkoutDetailPage() {
       const { data, error } = await supabase
         .from('workouts')
         .select(`
-          id, title, description, status, scheduled_date, notes_pt, pt_user_id, template_kind,
+          id, title, description, status, scheduled_date, notes_pt, pt_user_id,
+          template_kind, athlete_reordered_at,
           workout_blocks (id, order_index, type, name, params),
           workout_exercises (
             id, exercise_id, order_index, prescribed_sets,
@@ -331,6 +338,47 @@ export function AtletaWorkoutDetailPage() {
     ? ((currentExerciseIndex + 1) / totalExercises) * 100 
     : 0;
 
+  const templateKind = normalizeTemplateKind((workout as any)?.template_kind);
+  const hasCompletedLogs = !!(existingLogs && existingLogs.some((l) => l.is_completed));
+  const canReorder =
+    allowsAthleteReorder(templateKind) &&
+    workout?.status === 'attivo' &&
+    !hasCompletedLogs &&
+    !isWorkoutStarted;
+
+  const freeExerciseIds = useMemo(
+    () =>
+      (exercises as WorkoutExercise[])
+        .filter((e) => !e.block_id)
+        .sort((a, b) => a.order_index - b.order_index)
+        .map((e) => e.id),
+    [exercises],
+  );
+
+  const reorderMutation = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      if (!workoutId) throw new Error('Workout mancante');
+      await reorderWorkoutFreeExercises(workoutId, orderedIds);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workout-detail', workoutId] });
+      toast.success('Ordine aggiornato');
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || 'Impossibile riordinare');
+    },
+  });
+
+  const moveFreeExercise = (exerciseId: string, direction: -1 | 1) => {
+    const idx = freeExerciseIds.indexOf(exerciseId);
+    if (idx < 0) return;
+    const next = idx + direction;
+    if (next < 0 || next >= freeExerciseIds.length) return;
+    const nextOrder = [...freeExerciseIds];
+    [nextOrder[idx], nextOrder[next]] = [nextOrder[next], nextOrder[idx]];
+    reorderMutation.mutate(nextOrder);
+  };
+
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60);
     const remainingSecs = secs % 60;
@@ -407,7 +455,23 @@ export function AtletaWorkoutDetailPage() {
   // ===== Start exercise from sheet =====
   const handleStartFromSheet = async (ex: WorkoutExercise) => {
     const idx = exercises.findIndex((e: any) => e.id === ex.id);
-    if (idx >= 0) setCurrentExerciseIndex(idx);
+    if (idx < 0) return;
+
+    // Progressiva: non puoi saltare avanti — solo il primo esercizio incompleto in ordine
+    if (requiresFullCompletion(templateKind)) {
+      const firstIncompleteIdx = (exercises as WorkoutExercise[]).findIndex((e) => {
+        const done = completedSets[e.id]?.length || 0;
+        return done < e.prescribed_sets;
+      });
+      if (firstIncompleteIdx >= 0 && idx > firstIncompleteIdx) {
+        toast.error(
+          'Scheda progressiva: completa prima l\'esercizio (o blocco) precedente al 100%',
+        );
+        return;
+      }
+    }
+
+    setCurrentExerciseIndex(idx);
 
     const completedForEx = completedSets[ex.id] || [];
     const firstIncomplete =
@@ -472,6 +536,12 @@ export function AtletaWorkoutDetailPage() {
   };
 
   const handleMarkAllCompleted = async (ex: WorkoutExercise) => {
+    if (requiresFullCompletion(templateKind)) {
+      toast.error(
+        'Scheda progressiva: completa le serie nel flusso allenamento con le reps prescritte',
+      );
+      return;
+    }
     const logCount = completedSets[ex.id]?.length || 0;
     const status = getExerciseStatus(ex, logCount);
     if (status === 'completed') return;
@@ -760,21 +830,49 @@ export function AtletaWorkoutDetailPage() {
           </motion.div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-app-foreground">Esercizi</h3>
-              {canAthleteReorder((workout as any).template_kind) && !hasExistingLogs && !isWorkoutStarted && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setReorderList([...exercises]);
-                    setReorderOpen(true);
-                  }}
-                  className="h-8 gap-1.5"
-                >
-                  <ArrowUpDown className="h-3.5 w-3.5" />
-                  Riordina
-                </Button>
+            <div className='flex items-start justify-between gap-3'>
+              <div>
+                <h3 className='font-semibold text-app-foreground'>Esercizi</h3>
+                {canReorder && freeExerciseIds.length > 1 && (
+                  <p className='text-xs text-app-muted-foreground mt-0.5'>
+                    Scheda libera: puoi cambiare l&apos;ordine degli esercizi liberi prima di iniziare.
+                    I circuiti restano fissi.
+                  </p>
+                )}
+                {templateKind === 'propedeutica' && (
+                  <p className='text-xs text-app-muted-foreground mt-0.5'>
+                    Scheda propedeutica: l&apos;ordine è fissato dal coach. Puoi avanzare anche senza
+                    completare reps o esercizi al 100%.
+                  </p>
+                )}
+                {templateKind === 'progressiva' && (
+                  <p className='text-xs text-app-muted-foreground mt-0.5'>
+                    Scheda progressiva: completa al 100% ogni esercizio (e ogni blocco) con le reps
+                    prescritte prima di passare al successivo. I recuperi si possono saltare.
+                  </p>
+                )}
+              </div>
+              <div className='flex items-center gap-2 shrink-0'>
+                {canAthleteReorder((workout as any).template_kind) && !hasExistingLogs && !isWorkoutStarted && (
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => {
+                      setReorderList([...exercises]);
+                      setReorderOpen(true);
+                    }}
+                    className='h-8 gap-1.5'
+                  >
+                    <ArrowUpDown className='h-3.5 w-3.5' />
+                    Riordina
+                  </Button>
+                )}
+                {(workout as any).athlete_reordered_at && (
+                  <span className='text-[10px] font-medium px-2 py-1 rounded-full bg-app-accent/15 text-app-accent shrink-0'>
+                    Ordine personalizzato
+                  </span>
+                )}
+              </div>
               )}
             </div>
             {(() => {
@@ -794,11 +892,12 @@ export function AtletaWorkoutDetailPage() {
 
               let globalIdx = 0;
               return groups.map((g, gi) => {
+                const isFreeGroup = !g.block;
                 const blockTitle = g.block
                   ? (g.block.name && g.block.name.trim() !== ''
                       ? g.block.name
                       : `Blocco ${gi + 1}`)
-                  : 'Esercizi';
+                  : 'Esercizi liberi';
                 // Soft summary: solo numeri, no tipo tecnico
                 const p = g.block?.params || {};
                 const summaryParts: string[] = [];
@@ -830,80 +929,108 @@ export function AtletaWorkoutDetailPage() {
                         const repsCount = ex.prescribed_reps_max
                           ? `${ex.prescribed_reps_min ?? ex.prescribed_reps_max}-${ex.prescribed_reps_max}`
                           : `${ex.prescribed_reps_min ?? 0}`;
+                        const freeIdx = freeExerciseIds.indexOf(ex.id);
+                        const showReorder = canReorder && isFreeGroup && freeIdx >= 0 && freeExerciseIds.length > 1;
                         return (
-                          <motion.button
+                          <div
                             key={ex.id}
-                            type="button"
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.1 + idx * 0.04 }}
-                            onClick={() => {
-                              setSelectedExercise(ex);
-                              setSheetOpen(true);
-                            }}
                             className={cn(
-                              "w-full flex items-center gap-3 p-3 text-left hover:bg-app-muted/40 transition-colors",
+                              "flex items-center gap-1",
                               status === 'in_progress' && "bg-app-accent/5",
                               status === 'completed' && "opacity-60"
                             )}
                           >
-                            {/* Thumbnail */}
-                            <div className={cn(
-                              "w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-app-muted border-2",
-                              status === 'in_progress' ? "border-app-accent" : "border-transparent"
-                            )}>
-                              {ex.exercises?.image_url ? (
-                                <img
-                                  src={ex.exercises.image_url}
-                                  alt={ex.exercises.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <Dumbbell className="h-6 w-6 text-app-muted-foreground/60" />
+                            {showReorder && (
+                              <div className="flex flex-col pl-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  aria-label="Sposta su"
+                                  disabled={freeIdx === 0 || reorderMutation.isPending}
+                                  onClick={() => moveFreeExercise(ex.id, -1)}
+                                  className="p-1.5 rounded-md text-app-muted-foreground hover:text-app-foreground hover:bg-app-muted disabled:opacity-30"
+                                >
+                                  <ChevronUp className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="Sposta giù"
+                                  disabled={freeIdx === freeExerciseIds.length - 1 || reorderMutation.isPending}
+                                  onClick={() => moveFreeExercise(ex.id, 1)}
+                                  className="p-1.5 rounded-md text-app-muted-foreground hover:text-app-foreground hover:bg-app-muted disabled:opacity-30"
+                                >
+                                  <ChevronDown className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )}
+                            <motion.button
+                              type="button"
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.1 + idx * 0.04 }}
+                              onClick={() => {
+                                setSelectedExercise(ex);
+                                setSheetOpen(true);
+                              }}
+                              className="flex-1 flex items-center gap-3 p-3 text-left hover:bg-app-muted/40 transition-colors min-w-0"
+                            >
+                              {showReorder && (
+                                <GripVertical className="h-4 w-4 text-app-muted-foreground/50 shrink-0" />
                               )}
-                            </div>
-
-                            {/* Info */}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-app-foreground truncate">
-                                {ex.exercises?.name}
-                              </p>
-                              {ex.notes && (
-                                <p className="text-xs text-app-muted-foreground/80 italic truncate mt-0.5">
-                                  {ex.notes}
-                                </p>
-                              )}
-                              <div className="flex items-center gap-1.5 text-sm text-app-muted-foreground mt-0.5">
-                                {isDuration ? (
-                                  <>
-                                    <Clock className="h-3.5 w-3.5" />
-                                    <span className="tabular-nums">{durationLabel}</span>
-                                  </>
+                              <div className={cn(
+                                "w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-app-muted border-2",
+                                status === 'in_progress' ? "border-app-accent" : "border-transparent"
+                              )}>
+                                {ex.exercises?.image_url ? (
+                                  <img
+                                    src={ex.exercises.image_url}
+                                    alt={ex.exercises.name}
+                                    className="w-full h-full object-cover"
+                                  />
                                 ) : (
-                                  <>
-                                    <Repeat className="h-3.5 w-3.5" />
-                                    <span className="tabular-nums">×{repsCount} · {ex.prescribed_sets} set</span>
-                                  </>
-                                )}
-                                {status === 'in_progress' && (
-                                  <span className="ml-1 text-xs text-app-accent font-medium">
-                                    · {logCount}/{ex.prescribed_sets}
-                                  </span>
+                                  <Dumbbell className="h-6 w-6 text-app-muted-foreground/60" />
                                 )}
                               </div>
-                            </div>
 
-                            {/* Status indicator */}
-                            <div className="flex-shrink-0 flex items-center gap-1">
-                              {status === 'completed' ? (
-                                <CheckCircle2 className="h-5 w-5 text-app-accent" />
-                              ) : status === 'in_progress' ? (
-                                <span className="h-2.5 w-2.5 rounded-full bg-app-accent animate-pulse" />
-                              ) : (
-                                <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
-                              )}
-                            </div>
-                          </motion.button>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-app-foreground truncate">
+                                  {ex.exercises?.name}
+                                </p>
+                                {ex.notes && (
+                                  <p className="text-xs text-app-muted-foreground/80 italic truncate mt-0.5">
+                                    {ex.notes}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-1.5 text-sm text-app-muted-foreground mt-0.5">
+                                  {isDuration ? (
+                                    <>
+                                      <Clock className="h-3.5 w-3.5" />
+                                      <span className="tabular-nums">{durationLabel}</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Repeat className="h-3.5 w-3.5" />
+                                      <span className="tabular-nums">×{repsCount} · {ex.prescribed_sets} set</span>
+                                    </>
+                                  )}
+                                  {status === 'in_progress' && (
+                                    <span className="ml-1 text-xs text-app-accent font-medium">
+                                      · {logCount}/{ex.prescribed_sets}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex-shrink-0 flex items-center gap-1">
+                                {status === 'completed' ? (
+                                  <CheckCircle2 className="h-5 w-5 text-app-accent" />
+                                ) : status === 'in_progress' ? (
+                                  <span className="h-2.5 w-2.5 rounded-full bg-app-accent animate-pulse" />
+                                ) : (
+                                  <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+                                )}
+                              </div>
+                            </motion.button>
+                          </div>
                         );
                       })}
                     </div>
@@ -1106,6 +1233,7 @@ export function AtletaWorkoutDetailPage() {
           initialSet={currentSet}
           initialCompletedSets={completedSets}
           onCompleted={() => setShowSummary(true)}
+          templateKind={templateKind}
         />
       </div>
     </motion.div>

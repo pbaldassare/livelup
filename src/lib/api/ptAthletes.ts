@@ -15,8 +15,17 @@ export type CreateAthleteInput = {
   firstName: string;
   lastName: string;
   phone?: string;
-  fitnessLevel?: string;
-  goals?: string[];
+  fitnessLevel: string;
+  goals: string[];
+};
+
+export type CreateAthleteResult = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  emailSent?: boolean;
+  emailStatus?: string;
 };
 
 export async function findAtletaByEmail(email: string): Promise<AtletaLookupResult> {
@@ -42,7 +51,7 @@ export async function inviteExistingAtleta(
 
 export async function createAndConnectAtleta(
   input: CreateAthleteInput,
-): Promise<{ id: string; email: string; firstName: string; lastName: string }> {
+): Promise<CreateAthleteResult> {
   const { data, error } = await supabase.functions.invoke('pt-create-athlete', {
     body: {
       email: input.email,
@@ -58,5 +67,9 @@ export async function createAndConnectAtleta(
   if (data?.error) throw new Error(data.error);
   if (!data?.success) throw new Error('Creazione atleta fallita');
 
-  return data.user;
+  return {
+    ...data.user,
+    emailSent: data.emailSent,
+    emailStatus: data.emailStatus,
+  };
 }

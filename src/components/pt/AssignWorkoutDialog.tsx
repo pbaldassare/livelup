@@ -23,6 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -37,10 +45,12 @@ import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import {
   CalendarIcon,
+  ChevronsUpDown,
   Dumbbell,
   Users,
   FileText,
   CheckCircle2,
+  Check,
   Repeat,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -112,6 +122,7 @@ export function AssignWorkoutDialog({
   // Repetition state
   const [frequency, setFrequency] = useState<Frequency>('once');
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [athletePickerOpen, setAthletePickerOpen] = useState(false);
 
   // Sync preselected values when dialog opens
   useEffect(() => {
@@ -187,7 +198,7 @@ export function AssignWorkoutDialog({
         id: t.id,
         title: t.title,
         difficulty_level: t.difficulty_level,
-        template_kind: (t.template_kind ?? 'libera') as 'libera' | 'propedeutica' | 'progressiva',
+        template_kind: (t.template_kind ?? 'libera') as WorkoutTemplate['template_kind'],
         estimated_duration: t.estimated_duration,
         exerciseCount: t.template_exercises?.length || 0,
       })) as WorkoutTemplate[];
@@ -348,10 +359,9 @@ export function AssignWorkoutDialog({
         .select('scheduled_date, title')
         .eq('atleta_user_id', selectedAthleteId)
         .eq('pt_user_id', user.id)
-        .in(
-          'scheduled_date',
-          generatedDates.map((d) => d.toISOString()),
-        );
+        .neq('status', 'completato')
+        .gte('scheduled_date', `${isoDates[0]}T00:00:00.000Z`)
+        .lte('scheduled_date', `${isoDates[isoDates.length - 1]}T23:59:59.999Z`);
 
       const existingDateSet = new Set(
         (existing || [])
@@ -405,6 +415,8 @@ export function AssignWorkoutDialog({
     },
     onSuccess: ({ created, skipped }) => {
       queryClient.invalidateQueries({ queryKey: ['pt-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-athlete-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-events'] });
       if (created === 0) {
         toast.warning('Nessun allenamento creato (date già occupate)');
       } else if (skipped > 0) {
@@ -488,38 +500,103 @@ export function AssignWorkoutDialog({
               <Label className="text-sm font-semibold">
                 Atleta <span className="text-destructive">*</span>
               </Label>
-              <Select value={selectedAthleteId} onValueChange={setSelectedAthleteId}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Seleziona atleta..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {athletes.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Nessun atleta collegato</p>
-                    </div>
-                  ) : (
-                    athletes.map((athlete) => (
-                      <SelectItem
-                        key={athlete.atleta_user_id}
-                        value={athlete.atleta_user_id}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={athlete.profile?.avatar_url || undefined} />
+              {athletes.length === 0 ? (
+                <div className="flex h-11 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+                  <Users className="h-4 w-4 mr-2 opacity-50" />
+                  Nessun atleta collegato
+                </div>
+              ) : (
+                <Popover open={athletePickerOpen} onOpenChange={setAthletePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={athletePickerOpen}
+                      className="h-11 w-full justify-between font-normal"
+                    >
+                      {selectedAthlete ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar className="h-6 w-6 shrink-0">
+                            <AvatarImage src={selectedAthlete.profile?.avatar_url || undefined} />
                             <AvatarFallback className="text-xs">
-                              {getAthleteInitials(athlete.profile?.first_name, athlete.profile?.last_name, (athlete.profile as any)?.email)}
+                              {getAthleteInitials(
+                                selectedAthlete.profile?.first_name,
+                                selectedAthlete.profile?.last_name,
+                                selectedAthlete.profile?.email,
+                              )}
                             </AvatarFallback>
                           </Avatar>
-                          <span>
-                            {getAthleteDisplayName(athlete.profile?.first_name, athlete.profile?.last_name, (athlete.profile as any)?.email)}
+                          <span className="truncate">
+                            {getAthleteDisplayName(
+                              selectedAthlete.profile?.first_name,
+                              selectedAthlete.profile?.last_name,
+                              selectedAthlete.profile?.email,
+                            )}
                           </span>
                         </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+                      ) : (
+                        <span className="text-muted-foreground">Seleziona atleta...</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    align="start"
+                  >
+                    <Command>
+                      <CommandInput placeholder="Cerca atleta..." />
+                      <CommandList>
+                        <CommandEmpty>Nessun atleta trovato</CommandEmpty>
+                        <CommandGroup>
+                          {athletes.map((athlete) => {
+                            const name = getAthleteDisplayName(
+                              athlete.profile?.first_name,
+                              athlete.profile?.last_name,
+                              athlete.profile?.email,
+                            );
+                            const searchValue = [name, athlete.profile?.email]
+                              .filter(Boolean)
+                              .join(' ');
+                            return (
+                              <CommandItem
+                                key={athlete.atleta_user_id}
+                                value={searchValue}
+                                onSelect={() => {
+                                  setSelectedAthleteId(athlete.atleta_user_id);
+                                  setAthletePickerOpen(false);
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <Check
+                                  className={cn(
+                                    'mr-2 h-4 w-4 shrink-0',
+                                    selectedAthleteId === athlete.atleta_user_id
+                                      ? 'opacity-100'
+                                      : 'opacity-0',
+                                  )}
+                                />
+                                <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                  <AvatarImage src={athlete.profile?.avatar_url || undefined} />
+                                  <AvatarFallback className="text-xs">
+                                    {getAthleteInitials(
+                                      athlete.profile?.first_name,
+                                      athlete.profile?.last_name,
+                                      athlete.profile?.email,
+                                    )}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="truncate">{name}</span>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
             </section>
 
             {/* === Tipo scheda === */}

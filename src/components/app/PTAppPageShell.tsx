@@ -1,5 +1,8 @@
 import { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 // =====================================================
 // PT APP PAGE SHELL
@@ -17,6 +20,10 @@ interface PTAppPageShellProps {
   title: string;
   description?: string;
   actions?: ReactNode;
+  /** Mostra pulsante indietro a sinistra nel header */
+  showBack?: boolean;
+  /** Route esplicita per il back; default navigate(-1) */
+  backTo?: string;
   /** Quando true il contenuto è scollabile con padding ridotto laterale */
   flush?: boolean;
   children: ReactNode;
@@ -27,15 +34,39 @@ export function PTAppPageShell({
   title,
   description,
   actions,
+  showBack = false,
+  backTo,
   flush = false,
   children,
   className,
 }: PTAppPageShellProps) {
+  const navigate = useNavigate();
+
+  const handleBack = () => {
+    if (backTo) {
+      navigate(backTo);
+      return;
+    }
+    navigate(-1);
+  };
+
   return (
     <div className={cn('min-h-full overflow-x-hidden', className)}>
       <header className="sticky top-0 z-30 safe-top bg-app-background/95 backdrop-blur border-b border-app-border">
-        <div className="flex items-start justify-between gap-3 px-4 py-3">
-          <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-1 px-2 py-3 sm:px-4">
+          {showBack && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0 text-app-foreground hover:text-app-accent"
+              aria-label="Indietro"
+              onClick={handleBack}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <div className="min-w-0 flex-1 px-1">
             <h1 className="text-lg font-bold text-app-foreground truncate">{title}</h1>
             {description && (
               <p className="text-xs text-app-muted-foreground line-clamp-2">{description}</p>

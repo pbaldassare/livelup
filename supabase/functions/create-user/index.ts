@@ -130,19 +130,18 @@ serve(async (req) => {
     const newUserId = authData.user.id
     console.log(`Created auth user: ${newUserId}`)
 
-    // 2. Create base profile
+    // 2. Create or update base profile (trigger may have already inserted a row)
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        user_id: newUserId,
+      .update({
         email,
         first_name: firstName,
-        last_name: lastName
+        last_name: lastName,
       })
+      .eq('user_id', newUserId)
 
     if (profileError) {
       console.error('Profile creation error:', profileError)
-      // Try to clean up auth user
       await supabaseAdmin.auth.admin.deleteUser(newUserId)
       return new Response(
         JSON.stringify({ error: 'Failed to create profile: ' + profileError.message }),
@@ -150,23 +149,58 @@ serve(async (req) => {
       )
     }
 
-    // 3. Create user role
-    const { error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .insert({
-        user_id: newUserId,
-        role: role
-      })
+    // Ensure profile exists when trigger did not run (e.g. missing role metadata)
+    const { data: profileRow } = await supabaseAdmin
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', newUserId)
+      .maybeSingle()
 
-    if (roleError) {
-      console.error('Role creation error:', roleError)
-      // Clean up
-      await supabaseAdmin.from('profiles').delete().eq('user_id', newUserId)
-      await supabaseAdmin.auth.admin.deleteUser(newUserId)
-      return new Response(
-        JSON.stringify({ error: 'Failed to create role: ' + roleError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (!profileRow) {
+      const { error: profileInsertError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          user_id: newUserId,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+        })
+
+      if (profileInsertError) {
+        console.error('Profile insert error:', profileInsertError)
+        await supabaseAdmin.auth.admin.deleteUser(newUserId)
+        return new Response(
+          JSON.stringify({ error: 'Failed to create profile: ' + profileInsertError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // 3. Ensure user role (trigger may have already inserted it)
+    const { data: existingRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', newUserId)
+      .eq('role', role)
+      .maybeSingle()
+
+    if (!existingRole) {
+      const { error: roleError } = await supabaseAdmin
+        .from('user_roles')
+        .insert({
+          user_id: newUserId,
+          role: role,
+        })
+
+      if (roleError) {
+        console.error('Role creation error:', roleError)
+        await supabaseAdmin.from('profiles').delete().eq('user_id', newUserId)
+        await supabaseAdmin.auth.admin.deleteUser(newUserId)
+        return new Response(
+          JSON.stringify({ error: 'Failed to create role: ' + roleError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     // 4. Create role-specific profile
@@ -199,26 +233,56 @@ serve(async (req) => {
     } else {
       const { error: atletaError } = await supabaseAdmin
         .from('atleta_profiles')
-        .insert({
-          user_id: newUserId,
+        .update({
           status: 'non_collegato',
           fitness_level: profileData.fitness_level || null,
           goals: profileData.goals || [],
           date_of_birth: profileData.date_of_birth || null,
           height_cm: profileData.height_cm || null,
-          weight_kg: profileData.weight_kg || null
+          weight_kg: profileData.weight_kg || null,
         })
+        .eq('user_id', newUserId)
 
       if (atletaError) {
-        console.error('Atleta profile creation error:', atletaError)
-        // Clean up
-        await supabaseAdmin.from('user_roles').delete().eq('user_id', newUserId)
-        await supabaseAdmin.from('profiles').delete().eq('user_id', newUserId)
-        await supabaseAdmin.auth.admin.deleteUser(newUserId)
-        return new Response(
-          JSON.stringify({ error: 'Failed to create atleta profile: ' + atletaError.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        const { data: atletaRow } = await supabaseAdmin
+          .from('atleta_profiles')
+          .select('user_id')
+          .eq('user_id', newUserId)
+          .maybeSingle()
+
+        if (!atletaRow) {
+          const { error: atletaInsertError } = await supabaseAdmin
+            .from('atleta_profiles')
+            .insert({
+              user_id: newUserId,
+              status: 'non_collegato',
+              fitness_level: profileData.fitness_level || null,
+              goals: profileData.goals || [],
+              date_of_birth: profileData.date_of_birth || null,
+              height_cm: profileData.height_cm || null,
+              weight_kg: profileData.weight_kg || null,
+            })
+
+          if (atletaInsertError) {
+            console.error('Atleta profile creation error:', atletaInsertError)
+            await supabaseAdmin.from('user_roles').delete().eq('user_id', newUserId)
+            await supabaseAdmin.from('profiles').delete().eq('user_id', newUserId)
+            await supabaseAdmin.auth.admin.deleteUser(newUserId)
+            return new Response(
+              JSON.stringify({ error: 'Failed to create atleta profile: ' + atletaInsertError.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        } else {
+          console.error('Atleta profile update error:', atletaError)
+          await supabaseAdmin.from('user_roles').delete().eq('user_id', newUserId)
+          await supabaseAdmin.from('profiles').delete().eq('user_id', newUserId)
+          await supabaseAdmin.auth.admin.deleteUser(newUserId)
+          return new Response(
+            JSON.stringify({ error: 'Failed to create atleta profile: ' + atletaError.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
       }
     }
 

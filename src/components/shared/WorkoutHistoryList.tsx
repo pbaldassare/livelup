@@ -36,6 +36,7 @@ type Workout = {
   title: string;
   completed_at: string | null;
   created_at: string;
+  athlete_reordered_at?: string | null;
   workout_exercises: WorkoutExercise[];
 };
 
@@ -230,6 +231,17 @@ function WorkoutRow({ workout, variant }: { workout: Workout; variant: 'pt' | 'a
                 >
                   {dateLabel} · {workout.workout_exercises.length} esercizi
                 </p>
+                {workout.athlete_reordered_at && (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'mt-1 h-5 text-[10px]',
+                      isAtleta && 'border-app-accent/40 text-app-accent',
+                    )}
+                  >
+                    Ordine modificato dall&apos;atleta
+                  </Badge>
+                )}
               </div>
             </div>
             {open ? (
@@ -317,7 +329,7 @@ export function WorkoutHistoryList({
       let q = supabase
         .from('workouts')
         .select(
-          `id, title, completed_at, created_at,
+          `id, title, completed_at, created_at, athlete_reordered_at,
           workout_exercises (
             id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,

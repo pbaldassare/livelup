@@ -18,6 +18,8 @@ interface AtletaAmrapPlayerProps {
   exerciseName: string;
   protocolParams: Record<string, unknown> | null | undefined;
   onFinished: (summary: { roundsCompleted: number; totalDurationSeconds: number }) => void;
+  /** Scheda progressiva: niente uscita anticipata dal blocco */
+  requireFullCompletion?: boolean;
   notes?: string | null;
   onShowDetails?: () => void;
 }
@@ -35,6 +37,7 @@ export function AtletaAmrapPlayer({
   onFinished,
   notes,
   onShowDetails,
+  requireFullCompletion = false,
 }: AtletaAmrapPlayerProps) {
   const params = useMemo(
     () => normalizeAmrapParams(protocolParams ?? {}),
@@ -207,13 +210,15 @@ export function AtletaAmrapPlayer({
                 Round fatto
               </Button>
             </div>
-            <Button
-              variant="ghost"
-              onClick={handleFinishEarly}
-              className="text-app-muted-foreground"
-            >
-              Termina anticipatamente
-            </Button>
+            {!requireFullCompletion && (
+              <Button
+                variant="ghost"
+                onClick={handleFinishEarly}
+                className="text-app-muted-foreground"
+              >
+                Termina anticipatamente
+              </Button>
+            )}
           </>
         )}
       </div>

@@ -18,6 +18,8 @@ interface AtletaSupersetPlayerProps {
   onFinished: () => void;
   notes?: string | null;
   onShowDetails?: () => void;
+  /** Scheda progressiva: recuperi restano saltabili */
+  requireFullCompletion?: boolean;
 }
 
 function formatClock(seconds: number): string {
@@ -33,6 +35,7 @@ export function AtletaSupersetPlayer({
   onFinished,
   notes,
   onShowDetails,
+  requireFullCompletion: _requireFullCompletion = false,
 }: AtletaSupersetPlayerProps) {
   const params = useMemo(
     () => normalizeSupersetParams(protocolParams ?? {}),

@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
-import { SectionCard } from '@/components/dashboard/SectionCard';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
 import { PageLoader } from '@/components/common/PageLoader';
 import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
@@ -13,14 +12,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PTAthleteHistoryTab } from '@/components/pt/PTAthleteHistoryTab';
-import { PTAthleteTrainNowTab } from '@/components/pt/PTAthleteTrainNowTab';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { PTAthleteWorkoutRunner } from '@/components/pt/PTAthleteWorkoutRunner';
 import { AnagraficaEditor } from '@/components/pt/athlete-detail/AnagraficaEditor';
+import { AthletePtActiveToggle } from '@/components/pt/AthletePtActiveToggle';
 import { PTNotesTab } from '@/components/pt/athlete-detail/PTNotesTab';
 import { DocumentsTab } from '@/components/pt/athlete-detail/DocumentsTab';
 import { ProgressTab } from '@/components/pt/athlete-detail/ProgressTab';
+import { ProgrammiTab } from '@/components/pt/athlete-detail/ProgrammiTab';
+import { BadgesTab } from '@/components/pt/athlete-detail/BadgesTab';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import { TEMPLATE_KIND_LABEL, TEMPLATE_KIND_BADGE_CLASS, normalizeTemplateKind } from '@/lib/pt/templateKinds';
 import { cn } from '@/lib/utils';
@@ -28,22 +34,14 @@ import {
   User,
   ArrowLeft,
   MessageSquare,
-  Dumbbell,
-  CalendarPlus,
   Target,
   Activity,
   TrendingUp,
-  Clock,
   Award,
-  History,
-  Play,
   IdCard,
   StickyNote,
   FileText,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { it } from 'date-fns/locale';
-import { toast } from 'sonner';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 
@@ -60,8 +58,12 @@ export function PTAthleteDetailPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [selectedBadgeId, setSelectedBadgeId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || 'overview');
+  const [assignTemplateId, setAssignTemplateId] = useState<string | undefined>();
+  const [runningWorkoutId, setRunningWorkoutId] = useState<string | null>(null);
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<string>(
+    tabParam === 'history' || tabParam === 'train' ? 'overview' : tabParam || 'overview',
+  );
 
   // Auto-open assign dialog when ?assign=1 is in URL
   useEffect(() => {
@@ -69,6 +71,17 @@ export function PTAthleteDetailPage() {
       setAssignDialogOpen(true);
       const next = new URLSearchParams(searchParams);
       next.delete('assign');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  // Legacy tabs merged into Programmi — redirect ?tab=history or ?tab=train
+  useEffect(() => {
+    const legacyTab = searchParams.get('tab');
+    if (legacyTab === 'history' || legacyTab === 'train') {
+      setActiveTab('overview');
+      const next = new URLSearchParams(searchParams);
+      next.delete('tab');
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -127,83 +140,6 @@ export function PTAthleteDetailPage() {
     staleTime: 30_000,
   });
 
-  // Fetch workouts assigned to this athlete
-  const { data: workouts = [] } = useQuery({
-    queryKey: ['pt-athlete-workouts', atletaId, user?.id],
-    queryFn: async () => {
-      if (!atletaId || !user?.id) return [];
-
-      const { data, error } = await supabase
-        .from('workouts')
-        .select('*')
-        .eq('atleta_user_id', atletaId)
-        .eq('pt_user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!atletaId && !!user?.id,
-  });
-
-  // Fetch progress data
-  const { data: progressData = [] } = useQuery({
-    queryKey: ['pt-athlete-progress', atletaId],
-    queryFn: async () => {
-      if (!atletaId) return [];
-
-      const { data, error } = await supabase
-        .from('progress_tracking')
-        .select('*')
-        .eq('atleta_user_id', atletaId)
-        .order('tracked_date', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!atletaId,
-  });
-
-  // Fetch available badges
-  const { data: badges = [] } = useQuery({
-    queryKey: ['all-badges'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('badges').select('*').eq('is_active', true);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch athlete's earned badges
-  const { data: earnedBadges = [] } = useQuery({
-    queryKey: ['athlete-badges', atletaId],
-    queryFn: async () => {
-      if (!atletaId) return [];
-      const { data, error } = await supabase.from('atleta_badges').select('badge_id').eq('atleta_user_id', atletaId);
-      if (error) throw error;
-      return data.map(b => b.badge_id);
-    },
-    enabled: !!atletaId,
-  });
-
-  const assignBadgeMutation = useMutation({
-    mutationFn: async () => {
-      if (!atletaId || !selectedBadgeId) throw new Error('Missing data');
-      const { error } = await supabase.from('atleta_badges').insert({ atleta_user_id: atletaId, badge_id: selectedBadgeId });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['athlete-badges', atletaId] });
-      toast.success('Badge assegnato!');
-      setSelectedBadgeId('');
-    },
-    onError: () => toast.error('Errore nell\'assegnazione del badge'),
-  });
-
-  const unassignedBadges = badges.filter(b => !earnedBadges.includes(b.id));
-
   if (isLoading) {
     return <PageLoader text="Caricamento atleta..." />;
   }
@@ -220,10 +156,15 @@ export function PTAthleteDetailPage() {
   }
 
   const { connection, profile, atletaProfile } = athlete;
+  const isPtActive = (connection as { is_pt_active?: boolean } | null)?.is_pt_active !== false;
+  const ptManagedStatus =
+    connection?.status === 'active'
+      ? isPtActive
+        ? 'active'
+        : 'inactive'
+      : connection?.status;
   const fullName = getAthleteDisplayName(profile?.first_name, profile?.last_name, profile?.email);
   const initials = getAthleteInitials(profile?.first_name, profile?.last_name, profile?.email);
-  const activeWorkouts = workouts.filter(w => w.status === 'attivo').length;
-  const completedWorkouts = workouts.filter(w => w.status === 'completato').length;
 
   const pageBody = (
     <div className="space-y-6 animate-in">
@@ -258,46 +199,44 @@ export function PTAthleteDetailPage() {
             </Avatar>
             <CardTitle className="mt-4">{fullName}</CardTitle>
             <CardDescription>{profile?.email}</CardDescription>
-            <div className="flex justify-center mt-2">
-              {connection?.status && <DashboardStatusBadge status={connection.status} />}
+            <div className="flex justify-center flex-wrap gap-2 mt-2">
+              {ptManagedStatus && (
+                <DashboardStatusBadge
+                  status={ptManagedStatus}
+                  label={connection?.status === 'active' ? (isPtActive ? 'Attivo' : 'Disattivo') : undefined}
+                />
+              )}
+              {atletaProfile?.level && (
+                <Badge variant="outline" className="capitalize">
+                  {atletaProfile.level}
+                </Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isApp && connection?.status === 'active' && connection.id && atletaId && (
+              <AthletePtActiveToggle
+                connectionId={connection.id}
+                atletaUserId={atletaId}
+                isPtActive={isPtActive}
+                ptUserId={user?.id}
+              />
+            )}
+
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => atletaId && navigate(routes.chat(atletaId))}
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Chat
-              </Button>
-              <Button className="w-full" onClick={() => setAssignDialogOpen(true)}>
-                <Dumbbell className="h-4 w-4 mr-2" />
-                Assegna
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => atletaId && navigate(routes.chat(atletaId))}
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Chat
+            </Button>
 
             <Separator />
 
             {/* Athlete Info */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Livello</span>
-                <Badge variant="outline" className="capitalize">
-                  {atletaProfile?.level || 'N/A'}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Connesso da</span>
-                <span className="text-sm">
-                  {connection?.accepted_at 
-                    ? format(new Date(connection.accepted_at), 'dd MMM yyyy', { locale: it })
-                    : 'N/A'
-                  }
-                </span>
-              </div>
               {profile?.phone && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Telefono</span>
@@ -328,60 +267,15 @@ export function PTAthleteDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Stats and Tabs */}
+        {/* Tabs */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Quick Stats */}
-          <div className="grid gap-4 grid-cols-3">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-warning/10">
-                    <Activity className="h-5 w-5 text-warning" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{activeWorkouts}</p>
-                    <p className="text-sm text-muted-foreground">Attivi</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-success/10">
-                    <TrendingUp className="h-5 w-5 text-success" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{completedWorkouts}</p>
-                    <p className="text-sm text-muted-foreground">Completati</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-info/10">
-                    <Dumbbell className="h-5 w-5 text-info" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{workouts.length}</p>
-                    <p className="text-sm text-muted-foreground">Totali</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="flex flex-wrap h-auto w-full justify-start gap-1">
-              <TabsTrigger value="overview"><Activity className="h-4 w-4 mr-1.5" /> Panoramica</TabsTrigger>
+              <TabsTrigger value="overview"><Activity className="h-4 w-4 mr-1.5" /> Programmi</TabsTrigger>
               <TabsTrigger value="anagrafica"><IdCard className="h-4 w-4 mr-1.5" /> Anagrafica</TabsTrigger>
               <TabsTrigger value="progress"><TrendingUp className="h-4 w-4 mr-1.5" /> Progressi</TabsTrigger>
-              <TabsTrigger value="history"><History className="h-4 w-4 mr-1.5" /> Storico</TabsTrigger>
               <TabsTrigger value="notes"><StickyNote className="h-4 w-4 mr-1.5" /> Note PT</TabsTrigger>
               <TabsTrigger value="documents"><FileText className="h-4 w-4 mr-1.5" /> Documenti</TabsTrigger>
-              <TabsTrigger value="train"><Play className="h-4 w-4 mr-1.5" /> Allena ora</TabsTrigger>
               <TabsTrigger value="badges"><Award className="h-4 w-4 mr-1.5" /> Badge</TabsTrigger>
             </TabsList>
 
@@ -391,12 +285,15 @@ export function PTAthleteDetailPage() {
                   atletaUserId={atletaId}
                   profile={profile}
                   atletaProfile={atletaProfile}
+                  connectionAcceptedAt={connection?.accepted_at ?? null}
                 />
               )}
             </TabsContent>
 
             <TabsContent value="progress" className="mt-4">
-              {atletaId && <ProgressTab atletaUserId={atletaId} />}
+              {atletaId && user?.id && (
+                <ProgressTab atletaUserId={atletaId} ptUserId={user.id} />
+              )}
             </TabsContent>
 
             <TabsContent value="notes" className="mt-4">
@@ -407,162 +304,22 @@ export function PTAthleteDetailPage() {
               {atletaId && <DocumentsTab atletaUserId={atletaId} />}
             </TabsContent>
 
-            <TabsContent value="overview" className="space-y-6 mt-4">
-              {/* Recent Workouts */}
-              <SectionCard
-                title="Allenamenti Recenti"
-                subtitle="Ultimi 10 allenamenti assegnati"
-                icon={Dumbbell}
-                iconColor="primary"
-              >
-                {workouts.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Dumbbell className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p>Nessun allenamento assegnato</p>
-                    <Button
-                      variant="link"
-                      className="mt-2"
-                      onClick={() => setAssignDialogOpen(true)}
-                    >
-                      Assegna il primo allenamento
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {workouts.map((workout) => (
-                      <div
-                        key={workout.id}
-                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-muted">
-                            <Dumbbell className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{workout.title}</p>
-                            <p className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {format(new Date(workout.created_at), 'dd MMM yyyy', { locale: it })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {(() => {
-                            const kind = normalizeTemplateKind((workout as any).template_kind);
-                            return (
-                              <Badge variant="outline" className={cn('text-xs', TEMPLATE_KIND_BADGE_CLASS[kind])}>
-                                {TEMPLATE_KIND_LABEL[kind]}
-                              </Badge>
-                            );
-                          })()}
-                          <DashboardStatusBadge status={workout.status} size="sm" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </SectionCard>
-
-              {progressData.length > 0 && (
-                <SectionCard
-                  title="Progressi Recenti"
-                  subtitle="Ultimi aggiornamenti"
-                  icon={TrendingUp}
-                  iconColor="green"
-                >
-                  <div className="space-y-3">
-                    {progressData.map((progress) => (
-                      <div
-                        key={progress.id}
-                        className="flex items-center justify-between p-3 rounded-lg border"
-                      >
-                        <div>
-                          <p className="font-medium">
-                            {format(new Date(progress.tracked_date), 'dd MMM yyyy', { locale: it })}
-                          </p>
-                          <div className="flex gap-4 text-sm text-muted-foreground">
-                            {progress.weight_kg && <span>Peso: {progress.weight_kg} kg</span>}
-                            {progress.energy_level && (
-                              <span>Energia: {progress.energy_level}/10</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </SectionCard>
-              )}
-            </TabsContent>
-
-            <TabsContent value="history" className="mt-4">
+            <TabsContent value='overview' className='mt-4'>
               {atletaId && user?.id && (
-                <PTAthleteHistoryTab atletaUserId={atletaId} ptUserId={user.id} />
-              )}
-            </TabsContent>
-
-            <TabsContent value="train" className="mt-4">
-              {atletaId && user?.id && (
-                <PTAthleteTrainNowTab
+                <ProgrammiTab
                   atletaUserId={atletaId}
                   ptUserId={user.id}
-                  atletaName={fullName}
+                  onStartWorkout={setRunningWorkoutId}
+                  onAssignWorkout={(templateId) => {
+                    setAssignTemplateId(templateId);
+                    setAssignDialogOpen(true);
+                  }}
                 />
               )}
             </TabsContent>
 
             <TabsContent value="badges" className="mt-4">
-              <SectionCard
-                title="Assegna Badge"
-                subtitle="Premia i risultati del tuo atleta"
-                icon={Award}
-                iconColor="yellow"
-              >
-                {unassignedBadges.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Tutti i badge sono già stati assegnati! 🎉
-                  </p>
-                ) : (
-                  <div className="flex items-end gap-3">
-                    <div className="flex-1">
-                      <Select value={selectedBadgeId} onValueChange={setSelectedBadgeId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleziona badge..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {unassignedBadges.map((b) => (
-                            <SelectItem key={b.id} value={b.id}>
-                              {b.name} - {b.description}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      onClick={() => assignBadgeMutation.mutate()}
-                      disabled={!selectedBadgeId || assignBadgeMutation.isPending}
-                    >
-                      <Award className="h-4 w-4 mr-2" />
-                      Assegna
-                    </Button>
-                  </div>
-                )}
-                {earnedBadges.length > 0 && (
-                  <div className="mt-4 pt-4 border-t">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Badge guadagnati ({earnedBadges.length})
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {badges
-                        .filter((b) => earnedBadges.includes(b.id))
-                        .map((b) => (
-                          <Badge key={b.id} variant="secondary">
-                            {b.name}
-                          </Badge>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </SectionCard>
+              {atletaId && <BadgesTab atletaUserId={atletaId} />}
             </TabsContent>
           </Tabs>
         </div>
@@ -571,9 +328,33 @@ export function PTAthleteDetailPage() {
       {/* Assign Workout Dialog */}
       <AssignWorkoutDialog
         open={assignDialogOpen}
-        onOpenChange={setAssignDialogOpen}
+        onOpenChange={(open) => {
+          setAssignDialogOpen(open);
+          if (!open) setAssignTemplateId(undefined);
+        }}
         preselectedAthleteId={atletaId}
+        preselectedTemplateId={assignTemplateId}
       />
+
+      <Dialog open={!!runningWorkoutId} onOpenChange={(o) => !o && setRunningWorkoutId(null)}>
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Sessione guidata</DialogTitle>
+          </DialogHeader>
+          {runningWorkoutId && atletaId && (
+            <PTAthleteWorkoutRunner
+              workoutId={runningWorkoutId}
+              atletaUserId={atletaId}
+              atletaName={fullName}
+              onClose={() => setRunningWorkoutId(null)}
+              onCompleted={() => {
+                queryClient.invalidateQueries({ queryKey: ['pt-athlete-workouts', atletaId] });
+                queryClient.invalidateQueries({ queryKey: ['workout-history', atletaId] });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
@@ -582,11 +363,8 @@ export function PTAthleteDetailPage() {
       <PTAppPageShell
         title={fullName}
         description="Dettaglio atleta"
-        actions={
-          <Button variant="ghost" size="sm" onClick={() => navigate(routes.athletes)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        }
+        showBack
+        backTo={routes.athletes}
       >
         {pageBody}
       </PTAppPageShell>

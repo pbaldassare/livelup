@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { getMyGroups, searchGroups } from '@/lib/api/groups';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Users, Navigation, Loader2 } from 'lucide-react';
+import { Plus, Search, Users, Navigation, Loader2, ChevronLeft } from 'lucide-react';
 import { ListSkeleton } from '@/components/skeletons';
 
 interface GroupsHubPageProps {
@@ -19,6 +19,8 @@ interface GroupsHubPageProps {
 
 export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const isPtApp = basePath.startsWith('/pt/app');
   const [tab, setTab] = useState('mine');
   const [query, setQuery] = useState('');
   const [disciplineIds, setDisciplineIds] = useState<string[]>([]);
@@ -65,11 +67,25 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
     <div className="min-h-screen bg-app-background pb-24">
       <div className="sticky top-0 z-40 bg-app-background/95 backdrop-blur border-b border-app-border p-4 safe-top">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-bold text-app-foreground">Gruppi</h1>
-            <p className="text-xs text-app-muted-foreground">
-              Crea, cerca e unisciti a community sportive
-            </p>
+          <div className="flex items-center gap-1 min-w-0">
+            {isPtApp && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0 -ml-2 text-app-foreground hover:text-app-accent"
+                aria-label="Indietro"
+                onClick={() => navigate('/pt/app')}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-app-foreground">Gruppi</h1>
+              <p className="text-xs text-app-muted-foreground">
+                Crea, cerca e unisciti a community sportive
+              </p>
+            </div>
           </div>
           <Button asChild size="sm" className="bg-app-accent text-black shrink-0">
             <Link to={`${basePath}/new`}>

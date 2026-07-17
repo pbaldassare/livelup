@@ -7,20 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
 import {
   Popover,
   PopoverContent,
@@ -37,7 +28,6 @@ import {
   Plus,
   Trash2,
   GripVertical,
-  Dumbbell,
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
@@ -72,6 +62,11 @@ import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
 import { categorizeArchiveExercises, type ArchiveExerciseRow } from '@/lib/protocolExerciseArchive';
+import {
+  ExerciseArchivePickerPanel,
+  exercisePickerPopoverClassName,
+  exercisePickerPopoverProps,
+} from '@/components/pt/ExerciseArchivePickerPanel';
 import { Link } from 'react-router-dom';
 import {
   type ProtocolConfig,
@@ -127,11 +122,10 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  const toggleCollapsed = useCallback((id: string) => {
-    setCollapsedIds((prev) => {
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -209,11 +203,10 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       const seen = new Set<string>();
       const out: { id: string; name: string }[] = [];
       for (const row of data ?? []) {
-        const name = row.exercises?.name ?? '';
         const id = row.exercise_id;
-        const key = name.trim().toLowerCase();
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
+        const name = row.exercises?.name ?? '';
+        if (!id || !name.trim() || seen.has(id)) continue;
+        seen.add(id);
         out.push({ id, name });
       }
       return out;
@@ -248,9 +241,24 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     });
   }, [archiveExerciseRows, allTemplateExerciseOptions, user?.id, favIds]);
 
+  const inBlockExerciseIds = useMemo(
+    () => new Set(templateExercises.map((te) => te.exercise_id)),
+    [templateExercises],
+  );
+
+  const addExercisePickerOptions = useMemo(() => {
+    const notInBlock = (o: { id: string }) => !inBlockExerciseIds.has(o.id);
+    return {
+      workout: allTemplateExerciseOptions.filter(notInBlock),
+      favorites: protocolExerciseArchive.favoriteOptions.filter(notInBlock),
+      mine: protocolExerciseArchive.mineOptions.filter(notInBlock),
+      global: protocolExerciseArchive.globalOptions.filter(notInBlock),
+    };
+  }, [allTemplateExerciseOptions, protocolExerciseArchive, inBlockExerciseIds]);
+
   // Add exercise mutation — default SET, 3 set generici
   const addExerciseMutation = useMutation({
-    mutationFn: async (exercise: Exercise) => {
+    mutationFn: async ({ id: exerciseId }: { id: string }) => {
       const maxOrder = templateExercises.length > 0
         ? Math.max(...templateExercises.map((te) => te.order_index)) + 1
         : 0;
@@ -267,7 +275,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
 
       const insertRow: TemplateExerciseInsert = {
         template_id: templateId,
-        exercise_id: exercise.id,
+        exercise_id: exerciseId,
         order_index: maxOrder,
         sets,
         reps_min: repsVal,
@@ -482,23 +490,6 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     reorderMutation.mutate({ updates, previousOrder });
   };
 
-  // Filter exercises not already in template
-  const availableExercises = exercises.filter(
-    ex => !templateExercises.some(te => te.exercise_id === ex.id)
-  );
-
-  const filteredExercises = availableExercises.filter(ex =>
-    ex.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ex.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Group exercises by category
-  const groupedExercises = filteredExercises.reduce((acc, ex) => {
-    if (!acc[ex.category]) acc[ex.category] = [];
-    acc[ex.category].push(ex);
-    return acc;
-  }, {} as Record<string, Exercise[]>);
-
   return (
     <div className="space-y-4">
       {/* Add Exercise Button */}
@@ -515,64 +506,34 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
               Aggiungi esercizio
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[400px] p-0" align="end">
-            <Command shouldFilter={false}>
-              <CommandInput 
-                placeholder="Cerca esercizio..." 
-                value={searchTerm}
-                onValueChange={setSearchTerm}
-              />
-              <CommandList>
-                {exercises.length === 0 ? (
-                  <div className="py-6 px-4 text-center space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      Nessun esercizio disponibile. Aggiungi preferiti o crea esercizi personali.
-                    </p>
-                    <Link
-                      to="/pt/exercises"
-                      onClick={() => setSearchOpen(false)}
-                      className="inline-block text-sm font-medium text-primary hover:underline"
-                    >
-                      Vai agli Esercizi →
-                    </Link>
-                  </div>
-                ) : (
-                  <CommandEmpty>Nessun esercizio trovato</CommandEmpty>
-                )}
-                {Object.entries(groupedExercises).map(([category, exs]) => (
-                  <CommandGroup key={category} heading={category}>
-                    {exs.map((exercise) => (
-                      <CommandItem
-                        key={exercise.id}
-                        onSelect={() => addExerciseMutation.mutate(exercise)}
-                        className="cursor-pointer"
-                      >
-                        <Dumbbell className="h-4 w-4 mr-2 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium">{exercise.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {exercise.muscle_groups.join(', ')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 ml-2 shrink-0">
-                          {exercise.created_by === user?.id && !exercise.is_public && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] h-4 px-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
-                            >
-                              Personale
-                            </Badge>
-                          )}
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {exercise.difficulty_level}
-                          </Badge>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                ))}
-              </CommandList>
-            </Command>
+          <PopoverContent
+            className={exercisePickerPopoverClassName}
+            {...exercisePickerPopoverProps}
+          >
+            <ExerciseArchivePickerPanel
+              open={searchOpen}
+              workoutExerciseOptions={addExercisePickerOptions.workout}
+              favoriteExerciseOptions={addExercisePickerOptions.favorites}
+              mineExerciseOptions={addExercisePickerOptions.mine}
+              globalExerciseOptions={addExercisePickerOptions.global}
+              onSelect={(opt) => {
+                if (opt.id) addExerciseMutation.mutate({ id: opt.id });
+              }}
+              emptyFallback={
+                <div className="py-6 px-4 text-center space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Nessun esercizio disponibile. Aggiungi preferiti o crea esercizi personali.
+                  </p>
+                  <Link
+                    to="/pt/exercises"
+                    onClick={() => setSearchOpen(false)}
+                    className="inline-block text-sm font-medium text-primary hover:underline"
+                  >
+                    Vai agli Esercizi →
+                  </Link>
+                </div>
+              }
+            />
           </PopoverContent>
         </Popover>
       </div>
@@ -623,12 +584,12 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                 <div className="flex items-start justify-between gap-2">
                                   <button
                                     type="button"
-                                    onClick={() => toggleCollapsed(te.id)}
+                                    onClick={() => toggleExpanded(te.id)}
                                     className="flex min-w-0 items-start gap-2 text-left"
-                                    aria-expanded={!collapsedIds.has(te.id)}
-                                    title={collapsedIds.has(te.id) ? 'Espandi' : 'Comprimi'}
+                                    aria-expanded={expandedIds.has(te.id)}
+                                    title={expandedIds.has(te.id) ? 'Comprimi' : 'Espandi'}
                                   >
-                                    {collapsedIds.has(te.id) ? (
+                                    {!expandedIds.has(te.id) ? (
                                       <ChevronRight className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                                     ) : (
                                       <ChevronDown className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
@@ -678,7 +639,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                 </div>
 
                                 {/* Render condizionale per protocollo */}
-                                {!collapsedIds.has(te.id) && (() => {
+                                {expandedIds.has(te.id) && (() => {
                                   const ptype = ((te.protocol_type as ProtocolType) || 'SET');
                                   if (ptype === 'SET') {
                                     return (
@@ -1151,7 +1112,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                 })()}
 
                                 {/* Avanzate: tempo + note (collassate) */}
-                                {!collapsedIds.has(te.id) && (
+                                {expandedIds.has(te.id) && (
                                 <Collapsible>
                                   <CollapsibleTrigger asChild>
                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">

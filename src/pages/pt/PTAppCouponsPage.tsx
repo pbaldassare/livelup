@@ -3,7 +3,7 @@ import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 
 export function PTAppCouponsPage() {
   return (
-    <PTAppPageShell title="Coupon" description="Offerte e codici sconto per i tuoi atleti">
+    <PTAppPageShell title="Coupon" description="Offerte e codici sconto per i tuoi atleti" showBack backTo="/pt/app">
       <PTCouponsPage embedded />
     </PTAppPageShell>
   );

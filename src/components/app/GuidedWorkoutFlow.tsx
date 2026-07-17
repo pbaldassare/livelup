@@ -33,6 +33,12 @@ import { WorkoutProgressBar } from '@/components/app/WorkoutProgressBar';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
 import { logExerciseSet } from '@/lib/api/workouts';
 import type { ProtocolConfig, SetData, WorkoutRowUpdate } from '@/types/database';
+import {
+  allowsSoftContinue,
+  normalizeTemplateKind,
+  requiresFullCompletion,
+  type TemplateKind,
+} from '@/lib/pt/templateKinds';
 
 // =====================================================
 // GUIDED WORKOUT FLOW
@@ -89,6 +95,8 @@ interface GuidedWorkoutFlowProps {
    * even though it's the PT executing the session in person.
    */
   ptOnBehalfMode?: boolean;
+  /** Tipologia scheda (libera / propedeutica / progressiva) */
+  templateKind?: TemplateKind | string | null;
 }
 
 type FlowState = 'ready' | 'input' | 'rest' | 'next' | 'finished';
@@ -227,8 +235,14 @@ export function GuidedWorkoutFlow({
   initialCompletedSets = {},
   onCompleted,
   ptOnBehalfMode = false,
+  templateKind: templateKindProp,
 }: GuidedWorkoutFlowProps) {
   const queryClient = useQueryClient();
+  const templateKind = normalizeTemplateKind(templateKindProp);
+  const softContinue = allowsSoftContinue(templateKind);
+  const fullCompletion = requiresFullCompletion(templateKind);
+  const softContinueLabel =
+    templateKind === 'propedeutica' ? 'Continua comunque' : 'Salta esercizio';
 
   const initialExercise = exercises[initialExerciseIndex];
   const [state, dispatch] = useReducer(reducer, {
@@ -450,6 +464,25 @@ export function GuidedWorkoutFlow({
 
   const handleCompleteSet = async () => {
     if (!currentExercise) return;
+
+    if (fullCompletion) {
+      if (isTimedExercise(currentExercise)) {
+        const target = Number(currentExercise.prescribed_duration_seconds || 0);
+        if (target > 0 && state.duration < target) {
+          toast.error(`Scheda progressiva: serve almeno ${target}s (prescritti)`);
+          return;
+        }
+      } else {
+        const targetReps = getPrescribedRepsForSet(currentExercise, state.setNumber);
+        if (targetReps != null && state.reps < targetReps) {
+          toast.error(
+            `Scheda progressiva: serve almeno ${targetReps} reps (prescritte) per questa serie`,
+          );
+          return;
+        }
+      }
+    }
+
     try {
       const restPlanned = currentExercise.rest_seconds || 60;
       await saveSet.mutateAsync({
@@ -485,6 +518,12 @@ export function GuidedWorkoutFlow({
 
   const handleSkipExercise = () => {
     if (!currentExercise) return;
+    if (fullCompletion) {
+      toast.error(
+        'Scheda progressiva: completa al 100% questo esercizio (o blocco) prima di passare al successivo',
+      );
+      return;
+    }
     dispatch({ type: 'SKIP_EXERCISE', exerciseId: currentExercise.id });
     advance(false);
   };
@@ -577,30 +616,36 @@ export function GuidedWorkoutFlow({
           total={exercises.length}
         />
 
-        <AtletaEmomPlayer
-          key={currentExercise.id}
-          exerciseName={currentMeta.name}
-          protocolParams={currentExercise.protocol_params ?? null}
-          notes={currentExercise.notes ?? null}
-          onShowDetails={openDetails}
-          onFinished={async () => {
-            try {
-              const { rounds, roundDuration } = getEmomLogMetrics(currentExercise.protocol_params);
-              await saveSet.mutateAsync({
-                workoutExerciseId: currentExercise.id,
-                setNumber: 1,
-                reps: rounds,
-                durationSeconds: rounds * roundDuration,
-                weight: 0,
-                restPlanned: 0,
-              });
-            } catch (e: unknown) {
-              const message = e instanceof Error ? e.message : 'Errore salvataggio EMOM';
-              toast.error(message);
-            }
-            goAfterProtocol();
-          }}
-        />
+        <div className="flex-1 min-h-0">
+          <AtletaEmomPlayer
+            key={currentExercise.id}
+            exerciseName={currentMeta.name}
+            protocolParams={currentExercise.protocol_params ?? null}
+            notes={currentExercise.notes ?? null}
+            onShowDetails={openDetails}
+            requireFullCompletion={fullCompletion}
+            onFinished={async () => {
+              try {
+                const { rounds, roundDuration } = getEmomLogMetrics(currentExercise.protocol_params);
+                await saveSet.mutateAsync({
+                  workoutExerciseId: currentExercise.id,
+                  setNumber: 1,
+                  reps: rounds,
+                  durationSeconds: rounds * roundDuration,
+                  weight: 0,
+                  restPlanned: 0,
+                });
+              } catch (e: unknown) {
+                const message = e instanceof Error ? e.message : 'Errore salvataggio EMOM';
+                toast.error(message);
+              }
+              goAfterProtocol();
+            }}
+          />
+        </div>
+        {softContinue && (
+          <SoftContinueBar label={softContinueLabel} onContinue={handleSkipExercise} />
+        )}
       </div>
       {detailSheet}
       </>
@@ -621,31 +666,37 @@ export function GuidedWorkoutFlow({
           total={exercises.length}
         />
 
-        <AtletaTimedRoundsPlayer
-          key={currentExercise.id}
-          protocolLabel={protocolLabel}
-          exerciseName={currentMeta.name}
-          protocolParams={currentExercise.protocol_params ?? null}
-          notes={currentExercise.notes ?? null}
-          onShowDetails={openDetails}
-          onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
-            try {
-              await saveSet.mutateAsync({
-                workoutExerciseId: currentExercise.id,
-                setNumber: 1,
-                reps: roundsCompleted,
-                durationSeconds: totalDurationSeconds,
-                weight: 0,
-                restPlanned: 0,
-              });
-            } catch (e: unknown) {
-              const message =
-                e instanceof Error ? e.message : `Errore salvataggio ${protocolLabel}`;
-              toast.error(message);
-            }
-            goAfterProtocol();
-          }}
-        />
+        <div className="flex-1 min-h-0">
+          <AtletaTimedRoundsPlayer
+            key={currentExercise.id}
+            protocolLabel={protocolLabel}
+            exerciseName={currentMeta.name}
+            protocolParams={currentExercise.protocol_params ?? null}
+            notes={currentExercise.notes ?? null}
+            onShowDetails={openDetails}
+            requireFullCompletion={fullCompletion}
+            onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
+              try {
+                await saveSet.mutateAsync({
+                  workoutExerciseId: currentExercise.id,
+                  setNumber: 1,
+                  reps: roundsCompleted,
+                  durationSeconds: totalDurationSeconds,
+                  weight: 0,
+                  restPlanned: 0,
+                });
+              } catch (e: unknown) {
+                const message =
+                  e instanceof Error ? e.message : `Errore salvataggio ${protocolLabel}`;
+                toast.error(message);
+              }
+              goAfterProtocol();
+            }}
+          />
+        </div>
+        {softContinue && (
+          <SoftContinueBar label={softContinueLabel} onContinue={handleSkipExercise} />
+        )}
       </div>
       {detailSheet}
       </>
@@ -665,29 +716,35 @@ export function GuidedWorkoutFlow({
           total={exercises.length}
         />
 
-        <AtletaAmrapPlayer
-          key={currentExercise.id}
-          exerciseName={currentMeta.name}
-          protocolParams={currentExercise.protocol_params ?? null}
-          notes={currentExercise.notes ?? null}
-          onShowDetails={openDetails}
-          onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
-            try {
-              await saveSet.mutateAsync({
-                workoutExerciseId: currentExercise.id,
-                setNumber: 1,
-                reps: roundsCompleted,
-                durationSeconds: totalDurationSeconds,
-                weight: 0,
-                restPlanned: 0,
-              });
-            } catch (e: unknown) {
-              const message = e instanceof Error ? e.message : 'Errore salvataggio AMRAP';
-              toast.error(message);
-            }
-            goAfterProtocol();
-          }}
-        />
+        <div className="flex-1 min-h-0">
+          <AtletaAmrapPlayer
+            key={currentExercise.id}
+            exerciseName={currentMeta.name}
+            protocolParams={currentExercise.protocol_params ?? null}
+            notes={currentExercise.notes ?? null}
+            onShowDetails={openDetails}
+            requireFullCompletion={fullCompletion}
+            onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
+              try {
+                await saveSet.mutateAsync({
+                  workoutExerciseId: currentExercise.id,
+                  setNumber: 1,
+                  reps: roundsCompleted,
+                  durationSeconds: totalDurationSeconds,
+                  weight: 0,
+                  restPlanned: 0,
+                });
+              } catch (e: unknown) {
+                const message = e instanceof Error ? e.message : 'Errore salvataggio AMRAP';
+                toast.error(message);
+              }
+              goAfterProtocol();
+            }}
+          />
+        </div>
+        {softContinue && (
+          <SoftContinueBar label={softContinueLabel} onContinue={handleSkipExercise} />
+        )}
       </div>
       {detailSheet}
       </>
@@ -707,29 +764,35 @@ export function GuidedWorkoutFlow({
           total={exercises.length}
         />
 
-        <AtletaSupersetPlayer
-          key={currentExercise.id}
-          exerciseName={currentMeta.name}
-          protocolParams={currentExercise.protocol_params ?? null}
-          notes={currentExercise.notes ?? null}
-          onShowDetails={openDetails}
-          onFinished={async () => {
-            try {
-              await saveSet.mutateAsync({
-                workoutExerciseId: currentExercise.id,
-                setNumber: 1,
-                reps: 1,
-                durationSeconds: 0,
-                weight: 0,
-                restPlanned: 0,
-              });
-            } catch (e: unknown) {
-              const message = e instanceof Error ? e.message : 'Errore salvataggio SUPERSET';
-              toast.error(message);
-            }
-            goAfterProtocol();
-          }}
-        />
+        <div className="flex-1 min-h-0">
+          <AtletaSupersetPlayer
+            key={currentExercise.id}
+            exerciseName={currentMeta.name}
+            protocolParams={currentExercise.protocol_params ?? null}
+            notes={currentExercise.notes ?? null}
+            onShowDetails={openDetails}
+            requireFullCompletion={fullCompletion}
+            onFinished={async () => {
+              try {
+                await saveSet.mutateAsync({
+                  workoutExerciseId: currentExercise.id,
+                  setNumber: 1,
+                  reps: 1,
+                  durationSeconds: 0,
+                  weight: 0,
+                  restPlanned: 0,
+                });
+              } catch (e: unknown) {
+                const message = e instanceof Error ? e.message : 'Errore salvataggio SUPERSET';
+                toast.error(message);
+              }
+              goAfterProtocol();
+            }}
+          />
+        </div>
+        {softContinue && (
+          <SoftContinueBar label={softContinueLabel} onContinue={handleSkipExercise} />
+        )}
       </div>
       {detailSheet}
       </>
@@ -833,6 +896,12 @@ export function GuidedWorkoutFlow({
               />
               <p className="text-sm text-app-muted-foreground mb-8 text-center mt-2">
                 Serie {state.setNumber} • inserisci i risultati
+                {fullCompletion && !isTimedExercise(currentExercise) && (
+                  <span className="block text-xs text-app-accent mt-1">
+                    Progressiva: minimo{' '}
+                    {getPrescribedRepsForSet(currentExercise, state.setNumber) ?? '—'} reps
+                  </span>
+                )}
               </p>
 
               <div className="w-full max-w-xs space-y-5 mb-8">
@@ -909,13 +978,18 @@ export function GuidedWorkoutFlow({
       {/* Secondary actions bar */}
       {state.flow !== 'finished' && (
         <div className="border-t border-app-border bg-app-card/40 px-4 py-3 flex items-center justify-between gap-3">
-          <button
-            onClick={handleSkipExercise}
-            className="text-xs text-app-muted-foreground hover:text-app-foreground transition-colors flex items-center gap-1"
-          >
-            <SkipForward className="h-4 w-4" />
-            Salta esercizio
-          </button>
+          {softContinue ? (
+            <button
+              type="button"
+              onClick={handleSkipExercise}
+              className="text-xs text-app-muted-foreground hover:text-app-foreground transition-colors flex items-center gap-1"
+            >
+              <SkipForward className="h-4 w-4" />
+              {softContinueLabel}
+            </button>
+          ) : (
+            <span />
+          )}
 
           {state.setNumber >= totalSetsForCurrent && (
               <button
@@ -939,6 +1013,28 @@ export function GuidedWorkoutFlow({
   );
 }
 
+function SoftContinueBar({
+  label,
+  onContinue,
+}: {
+  label: string;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="border-t border-app-border bg-app-card/40 px-4 py-3 safe-bottom">
+      <button
+        type="button"
+        onClick={onContinue}
+        className="w-full text-sm text-app-muted-foreground hover:text-app-foreground transition-colors flex items-center justify-center gap-2 py-1"
+      >
+        <SkipForward className="h-4 w-4" />
+        {label}
+        <span className="text-[11px] opacity-70">· anche se incompleto</span>
+      </button>
+    </div>
+  );
+}
+
 // =====================================================
 // Helpers
 // =====================================================
@@ -947,6 +1043,19 @@ function parseInitialReps(ex?: GWExercise): number {
   if (!ex) return 0;
   if (ex.prescribed_reps_min) return ex.prescribed_reps_min;
   return 10;
+}
+
+/** Reps minime prescritte per la serie (sets_data o reps_min). null = nessun vincolo numerico. */
+function getPrescribedRepsForSet(ex: GWExercise, setNumber: number): number | null {
+  const fromSets = ex.sets_data?.[setNumber - 1]?.reps;
+  if (typeof fromSets === 'number' && fromSets > 0) return fromSets;
+  if (typeof ex.prescribed_reps_min === 'number' && ex.prescribed_reps_min > 0) {
+    return ex.prescribed_reps_min;
+  }
+  if (typeof ex.prescribed_reps_max === 'number' && ex.prescribed_reps_max > 0) {
+    return ex.prescribed_reps_max;
+  }
+  return null;
 }
 
 function getRampingCoachNote(params: ProtocolConfig | null | undefined): string | null {

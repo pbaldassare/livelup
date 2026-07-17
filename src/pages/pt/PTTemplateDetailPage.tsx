@@ -36,6 +36,7 @@ import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
+import { templateKindLabel } from '@/lib/pt/templateKinds';
 
 // =====================================================
 // PT TEMPLATE DETAIL PAGE
@@ -207,6 +208,13 @@ export function PTTemplateDetailPage() {
                 )}
               </dd>
 
+              <dt className="text-muted-foreground whitespace-nowrap">Tipologia</dt>
+              <dd>
+                <Badge variant="outline" className="text-xs">
+                  {templateKindLabel((template as any).template_kind)}
+                </Badge>
+              </dd>
+
               <dt className="text-muted-foreground">Gruppi</dt>
               <dd>
                 {template.muscle_groups && template.muscle_groups.length > 0 ? (
@@ -302,11 +310,8 @@ export function PTTemplateDetailPage() {
       <PTAppPageShell
         title={template.title}
         description="Gestisci gli esercizi del template"
-        actions={
-          <Button variant="ghost" size="sm" onClick={() => navigate(routes.templates)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        }
+        showBack
+        backTo={routes.templates}
         flush
       >
         {pageBody}

@@ -23,6 +23,8 @@ interface AtletaEmomPlayerProps {
   onFinished: () => void;
   notes?: string | null;
   onShowDetails?: () => void;
+  /** Scheda progressiva: reserved for future tighter EMOM gates */
+  requireFullCompletion?: boolean;
 }
 
 function formatClock(seconds: number): string {
@@ -42,6 +44,7 @@ export function AtletaEmomPlayer({
   onFinished,
   notes,
   onShowDetails,
+  requireFullCompletion: _requireFullCompletion = false,
 }: AtletaEmomPlayerProps) {
   const emom = useMemo(
     () => normalizeEmomParams(protocolParams ?? {}, exerciseName),

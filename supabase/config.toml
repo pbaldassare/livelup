@@ -10,7 +10,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.pt-create-athlete]
-verify_jwt = false
+verify_jwt = true
+
+[functions.send-athlete-welcome-email]
+verify_jwt = true
 
 [functions.send-athlete-welcome-email]
 verify_jwt = false
@@ -23,3 +26,9 @@ verify_jwt = false
 
 [functions.import-workout-schema]
 verify_jwt = false
+
+[functions.seed-demo-pts]
+verify_jwt = true
+
+[functions.seed-marco-ferrari-demo]
+verify_jwt = true

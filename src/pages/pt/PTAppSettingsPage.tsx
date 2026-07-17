@@ -5,7 +5,7 @@ import { Palette } from 'lucide-react';
 
 export function PTAppSettingsPage() {
   return (
-    <PTAppPageShell title="Impostazioni" description="Profilo pubblico e preferenze">
+    <PTAppPageShell title="Impostazioni" description="Profilo pubblico e preferenze" showBack backTo="/pt/app">
       <div className="px-4 pb-4 space-y-3">
         <div className="flex items-center gap-2">
           <Palette className="h-4 w-4 text-app-muted-foreground" />

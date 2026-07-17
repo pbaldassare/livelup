@@ -28,6 +28,8 @@ interface AtletaTimedRoundsPlayerProps {
   }) => void;
   notes?: string | null;
   onShowDetails?: () => void;
+  /** Scheda progressiva: non saltare fasi di lavoro (i recuperi sì) */
+  requireFullCompletion?: boolean;
 }
 
 function formatClock(seconds: number): string {
@@ -64,6 +66,7 @@ export function AtletaTimedRoundsPlayer({
   onFinished,
   notes,
   onShowDetails,
+  requireFullCompletion = false,
 }: AtletaTimedRoundsPlayerProps) {
   const params = useMemo(
     () => normalizeTimedRoundsParams(protocolParams ?? {}),
@@ -199,9 +202,14 @@ export function AtletaTimedRoundsPlayer({
 
   const handleSkip = () => {
     if (isCompletingRef.current) return;
+    // Progressiva: si possono saltare solo i recuperi, non il lavoro
+    if (requireFullCompletion && phase === 'work') return;
     phaseStartedAtRef.current = null;
     advancePhase();
   };
+
+  const canSkipPhase =
+    !requireFullCompletion || phase === 'rest_between_exercises' || phase === 'rest_between_rounds';
 
   const progressPct =
     phaseTotal > 0 ? ((phaseTotal - secondsLeft) / phaseTotal) * 100 : 0;
@@ -299,7 +307,7 @@ export function AtletaTimedRoundsPlayer({
             Inizia {protocolLabel}
           </Button>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className={cn('grid gap-3', canSkipPhase ? 'grid-cols-2' : 'grid-cols-1')}>
             <Button
               variant="outline"
               onClick={handleTogglePause}
@@ -312,15 +320,17 @@ export function AtletaTimedRoundsPlayer({
                 <><Play className="h-4 w-4 mr-2" />Riprendi</>
               )}
             </Button>
-            <Button
-              variant="secondary"
-              onClick={handleSkip}
-              className="h-12 rounded-full font-semibold"
-              aria-label="Salta fase"
-            >
-              <SkipForward className="h-4 w-4 mr-2" />
-              Salta fase
-            </Button>
+            {canSkipPhase && (
+              <Button
+                variant="secondary"
+                onClick={handleSkip}
+                className="h-12 rounded-full font-semibold"
+                aria-label="Salta fase"
+              >
+                <SkipForward className="h-4 w-4 mr-2" />
+                {phase === 'work' ? 'Salta fase' : 'Salta recupero'}
+              </Button>
+            )}
           </div>
         )}
       </div>

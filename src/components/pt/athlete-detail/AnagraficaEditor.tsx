@@ -9,7 +9,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { User, Phone, Heart, Dumbbell, FileText, Save, X, Plus } from 'lucide-react';
+import { User, Phone, Heart, Dumbbell, FileText, Save, X, Plus, Link2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { it } from 'date-fns/locale';
 import { z } from 'zod';
 
 // =====================================================
@@ -21,6 +23,7 @@ interface Props {
   atletaUserId: string;
   profile: any;
   atletaProfile: any;
+  connectionAcceptedAt?: string | null;
 }
 
 const personalSchema = z.object({
@@ -73,7 +76,12 @@ function useSaver(
   });
 }
 
-export function AnagraficaEditor({ atletaUserId, profile, atletaProfile }: Props) {
+export function AnagraficaEditor({
+  atletaUserId,
+  profile,
+  atletaProfile,
+  connectionAcceptedAt,
+}: Props) {
   const qc = useQueryClient();
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['pt-athlete-detail', atletaUserId] });
@@ -230,6 +238,21 @@ export function AnagraficaEditor({ atletaUserId, profile, atletaProfile }: Props
             <div className="col-span-2">
               <Label>Codice fiscale</Label>
               <Input value={personal.fiscal_code} onChange={(e) => setPersonal({ ...personal, fiscal_code: e.target.value.toUpperCase() })} />
+            </div>
+            <div className="col-span-2">
+              <Label className="flex items-center gap-1.5">
+                <Link2 className="h-3.5 w-3.5" />
+                Connesso da
+              </Label>
+              <Input
+                readOnly
+                disabled
+                value={
+                  connectionAcceptedAt
+                    ? format(new Date(connectionAcceptedAt), 'dd MMM yyyy', { locale: it })
+                    : 'N/A'
+                }
+              />
             </div>
           </div>
           <Button onClick={handleSavePersonal} disabled={saveProfile.isPending} className="w-full">

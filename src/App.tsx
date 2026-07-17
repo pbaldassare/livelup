@@ -87,6 +87,7 @@ import PTAppCouponsPage from "./pages/pt/PTAppCouponsPage";
 import PTAppPaymentsPage from "./pages/pt/PTAppPaymentsPage";
 import PTAppBlogPage from "./pages/pt/PTAppBlogPage";
 import PTAppSettingsPage from "./pages/pt/PTAppSettingsPage";
+import PTAppAthleteTransferPage from "./pages/pt/PTAppAthleteTransferPage";
 
 // Atleta App pages (Mobile/PWA)
 import AtletaAppHome from "./pages/atleta/AtletaAppHome";
@@ -552,6 +553,13 @@ const App = () => {
                 <PTAppRoute>
                   <AppLayout>
                     <PTAppSettingsPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/athlete-transfer" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppAthleteTransferPage />
                   </AppLayout>
                 </PTAppRoute>
               } />

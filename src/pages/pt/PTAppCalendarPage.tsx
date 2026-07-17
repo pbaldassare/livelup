@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +43,8 @@ const EVENT_TYPE_CONFIG = {
 export function PTAppCalendarPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const appointmentsOnly = searchParams.get('view') === 'appuntamenti';
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [showCreateEvent, setShowCreateEvent] = useState(false);
 
@@ -103,15 +107,20 @@ export function PTAppCalendarPage() {
     enabled: !!user?.id,
   });
 
+  const visibleEvents =
+    appointmentsOnly
+      ? (events ?? []).filter((e) => e.category === 'appuntamento')
+      : events ?? [];
+
   // Filter events for selected date
-  const selectedDateEvents = events?.filter(event => 
-    isSameDay(new Date(event.start_datetime), selectedDate)
-  ) || [];
+  const selectedDateEvents = visibleEvents.filter((event) =>
+    isSameDay(new Date(event.start_datetime), selectedDate),
+  );
 
   // Count events per day for indicators
-  const eventCountByDay = weekDays.map(day => ({
+  const eventCountByDay = weekDays.map((day) => ({
     date: day,
-    count: events?.filter(e => isSameDay(new Date(e.start_datetime), day)).length || 0,
+    count: visibleEvents.filter((e) => isSameDay(new Date(e.start_datetime), day)).length,
   }));
 
   const goToPrevWeek = () => setCurrentWeek(subWeeks(currentWeek, 1));
@@ -122,42 +131,48 @@ export function PTAppCalendarPage() {
   };
 
   return (
-    <div className="pb-4" data-tour="pt-calendar-page">
-      {/* Create Event Dialog */}
-      <CreatePublicEventDialog 
-        open={showCreateEvent} 
-        onOpenChange={setShowCreateEvent}
-        selectedDate={selectedDate}
-      />
-      
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-background border-b border-border p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold">Calendario</h1>
-          <div className="flex gap-2">
-            <Button 
-              size="sm" 
+    <PTAppPageShell
+      title={appointmentsOnly ? 'Appuntamenti' : 'Calendario'}
+      description={appointmentsOnly ? 'Solo appuntamenti con atleti' : 'Eventi e appuntamenti della settimana'}
+      showBack
+      backTo="/pt/app"
+      flush
+      actions={
+        <div className="flex gap-2">
+          {!appointmentsOnly && (
+            <Button
+              size="sm"
               onClick={() => setShowCreateEvent(true)}
-              className="bg-primary text-primary-foreground"
+              className="bg-app-accent text-black hover:bg-app-accent/90"
             >
               <Plus className="h-4 w-4 mr-1" />
               Evento
             </Button>
-            <Button variant="outline" size="sm" onClick={goToToday}>
-              Oggi
-            </Button>
-          </div>
+          )}
+          <Button variant="outline" size="sm" onClick={goToToday} className="border-app-border">
+            Oggi
+          </Button>
         </div>
+      }
+    >
+      <div data-tour="pt-calendar-page">
+      {/* Create Event Dialog */}
+      <CreatePublicEventDialog
+        open={showCreateEvent}
+        onOpenChange={setShowCreateEvent}
+        selectedDate={selectedDate}
+      />
 
-        {/* Week navigation */}
+      {/* Week navigation */}
+      <div className="px-4 pb-4 border-b border-app-border bg-app-background">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={goToPrevWeek}>
+          <Button variant="ghost" size="icon" onClick={goToPrevWeek} className="text-app-foreground">
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <span className="font-medium">
+          <span className="font-medium text-app-foreground">
             {format(weekStart, 'd', { locale: it })} - {format(weekEnd, 'd MMMM yyyy', { locale: it })}
           </span>
-          <Button variant="ghost" size="icon" onClick={goToNextWeek}>
+          <Button variant="ghost" size="icon" onClick={goToNextWeek} className="text-app-foreground">
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
@@ -172,30 +187,30 @@ export function PTAppCalendarPage() {
             return (
               <button
                 key={day.toISOString()}
+                type="button"
                 onClick={() => setSelectedDate(day)}
                 className={cn(
                   'flex flex-col items-center py-2 rounded-lg transition-colors',
-                  isSelected 
-                    ? 'bg-primary text-primary-foreground' 
-                    : isTodayDate 
-                      ? 'bg-primary/10' 
-                      : 'hover:bg-muted'
+                  isSelected
+                    ? 'bg-app-accent text-black'
+                    : isTodayDate
+                      ? 'bg-app-accent/10'
+                      : 'hover:bg-app-card',
                 )}
               >
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-app-muted-foreground">
                   {format(day, 'EEE', { locale: it })}
                 </span>
-                <span className={cn(
-                  'text-lg font-semibold',
-                  isSelected && 'text-primary-foreground'
-                )}>
+                <span className={cn('text-lg font-semibold', isSelected && 'text-black')}>
                   {format(day, 'd')}
                 </span>
                 {eventCount > 0 && (
-                  <div className={cn(
-                    'w-1.5 h-1.5 rounded-full mt-1',
-                    isSelected ? 'bg-primary-foreground' : 'bg-primary'
-                  )} />
+                  <div
+                    className={cn(
+                      'w-1.5 h-1.5 rounded-full mt-1',
+                      isSelected ? 'bg-black/70' : 'bg-app-accent',
+                    )}
+                  />
                 )}
               </button>
             );
@@ -224,13 +239,16 @@ export function PTAppCalendarPage() {
             <CardContent className="p-6 text-center">
               <CalendarIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">
-                Nessun evento per questa data
+                {appointmentsOnly
+                  ? 'Nessun appuntamento per questa data'
+                  : 'Nessun evento per questa data'}
               </p>
             </CardContent>
           </Card>
         )}
       </div>
-    </div>
+      </div>
+    </PTAppPageShell>
   );
 }
 

@@ -3,7 +3,7 @@ import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 
 export function PTAppBlogPage() {
   return (
-    <PTAppPageShell title="Blog" description="Crea e gestisci i tuoi articoli">
+    <PTAppPageShell title="Blog" description="Crea e gestisci i tuoi articoli" showBack backTo="/pt/app">
       <PTBlogPage embedded />
     </PTAppPageShell>
   );

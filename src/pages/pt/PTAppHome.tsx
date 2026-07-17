@@ -3,31 +3,45 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePTAppStats } from '@/hooks/usePTAppStats';
-import { usePTHomeData, type PTHomeAthlete, type PTHomeAlert } from '@/hooks/usePTHomeData';
+import {
+  usePTHomeData,
+  type PTHomeAthlete,
+  type PTHomeAlert,
+  type PTHomeAppointment,
+} from '@/hooks/usePTHomeData';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
+import type { PTRouteSet } from '@/lib/pt/routes';
 import { AppHeader } from '@/components/app/AppHeader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
-  Calendar as CalendarIcon,
-  Dumbbell,
-  FileText,
-  UserPlus,
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { AthletePtActiveToggle } from '@/components/pt/AthletePtActiveToggle';
+import {
+  CalendarClock,
   ChevronRight,
   AlertTriangle,
   CheckCircle2,
-  TrendingUp,
-  Clock,
+  MapPin,
+  UserPlus,
+  Users,
+  Bell,
   Wallet,
-  Activity,
+  MessageSquare,
+  User,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 // =====================================================
-// PT APP HOME - Dashboard Coach orientata all'AZIONE
-// Gerarchia: Azioni → Atleti → Alert → Analytics
-// Tutti i link restano in /pt/app/*
+// PT APP HOME — Atleti → appuntamenti → guadagni → avvisi
 // =====================================================
 
 export function PTAppHome() {
@@ -57,6 +71,8 @@ export function PTAppHome() {
 
   const athletes = home?.athletes ?? [];
   const alerts = home?.alerts ?? [];
+  const appointments = home?.appointments ?? [];
+  const appointmentsScope = home?.appointments_scope ?? 'today';
   const analytics = home?.analytics;
 
   return (
@@ -70,57 +86,27 @@ export function PTAppHome() {
         onNotificationPress={() => navigate(routes.chat())}
       >
         <div className="text-right">
-          <p className="text-xs text-app-muted-foreground uppercase tracking-wide">Ciao Coach</p>
+          <p className="text-[10px] text-app-muted-foreground uppercase tracking-wider">Ciao Coach</p>
           <p className="text-sm font-semibold text-app-foreground truncate max-w-[140px]">
             {profile?.first_name || ''}
           </p>
         </div>
       </AppHeader>
 
-      <main className="px-4 space-y-8 pt-2">
-        <section aria-labelledby="quick-actions-title">
-          <div className="flex items-center justify-between mb-3">
-            <h2 id="quick-actions-title" className="text-xs font-bold text-app-muted-foreground uppercase tracking-widest">
-              Azioni rapide
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <ActionCard
-              icon={CalendarIcon}
-              label="Crea programma"
-              hint="Pianifica più settimane"
-              onClick={() => navigate(routes.workoutsTab('programs'))}
-            />
-            <ActionCard
-              icon={Dumbbell}
-              label="Crea scheda"
-              hint="Nuovo allenamento"
-              onClick={() => navigate(routes.templates)}
-            />
-            <ActionCard
-              icon={FileText}
-              label="Crea protocollo"
-              hint="Linee guida atleta"
-              onClick={() => navigate(routes.workoutsTab('protocols'))}
-            />
-            <ActionCard
-              icon={UserPlus}
-              label="Invita atleta"
-              hint="Genera link invito"
-              accent
-              onClick={() => navigate(routes.athletesInvite)}
-            />
-          </div>
-        </section>
-
+      <main className="px-4 space-y-6 pt-3">
+        {/* Atleti — lista compatta */}
         <section aria-labelledby="athletes-title">
-          <div className="flex items-center justify-between mb-3">
-            <h2 id="athletes-title" className="text-xs font-bold text-app-muted-foreground uppercase tracking-widest">
+          <div className="flex items-center justify-between mb-2.5">
+            <h2
+              id="athletes-title"
+              className="text-[11px] font-semibold text-app-muted-foreground uppercase tracking-wide"
+            >
               Atleti
             </h2>
             <button
+              type="button"
               onClick={() => navigate(routes.athletes)}
-              className="text-xs font-semibold text-app-accent flex items-center gap-1"
+              className="text-xs font-semibold text-app-accent flex items-center gap-0.5"
             >
               Vedi tutti <ChevronRight className="h-3.5 w-3.5" />
             </button>
@@ -129,136 +115,370 @@ export function PTAppHome() {
           {isLoading ? (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (
-                <Skeleton key={i} className="h-16 w-full bg-app-muted rounded-xl" />
+                <Skeleton key={i} className="h-14 w-full bg-app-muted rounded-xl" />
               ))}
             </div>
           ) : athletes.length === 0 ? (
-            <EmptyBlock
-              title="Nessun atleta connesso"
-              description="Invita il tuo primo atleta per iniziare"
-              actionLabel="Invita atleta"
-              onAction={() => navigate(routes.athletesInvite)}
-            />
-          ) : (
-            <div className="space-y-2">
-              {athletes.slice(0, 5).map((a) => (
-                <AthleteRow
-                  key={a.id}
-                  athlete={a}
-                  onClick={() => navigate(routes.athlete(a.user_id))}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section aria-labelledby="alerts-title">
-          <div className="flex items-center justify-between mb-3">
-            <h2 id="alerts-title" className="text-xs font-bold text-app-muted-foreground uppercase tracking-widest">
-              Avvisi
-            </h2>
-          </div>
-
-          {isLoading ? (
-            <Skeleton className="h-20 w-full bg-app-muted rounded-xl" />
-          ) : alerts.length === 0 ? (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Tutto sotto controllo</p>
-                <p className="text-xs text-emerald-600/80 dark:text-emerald-300/70">Nessun avviso al momento</p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {alerts.map((alert) => (
-                <AlertRow
-                  key={alert.id}
-                  alert={alert}
-                  onClick={() => alert.action_url && navigate(alert.action_url)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section aria-labelledby="analytics-title" className="pt-2">
-          <div className="flex items-center justify-between mb-3">
-            <h2 id="analytics-title" className="text-xs font-bold text-app-muted-foreground uppercase tracking-widest">
-              Analytics
-            </h2>
             <button
-              onClick={() => navigate(routes.workouts)}
-              className="text-xs font-semibold text-app-accent flex items-center gap-1"
+              type="button"
+              onClick={() => navigate(routes.athletesInvite)}
+              className="w-full flex items-center gap-3 p-4 rounded-2xl border border-dashed border-app-border bg-app-card/50 text-left active:scale-[0.99] transition-transform"
             >
-              Schede <ChevronRight className="h-3.5 w-3.5" />
+              <div className="h-10 w-10 rounded-xl bg-app-accent/15 flex items-center justify-center shrink-0">
+                <UserPlus className="h-5 w-5 text-app-accent" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Invita il tuo primo atleta</p>
+                <p className="text-xs text-app-muted-foreground">Genera un link di invito</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-app-muted-foreground shrink-0" />
             </button>
-          </div>
+          ) : (
+            <AthletesAccordion
+              athletes={athletes.slice(0, 4)}
+              routes={routes}
+              ptUserId={user?.id}
+              onNavigate={navigate}
+            />
+          )}
+        </section>
 
-          <div className="grid grid-cols-3 gap-2">
-            <MiniMetric
-              icon={Wallet}
-              label="Fatturato mese"
-              value={`€${(analytics?.monthly_revenue ?? 0).toLocaleString('it-IT')}`}
-            />
-            <MiniMetric
-              icon={Clock}
-              label="In attesa"
-              value={`€${(analytics?.pending_payments ?? 0).toLocaleString('it-IT')}`}
-            />
-            <MiniMetric
-              icon={Activity}
-              label="Completam."
-              value={`${analytics?.workout_completion_pct ?? 0}%`}
-            />
-          </div>
+        {/* Appuntamenti */}
+        <section aria-labelledby="appointments-title">
+          <AppointmentsPanel
+            isLoading={isLoading}
+            appointments={appointments}
+            scope={appointmentsScope}
+            onViewAll={() => navigate(routes.appointments)}
+          />
+        </section>
+
+        {/* Guadagni */}
+        <section aria-labelledby="earnings-title">
+          <EarningsPanel
+            isLoading={isLoading}
+            monthlyRevenue={analytics?.monthly_revenue ?? 0}
+            pendingPayments={analytics?.pending_payments ?? 0}
+            onViewDetails={() => navigate(routes.payments)}
+          />
+        </section>
+
+        {/* Avvisi */}
+        <section aria-labelledby="alerts-title">
+          <AlertsPanel
+            isLoading={isLoading}
+            alerts={alerts}
+            onNavigate={(url) => navigate(url)}
+          />
         </section>
       </main>
     </div>
   );
 }
 
-interface ActionCardProps {
-  icon: React.ElementType;
-  label: string;
-  hint?: string;
-  accent?: boolean;
-  onClick?: () => void;
+function formatEur(amount: number): string {
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount);
 }
 
-function ActionCard({ icon: Icon, label, hint, accent, onClick }: ActionCardProps) {
+function EarningsPanel({
+  isLoading,
+  monthlyRevenue,
+  pendingPayments,
+  onViewDetails,
+}: {
+  isLoading: boolean;
+  monthlyRevenue: number;
+  pendingPayments: number;
+  onViewDetails: () => void;
+}) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group flex flex-col items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.98] min-h-[112px] ${
-        accent
-          ? 'bg-app-accent text-app-accent-foreground border-app-accent shadow-lg shadow-app-accent/20'
-          : 'bg-app-card border-app-border hover:bg-app-muted/60'
-      }`}
-    >
-      <div
-        className={`h-10 w-10 rounded-xl flex items-center justify-center ${
-          accent ? 'bg-black/10' : 'bg-app-muted'
-        }`}
-      >
-        <Icon className={`h-5 w-5 ${accent ? 'text-app-accent-foreground' : 'text-app-accent'}`} />
+    <div>
+      <div className="flex items-center justify-between mb-2.5">
+        <h2
+          id="earnings-title"
+          className="text-[11px] font-semibold text-app-muted-foreground uppercase tracking-wide"
+        >
+          Guadagni
+        </h2>
+        <button
+          type="button"
+          onClick={onViewDetails}
+          className="text-xs font-semibold text-app-accent flex items-center gap-0.5"
+        >
+          Vedi dettagli <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
-      <div>
-        <p className={`text-sm font-semibold leading-tight ${accent ? '' : 'text-app-foreground'}`}>
-          {label}
-        </p>
-        {hint && (
-          <p className={`text-[11px] mt-0.5 ${accent ? 'opacity-70' : 'text-app-muted-foreground'}`}>
-            {hint}
-          </p>
-        )}
-      </div>
-    </button>
+
+      {isLoading ? (
+        <Skeleton className="h-24 w-full bg-app-muted rounded-2xl" />
+      ) : (
+        <div className="rounded-2xl border border-app-border/80 bg-app-card overflow-hidden">
+          <div className="flex items-center gap-3 p-4">
+            <div className="h-10 w-10 rounded-xl bg-app-accent/15 flex items-center justify-center shrink-0">
+              <Wallet className="h-5 w-5 text-app-accent" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-app-muted-foreground">Fatturato mese</p>
+              <p className="text-lg font-bold text-app-foreground tabular-nums">
+                {formatEur(monthlyRevenue)}
+              </p>
+            </div>
+          </div>
+
+          {pendingPayments > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-app-border/60 bg-amber-500/8">
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                Pagamenti in sospeso
+              </p>
+              <p className="text-sm font-bold text-amber-700 dark:text-amber-300 tabular-nums">
+                {formatEur(pendingPayments)}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
-function AthleteRow({ athlete, onClick }: { athlete: PTHomeAthlete; onClick?: () => void }) {
+function AppointmentsPanel({
+  isLoading,
+  appointments,
+  scope,
+  onViewAll,
+}: {
+  isLoading: boolean;
+  appointments: PTHomeAppointment[];
+  scope: 'today' | 'upcoming';
+  onViewAll: () => void;
+}) {
+  const scopeLabel = scope === 'today' ? 'Oggi' : 'Prossimi appuntamenti';
+
+  return (
+    <div className="rounded-2xl border border-app-accent/25 bg-gradient-to-br from-app-card to-app-card/80 overflow-hidden shadow-sm shadow-app-accent/5">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-xl bg-app-accent/15 flex items-center justify-center">
+            <CalendarClock className="h-4 w-4 text-app-accent" />
+          </div>
+          <div>
+            <h2 id="appointments-title" className="text-sm font-bold text-app-foreground">
+              I miei appuntamenti
+            </h2>
+            <p className="text-[11px] text-app-muted-foreground">{scopeLabel}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="text-xs font-semibold text-app-accent flex items-center gap-0.5 px-2 py-1 rounded-lg hover:bg-app-accent/10"
+        >
+          Calendario <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="px-4 pb-4 space-y-2">
+        {isLoading ? (
+          <>
+            <Skeleton className="h-16 w-full bg-app-muted rounded-xl" />
+            <Skeleton className="h-16 w-full bg-app-muted rounded-xl" />
+          </>
+        ) : appointments.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-app-border/80 bg-app-background/40 px-4 py-6 text-center">
+            <CalendarClock className="h-8 w-8 mx-auto mb-2 text-app-muted-foreground/40" />
+            <p className="text-sm font-medium text-app-foreground">
+              {scope === 'today' ? 'Nessun appuntamento oggi' : 'Nessun appuntamento in programma'}
+            </p>
+            <p className="text-xs text-app-muted-foreground mt-1">Giornata libera in agenda</p>
+            <button
+              type="button"
+              onClick={onViewAll}
+              className="mt-3 text-xs font-semibold text-app-accent"
+            >
+              Apri calendario
+            </button>
+          </div>
+        ) : (
+          appointments.map((appt, idx) => (
+            <AppointmentRow key={appt.id} appointment={appt} highlight={idx === 0} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AppointmentRow({
+  appointment,
+  highlight,
+}: {
+  appointment: PTHomeAppointment;
+  highlight?: boolean;
+}) {
+  const start = new Date(appointment.start_datetime);
+  const timeLabel = format(start, 'HH:mm', { locale: it });
+  const dateLabel = isToday(start)
+    ? 'Oggi'
+    : format(start, 'EEE d MMM', { locale: it });
+
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-3 p-3 rounded-xl border text-left',
+        highlight
+          ? 'bg-app-accent/10 border-app-accent/30'
+          : 'bg-app-background/50 border-app-border/60',
+      )}
+    >
+      <div
+        className={cn(
+          'flex flex-col items-center justify-center min-w-[52px] py-1.5 px-2 rounded-lg',
+          highlight ? 'bg-app-accent text-app-accent-foreground' : 'bg-app-muted',
+        )}
+      >
+        <span className={cn('text-lg font-bold leading-none tabular-nums', !highlight && 'text-app-foreground')}>
+          {timeLabel}
+        </span>
+        {!appointment.is_today && (
+          <span className={cn('text-[9px] font-medium mt-0.5 capitalize', highlight ? 'opacity-80' : 'text-app-muted-foreground')}>
+            {dateLabel}
+          </span>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold truncate">{appointment.title}</p>
+        {appointment.atleta_name && (
+          <p className="text-xs text-app-muted-foreground flex items-center gap-1 mt-0.5">
+            <Users className="h-3 w-3 shrink-0" />
+            {appointment.atleta_name}
+          </p>
+        )}
+        {appointment.location && (
+          <p className="text-[11px] text-app-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+            <MapPin className="h-3 w-3 shrink-0" />
+            {appointment.location}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AlertsPanel({
+  isLoading,
+  alerts,
+  onNavigate,
+}: {
+  isLoading: boolean;
+  alerts: PTHomeAlert[];
+  onNavigate: (url: string) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-2">
+          <h2
+            id="alerts-title"
+            className="text-[11px] font-semibold text-app-muted-foreground uppercase tracking-wide"
+          >
+            Avvisi
+          </h2>
+          {!isLoading && alerts.length > 0 && (
+            <Badge className="h-5 min-w-5 px-1.5 bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20">
+              {alerts.length}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <Skeleton className="h-20 w-full bg-app-muted rounded-2xl" />
+      ) : alerts.length === 0 ? (
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/8 border border-emerald-500/20">
+          <div className="h-10 w-10 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+              Tutto sotto controllo
+            </p>
+            <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70">
+              Nessun avviso al momento
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {alerts.map((alert) => (
+            <AlertRow
+              key={alert.id}
+              alert={alert}
+              onClick={() => alert.action_url && onNavigate(alert.action_url)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AthletesAccordion({
+  athletes,
+  routes,
+  ptUserId,
+  onNavigate,
+}: {
+  athletes: PTHomeAthlete[];
+  routes: PTRouteSet;
+  ptUserId?: string;
+  onNavigate: (path: string) => void;
+}) {
+  return (
+    <Accordion type="multiple" defaultValue={[]} className="space-y-2">
+      {athletes.map((athlete) => (
+        <AccordionItem
+          key={athlete.user_id}
+          value={athlete.user_id}
+          className="border rounded-xl px-3 bg-app-card border-app-border/80"
+        >
+          <AccordionTrigger className="hover:no-underline py-3">
+            <AthleteSummary athlete={athlete} />
+          </AccordionTrigger>
+          <AccordionContent className="pb-3">
+            <div className="space-y-2 pt-1">
+              <Button
+                variant="outline"
+                className="w-full justify-start border-app-border/80 bg-app-background/50"
+                onClick={() => onNavigate(routes.chat(athlete.user_id))}
+              >
+                <MessageSquare className="h-4 w-4 mr-2 shrink-0" />
+                Chat
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start border-app-border/80 bg-app-background/50"
+                onClick={() => onNavigate(routes.athlete(athlete.user_id))}
+              >
+                <User className="h-4 w-4 mr-2 shrink-0" />
+                Scheda atleta
+              </Button>
+              {athlete.connection_id && (
+                <AthletePtActiveToggle
+                  connectionId={athlete.connection_id}
+                  atletaUserId={athlete.user_id}
+                  isPtActive={athlete.is_pt_active}
+                  ptUserId={ptUserId}
+                />
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      ))}
+    </Accordion>
+  );
+}
+
+function AthleteSummary({ athlete }: { athlete: PTHomeAthlete }) {
   const fullName =
     [athlete.first_name, athlete.last_name].filter(Boolean).join(' ') || athlete.email || 'Atleta';
   const initials = `${athlete.first_name?.[0] || ''}${athlete.last_name?.[0] || ''}`.toUpperCase() || 'A';
@@ -268,113 +488,85 @@ function AthleteRow({ athlete, onClick }: { athlete: PTHomeAthlete; onClick?: ()
     : 'mai';
 
   const statusConfig = {
-    active: { label: 'Attivo', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20' },
-    in_session: { label: 'In sessione', className: 'bg-app-accent/20 text-app-accent border-app-accent/30' },
-    inactive: { label: 'Inattivo', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/20' },
+    active: {
+      label: 'Attivo',
+      className: 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    },
+    in_session: {
+      label: 'In sessione',
+      className: 'bg-app-accent/15 text-app-accent border-app-accent/25',
+    },
+    inactive: {
+      label: 'Disattivo',
+      className: 'bg-orange-500/12 text-orange-600 dark:text-orange-400 border-orange-500/20',
+    },
   }[athlete.status];
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-3 p-3 rounded-xl bg-app-card border border-app-border hover:bg-app-muted/50 transition-colors text-left active:scale-[0.99]"
-    >
-      <Avatar className="h-11 w-11 flex-shrink-0">
+    <div className="flex items-center gap-3 flex-1 min-w-0 text-left">
+      <Avatar className="h-10 w-10 flex-shrink-0">
         <AvatarImage src={athlete.avatar_url || undefined} />
-        <AvatarFallback className="bg-app-muted text-app-accent text-sm font-bold">
+        <AvatarFallback className="bg-app-muted text-app-accent text-xs font-bold">
           {initials}
         </AvatarFallback>
       </Avatar>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold text-app-foreground truncate">{fullName}</p>
-          {athlete.missed_workouts > 0 && (
-            <span className="text-[10px] font-bold text-red-500 bg-red-500/15 px-1.5 py-0.5 rounded">
-              -{athlete.missed_workouts}
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-app-muted-foreground truncate">Ultimo accesso: {lastSeen}</p>
+        <p className="text-sm font-semibold text-app-foreground truncate">{fullName}</p>
+        <p className="text-[11px] text-app-muted-foreground truncate">
+          Ultimo accesso {lastSeen}
+          {athlete.is_pt_active && athlete.low_engagement ? ' · poco attivo' : ''}
+        </p>
       </div>
 
       <span
-        className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md border ${statusConfig.className}`}
+        className={cn(
+          'text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md border shrink-0 mr-1',
+          statusConfig.className,
+        )}
       >
         {statusConfig.label}
       </span>
-      <ChevronRight className="h-4 w-4 text-app-muted-foreground flex-shrink-0" />
-    </button>
+    </div>
   );
 }
 
 function AlertRow({ alert, onClick }: { alert: PTHomeAlert; onClick?: () => void }) {
-  const severityConfig = {
-    info: 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300',
-    warning: 'bg-amber-500/10 border-amber-500/20 text-amber-900 dark:text-amber-300',
-    critical: 'bg-red-500/10 border-red-500/20 text-red-800 dark:text-red-300',
+  const styles = {
+    info: {
+      box: 'bg-blue-500/8 border-blue-500/25',
+      icon: 'text-blue-500 bg-blue-500/15',
+    },
+    warning: {
+      box: 'bg-amber-500/8 border-amber-500/25',
+      icon: 'text-amber-500 bg-amber-500/15',
+    },
+    critical: {
+      box: 'bg-red-500/8 border-red-500/25',
+      icon: 'text-red-500 bg-red-500/15',
+    },
   }[alert.severity];
 
-  const iconColor = {
-    info: 'text-blue-500',
-    warning: 'text-amber-500',
-    critical: 'text-red-500',
-  }[alert.severity];
+  const Icon = alert.severity === 'info' ? Bell : AlertTriangle;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-3 p-4 rounded-xl border text-left active:scale-[0.99] transition-transform ${severityConfig}`}
-    >
-      <AlertTriangle className={`h-5 w-5 flex-shrink-0 ${iconColor}`} />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold">{alert.title}</p>
-        <p className="text-xs opacity-80">{alert.description}</p>
-      </div>
-      <ChevronRight className="h-4 w-4 opacity-60 flex-shrink-0" />
-    </button>
-  );
-}
-
-function MiniMetric({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
-  return (
-    <div className="p-3 rounded-xl bg-app-card border border-app-border">
-      <Icon className="h-4 w-4 text-app-muted-foreground mb-2" />
-      <p className="text-base font-bold text-app-foreground truncate">{value}</p>
-      <p className="text-[10px] text-app-muted-foreground truncate">{label}</p>
-    </div>
-  );
-}
-
-function EmptyBlock({
-  title,
-  description,
-  actionLabel,
-  onAction,
-}: {
-  title: string;
-  description: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center text-center gap-3 p-6 rounded-xl bg-app-card border border-dashed border-app-border">
-      <TrendingUp className="h-8 w-8 text-app-muted-foreground" />
-      <div>
-        <p className="text-sm font-semibold text-app-foreground">{title}</p>
-        <p className="text-xs text-app-muted-foreground">{description}</p>
-      </div>
-      {actionLabel && (
-        <button
-          type="button"
-          onClick={onAction}
-          className="text-xs font-semibold text-app-accent flex items-center gap-1"
-        >
-          {actionLabel} <ChevronRight className="h-3.5 w-3.5" />
-        </button>
+      className={cn(
+        'w-full flex items-center gap-3 p-3.5 rounded-2xl border text-left active:scale-[0.99] transition-transform',
+        styles.box,
       )}
-    </div>
+    >
+      <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center shrink-0', styles.icon)}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-app-foreground">{alert.title}</p>
+        <p className="text-xs text-app-muted-foreground mt-0.5">{alert.description}</p>
+      </div>
+      <ChevronRight className="h-4 w-4 text-app-muted-foreground shrink-0" />
+    </button>
   );
 }
 

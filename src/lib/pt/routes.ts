@@ -18,6 +18,8 @@ export const ptRoutes = {
     chat: (atletaId?: string) =>
       atletaId ? `/pt/messages?athleteId=${atletaId}` : '/pt/messages',
     calendar: '/pt/events',
+    appointments: '/pt/calendar/appuntamenti',
+    payments: '/pt/payments',
   },
   app: {
     home: '/pt/app',
@@ -33,6 +35,9 @@ export const ptRoutes = {
     chat: (atletaId?: string) =>
       atletaId ? `/pt/app/chat/${atletaId}` : '/pt/app/chat',
     calendar: '/pt/app/calendar',
+    appointments: '/pt/app/calendar?view=appuntamenti',
+    payments: '/pt/app/payments',
+    athleteTransfer: '/pt/app/athlete-transfer',
   },
 } as const;
 
@@ -49,6 +54,9 @@ export type PTRouteSet = {
   exercises: string;
   chat: (atletaId?: string) => string;
   calendar: string;
+  appointments: string;
+  payments: string;
+  athleteTransfer: string;
 };
 
 export function ptRoutesForPath(pathname: string): PTRouteSet {

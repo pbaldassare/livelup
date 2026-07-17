@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -26,7 +27,6 @@ import {
   inviteExistingAtleta,
   type AtletaLookupResult,
 } from '@/lib/api/ptAthletes';
-import { FITNESS_LEVELS } from '@/lib/ptAssistantWizard';
 import { getAthleteDisplayName } from '@/lib/athleteName';
 import { Loader2, Search, UserPlus, UserRoundPlus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -34,27 +34,53 @@ import { toast } from 'sonner';
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultTab?: 'link' | 'create';
 };
+
+const ATHLETE_GOALS = [
+  { id: 'perdita_peso', label: 'Perdita peso' },
+  { id: 'massa_muscolare', label: 'Massa muscolare' },
+  { id: 'tonificazione', label: 'Tonificazione' },
+  { id: 'salute', label: 'Salute generale' },
+  { id: 'resistenza', label: 'Resistenza' },
+  { id: 'flessibilita', label: 'Flessibilità' },
+] as const;
+
+const ATHLETE_LEVELS = [
+  { value: 'principiante', label: 'Principiante' },
+  { value: 'intermedio', label: 'Intermedio' },
+  { value: 'avanzato', label: 'Avanzato' },
+  { value: 'agonista', label: 'Agonista' },
+] as const;
 
 const defaultCreateForm = {
   firstName: '',
   lastName: '',
   email: '',
   phone: '',
-  fitnessLevel: 'nessuno',
-  goalsText: '',
+  fitnessLevel: 'intermedio',
+  selectedGoals: [] as string[],
 };
 
-export function AddAthleteDialog({ open, onOpenChange }: Props) {
+function invalidateAthleteLists(queryClient: ReturnType<typeof useQueryClient>, ptUserId?: string) {
+  queryClient.invalidateQueries({ queryKey: ['pt-athletes'] });
+  queryClient.invalidateQueries({ queryKey: ['pt-connections', ptUserId] });
+}
+
+export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'link' | 'create'>('link');
+  const [tab, setTab] = useState<'link' | 'create'>(defaultTab);
   const [lookupEmail, setLookupEmail] = useState('');
   const [lookupResult, setLookupResult] = useState<AtletaLookupResult | null>(null);
   const [createForm, setCreateForm] = useState(defaultCreateForm);
 
+  useEffect(() => {
+    if (open) setTab(defaultTab);
+  }, [open, defaultTab]);
+
   const reset = () => {
-    setTab('link');
+    setTab(defaultTab);
     setLookupEmail('');
     setLookupResult(null);
     setCreateForm(defaultCreateForm);
@@ -71,7 +97,7 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
       setLookupResult(result);
       if (!result.found) {
         toast.message('Nessun atleta trovato', {
-          description: 'Puoi crearne uno nuovo nel tab "Crea nuovo".',
+          description: 'Puoi crearne uno nuovo con "Crea atleta".',
         });
       }
     },
@@ -84,7 +110,7 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
       await inviteExistingAtleta(user.id, lookupResult.user_id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pt-athletes'] });
+      invalidateAthleteLists(queryClient, user?.id);
       toast.success('Invito inviato — l\'atleta dovrà confermare dall\'app');
       handleOpenChange(false);
     },
@@ -94,24 +120,22 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => {
-      const goals = createForm.goalsText
-        .split(',')
-        .map((g) => g.trim())
-        .filter(Boolean);
-      return createAndConnectAtleta({
+    mutationFn: () =>
+      createAndConnectAtleta({
         email: createForm.email,
         firstName: createForm.firstName,
         lastName: createForm.lastName,
         phone: createForm.phone || undefined,
         fitnessLevel: createForm.fitnessLevel,
-        goals,
-      });
-    },
+        goals: createForm.selectedGoals,
+      }),
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ['pt-athletes'] });
-      toast.success(`${created.firstName} ${created.lastName} aggiunto`, {
-        description: 'Riceverà un\'email per impostare la password.',
+      invalidateAthleteLists(queryClient, user?.id);
+      const emailDescription = created.emailSent
+        ? 'Riceverà un\'email con la password temporanea Leone123! — chiedigli di cambiarla subito.'
+        : 'Account creato e collegato. L\'email di benvenuto verrà inviata appena il servizio email è attivo.';
+      toast.success(`${created.firstName} ${created.lastName} aggiunto tra i tuoi atleti attivi`, {
+        description: emailDescription,
       });
       handleOpenChange(false);
     },
@@ -119,6 +143,22 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
       toast.error(err.message || 'Errore durante la creazione');
     },
   });
+
+  const toggleGoal = (goalId: string) => {
+    setCreateForm((f) => ({
+      ...f,
+      selectedGoals: f.selectedGoals.includes(goalId)
+        ? f.selectedGoals.filter((g) => g !== goalId)
+        : [...f.selectedGoals, goalId],
+    }));
+  };
+
+  const canCreate =
+    createForm.firstName.trim().length >= 2 &&
+    createForm.lastName.trim().length >= 2 &&
+    createForm.email.trim().length > 0 &&
+    createForm.selectedGoals.length > 0 &&
+    !!createForm.fitnessLevel;
 
   const canInvite =
     lookupResult?.found &&
@@ -140,16 +180,18 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
-            Aggiungi atleta
+            {tab === 'create' ? 'Crea atleta' : 'Invita atleta'}
           </DialogTitle>
           <DialogDescription>
-            Collega un atleta già registrato oppure crea un nuovo account collegato a te.
+            {tab === 'create'
+              ? 'Crea un nuovo account atleta collegato subito a te.'
+              : 'Collega un atleta già registrato inviando una richiesta di connessione.'}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'link' | 'create')}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="link">Collega esistente</TabsTrigger>
+            <TabsTrigger value="link">Invita esistente</TabsTrigger>
             <TabsTrigger value="create">Crea nuovo</TabsTrigger>
           </TabsList>
 
@@ -201,7 +243,7 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
 
             {lookupResult && !lookupResult.found && (
               <p className="text-sm text-muted-foreground">
-                Nessun atleta con questa email. Passa al tab{' '}
+                Nessun atleta con questa email. Usa{' '}
                 <button
                   type="button"
                   className="text-primary underline"
@@ -243,6 +285,9 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
                   id="create-first"
                   value={createForm.firstName}
                   onChange={(e) => setCreateForm((f) => ({ ...f, firstName: e.target.value }))}
+                  placeholder="Mario"
+                  minLength={2}
+                  required
                 />
               </div>
               <div className="space-y-2">
@@ -251,6 +296,9 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
                   id="create-last"
                   value={createForm.lastName}
                   onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))}
+                  placeholder="Rossi"
+                  minLength={2}
+                  required
                 />
               </div>
             </div>
@@ -262,6 +310,8 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
                 type="email"
                 value={createForm.email}
                 onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="atleta@email.com"
+                required
               />
             </div>
 
@@ -276,7 +326,7 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
             </div>
 
             <div className="space-y-2">
-              <Label>Livello</Label>
+              <Label>Livello *</Label>
               <Select
                 value={createForm.fitnessLevel}
                 onValueChange={(v) => setCreateForm((f) => ({ ...f, fitnessLevel: v }))}
@@ -285,7 +335,7 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FITNESS_LEVELS.map((l) => (
+                  {ATHLETE_LEVELS.map((l) => (
                     <SelectItem key={l.value} value={l.value}>
                       {l.label}
                     </SelectItem>
@@ -295,17 +345,28 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="create-goals">Obiettivi (separati da virgola)</Label>
-              <Input
-                id="create-goals"
-                placeholder="Es. massa, resistenza"
-                value={createForm.goalsText}
-                onChange={(e) => setCreateForm((f) => ({ ...f, goalsText: e.target.value }))}
-              />
+              <Label>Obiettivi *</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {ATHLETE_GOALS.map((goal) => (
+                  <label
+                    key={goal.id}
+                    htmlFor={`goal-${goal.id}`}
+                    className="flex items-center gap-2 rounded-md border p-2 text-sm cursor-pointer"
+                  >
+                    <Checkbox
+                      id={`goal-${goal.id}`}
+                      checked={createForm.selectedGoals.includes(goal.id)}
+                      onCheckedChange={() => toggleGoal(goal.id)}
+                    />
+                    <span>{goal.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              L&apos;atleta riceverà un&apos;email per impostare la password e comparirà subito tra i tuoi atleti attivi.
+            <p className="text-xs text-muted-foreground rounded-md border border-dashed p-3">
+              Verrà creato un account con password temporanea <strong>Leone123!</strong>, inviata via email.
+              L&apos;atleta comparirà subito tra i tuoi atleti attivi: chiedigli di cambiare la password al primo accesso.
             </p>
 
             <DialogFooter className="sm:justify-end gap-2 pt-2">
@@ -314,12 +375,7 @@ export function AddAthleteDialog({ open, onOpenChange }: Props) {
               </Button>
               <Button
                 type="button"
-                disabled={
-                  !createForm.firstName.trim() ||
-                  !createForm.lastName.trim() ||
-                  !createForm.email.trim() ||
-                  createMutation.isPending
-                }
+                disabled={!canCreate || createMutation.isPending}
                 onClick={() => createMutation.mutate()}
               >
                 {createMutation.isPending ? (

@@ -4,10 +4,14 @@
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';
+import type { TemplateKind } from '@/lib/pt/templateKinds';
+
+export type { TemplateKind };
 
 // =====================================================
 // CREA WORKOUT
 // =====================================================
+
 
 export async function createWorkout(params: {
   atletaUserId: string;
@@ -15,7 +19,8 @@ export async function createWorkout(params: {
   title: string;
   description?: string;
   templateId?: string;
-  templateKind?: 'libera' | 'propedeutica' | 'progressiva';
+  /** Tipologia scheda snapshot (default libera) */
+  templateKind?: TemplateKind;
   scheduledDate?: string;
   dueDate?: string;
   exercises: Array<{
@@ -45,7 +50,8 @@ export async function createWorkout(params: {
   }>;
 }) {
   const {
-    atletaUserId, ptUserId, title, description, templateId, templateKind,
+    atletaUserId, ptUserId, title, description, templateId,
+    templateKind = 'libera',
     scheduledDate, dueDate, exercises, blocks,
   } = params;
 
@@ -58,11 +64,11 @@ export async function createWorkout(params: {
       title,
       description,
       template_id: templateId,
-      template_kind: templateKind ?? 'libera',
+      template_kind: templateKind,
       scheduled_date: scheduledDate,
       due_date: dueDate,
       status: 'attivo',
-    })
+    } as any)
     .select()
     .single();
 
@@ -213,7 +219,7 @@ export async function completeWorkout(workoutId: string, feedback?: {
       rating: feedback?.rating,
     })
     .eq('id', workoutId)
-    .in('status', ['attivo', 'in_corso'])
+    .in('status', ['attivo', 'in_corso', 'in_sospeso'])
     .select()
     .single();
 
@@ -222,6 +228,75 @@ export async function completeWorkout(workoutId: string, feedback?: {
   }
 
   return data;
+}
+
+// =====================================================
+// ATTIVA ASSEGNAZIONE (Programmate → In corso + calendario)
+// =====================================================
+
+export async function activateWorkoutAssignment(
+  workoutId: string,
+  params: {
+    ptUserId: string;
+    scheduledDate: Date;
+  },
+) {
+  const { data: workout, error: fetchErr } = await supabase
+    .from('workouts')
+    .select('id, title, atleta_user_id, pt_user_id, status')
+    .eq('id', workoutId)
+    .single();
+
+  if (fetchErr || !workout) {
+    throw new Error('Scheda non trovata');
+  }
+  if (workout.pt_user_id !== params.ptUserId) {
+    throw new Error('Non autorizzato');
+  }
+  if (!['attivo', 'scaduto'].includes(workout.status)) {
+    throw new Error('Questa scheda non può essere attivata');
+  }
+
+  const scheduled = new Date(params.scheduledDate);
+  scheduled.setHours(0, 0, 0, 0);
+
+  const { data: updated, error: updateErr } = await supabase
+    .from('workouts')
+    .update({
+      status: 'in_corso',
+      scheduled_date: scheduled.toISOString(),
+    })
+    .eq('id', workoutId)
+    .select()
+    .single();
+
+  if (updateErr || !updated) {
+    throw new Error('Errore attivazione scheda: ' + (updateErr?.message ?? 'unknown'));
+  }
+
+  const start = new Date(scheduled);
+  start.setHours(10, 0, 0, 0);
+  const end = new Date(start);
+  end.setHours(end.getHours() + 1);
+
+  const { error: calErr } = await supabase.from('calendar_events').insert({
+    creator_user_id: params.ptUserId,
+    pt_user_id: params.ptUserId,
+    atleta_user_id: workout.atleta_user_id,
+    title: workout.title,
+    event_type: 'allenamento',
+    category: 'appuntamento',
+    start_datetime: start.toISOString(),
+    end_datetime: end.toISOString(),
+    is_public: false,
+    visibility: 'connected_only',
+  });
+
+  if (calErr) {
+    throw new Error('Scheda attivata ma errore calendario: ' + calErr.message);
+  }
+
+  return updated;
 }
 
 // =====================================================
@@ -297,6 +372,274 @@ export async function countCompletedWorkouts(atletaUserId: string): Promise<numb
   }
 
   return data ?? 0;
+}
+
+// =====================================================
+// DUPLICA / TRASFERISCI ASSEGNAZIONE WORKOUT
+// Copia blocchi ed esercizi da un workout esistente
+// =====================================================
+
+const IN_PROGRESS_STATUSES = new Set(['in_corso', 'in_sospeso']);
+
+async function copyWorkoutAssignmentToAthlete(
+  workoutId: string,
+  targetAtletaUserId: string,
+  opts?: {
+    title?: string;
+    scheduledDate?: string | null;
+    dueDate?: string | null;
+  },
+) {
+  const { data: original, error: wErr } = await supabase
+    .from('workouts')
+    .select('*')
+    .eq('id', workoutId)
+    .single();
+
+  if (wErr || !original) {
+    throw new Error('Errore recupero workout: ' + (wErr?.message ?? 'non trovato'));
+  }
+
+  const [{ data: blocks }, { data: exercises }] = await Promise.all([
+    supabase
+      .from('workout_blocks')
+      .select('id, order_index, type, name, params, info_note')
+      .eq('workout_id', workoutId)
+      .order('order_index'),
+    supabase
+      .from('workout_exercises')
+      .select(
+        'exercise_id, order_index, prescribed_sets, prescribed_reps_min, prescribed_reps_max, prescribed_duration_seconds, prescribed_weight, rest_seconds, notes, sets_data, block_id, protocol_type, protocol_params',
+      )
+      .eq('workout_id', workoutId)
+      .order('order_index'),
+  ]);
+
+  const scheduledDate =
+    opts?.scheduledDate !== undefined ? opts.scheduledDate : original.scheduled_date;
+  const dueDate = opts?.dueDate !== undefined ? opts.dueDate : original.due_date;
+
+  const { data: workout, error: insErr } = await supabase
+    .from('workouts')
+    .insert({
+      atleta_user_id: targetAtletaUserId,
+      pt_user_id: original.pt_user_id,
+      title: opts?.title ?? original.title,
+      description: original.description,
+      template_id: original.template_id,
+      template_kind: (original as any).template_kind ?? 'libera',
+      scheduled_date: scheduledDate,
+      due_date: dueDate,
+      status: 'attivo',
+      // Nuova assegnazione: reset flag riordino atleta
+      athlete_reordered_at: null,
+    } as any)
+    .select()
+    .single();
+
+  if (insErr || !workout) {
+    throw new Error('Errore duplicazione workout: ' + (insErr?.message ?? 'unknown'));
+  }
+
+  const blockIdMap = new Map<string, string>();
+  if (blocks?.length) {
+    const { data: insertedBlocks, error: bErr } = await supabase
+      .from('workout_blocks')
+      .insert(
+        blocks.map((b) => ({
+          workout_id: workout.id,
+          order_index: b.order_index,
+          type: b.type,
+          name: b.name,
+          params: b.params ?? {},
+          info_note: b.info_note,
+        })),
+      )
+      .select('id, order_index');
+
+    if (bErr) {
+      await supabase.from('workouts').delete().eq('id', workout.id);
+      throw new Error('Errore copia blocchi: ' + bErr.message);
+    }
+
+    for (const b of insertedBlocks ?? []) {
+      const src = blocks.find((x) => x.order_index === b.order_index);
+      if (src) blockIdMap.set(src.id, b.id);
+    }
+  }
+
+  if (exercises?.length) {
+    const { error: exErr } = await supabase.from('workout_exercises').insert(
+      exercises.map((e) => ({
+        workout_id: workout.id,
+        exercise_id: e.exercise_id,
+        order_index: e.order_index,
+        prescribed_sets: e.prescribed_sets,
+        prescribed_reps_min: e.prescribed_reps_min,
+        prescribed_reps_max: e.prescribed_reps_max,
+        prescribed_duration_seconds: e.prescribed_duration_seconds,
+        prescribed_weight: e.prescribed_weight,
+        rest_seconds: e.rest_seconds ?? 60,
+        notes: e.notes,
+        sets_data: e.sets_data,
+        block_id: e.block_id ? blockIdMap.get(e.block_id) ?? null : null,
+        protocol_type: e.protocol_type ?? 'SET',
+        protocol_params: e.protocol_params ?? {},
+      })),
+    );
+
+    if (exErr) {
+      await supabase.from('workouts').delete().eq('id', workout.id);
+      throw new Error('Errore copia esercizi: ' + exErr.message);
+    }
+  }
+
+  return workout;
+}
+
+/** Duplica per lo stesso atleta → Programmate (status attivo). */
+export async function duplicateWorkoutAssignment(
+  workoutId: string,
+  opts?: { scheduledDate?: string | null },
+) {
+  const { data: original, error: wErr } = await supabase
+    .from('workouts')
+    .select('atleta_user_id, title, status, scheduled_date')
+    .eq('id', workoutId)
+    .single();
+
+  if (wErr || !original) {
+    throw new Error('Errore recupero workout: ' + (wErr?.message ?? 'non trovato'));
+  }
+
+  const scheduledDate =
+    opts?.scheduledDate !== undefined
+      ? opts.scheduledDate
+      : IN_PROGRESS_STATUSES.has(original.status)
+        ? null
+        : original.scheduled_date;
+
+  return copyWorkoutAssignmentToAthlete(workoutId, original.atleta_user_id, {
+    title: `${original.title} (Copia)`,
+    scheduledDate,
+  });
+}
+
+/** Copia una scheda programmata ad altri atleti e annulla l'originale. */
+export async function transferWorkoutToAthletes(
+  workoutId: string,
+  params: {
+    ptUserId: string;
+    sourceAtletaUserId: string;
+    targetAtletaUserIds: string[];
+  },
+) {
+  const { data: original, error: wErr } = await supabase
+    .from('workouts')
+    .select('id, pt_user_id, atleta_user_id, status')
+    .eq('id', workoutId)
+    .single();
+
+  if (wErr || !original) {
+    throw new Error('Scheda non trovata');
+  }
+  if (original.pt_user_id !== params.ptUserId) {
+    throw new Error('Non autorizzato');
+  }
+  if (original.atleta_user_id !== params.sourceAtletaUserId) {
+    throw new Error('Scheda non appartiene a questo atleta');
+  }
+  if (!['attivo', 'scaduto'].includes(original.status)) {
+    throw new Error('Solo le schede programmate possono essere riassegnate');
+  }
+
+  const targets = [...new Set(params.targetAtletaUserIds)].filter(
+    (id) => id !== params.sourceAtletaUserId,
+  );
+  if (targets.length === 0) {
+    throw new Error('Seleziona almeno un atleta diverso da quello corrente');
+  }
+
+  const created = [];
+  for (const targetId of targets) {
+    const copy = await copyWorkoutAssignmentToAthlete(workoutId, targetId, {
+      scheduledDate: null,
+    });
+    created.push(copy);
+  }
+
+  const { error: cancelErr } = await supabase
+    .from('workouts')
+    .update({ status: 'saltato' })
+    .eq('id', workoutId);
+
+  if (cancelErr) {
+    throw new Error('Copie create ma errore annullamento originale: ' + cancelErr.message);
+  }
+
+  return created;
+}
+
+/** Copia una scheda ad altri atleti senza modificare l'originale (es. in corso). */
+export async function duplicateWorkoutToAthletes(
+  workoutId: string,
+  params: {
+    ptUserId: string;
+    sourceAtletaUserId: string;
+    targetAtletaUserIds: string[];
+  },
+) {
+  const { data: original, error: wErr } = await supabase
+    .from('workouts')
+    .select('id, pt_user_id, atleta_user_id')
+    .eq('id', workoutId)
+    .single();
+
+  if (wErr || !original) {
+    throw new Error('Scheda non trovata');
+  }
+  if (original.pt_user_id !== params.ptUserId) {
+    throw new Error('Non autorizzato');
+  }
+  if (original.atleta_user_id !== params.sourceAtletaUserId) {
+    throw new Error('Scheda non appartiene a questo atleta');
+  }
+
+  const targets = [...new Set(params.targetAtletaUserIds)].filter(
+    (id) => id !== params.sourceAtletaUserId,
+  );
+  if (targets.length === 0) {
+    throw new Error('Seleziona almeno un atleta diverso da quello corrente');
+  }
+
+  const created = [];
+  for (const targetId of targets) {
+    const copy = await copyWorkoutAssignmentToAthlete(workoutId, targetId, {
+      scheduledDate: null,
+    });
+    created.push(copy);
+  }
+
+  return created;
+}
+
+// =====================================================
+// SCHEDA LIBERA — riordino esercizi free (lato atleta)
+// Solo prima di iniziare; i circuiti restano fissi.
+// =====================================================
+
+export async function reorderWorkoutFreeExercises(
+  workoutId: string,
+  orderedFreeExerciseIds: string[],
+) {
+  const { error } = await supabase.rpc('atleta_reorder_workout_exercises' as any, {
+    _workout_id: workoutId,
+    _ordered_free_exercise_ids: orderedFreeExerciseIds,
+  } as any);
+
+  if (error) {
+    throw new Error(error.message || 'Impossibile riordinare gli esercizi');
+  }
 }
 
 // =====================================================

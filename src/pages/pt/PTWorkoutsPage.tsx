@@ -49,6 +49,13 @@ import {
 } from '@/components/pt/ReviewImportedTemplateDialog';
 import { Sliders, Upload } from 'lucide-react';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
+import {
+  TEMPLATE_KINDS,
+  TEMPLATE_KIND_META,
+  type TemplateKind,
+  templateKindLabel,
+} from '@/lib/pt/templateKinds';
+import { cn } from '@/lib/utils';
 
 /** Import AI da file — nascosto finché la feature non è pronta in produzione. */
 const SHOW_IMPORT_SCHEDA = false;
@@ -106,6 +113,7 @@ interface WorkoutTemplate {
   is_public: boolean;
   created_at: string;
   tags: string[] | null;
+  template_kind?: TemplateKind | string | null;
 }
 
 interface Workout {
@@ -151,7 +159,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     category: string;
     estimated_duration: number;
     muscle_groups: string[];
-    template_kind: 'libera' | 'propedeutica' | 'progressiva';
+    template_kind: TemplateKind;
   }>({
     title: '',
     description: '',
@@ -245,6 +253,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           muscle_groups: newTemplate.muscle_groups,
           template_kind: newTemplate.template_kind,
           is_public: false,
+          template_kind: newTemplate.template_kind,
         } as any)
         .select()
         .single();
@@ -522,6 +531,15 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
       ),
     },
     {
+      key: 'template_kind',
+      header: 'Tipo',
+      cell: (template) => (
+        <Badge variant="outline" className="text-xs">
+          {templateKindLabel(template.template_kind)}
+        </Badge>
+      ),
+    },
+    {
       key: 'difficulty',
       header: 'Livello',
       cell: (template) => (
@@ -769,11 +787,47 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           <DialogHeader>
             <DialogTitle>Step 1 — Informazioni base</DialogTitle>
             <DialogDescription>
-              Definisci i dati generali della scheda. Subito dopo entrerai nel builder con un blocco SET già pronto.
+              Scegli il tipo di scheda e i dati generali. Subito dopo entrerai nel builder con un blocco SET già pronto.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
             <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Tipo di scheda <span className="text-destructive">*</span></Label>
+                <div className="grid gap-2">
+                  {TEMPLATE_KINDS.map((kind) => {
+                    const meta = TEMPLATE_KIND_META[kind];
+                    const selected = newTemplate.template_kind === kind;
+                    return (
+                      <button
+                        key={kind}
+                        type="button"
+                        onClick={() => setNewTemplate({ ...newTemplate, template_kind: kind })}
+                        className={cn(
+                          'text-left rounded-xl border px-3 py-2.5 transition-colors',
+                          selected
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                            : 'border-border hover:border-primary/40 hover:bg-muted/40',
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">{meta.label}</span>
+                          <span
+                            className={cn(
+                              'h-3.5 w-3.5 rounded-full border shrink-0',
+                              selected ? 'border-primary bg-primary' : 'border-muted-foreground/40',
+                            )}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                          {meta.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="title">Titolo scheda <span className="text-destructive">*</span></Label>
                 <Input
@@ -999,6 +1053,9 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                                   {template.description || 'Nessuna descrizione'}
                                 </p>
                                 <div className="flex flex-wrap gap-1.5 mt-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {templateKindLabel(template.template_kind)}
+                                  </Badge>
                                   {template.difficulty_level && template.difficulty_level !== 'nessuno' && (
                                     <Badge variant="secondary" className="text-xs capitalize">
                                       {template.difficulty_level}

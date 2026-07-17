@@ -1,5 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import {
+  DEFAULT_ATHLETE_PASSWORD,
+  sendAthleteWelcomeEmail,
+} from '../_shared/athleteWelcomeEmail.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,14 +19,12 @@ interface CreateAthleteRequest {
   goals?: string[]
 }
 
-function tempPassword(): string {
-  // Password temporanea leggibile: 12 caratteri alfanumerici + 1 simbolo
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
-  let out = ''
-  const bytes = crypto.getRandomValues(new Uint8Array(12))
-  for (const b of bytes) out += chars[b % chars.length]
-  return out + '!'
-}
+const VALID_FITNESS_LEVELS = new Set([
+  'principiante',
+  'intermedio',
+  'avanzato',
+  'agonista',
+])
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -85,6 +87,20 @@ serve(async (req) => {
       })
     }
 
+    if (!fitnessLevel || !VALID_FITNESS_LEVELS.has(fitnessLevel)) {
+      return new Response(JSON.stringify({ error: 'Seleziona un livello di allenamento valido' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!goals.length) {
+      return new Response(JSON.stringify({ error: 'Seleziona almeno un obiettivo' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const normalizedEmail = email.trim().toLowerCase()
 
     const { data: canAccept, error: acceptErr } = await supabaseAdmin.rpc('can_pt_accept_athletes', {
@@ -113,7 +129,7 @@ serve(async (req) => {
     const generatedPassword = tempPassword()
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: normalizedEmail,
-      password: generatedPassword,
+      password: DEFAULT_ATHLETE_PASSWORD,
       email_confirm: true,
       user_metadata: { role: 'atleta' },
     })
@@ -135,8 +151,6 @@ serve(async (req) => {
       await supabaseAdmin.auth.admin.deleteUser(newUserId)
     }
 
-    const level = fitnessLevel && fitnessLevel !== 'nessuno' ? fitnessLevel : null
-
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .update({
@@ -148,29 +162,101 @@ serve(async (req) => {
       .eq('user_id', newUserId)
 
     if (profileError) {
-      await cleanup()
-      return new Response(JSON.stringify({ error: 'Errore profilo: ' + profileError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      const { data: profileRow } = await supabaseAdmin
+        .from('profiles')
+        .select('user_id')
+        .eq('user_id', newUserId)
+        .maybeSingle()
+
+      if (!profileRow) {
+        const { error: profileInsertError } = await supabaseAdmin.from('profiles').insert({
+          user_id: newUserId,
+          email: normalizedEmail,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: phone?.trim() || null,
+        })
+
+        if (profileInsertError) {
+          await cleanup()
+          return new Response(JSON.stringify({ error: 'Errore profilo: ' + profileInsertError.message }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+      } else {
+        await cleanup()
+        return new Response(JSON.stringify({ error: 'Errore profilo: ' + profileError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
+    const { data: existingRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', newUserId)
+      .eq('role', 'atleta')
+      .maybeSingle()
+
+    if (!existingRole) {
+      const { error: roleError } = await supabaseAdmin.from('user_roles').insert({
+        user_id: newUserId,
+        role: 'atleta',
       })
+
+      if (roleError) {
+        await cleanup()
+        return new Response(JSON.stringify({ error: 'Errore ruolo: ' + roleError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
 
     const { error: atletaError } = await supabaseAdmin
       .from('atleta_profiles')
       .update({
-        fitness_level: level,
-        level,
-        goals: goals.length ? goals : [],
+        status: 'collegato',
+        fitness_level: fitnessLevel,
+        level: fitnessLevel,
+        goals,
         referred_by_pt: ptUserId,
       })
       .eq('user_id', newUserId)
 
     if (atletaError) {
-      await cleanup()
-      return new Response(JSON.stringify({ error: 'Errore profilo atleta: ' + atletaError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      const { data: atletaRow } = await supabaseAdmin
+        .from('atleta_profiles')
+        .select('user_id')
+        .eq('user_id', newUserId)
+        .maybeSingle()
+
+      if (!atletaRow) {
+        const { error: atletaInsertError } = await supabaseAdmin.from('atleta_profiles').insert({
+          user_id: newUserId,
+          status: 'collegato',
+          fitness_level: fitnessLevel,
+          level: fitnessLevel,
+          goals,
+          referred_by_pt: ptUserId,
+        })
+
+        if (atletaInsertError) {
+          await cleanup()
+          return new Response(JSON.stringify({ error: 'Errore profilo atleta: ' + atletaInsertError.message }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+      } else {
+        await cleanup()
+        return new Response(JSON.stringify({ error: 'Errore profilo atleta: ' + atletaError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
 
     const now = new Date().toISOString()
@@ -183,6 +269,7 @@ serve(async (req) => {
         requested_by: ptUserId,
         requested_at: now,
         accepted_at: now,
+        is_pt_active: true,
       })
       .select('id')
       .single()
@@ -201,36 +288,32 @@ serve(async (req) => {
       .eq('user_id', ptUserId)
       .maybeSingle()
 
-    const ptName = [ptProfile?.first_name, ptProfile?.last_name].filter(Boolean).join(' ').trim() || 'Il tuo Personal Trainer'
+    const ptName =
+      [ptProfile?.first_name, ptProfile?.last_name].filter(Boolean).join(' ').trim() ||
+      'Il tuo Personal Trainer'
 
     await supabaseAdmin.from('notifications').insert({
       user_id: newUserId,
       type: 'welcome',
-      title: 'Benvenuto su LIVEL APP',
-      body: `${ptName} ti ha aggiunto come atleta. Controlla la tua email per impostare la password e accedere.`,
+      title: 'Benvenuto su LIVELLAPP',
+      body: `${ptName} ti ha aggiunto come atleta. Controlla la tua email per le credenziali di accesso e cambia subito la password.`,
       action_url: '/app',
       data: { pt_user_id: ptUserId, connection_id: connection.id },
     })
 
-    // Invia email di benvenuto con password temporanea
-    try {
-      await supabaseAdmin.functions.invoke('send-athlete-welcome-email', {
-        body: {
-          email: normalizedEmail,
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          tempPassword: generatedPassword,
-          ptName,
-        },
-      })
-    } catch (emailErr) {
-      console.error('Welcome email failed', emailErr)
-    }
-
+    const emailResult = await sendAthleteWelcomeEmail({
+      to: normalizedEmail,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      ptName,
+      temporaryPassword: DEFAULT_ATHLETE_PASSWORD,
+    })
 
     return new Response(
       JSON.stringify({
         success: true,
+        emailSent: emailResult.sent,
+        emailStatus: emailResult.sent ? 'sent' : emailResult.reason || 'pending',
         user: {
           id: newUserId,
           email: normalizedEmail,

@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { getPTConnectionsWithPtActive } from '@/lib/api/connections';
 import { AthleteSubscriptionsTab } from '@/components/pt/AthleteSubscriptionsTab';
 import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
 import { 
@@ -22,6 +23,7 @@ import {
   Clock,
   CheckCircle2,
   UserPlus,
+  UserRoundPlus,
   Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -36,9 +38,11 @@ export function PTAppAthletesPage() {
   const [activeTab, setActiveTab] = useState('active');
   const [searchQuery, setSearchQuery] = useState('');
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
+  const [addAthleteTab, setAddAthleteTab] = useState<'link' | 'create'>('link');
 
   useEffect(() => {
     if (searchParams.get('invite') !== '1') return;
+    setAddAthleteTab('link');
     setAddAthleteOpen(true);
     const next = new URLSearchParams(searchParams);
     next.delete('invite');
@@ -54,18 +58,15 @@ export function PTAppAthletesPage() {
 
       const status = activeTab === 'active' ? 'active' : 'pending';
 
-      const { data, error } = await supabase
-        .from('pt_atleta_connections')
-        .select('id, atleta_user_id, status, created_at, accepted_at')
-        .eq('pt_user_id', user.id)
-        .eq('status', status)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await getPTConnectionsWithPtActive(user.id, {
+        status,
+        columns: 'list',
+        orderByCreatedAt: true,
+      });
 
       // Fetch profiles for each connection
       const connectionsWithProfiles = await Promise.all(
-        (data || []).map(async (conn) => {
+        data.map(async (conn) => {
           const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name, avatar_url, email')
@@ -106,9 +107,26 @@ export function PTAppAthletesPage() {
       <div className="sticky top-0 z-40 bg-background border-b border-border p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">I miei atleti</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Badge variant="secondary">{activeCount}</Badge>
-            <Button size="sm" onClick={() => setAddAthleteOpen(true)}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setAddAthleteTab('create');
+                setAddAthleteOpen(true);
+              }}
+            >
+              <UserRoundPlus className="h-4 w-4 mr-1" />
+              Crea atleta
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setAddAthleteTab('link');
+                setAddAthleteOpen(true);
+              }}
+            >
               <UserPlus className="h-4 w-4 mr-1" />
               Invita
             </Button>
@@ -170,7 +188,11 @@ export function PTAppAthletesPage() {
         </TabsContent>
       </Tabs>
 
-      <AddAthleteDialog open={addAthleteOpen} onOpenChange={setAddAthleteOpen} />
+      <AddAthleteDialog
+        open={addAthleteOpen}
+        onOpenChange={setAddAthleteOpen}
+        defaultTab={addAthleteTab}
+      />
     </div>
   );
 }
@@ -179,6 +201,7 @@ function AthleteCard({ connection, type }: { connection: any; type: 'active' | '
   const p = connection.profiles;
   const name = getAthleteDisplayName(p?.first_name, p?.last_name, p?.email);
   const initials = getAthleteInitials(p?.first_name, p?.last_name, p?.email);
+  const isPtActive = connection.is_pt_active !== false;
 
   return (
     <Link to={`/pt/app/athlete/${connection.atleta_user_id}`}>
@@ -197,6 +220,19 @@ function AthleteCard({ connection, type }: { connection: any; type: 'active' | '
               </div>
               
               <div className="flex items-center gap-2 mt-1">
+                {type === 'active' && (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-xs',
+                      isPtActive
+                        ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                        : 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+                    )}
+                  >
+                    {isPtActive ? 'Attivo' : 'Disattivo'}
+                  </Badge>
+                )}
                 {connection.atleta_profiles?.fitness_level && (
                   <Badge variant="outline" className="text-xs capitalize">
                     {connection.atleta_profiles.fitness_level}

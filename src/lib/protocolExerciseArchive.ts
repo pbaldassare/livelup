@@ -1,4 +1,4 @@
-import type { ProtocolExerciseOption } from '@/components/pt/protocols/ProtocolExerciseCombobox';
+import type { ExerciseOption } from '@/components/pt/ExerciseArchivePickerPanel';
 
 export type ArchiveExerciseRow = {
   id: string;
@@ -8,9 +8,9 @@ export type ArchiveExerciseRow = {
 };
 
 export type ProtocolExerciseArchiveGroups = {
-  favoriteOptions: ProtocolExerciseOption[];
-  mineOptions: ProtocolExerciseOption[];
-  globalOptions: ProtocolExerciseOption[];
+  favoriteOptions: ExerciseOption[];
+  mineOptions: ExerciseOption[];
+  globalOptions: ExerciseOption[];
 };
 
 /** Allinea categorie a Archivio Esercizi: preferiti → i miei → globali. */
@@ -23,9 +23,9 @@ export function categorizeArchiveExercises(
   },
 ): ProtocolExerciseArchiveGroups {
   const exclude = opts.excludeIds ?? new Set<string>();
-  const favoriteOptions: ProtocolExerciseOption[] = [];
-  const mineOptions: ProtocolExerciseOption[] = [];
-  const globalOptions: ProtocolExerciseOption[] = [];
+  const favoriteOptions: ExerciseOption[] = [];
+  const mineOptions: ExerciseOption[] = [];
+  const globalOptions: ExerciseOption[] = [];
   const seen = new Set<string>();
 
   for (const row of rows) {
