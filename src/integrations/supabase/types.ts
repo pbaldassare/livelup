@@ -1015,6 +1015,36 @@ export type Database = {
         }
         Relationships: []
       }
+      exercise_catalogs: {
+        Row: {
+          created_at: string
+          description: string | null
+          emoji: string
+          id: string
+          name: string
+          pt_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          emoji?: string
+          id?: string
+          name: string
+          pt_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          emoji?: string
+          id?: string
+          name?: string
+          pt_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       exercises: {
         Row: {
           category: string
