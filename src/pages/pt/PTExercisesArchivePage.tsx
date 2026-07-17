@@ -16,7 +16,11 @@ import { Search, Video, Library, Info, Star, Dumbbell, Plus } from 'lucide-react
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
 import { CreateExerciseDialog } from '@/components/pt/CreateExerciseDialog';
+import { CreateCatalogDialog } from '@/components/pt/CreateCatalogDialog';
+import { CatalogDetailDialog } from '@/components/pt/CatalogDetailDialog';
+import { ExerciseCatalogPicker } from '@/components/pt/ExerciseCatalogPicker';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
+import { useExerciseCatalogs, ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
 import { cn } from '@/lib/utils';
 
 type Exercise = {
@@ -72,8 +76,11 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
   const [favoriteFilter, setFavoriteFilter] = useState<'all' | 'favorites'>('all');
   const [selected, setSelected] = useState<Exercise | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createCatalogOpen, setCreateCatalogOpen] = useState(false);
+  const [detailCatalog, setDetailCatalog] = useState<ExerciseCatalog | null>(null);
 
   const { data: favIds } = useFavoriteIds();
+  const { data: catalogs = [] } = useExerciseCatalogs();
   const toggleFav = useToggleFavorite();
 
   const { data: exercises = [], isLoading } = useQuery({
@@ -140,6 +147,24 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4 mr-1" /> Crea
           </Button>
+        </div>
+      )}
+
+      {catalogs.length > 0 && (
+        <div className='flex flex-wrap items-center gap-1.5'>
+          <span className='text-xs text-muted-foreground mr-1'>I tuoi cataloghi:</span>
+          {catalogs.map((c) => (
+            <Badge
+              key={c.id}
+              variant='outline'
+              className='gap-1 text-xs font-normal cursor-pointer hover:bg-muted transition-colors'
+              title={c.description || undefined}
+              onClick={() => setDetailCatalog(c)}
+            >
+              <span>{c.emoji}</span>
+              {c.name}
+            </Badge>
+          ))}
         </div>
       )}
 
@@ -260,7 +285,7 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-20"></TableHead>
                   <TableHead className="w-[76px]">Media</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Difficoltà</TableHead>
@@ -284,23 +309,26 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                       onClick={() => setSelected(ex)}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          onClick={() =>
-                            toggleFav.mutate({ exerciseId: ex.id, isFavorite: isFav })
-                          }
-                          disabled={toggleFav.isPending}
-                          title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-                        >
-                          <Star
-                            className={cn(
-                              'h-4 w-4 transition-colors',
-                              isFav ? 'fill-primary text-primary' : 'text-muted-foreground',
-                            )}
-                          />
-                        </Button>
+                        <div className="flex items-center">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() =>
+                              toggleFav.mutate({ exerciseId: ex.id, isFavorite: isFav })
+                            }
+                            disabled={toggleFav.isPending}
+                            title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                          >
+                            <Star
+                              className={cn(
+                                'h-4 w-4 transition-colors',
+                                isFav ? 'fill-primary text-primary' : 'text-muted-foreground',
+                              )}
+                            />
+                          </Button>
+                          <ExerciseCatalogPicker exerciseId={ex.id} />
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-muted">
@@ -371,6 +399,17 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
       <CreateExerciseDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
+      />
+
+      <CreateCatalogDialog
+        open={createCatalogOpen}
+        onOpenChange={setCreateCatalogOpen}
+      />
+
+      <CatalogDetailDialog
+        catalog={detailCatalog}
+        open={!!detailCatalog}
+        onOpenChange={(o) => !o && setDetailCatalog(null)}
       />
     </div>
   );

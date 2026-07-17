@@ -28,8 +28,6 @@ import { ProgressTab } from '@/components/pt/athlete-detail/ProgressTab';
 import { ProgrammiTab } from '@/components/pt/athlete-detail/ProgrammiTab';
 import { BadgesTab } from '@/components/pt/athlete-detail/BadgesTab';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
-import { TEMPLATE_KIND_LABEL, TEMPLATE_KIND_BADGE_CLASS, normalizeTemplateKind } from '@/lib/pt/templateKinds';
-import { cn } from '@/lib/utils';
 import {
   User,
   ArrowLeft,
