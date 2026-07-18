@@ -394,45 +394,71 @@ export type Database = {
       }
       blog_posts: {
         Row: {
+          author_kind: string
           content: string
           cover_image_url: string | null
           created_at: string | null
+          hidden_at: string | null
+          hidden_by: string | null
           id: string
           is_published: boolean | null
+          post_type: string
+          professional_profile_id: string | null
           pt_user_id: string
           published_at: string | null
           slug: string | null
+          status: string
           tags: string[] | null
           title: string
           updated_at: string | null
         }
         Insert: {
+          author_kind?: string
           content: string
           cover_image_url?: string | null
           created_at?: string | null
+          hidden_at?: string | null
+          hidden_by?: string | null
           id?: string
           is_published?: boolean | null
+          post_type?: string
+          professional_profile_id?: string | null
           pt_user_id: string
           published_at?: string | null
           slug?: string | null
+          status?: string
           tags?: string[] | null
           title: string
           updated_at?: string | null
         }
         Update: {
+          author_kind?: string
           content?: string
           cover_image_url?: string | null
           created_at?: string | null
+          hidden_at?: string | null
+          hidden_by?: string | null
           id?: string
           is_published?: boolean | null
+          post_type?: string
+          professional_profile_id?: string | null
           pt_user_id?: string
           published_at?: string | null
           slug?: string | null
+          status?: string
           tags?: string[] | null
           title?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "blog_posts_professional_profile_id_fkey"
+            columns: ["professional_profile_id"]
+            isOneToOne: false
+            referencedRelation: "professional_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       calendar_events: {
         Row: {
@@ -446,6 +472,7 @@ export type Database = {
           end_datetime: string | null
           event_type: Database["public"]["Enums"]["event_type"]
           event_type_id: string | null
+          google_event_id: string | null
           id: string
           is_all_day: boolean
           is_cancelled: boolean
@@ -475,6 +502,7 @@ export type Database = {
           end_datetime?: string | null
           event_type?: Database["public"]["Enums"]["event_type"]
           event_type_id?: string | null
+          google_event_id?: string | null
           id?: string
           is_all_day?: boolean
           is_cancelled?: boolean
@@ -504,6 +532,7 @@ export type Database = {
           end_datetime?: string | null
           event_type?: Database["public"]["Enums"]["event_type"]
           event_type_id?: string | null
+          google_event_id?: string | null
           id?: string
           is_all_day?: boolean
           is_cancelled?: boolean
@@ -1350,7 +1379,8 @@ export type Database = {
         Row: {
           attachment_type: string | null
           attachment_url: string | null
-          chat_id: string
+          chat_group_id: string | null
+          chat_id: string | null
           content: string | null
           created_at: string
           id: string
@@ -1361,7 +1391,8 @@ export type Database = {
         Insert: {
           attachment_type?: string | null
           attachment_url?: string | null
-          chat_id: string
+          chat_group_id?: string | null
+          chat_id?: string | null
           content?: string | null
           created_at?: string
           id?: string
@@ -1372,7 +1403,8 @@ export type Database = {
         Update: {
           attachment_type?: string | null
           attachment_url?: string | null
-          chat_id?: string
+          chat_group_id?: string | null
+          chat_id?: string | null
           content?: string | null
           created_at?: string
           id?: string
@@ -1381,6 +1413,13 @@ export type Database = {
           sender_user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_chat_group_id_fkey"
+            columns: ["chat_group_id"]
+            isOneToOne: false
+            referencedRelation: "pt_chat_groups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_chat_id_fkey"
             columns: ["chat_id"]
@@ -1948,6 +1987,7 @@ export type Database = {
           requested_by: string | null
           status: string
           terminated_at: string | null
+          training_modality: string | null
           updated_at: string
         }
         Insert: {
@@ -1960,6 +2000,7 @@ export type Database = {
           requested_by?: string | null
           status?: string
           terminated_at?: string | null
+          training_modality?: string | null
           updated_at?: string
         }
         Update: {
@@ -1972,6 +2013,7 @@ export type Database = {
           requested_by?: string | null
           status?: string
           terminated_at?: string | null
+          training_modality?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2090,6 +2132,88 @@ export type Database = {
         }
         Relationships: []
       }
+      pt_chat_group_members: {
+        Row: {
+          added_at: string
+          atleta_user_id: string
+          group_id: string
+          id: string
+        }
+        Insert: {
+          added_at?: string
+          atleta_user_id: string
+          group_id: string
+          id?: string
+        }
+        Update: {
+          added_at?: string
+          atleta_user_id?: string
+          group_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_chat_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "pt_chat_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pt_chat_group_reads: {
+        Row: {
+          group_id: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          last_read_at?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_chat_group_reads_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "pt_chat_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pt_chat_groups: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          name: string
+          pt_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          pt_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          pt_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pt_content_library: {
         Row: {
           content_type: Database["public"]["Enums"]["content_type"]
@@ -2172,6 +2296,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pt_google_calendar_connections: {
+        Row: {
+          access_token: string | null
+          calendar_id: string | null
+          created_at: string
+          google_account_id: string | null
+          google_email: string | null
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          pt_user_id: string
+          refresh_token: string | null
+          status: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          calendar_id?: string | null
+          created_at?: string
+          google_account_id?: string | null
+          google_email?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          pt_user_id: string
+          refresh_token?: string | null
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          calendar_id?: string | null
+          created_at?: string
+          google_account_id?: string | null
+          google_email?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          pt_user_id?: string
+          refresh_token?: string | null
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       pt_packages: {
         Row: {
@@ -2281,6 +2453,7 @@ export type Database = {
       }
       pt_profiles: {
         Row: {
+          availability_bookable: boolean
           bio: string | null
           certifications: string[] | null
           created_at: string
@@ -2313,6 +2486,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          availability_bookable?: boolean
           bio?: string | null
           certifications?: string[] | null
           created_at?: string
@@ -2345,6 +2519,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          availability_bookable?: boolean
           bio?: string | null
           certifications?: string[] | null
           created_at?: string
@@ -3151,17 +3326,21 @@ export type Database = {
           created_at: string
           description: string | null
           due_date: string | null
+          duration_seconds: number | null
           id: string
           notes_atleta: string | null
           notes_pt: string | null
           pt_user_id: string
           rating: number | null
+          reps_total: number | null
           scheduled_date: string | null
+          sets_completed: number | null
           status: Database["public"]["Enums"]["workout_status"]
           template_id: string | null
           template_kind: string | null
           title: string
           updated_at: string
+          volume_kg: number | null
         }
         Insert: {
           athlete_reordered_at?: string | null
@@ -3170,17 +3349,21 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          duration_seconds?: number | null
           id?: string
           notes_atleta?: string | null
           notes_pt?: string | null
           pt_user_id: string
           rating?: number | null
+          reps_total?: number | null
           scheduled_date?: string | null
+          sets_completed?: number | null
           status?: Database["public"]["Enums"]["workout_status"]
           template_id?: string | null
           template_kind?: string | null
           title: string
           updated_at?: string
+          volume_kg?: number | null
         }
         Update: {
           athlete_reordered_at?: string | null
@@ -3189,17 +3372,21 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          duration_seconds?: number | null
           id?: string
           notes_atleta?: string | null
           notes_pt?: string | null
           pt_user_id?: string
           rating?: number | null
+          reps_total?: number | null
           scheduled_date?: string | null
+          sets_completed?: number | null
           status?: Database["public"]["Enums"]["workout_status"]
           template_id?: string | null
           template_kind?: string | null
           title?: string
           updated_at?: string
+          volume_kg?: number | null
         }
         Relationships: [
           {
@@ -3248,6 +3435,14 @@ export type Database = {
       }
     }
     Functions: {
+      _activate_pt_atleta_connection: {
+        Args: {
+          _atleta_user_id: string
+          _pt_user_id: string
+          _requested_by: string
+        }
+        Returns: string
+      }
       admin_set_group_official: {
         Args: { _group_id: string; _is_official: boolean }
         Returns: undefined
@@ -3362,6 +3557,23 @@ export type Database = {
         Args: { _atleta_user_id: string }
         Returns: string
       }
+      get_ceded_athletes_for_pt: {
+        Args: never
+        Returns: {
+          atleta_user_id: string
+          avatar_url: string
+          current_pt_first_name: string
+          current_pt_last_name: string
+          current_pt_user_id: string
+          email: string
+          first_name: string
+          fitness_level: string
+          is_recallable: boolean
+          last_name: string
+          training_modality: string
+          transferred_at: string
+        }[]
+      }
       get_group_by_invite_token: { Args: { _token: string }; Returns: Json }
       get_my_role: { Args: never; Returns: string }
       get_pt_stats: {
@@ -3409,6 +3621,10 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_atleta: { Args: { _user_id: string }; Returns: boolean }
+      is_chat_group_participant: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_chat_participant: {
         Args: { _chat_id: string; _user_id: string }
         Returns: boolean
@@ -3441,6 +3657,31 @@ export type Database = {
         }
         Returns: string
       }
+      search_pt_colleagues: {
+        Args: { _query?: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          experience_years: number
+          first_name: string
+          last_name: string
+          location_city: string
+          offers_in_person: boolean
+          offers_online: boolean
+          rating_avg: number
+          review_count: number
+          specializations: string[]
+          user_id: string
+        }[]
+      }
+      transfer_athletes_to_pt: {
+        Args: {
+          _atleta_user_ids: string[]
+          _notes?: string
+          _to_pt_user_id: string
+        }
+        Returns: number
+      }
     }
     Enums: {
       app_role: "admin" | "pt" | "atleta"
@@ -3461,7 +3702,7 @@ export type Database = {
         | "avanzato"
         | "agonista"
         | "nessuno"
-      group_channel: "general" | "announcements"
+      group_channel: "general" | "announcements" | "admins"
       group_member_role: "owner" | "admin" | "member"
       group_member_status: "active" | "banned"
       group_status: "active" | "suspended" | "pending_review"
@@ -3651,7 +3892,7 @@ export const Constants = {
         "agonista",
         "nessuno",
       ],
-      group_channel: ["general", "announcements"],
+      group_channel: ["general", "announcements", "admins"],
       group_member_role: ["owner", "admin", "member"],
       group_member_status: ["active", "banned"],
       group_status: ["active", "suspended", "pending_review"],
