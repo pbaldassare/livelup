@@ -174,7 +174,7 @@ export function PTAppTemplatesPage() {
             | 'nessuno',
           muscle_groups: newTemplate.muscle_groups,
           is_public: false,
-        } as Record<string, unknown>)
+        })
         .select()
         .single();
 
@@ -185,7 +185,7 @@ export function PTAppTemplatesPage() {
         order_index: 0,
         type: 'SET',
         name: 'Blocco 1',
-        params: { sets: 4, reps: 10, rest_seconds: 90 } as Record<string, unknown>,
+        params: { sets: 4, reps: 10, rest_seconds: 90 },
       });
 
       if (blockError) console.warn('Errore creazione blocco default:', blockError);
