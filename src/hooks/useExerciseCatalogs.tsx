@@ -3,9 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-// Supabase/Postgrest errors are plain objects ({ message, details, hint, code }),
-// NOT `instanceof Error`. A naive `err instanceof Error` check silently swallows
-// the real reason (e.g. missing table, RLS violation) and shows a generic toast.
+// Bypass typed client for tables not yet reflected in generated types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sb = supabase as any;
+
 function getErrorMessage(err: unknown): string | undefined {
   if (err instanceof Error) return err.message;
   if (err && typeof err === 'object' && 'message' in err) {
@@ -15,9 +16,6 @@ function getErrorMessage(err: unknown): string | undefined {
   return undefined;
 }
 
-// PGRST205 (or a "schema cache"/"does not exist" message) means the
-// exercise_catalogs table/migration hasn't been applied on the backend yet.
-// Surface a specific, actionable Italian message instead of a generic error.
 function isMissingTableError(err: unknown): boolean {
   const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: unknown }).code : undefined;
   if (code === 'PGRST205') return true;
@@ -27,13 +25,8 @@ function isMissingTableError(err: unknown): boolean {
 
 const MISSING_TABLE_MESSAGE =
   'Tabella cataloghi non ancora creata sul backend. Applica la migration exercise_catalogs su Lovable Cloud.';
-
-// =====================================================
-// Hook: Catalogi esercizi del PT
-// Un catalogo ├¿ un insieme omogeneo di esercizi (nome + emoji + descrizione).
-// L'assegnazione degli esercizi a un catalogo ├¿ un task futuro:
-// per ora si gestisce solo la creazione/elenco dei catalogi.
-// =====================================================
+const MISSING_ITEMS_TABLE_MESSAGE =
+  'Tabella cataloghi esercizi non ancora creata sul backend. Applica la migration exercise_catalog_items su Lovable Cloud.';
 
 export interface ExerciseCatalog {
   id: string;
@@ -45,13 +38,24 @@ export interface ExerciseCatalog {
   updated_at: string;
 }
 
+export interface CatalogExerciseRow {
+  itemId: string;
+  exerciseId: string;
+  exercise: {
+    id: string;
+    name: string;
+    category: string | null;
+    image_url: string | null;
+  } | null;
+}
+
 export function useExerciseCatalogs() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ['pt-exercise-catalogs', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('exercise_catalogs')
         .select('*')
         .eq('pt_user_id', user.id)
@@ -68,14 +72,33 @@ export function useCreateExerciseCatalog() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { name: string; emoji: string; description?: string | null }) => {
+    mutationFn: async (params: {
+      id?: string;
+      name: string;
+      emoji: string;
+      description?: string | null;
+    }) => {
       if (!user?.id) throw new Error('Non autenticato');
-      const { data, error } = await supabase
+      if (params.id) {
+        const { data, error } = await sb
+          .from('exercise_catalogs')
+          .update({
+            name: params.name.trim(),
+            emoji: params.emoji.trim() || '🗂️',
+            description: params.description?.trim() || null,
+          })
+          .eq('id', params.id)
+          .select('*')
+          .single();
+        if (error) throw error;
+        return data as ExerciseCatalog;
+      }
+      const { data, error } = await sb
         .from('exercise_catalogs')
         .insert({
           pt_user_id: user.id,
           name: params.name.trim(),
-          emoji: params.emoji.trim() || '­ƒùé´©Å',
+          emoji: params.emoji.trim() || '🗂️',
           description: params.description?.trim() || null,
         })
         .select('*')
@@ -85,58 +108,135 @@ export function useCreateExerciseCatalog() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pt-exercise-catalogs', user?.id] });
-      toast.success('Catalogo creato con successo');
+      toast.success('Catalogo salvato');
     },
     onError: (err: unknown) => {
-      console.error('[useCreateExerciseCatalog] insert failed:', err);
+      console.error('[useCreateExerciseCatalog] failed:', err);
       if (isMissingTableError(err)) {
         toast.error(MISSING_TABLE_MESSAGE);
         return;
       }
       const message = getErrorMessage(err);
-      toast.error(message ? `Errore nella creazione del catalogo: ${message}` : 'Errore nella creazione del catalogo');
+      toast.error(message ? `Errore: ${message}` : 'Errore nel salvataggio del catalogo');
     },
   });
 }
 
-// =====================================================
-// Assegnazione esercizio <-> catalogo (tabella di giunzione exercise_catalog_items)
-// =====================================================
+export function useDeleteExerciseCatalog() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (catalogId: string) => {
+      const { error } = await sb.from('exercise_catalogs').delete().eq('id', catalogId);
+      if (error) throw error;
+      return catalogId;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pt-exercise-catalogs', user?.id] });
+      toast.success('Catalogo eliminato');
+    },
+    onError: (err: unknown) => {
+      const message = getErrorMessage(err);
+      toast.error(message ? `Errore: ${message}` : 'Errore eliminazione catalogo');
+    },
+  });
+}
 
-const MISSING_ITEMS_TABLE_MESSAGE =
-  'Tabella cataloghi esercizi non ancora creata sul backend. Applica la migration exercise_catalog_items su Lovable Cloud.';
+/** Elenca gli esercizi appartenenti a un catalogo. */
+export function useCatalogExercises(catalogId: string | null) {
+  return useQuery({
+    queryKey: ['pt-catalog-exercises', catalogId],
+    queryFn: async (): Promise<CatalogExerciseRow[]> => {
+      if (!catalogId) return [];
+      const { data, error } = await sb
+        .from('exercise_catalog_items')
+        .select('id, exercise_id, exercises:exercise_id (id, name, category, image_url)')
+        .eq('catalog_id', catalogId);
+      if (error) throw error;
+      return ((data ?? []) as Array<{
+        id: string;
+        exercise_id: string;
+        exercises: CatalogExerciseRow['exercise'];
+      }>).map((r) => ({
+        itemId: r.id,
+        exerciseId: r.exercise_id,
+        exercise: r.exercises,
+      }));
+    },
+    enabled: !!catalogId,
+  });
+}
 
-/** Elenco degli id catalogo a cui appartiene un esercizio (per il PT corrente). */
-export function useExerciseCatalogItems(exerciseId: string | undefined, enabled = true) {
+export function useRemoveExerciseFromCatalog() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { catalogId: string; exerciseId: string }) => {
+      const { error } = await sb
+        .from('exercise_catalog_items')
+        .delete()
+        .eq('catalog_id', params.catalogId)
+        .eq('exercise_id', params.exerciseId);
+      if (error) throw error;
+      return params;
+    },
+    onSuccess: (params) => {
+      qc.invalidateQueries({ queryKey: ['pt-catalog-exercises', params.catalogId] });
+      qc.invalidateQueries({ queryKey: ['pt-exercise-catalog-items'] });
+      qc.invalidateQueries({ queryKey: ['pt-all-catalog-items'] });
+    },
+    onError: (err: unknown) => {
+      const message = getErrorMessage(err);
+      toast.error(message ? `Errore: ${message}` : 'Errore rimozione esercizio');
+    },
+  });
+}
+
+/** Elenco degli id catalogo a cui appartiene un esercizio. */
+export function useExerciseCatalogItems(exerciseId?: string, enabled = true) {
   return useQuery({
     queryKey: ['pt-exercise-catalog-items', exerciseId],
     queryFn: async () => {
       if (!exerciseId) return [];
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('exercise_catalog_items')
         .select('catalog_id')
         .eq('exercise_id', exerciseId);
       if (error) throw error;
-      return (data ?? []).map((row) => row.catalog_id as string);
+      return ((data ?? []) as Array<{ catalog_id: string }>).map((row) => row.catalog_id);
     },
     enabled: !!exerciseId && enabled,
   });
 }
 
-/** Aggiunge o rimuove un esercizio da un catalogo. */
+/** Tutti gli item (exercise_id, catalog_id) per il PT corrente. */
+export function useAllPtCatalogItems() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['pt-all-catalog-items', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await sb
+        .from('exercise_catalog_items')
+        .select('exercise_id, catalog_id');
+      if (error) throw error;
+      return (data ?? []) as { exercise_id: string; catalog_id: string }[];
+    },
+    enabled: !!user?.id,
+  });
+}
+
 export function useToggleCatalogItem() {
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async (params: { exerciseId: string; catalogId: string; checked: boolean }) => {
       if (params.checked) {
-        const { error } = await supabase
+        const { error } = await sb
           .from('exercise_catalog_items')
           .insert({ exercise_id: params.exerciseId, catalog_id: params.catalogId });
-        // 23505 = riga gi├á presente (checkbox cliccata due volte in rapida successione): non ├¿ un errore per l'utente
         if (error && error.code !== '23505') throw error;
       } else {
-        const { error } = await supabase
+        const { error } = await sb
           .from('exercise_catalog_items')
           .delete()
           .eq('exercise_id', params.exerciseId)
@@ -147,6 +247,8 @@ export function useToggleCatalogItem() {
     },
     onSuccess: (params) => {
       qc.invalidateQueries({ queryKey: ['pt-exercise-catalog-items', params.exerciseId] });
+      qc.invalidateQueries({ queryKey: ['pt-all-catalog-items'] });
+      qc.invalidateQueries({ queryKey: ['pt-catalog-exercises', params.catalogId] });
     },
     onError: (err: unknown) => {
       console.error('[useToggleCatalogItem] update failed:', err);
@@ -155,7 +257,7 @@ export function useToggleCatalogItem() {
         return;
       }
       const message = getErrorMessage(err);
-      toast.error(message ? `Errore nell'aggiornamento del catalogo: ${message}` : "Errore nell'aggiornamento del catalogo");
+      toast.error(message ? `Errore: ${message}` : "Errore nell'aggiornamento del catalogo");
     },
   });
 }

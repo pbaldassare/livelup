@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { GuidedWorkoutFlow, type GWExercise } from '@/components/app/GuidedWorkoutFlow';
@@ -88,7 +89,7 @@ export function PTAthleteWorkoutRunner({
   const [startSet, setStartSet] = useState(1);
 
   useEffect(() => {
-    const ex = (workout?.workout_exercises || []) as GWExercise[];
+    const ex = (workout?.workout_exercises || []) as unknown as GWExercise[];
     if (!existingLogs || existingLogs.length === 0 || ex.length === 0) return;
     const restored: Record<string, number[]> = {};
     existingLogs.forEach((log: { is_completed: boolean; workout_exercise_id: string; set_number: number }) => {
@@ -130,7 +131,7 @@ export function PTAthleteWorkoutRunner({
     );
   }
 
-  const exercises = ((workout.workout_exercises || []) as GWExercise[]).sort(
+  const exercises = ((workout.workout_exercises || []) as unknown as GWExercise[]).sort(
     (a, b) => a.order_index - b.order_index,
   );
 

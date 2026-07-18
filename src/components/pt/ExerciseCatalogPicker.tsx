@@ -6,7 +6,7 @@ import { Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useExerciseCatalogs,
-  useExerciseCatalogItems,
+  useAllPtCatalogItems,
   useToggleCatalogItem,
 } from '@/hooks/useExerciseCatalogs';
 
@@ -17,7 +17,7 @@ interface ExerciseCatalogPickerProps {
 export function ExerciseCatalogPicker({ exerciseId }: ExerciseCatalogPickerProps) {
   const [open, setOpen] = useState(false);
   const { data: catalogs = [] } = useExerciseCatalogs();
-  const { data: items = [] } = useExerciseCatalogItems();
+  const { data: items = [] } = useAllPtCatalogItems();
   const toggleItem = useToggleCatalogItem();
 
   const memberCatalogIds = new Set(
@@ -60,7 +60,7 @@ export function ExerciseCatalogPicker({ exerciseId }: ExerciseCatalogPickerProps
                   <Checkbox
                     checked={checked}
                     onCheckedChange={() =>
-                      toggleItem.mutate({ catalogId: c.id, exerciseId, isMember: checked })
+                      toggleItem.mutate({ catalogId: c.id, exerciseId, checked: !checked })
                     }
                     disabled={toggleItem.isPending}
                   />

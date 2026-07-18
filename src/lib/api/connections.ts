@@ -70,12 +70,15 @@ export async function getPTConnectionsWithPtActive(
       ? 'id, atleta_user_id, status, created_at, accepted_at'
       : 'atleta_user_id';
 
-  let query = supabase.from('pt_atleta_connections').select(withPtActive).eq('pt_user_id', ptUserId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query: any = (supabase.from('pt_atleta_connections') as any)
+    .select(withPtActive)
+    .eq('pt_user_id', ptUserId);
 
   if (status) query = query.eq('status', status);
   if (options?.orderByCreatedAt) query = query.order('created_at', { ascending: false });
 
-  const { data, error } = await query;
+  const { data, error } = (await query) as { data: unknown[] | null; error: { message?: string; code?: string } | null };
 
   if (!error) {
     return (data ?? []) as PtConnectionWithPtActive[];
@@ -85,8 +88,8 @@ export async function getPTConnectionsWithPtActive(
     throw new Error('Errore nel recupero connessioni: ' + error.message);
   }
 
-  let fallbackQuery = supabase
-    .from('pt_atleta_connections')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let fallbackQuery: any = (supabase.from('pt_atleta_connections') as any)
     .select(withoutPtActive)
     .eq('pt_user_id', ptUserId);
 
@@ -95,16 +98,19 @@ export async function getPTConnectionsWithPtActive(
     fallbackQuery = fallbackQuery.order('created_at', { ascending: false });
   }
 
-  const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+  const { data: fallbackData, error: fallbackError } = (await fallbackQuery) as {
+    data: Array<Record<string, unknown>> | null;
+    error: { message?: string } | null;
+  };
 
   if (fallbackError) {
     throw new Error('Errore nel recupero connessioni: ' + fallbackError.message);
   }
 
   return (fallbackData ?? []).map((row) => ({
-    ...row,
+    ...(row as Record<string, unknown>),
     is_pt_active: true,
-  })) as PtConnectionWithPtActive[];
+  })) as unknown as PtConnectionWithPtActive[];
 }
 
 // =====================================================
@@ -418,8 +424,11 @@ export interface PtAthleteTransferLog {
   created_at: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sbAny = supabase as any;
+
 export async function searchPTsForTransfer(query?: string): Promise<PtTransferTarget[]> {
-  const { data, error } = await supabase.rpc('search_pts_for_transfer', {
+  const { data, error } = await sbAny.rpc('search_pts_for_transfer', {
     _query: query?.trim() || null,
   });
 
@@ -431,7 +440,7 @@ export async function searchPTsForTransfer(query?: string): Promise<PtTransferTa
 }
 
 export async function getRecallableAthletes(): Promise<RecallableAthlete[]> {
-  const { data, error } = await supabase.rpc('get_recallable_athletes_for_pt');
+  const { data, error } = await sbAny.rpc('get_recallable_athletes_for_pt');
 
   if (error) {
     throw new Error('Errore recupero atleti: ' + error.message);
@@ -445,7 +454,7 @@ export async function transferAthleteToPt(params: {
   toPtUserId: string;
   notes?: string;
 }): Promise<string> {
-  const { data, error } = await supabase.rpc('transfer_athlete_to_pt', {
+  const { data, error } = await sbAny.rpc('transfer_athlete_to_pt', {
     _atleta_user_id: params.atletaUserId,
     _to_pt_user_id: params.toPtUserId,
     _notes: params.notes ?? null,
@@ -462,7 +471,7 @@ export async function recallAthleteFromTransfer(params: {
   atletaUserId: string;
   notes?: string;
 }): Promise<string> {
-  const { data, error } = await supabase.rpc('recall_athlete_from_transfer', {
+  const { data, error } = await sbAny.rpc('recall_athlete_from_transfer', {
     _atleta_user_id: params.atletaUserId,
     _notes: params.notes ?? null,
   });
@@ -475,7 +484,7 @@ export async function recallAthleteFromTransfer(params: {
 }
 
 export async function getPtTransferHistory(ptUserId: string): Promise<PtAthleteTransferLog[]> {
-  const { data, error } = await supabase
+  const { data, error } = await sbAny
     .from('pt_atleta_transfers')
     .select('*')
     .or(`from_pt_user_id.eq.${ptUserId},to_pt_user_id.eq.${ptUserId}`)

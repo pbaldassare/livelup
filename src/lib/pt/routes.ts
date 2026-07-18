@@ -56,7 +56,7 @@ export type PTRouteSet = {
   calendar: string;
   appointments: string;
   payments: string;
-  athleteTransfer: string;
+  athleteTransfer?: string;
 };
 
 export function ptRoutesForPath(pathname: string): PTRouteSet {
