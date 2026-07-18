@@ -32,3 +32,11 @@ verify_jwt = true
 
 [functions.seed-marco-ferrari-demo]
 verify_jwt = true
+
+# OAuth callback arrives from Google without a user JWT; auth is enforced
+# inside the function for start/status/disconnect.
+[functions.google-calendar-oauth]
+verify_jwt = false
+
+[functions.google-calendar-sync]
+verify_jwt = true
