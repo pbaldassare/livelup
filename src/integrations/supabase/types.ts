@@ -3461,7 +3461,7 @@ export type Database = {
         | "avanzato"
         | "agonista"
         | "nessuno"
-      group_channel: "general" | "announcements"
+      group_channel: "general" | "announcements" | "admins"
       group_member_role: "owner" | "admin" | "member"
       group_member_status: "active" | "banned"
       group_status: "active" | "suspended" | "pending_review"
@@ -3651,7 +3651,7 @@ export const Constants = {
         "agonista",
         "nessuno",
       ],
-      group_channel: ["general", "announcements"],
+      group_channel: ["general", "announcements", "admins"],
       group_member_role: ["owner", "admin", "member"],
       group_member_status: ["active", "banned"],
       group_status: ["active", "suspended", "pending_review"],
