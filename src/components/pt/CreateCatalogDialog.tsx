@@ -12,6 +12,8 @@ interface CreateCatalogDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Chiamato con il catalogo appena creato (es. per aggiungerci subito un esercizio). */
   onCreated?: (catalog: ExerciseCatalog) => void;
+  /** Se presente, il dialog opera in modalità modifica. */
+  editCatalog?: ExerciseCatalog | null;
 }
 
 const EMOJI_PRESETS = [
@@ -24,17 +26,27 @@ const emptyForm = {
   description: '',
 };
 
-export function CreateCatalogDialog({ open, onOpenChange, onCreated }: CreateCatalogDialogProps) {
+export function CreateCatalogDialog({ open, onOpenChange, onCreated, editCatalog }: CreateCatalogDialogProps) {
   const [form, setForm] = useState(emptyForm);
   const createCatalog = useCreateExerciseCatalog();
 
   useEffect(() => {
-    if (open) setForm(emptyForm);
-  }, [open]);
+    if (open) {
+      if (editCatalog) {
+        setForm({
+          name: editCatalog.name,
+          emoji: editCatalog.emoji,
+          description: editCatalog.description ?? '',
+        });
+      } else {
+        setForm(emptyForm);
+      }
+    }
+  }, [open, editCatalog]);
 
   const handleCreate = () => {
     createCatalog.mutate(
-      { name: form.name, emoji: form.emoji, description: form.description },
+      { id: editCatalog?.id, name: form.name, emoji: form.emoji, description: form.description },
       {
         onSuccess: (catalog) => {
           onOpenChange(false);
