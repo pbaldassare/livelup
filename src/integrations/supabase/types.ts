@@ -1015,6 +1015,42 @@ export type Database = {
         }
         Relationships: []
       }
+      exercise_catalog_items: {
+        Row: {
+          catalog_id: string
+          created_at: string
+          exercise_id: string
+          id: string
+        }
+        Insert: {
+          catalog_id: string
+          created_at?: string
+          exercise_id: string
+          id?: string
+        }
+        Update: {
+          catalog_id?: string
+          created_at?: string
+          exercise_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_catalog_items_catalog_id_fkey"
+            columns: ["catalog_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_catalogs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_catalog_items_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercise_catalogs: {
         Row: {
           created_at: string
