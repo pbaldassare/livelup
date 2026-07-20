@@ -37,6 +37,8 @@ interface Message {
   chat_id: string;
   sender_user_id: string;
   content: string | null;
+  attachment_url?: string | null;
+  attachment_type?: string | null;
   created_at: string;
   is_read: boolean;
 }
@@ -219,7 +221,7 @@ export function PTMessagesPage() {
       queryClient.invalidateQueries({ queryKey: ['pt-athletes-chats'] });
       setMessageInput('');
     },
-    onError: (e: any) => {
+    onError: (e: Error) => {
       toast.error(e?.message || "Errore durante l'invio del messaggio");
     },
   });
@@ -423,7 +425,23 @@ export function PTMessagesPage() {
                                 isOwn ? 'bg-role-pt text-white' : 'bg-muted'
                               )}
                             >
-                              <p>{message.content}</p>
+                              {message.attachment_url && (
+                                message.attachment_type === 'video' ? (
+                                  <video
+                                    src={message.attachment_url}
+                                    controls
+                                    className="rounded-md max-w-full max-h-64 mb-1"
+                                  />
+                                ) : (
+                                  <img
+                                    src={message.attachment_url}
+                                    alt="Allegato"
+                                    className="rounded-md max-w-full max-h-64 object-cover mb-1 cursor-pointer"
+                                    onClick={() => window.open(message.attachment_url!, '_blank')}
+                                  />
+                                )
+                              )}
+                              {message.content && <p>{message.content}</p>}
                               <p
                                 className={cn(
                                   'text-[10px] mt-1',

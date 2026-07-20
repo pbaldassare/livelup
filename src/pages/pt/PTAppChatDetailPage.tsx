@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatMessages } from '@/components/app/ChatMessages';
 import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from '@/lib/api/messages';
+import { uploadChatAttachment } from '@/lib/api/chatAttachments';
 import { toast } from 'sonner';
 
 // =====================================================
@@ -74,6 +75,8 @@ export function PTAppChatDetailPage() {
             senderAvatar: profile?.avatar_url,
             createdAt: msg.created_at,
             isRead: msg.is_read,
+            attachmentUrl: msg.attachment_url,
+            attachmentType: msg.attachment_type,
           };
         })
       );
@@ -83,21 +86,30 @@ export function PTAppChatDetailPage() {
     enabled: !!chatData?.chatId,
   });
 
-  // Send message mutation
+  // Send message mutation (testo e/o allegato immagine/video)
   const sendMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, file }: { content: string; file?: File | null }) => {
       if (!chatData?.chatId || !user?.id) throw new Error('Chat not found');
+      let attachmentUrl: string | undefined;
+      let attachmentType: string | undefined;
+      if (file) {
+        const uploaded = await uploadChatAttachment(file, user.id, chatData.chatId);
+        attachmentUrl = uploaded.url;
+        attachmentType = uploaded.type;
+      }
       return sendMessage({
         chatId: chatData.chatId,
         senderUserId: user.id,
         content,
+        attachmentUrl,
+        attachmentType,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', chatData?.chatId] });
       queryClient.invalidateQueries({ queryKey: ['pt-chats'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error.message);
     },
   });
@@ -137,8 +149,7 @@ export function PTAppChatDetailPage() {
         messages={messages || []}
         currentUserId={user?.id || ''}
         onBack={() => navigate('/pt/app/chat')}
-        onSend={(content) => sendMutation.mutate(content)}
-        onAttach={() => toast.info('Allegati in arrivo')}
+        onSend={(content, file) => sendMutation.mutateAsync({ content, file })}
         isLoading={chatLoading || messagesLoading}
         showPinnedButton={true}
       />

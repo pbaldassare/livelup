@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { syncAppointmentToGoogleCalendar } from '@/lib/api/googleCalendarSync';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import type { AthleteLite } from './types';
@@ -67,19 +68,23 @@ export function NewAppointmentDialog({ open, onOpenChange, athletes, initialDate
         throw new Error('Hai già un impegno in questa fascia oraria');
       }
 
-      const { error } = await supabase.from('calendar_events').insert({
-        creator_user_id: user.id,
-        pt_user_id: user.id,
-        atleta_user_id: athleteId,
-        title: title || 'Sessione di allenamento',
-        description: notes || null,
-        event_type: 'allenamento',
-        category: 'appuntamento',
-        start_datetime: startIso,
-        end_datetime: endIso,
-        is_public: false,
-        visibility: 'connected_only',
-      });
+      const { data: created, error } = await supabase
+        .from('calendar_events')
+        .insert({
+          creator_user_id: user.id,
+          pt_user_id: user.id,
+          atleta_user_id: athleteId,
+          title: title || 'Sessione di allenamento',
+          description: notes || null,
+          event_type: 'allenamento',
+          category: 'appuntamento',
+          start_datetime: startIso,
+          end_datetime: endIso,
+          is_public: false,
+          visibility: 'connected_only',
+        })
+        .select('id')
+        .single();
       if (error) throw error;
 
       // Notify athlete
@@ -91,6 +96,11 @@ export function NewAppointmentDialog({ open, onOpenChange, athletes, initialDate
         data: { date: startIso },
         action_url: '/app/programma',
       });
+
+      // Best-effort Google Calendar sync (no-op if not connected / function missing)
+      if (created?.id) {
+        void syncAppointmentToGoogleCalendar(created.id, 'create');
+      }
     },
     onSuccess: () => {
       toast.success('Appuntamento creato');

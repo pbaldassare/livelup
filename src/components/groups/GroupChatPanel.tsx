@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Send, Megaphone, MessageCircle } from 'lucide-react';
+import { Send, Megaphone, MessageCircle, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -33,11 +33,13 @@ function ChannelThread({
   userId,
   channel,
   canPost,
+  emptyHint,
 }: {
   groupId: string;
   userId: string;
   channel: GroupChannel;
   canPost: boolean;
+  emptyHint?: string;
 }) {
   const queryClient = useQueryClient();
   const [input, setInput] = useState('');
@@ -101,14 +103,12 @@ function ChannelThread({
         )}
         {!isLoading && messages.length === 0 && (
           <p className="text-sm text-app-muted-foreground text-center py-8">
-            {channel === 'announcements'
-              ? 'Nessun annuncio ancora'
-              : 'Inizia la conversazione'}
+            {emptyHint || 'Nessun messaggio ancora. Scrivi il primo!'}
           </p>
         )}
-        {messages.map((msg) => {
-          const isMine = msg.sender_user_id === userId;
-          const profile = profileMap.get(msg.sender_user_id);
+        {messages.map((m) => {
+          const mine = m.sender_user_id === userId;
+          const profile = profileMap.get(m.sender_user_id);
           const name =
             [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Utente';
           const initials = name
@@ -119,30 +119,35 @@ function ChannelThread({
 
           return (
             <div
-              key={msg.id}
-              className={cn('flex gap-2', isMine && 'flex-row-reverse')}
+              key={m.id}
+              className={cn('flex gap-2', mine ? 'flex-row-reverse' : 'flex-row')}
             >
-              <Avatar className="h-8 w-8 shrink-0">
-                <AvatarImage src={profile?.avatar_url || undefined} />
-                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-              </Avatar>
-              <div className={cn('max-w-[75%] space-y-0.5', isMine && 'items-end')}>
-                <div className={cn('flex items-center gap-2', isMine && 'flex-row-reverse')}>
-                  <span className="text-xs font-medium text-app-foreground">{name}</span>
-                  <span className="text-[10px] text-app-muted-foreground">
-                    {format(new Date(msg.created_at), 'HH:mm', { locale: it })}
-                  </span>
-                </div>
-                <div
+              {!mine && (
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarImage src={profile?.avatar_url || undefined} />
+                  <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+                </Avatar>
+              )}
+              <div
+                className={cn(
+                  'max-w-[75%] rounded-2xl px-3 py-2 text-sm',
+                  mine
+                    ? 'bg-app-accent text-black rounded-br-md'
+                    : 'bg-app-muted text-app-foreground rounded-bl-md',
+                )}
+              >
+                {!mine && (
+                  <p className="text-[10px] font-medium opacity-70 mb-0.5">{name}</p>
+                )}
+                <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                <p
                   className={cn(
-                    'rounded-2xl px-3 py-2 text-sm',
-                    isMine
-                      ? 'bg-app-accent text-black rounded-tr-sm'
-                      : 'bg-app-muted text-app-foreground rounded-tl-sm',
+                    'text-[9px] mt-1',
+                    mine ? 'text-black/50' : 'text-app-muted-foreground',
                   )}
                 >
-                  {msg.content}
-                </div>
+                  {format(new Date(m.created_at), 'HH:mm', { locale: it })}
+                </p>
               </div>
             </div>
           );
@@ -155,10 +160,8 @@ function ChannelThread({
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              channel === 'announcements' ? 'Scrivi un annuncio...' : 'Scrivi un messaggio...'
-            }
-            className="bg-app-muted border-app-border text-app-foreground placeholder:text-app-muted-foreground"
+            placeholder="Scrivi un messaggio..."
+            className="bg-app-muted border-app-border"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -177,7 +180,7 @@ function ChannelThread({
         </div>
       ) : (
         <p className="text-xs text-app-muted-foreground text-center py-3 border-t border-app-border">
-          Solo gli amministratori possono pubblicare annunci
+          Solo gli amministratori possono pubblicare qui
         </p>
       )}
     </div>
@@ -186,10 +189,11 @@ function ChannelThread({
 
 export function GroupChatPanel({ groupId, userId, myRole }: GroupChatPanelProps) {
   const admin = isAdminRole(myRole);
+  const cols = admin ? 'grid-cols-3' : 'grid-cols-2';
 
   return (
     <Tabs defaultValue="general" className="w-full">
-      <TabsList className="w-full grid grid-cols-2 bg-app-muted border border-app-border p-1">
+      <TabsList className={cn('w-full grid bg-app-muted border border-app-border p-1', cols)}>
         <TabsTrigger
           value="general"
           className="gap-1 data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
@@ -204,14 +208,29 @@ export function GroupChatPanel({ groupId, userId, myRole }: GroupChatPanelProps)
           <Megaphone className="h-4 w-4" />
           Annunci
           {admin && (
-            <Badge variant="outline" className="text-[9px] ml-1 px-1">
+            <Badge variant="outline" className="text-[9px] ml-1 px-1 hidden sm:inline-flex">
               Admin
             </Badge>
           )}
         </TabsTrigger>
+        {admin && (
+          <TabsTrigger
+            value="admins"
+            className="gap-1 data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
+          >
+            <Shield className="h-4 w-4" />
+            Staff
+          </TabsTrigger>
+        )}
       </TabsList>
       <TabsContent value="general">
-        <ChannelThread groupId={groupId} userId={userId} channel="general" canPost />
+        <ChannelThread
+          groupId={groupId}
+          userId={userId}
+          channel="general"
+          canPost
+          emptyHint="Chat aperta a tutti i membri del gruppo."
+        />
       </TabsContent>
       <TabsContent value="announcements">
         <ChannelThread
@@ -219,8 +238,20 @@ export function GroupChatPanel({ groupId, userId, myRole }: GroupChatPanelProps)
           userId={userId}
           channel="announcements"
           canPost={admin}
+          emptyHint="Annunci dello staff verso tutti i membri."
         />
       </TabsContent>
+      {admin && (
+        <TabsContent value="admins">
+          <ChannelThread
+            groupId={groupId}
+            userId={userId}
+            channel="admins"
+            canPost
+            emptyHint="Canale privato tra amministratori del gruppo."
+          />
+        </TabsContent>
+      )}
     </Tabs>
   );
 }

@@ -71,11 +71,27 @@ export function AtletaBookingPage() {
     enabled: !!connection?.pt_user_id,
   });
 
-  // Fetch PT availability
-  const { data: availability } = useQuery({
-    queryKey: ['pt-availability', connection?.pt_user_id],
+  // PT bookable flag (athletes only see slots when PT enables it)
+  const { data: bookable = false, isLoading: bookableLoading } = useQuery({
+    queryKey: ['pt-availability-bookable', connection?.pt_user_id],
     queryFn: async () => {
-      if (!connection?.pt_user_id) return [];
+      if (!connection?.pt_user_id) return false;
+      const { data, error } = await (supabase as any)
+        .from('pt_profiles')
+        .select('availability_bookable')
+        .eq('user_id', connection.pt_user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return Boolean(data?.availability_bookable);
+    },
+    enabled: !!connection?.pt_user_id,
+  });
+
+  // Fetch PT availability (RLS also gates on availability_bookable)
+  const { data: availability } = useQuery({
+    queryKey: ['pt-availability', connection?.pt_user_id, bookable],
+    queryFn: async () => {
+      if (!connection?.pt_user_id || !bookable) return [];
       const { data, error } = await supabase
         .from('pt_availability')
         .select('*')
@@ -85,7 +101,7 @@ export function AtletaBookingPage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!connection?.pt_user_id,
+    enabled: !!connection?.pt_user_id && bookable,
   });
 
   // Fetch existing events for the selected date (to exclude booked slots)
@@ -218,7 +234,7 @@ export function AtletaBookingPage() {
 
   // Generate available slots for selected date
   const availableSlots = useMemo(() => {
-    if (!availability) return [];
+    if (!bookable || !availability) return [];
     
     const dayOfWeek = selectedDate.getDay();
     const dayAvailability = availability.filter(a => a.day_of_week === dayOfWeek);
@@ -244,7 +260,7 @@ export function AtletaBookingPage() {
     });
     
     return slots;
-  }, [availability, selectedDate, existingEvents]);
+  }, [bookable, availability, selectedDate, existingEvents]);
 
   // Generate next 14 days
   const dates = Array.from({ length: 14 }, (_, i) => addDays(new Date(), i));
@@ -325,8 +341,20 @@ export function AtletaBookingPage() {
           </div>
         )}
 
+        {!bookableLoading && !bookable && (
+          <Card className="border-app-border bg-app-card">
+            <CardContent className="p-4 text-center">
+              <Clock className="h-8 w-8 mx-auto text-app-muted-foreground mb-2" />
+              <p className="font-medium text-app-foreground mb-1">Prenotazioni non disponibili</p>
+              <p className="text-sm text-app-muted-foreground">
+                Il tuo PT non ha ancora attivato la disponibilità per le prenotazioni.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Date selector */}
-        <div>
+        <div className={cn(!bookable && 'opacity-50 pointer-events-none')}>
           <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">
             Seleziona data
           </h2>
@@ -357,12 +385,12 @@ export function AtletaBookingPage() {
         </div>
 
         {/* Time slots */}
-        <div>
+        <div className={cn(!bookable && 'opacity-50 pointer-events-none')}>
           <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">
             Orari disponibili
           </h2>
           
-          {availableSlots.length > 0 ? (
+          {bookable && availableSlots.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
               {availableSlots.map((slot) => {
                 const isSelected = selectedSlot?.start === slot.start;
@@ -389,7 +417,9 @@ export function AtletaBookingPage() {
               <CardContent className="p-6 text-center">
                 <Clock className="h-8 w-8 mx-auto text-app-muted-foreground mb-2" />
                 <p className="text-app-muted-foreground">
-                  Nessuno slot disponibile per questa data
+                  {!bookable
+                    ? 'Prenotazioni disattivate dal PT'
+                    : 'Nessuno slot disponibile per questa data'}
                 </p>
               </CardContent>
             </Card>
@@ -397,7 +427,7 @@ export function AtletaBookingPage() {
         </div>
 
         {/* Booking confirmation */}
-        {selectedSlot && (
+        {bookable && selectedSlot && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

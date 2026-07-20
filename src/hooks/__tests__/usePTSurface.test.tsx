@@ -135,7 +135,7 @@ describe('mapPTWebToApp', () => {
     ['/pt/groups', '/pt/app/groups'],
     ['/pt/groups/new', '/pt/app/groups/new'],
     ['/pt/groups/abc-123', '/pt/app/groups/abc-123'],
-    ['/pt/calendar/appuntamenti', '/pt/app/calendar'],
+    ['/pt/calendar/appuntamenti', '/pt/app/calendar?view=appuntamenti'],
     ['/pt/messages', '/pt/app/chat'],
     ['/pt/exercises', '/pt/app/exercises'],
     ['/pt/coupons', '/pt/app/coupons'],

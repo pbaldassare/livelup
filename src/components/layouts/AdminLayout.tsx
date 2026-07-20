@@ -20,6 +20,7 @@ import {
   Layers,
   ShieldCheck,
   UsersRound,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -92,6 +93,11 @@ const navigationItems = [
     label: 'Corsi', 
     href: '/admin/courses', 
     icon: LayoutDashboard 
+  },
+  { 
+    label: 'Blog & Q&A', 
+    href: '/admin/blog', 
+    icon: BookOpen 
   },
   { 
     label: 'Supporto', 

@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatList } from '@/components/app/ChatList';
 import { ChatMessages } from '@/components/app/ChatMessages';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from '@/lib/api/messages';
+import { uploadChatAttachment } from '@/lib/api/chatAttachments';
 import { toast } from 'sonner';
 import { buildCoachFullName } from '@/lib/coachName';
+import { getAthleteChatGroups } from '@/lib/api/chatGroups';
 
 // =====================================================
 // ATLETA CHAT PAGE - Chat with PT
@@ -122,6 +127,13 @@ export function AtletaChatPage() {
     enabled: !!user?.id,
   });
 
+  // Gruppi chat creati dal Coach di cui l'atleta è membro
+  const { data: chatGroups } = useQuery({
+    queryKey: ['atleta-chat-groups', user?.id],
+    queryFn: () => getAthleteChatGroups(user!.id),
+    enabled: !!user?.id,
+  });
+
   // Get current chat from existing list
   const existingChat = chats?.find(c => c.recipientUserId === recipientId);
 
@@ -200,6 +212,8 @@ export function AtletaChatPage() {
             senderAvatar: profile?.avatar_url,
             createdAt: msg.created_at,
             isRead: msg.is_read,
+            attachmentUrl: msg.attachment_url,
+            attachmentType: msg.attachment_type,
           };
         })
       );
@@ -209,21 +223,30 @@ export function AtletaChatPage() {
     enabled: !!currentChat?.id,
   });
 
-  // Send message mutation
+  // Send message mutation (testo e/o allegato immagine/video)
   const sendMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, file }: { content: string; file?: File | null }) => {
       if (!currentChat?.id || !user?.id) throw new Error('Chat not found');
+      let attachmentUrl: string | undefined;
+      let attachmentType: string | undefined;
+      if (file) {
+        const uploaded = await uploadChatAttachment(file, user.id, currentChat.id);
+        attachmentUrl = uploaded.url;
+        attachmentType = uploaded.type;
+      }
       return sendMessage({
         chatId: currentChat.id,
         senderUserId: user.id,
         content,
+        attachmentUrl,
+        attachmentType,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', currentChat?.id] });
       queryClient.invalidateQueries({ queryKey: ['atleta-chats'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error.message);
     },
   });
@@ -261,8 +284,7 @@ export function AtletaChatPage() {
           messages={messages || []}
           currentUserId={user?.id || ''}
           onBack={() => navigate('/app/chat')}
-          onSend={(content) => sendMutation.mutate(content)}
-          onAttach={() => toast.info('Allegati in arrivo')}
+          onSend={(content, file) => sendMutation.mutateAsync({ content, file })}
           isLoading={messagesLoading || creatingChat}
         />
       </div>
@@ -271,13 +293,53 @@ export function AtletaChatPage() {
 
   // Show chat list
   return (
-    <div className="h-full min-h-0 bg-app-background">
-      <ChatList
-        chats={chats || []}
-        isLoading={chatsLoading}
-        basePath="/app/chat"
-        showTabs={true}
-      />
+    <div className="h-full min-h-0 flex flex-col bg-app-background">
+      {chatGroups && chatGroups.length > 0 && (
+        <div className="border-b border-app-border shrink-0">
+          <p className="px-4 pt-4 pb-1 text-xs font-semibold text-app-muted-foreground uppercase tracking-wide">
+            Gruppi
+          </p>
+          <div className="divide-y divide-app-border">
+            {chatGroups.map((g) => (
+              <Link
+                key={g.id}
+                to={`/app/chat/group/${g.id}`}
+                className="flex items-center gap-3 p-4 hover:bg-app-muted/50 transition-colors"
+              >
+                <Avatar className="h-12 w-12">
+                  <AvatarFallback className="bg-app-muted text-app-foreground">
+                    <Users className="h-5 w-5" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h3 className={cn('font-semibold text-app-foreground truncate', g.unread_count > 0 && 'font-bold')}>
+                      {g.name}
+                    </h3>
+                    {g.unread_count > 0 && (
+                      <span className="h-5 w-5 bg-app-accent text-app-accent-foreground text-xs font-bold rounded-full flex items-center justify-center shrink-0">
+                        {g.unread_count > 9 ? '9+' : g.unread_count}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-app-muted-foreground truncate">
+                    {g.last_message?.content ||
+                      (g.last_message?.attachment_type ? 'Allegato' : `${g.members_count} membri`)}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="flex-1 min-h-0">
+        <ChatList
+          chats={chats || []}
+          isLoading={chatsLoading}
+          basePath="/app/chat"
+          showTabs={true}
+        />
+      </div>
     </div>
   );
 }

@@ -2,13 +2,19 @@ import { useState, useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronLeft, Image, Send, Pin } from 'lucide-react';
+import { ChevronLeft, Paperclip, Send, Pin, X, Loader2, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { toast } from 'sonner';
+import {
+  detectChatAttachmentKind,
+  validateChatAttachment,
+  type ChatAttachmentKind,
+} from '@/lib/api/chatAttachments';
 
 // =====================================================
-// CHAT MESSAGES - Conversation view
+// CHAT MESSAGES - Conversation view (1:1 e gruppi)
 // Design reference: Ladder_iOS_126.png, Ladder_iOS_111.png
 // =====================================================
 
@@ -21,6 +27,8 @@ interface Message {
   createdAt: string;
   isRead: boolean;
   isPinned?: boolean;
+  attachmentUrl?: string | null;
+  attachmentType?: string | null;
   replyTo?: {
     senderName: string;
     content: string;
@@ -30,27 +38,37 @@ interface Message {
 interface ChatMessagesProps {
   recipientName: string;
   recipientAvatar?: string | null;
+  /** Sottotitolo opzionale sotto il nome (es. "4 membri" per i gruppi) */
+  subtitle?: string;
   messages: Message[];
   currentUserId: string;
   onBack: () => void;
-  onSend: (content: string) => void;
-  onAttach?: () => void;
+  /** Invia testo e/o un allegato (immagine/video). Deve restituire una Promise per gestire lo stato di invio. */
+  onSend: (content: string, file?: File | null) => Promise<unknown> | void;
   isLoading?: boolean;
   showPinnedButton?: boolean;
+  /** Azione extra nell'header (es. bottone "Gestisci" per i gruppi PT) */
+  headerAction?: React.ReactNode;
 }
 
 export function ChatMessages({
   recipientName,
   recipientAvatar,
+  subtitle,
   messages,
   currentUserId,
   onBack,
   onSend,
-  onAttach,
   isLoading,
   showPinnedButton,
+  headerAction,
 }: ChatMessagesProps) {
   const [inputValue, setInputValue] = useState('');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
+  const [pendingKind, setPendingKind] = useState<ChatAttachmentKind | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initials = recipientName.split(' ').map(n => n[0]).join('').slice(0, 2);
 
@@ -58,10 +76,50 @@ export function ChatMessages({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
-    onSend(inputValue.trim());
-    setInputValue('');
+  useEffect(() => {
+    return () => {
+      if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    };
+  }, [pendingPreviewUrl]);
+
+  const clearPendingFile = () => {
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    setPendingFile(null);
+    setPendingPreviewUrl(null);
+    setPendingKind(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const error = validateChatAttachment(file);
+    if (error) {
+      toast.error(error);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    setPendingFile(file);
+    setPendingPreviewUrl(URL.createObjectURL(file));
+    setPendingKind(detectChatAttachmentKind(file));
+  };
+
+  const handleSend = async () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed && !pendingFile) return;
+    setIsSubmitting(true);
+    try {
+      await onSend(trimmed, pendingFile);
+      setInputValue('');
+      clearPendingFile();
+    } catch {
+      // L'errore è già gestito/mostrato dal chiamante (toast su mutation onError)
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -91,7 +149,12 @@ export function ChatMessages({
           </AvatarFallback>
         </Avatar>
 
-        <h2 className="flex-1 font-semibold text-app-foreground">{recipientName}</h2>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-semibold text-app-foreground truncate">{recipientName}</h2>
+          {subtitle && (
+            <p className="text-xs text-app-muted-foreground truncate">{subtitle}</p>
+          )}
+        </div>
 
         {showPinnedButton && (
           <Button
@@ -103,6 +166,8 @@ export function ChatMessages({
             Coach Pins
           </Button>
         )}
+
+        {headerAction}
       </div>
 
       {/* Messages */}
@@ -128,25 +193,54 @@ export function ChatMessages({
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-app-border">
-        <div className="flex items-center gap-2">
-          {onAttach && (
+      <div className="p-4 border-t border-app-border space-y-2">
+        {pendingFile && (
+          <div className="flex items-center gap-2 bg-app-muted rounded-lg p-2">
+            {pendingKind === 'image' ? (
+              <img src={pendingPreviewUrl || undefined} alt="" className="h-12 w-12 rounded object-cover" />
+            ) : (
+              <div className="h-12 w-12 rounded bg-app-background flex items-center justify-center">
+                <Play className="h-5 w-5 text-app-muted-foreground" />
+              </div>
+            )}
+            <span className="flex-1 text-xs text-app-muted-foreground truncate">{pendingFile.name}</span>
             <Button
               variant="ghost"
               size="icon"
-              onClick={onAttach}
-              className="text-app-muted-foreground hover:bg-app-muted"
+              className="h-7 w-7 shrink-0 text-app-muted-foreground hover:bg-app-background"
+              onClick={clearPendingFile}
+              disabled={isSubmitting}
             >
-              <Image className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </Button>
-          )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSubmitting}
+            className="text-app-muted-foreground hover:bg-app-muted shrink-0"
+          >
+            <Paperclip className="h-5 w-5" />
+          </Button>
 
           <div className="flex-1 relative">
             <Input
-              placeholder="Type a Message..."
+              placeholder="Scrivi un messaggio..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
+              disabled={isSubmitting}
               className="bg-app-muted border-app-border text-app-foreground placeholder:text-app-muted-foreground pr-10 rounded-full"
             />
           </div>
@@ -154,10 +248,14 @@ export function ChatMessages({
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={!inputValue.trim()}
-            className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full"
+            disabled={isSubmitting || (!inputValue.trim() && !pendingFile)}
+            className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full shrink-0"
           >
-            <Send className="h-5 w-5" />
+            {isSubmitting ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
           </Button>
         </div>
       </div>
@@ -165,9 +263,29 @@ export function ChatMessages({
   );
 }
 
+function AttachmentPreview({ url, type }: { url: string; type: string | null | undefined }) {
+  if (type === 'video') {
+    return (
+      <video
+        src={url}
+        controls
+        className="rounded-lg max-w-full max-h-72 mb-1"
+      />
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt="Allegato"
+      className="rounded-lg max-w-full max-h-72 object-cover mb-1 cursor-pointer"
+      onClick={() => window.open(url, '_blank')}
+    />
+  );
+}
+
 function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean }) {
   const initials = message.senderName.split(' ').map(n => n[0]).join('').slice(0, 2);
-  const time = format(new Date(message.createdAt), 'h:mm a');
+  const time = format(new Date(message.createdAt), 'HH:mm', { locale: it });
 
   return (
     <div className={cn('flex gap-2', isOwn && 'flex-row-reverse')}>
@@ -198,13 +316,19 @@ function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean })
 
         <div
           className={cn(
-            'px-4 py-2.5 rounded-2xl',
+            'px-3 py-2 rounded-2xl',
+            message.attachmentUrl && !message.content && 'p-1.5',
             isOwn
               ? 'bg-purple-600 text-white rounded-br-md'
               : 'bg-app-muted text-app-foreground rounded-bl-md'
           )}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+          {message.attachmentUrl && (
+            <AttachmentPreview url={message.attachmentUrl} type={message.attachmentType} />
+          )}
+          {message.content && (
+            <p className="text-sm leading-relaxed whitespace-pre-wrap px-1">{message.content}</p>
+          )}
         </div>
 
         {isOwn && (

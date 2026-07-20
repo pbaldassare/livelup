@@ -77,6 +77,7 @@ export function mapPTWebToApp(pathname: string): string {
     const rest = pathname.replace('/pt/templates/', '');
     return `/pt/app/templates/${rest}`;
   }
+  if (pathname.startsWith('/pt/calendar/appuntamenti')) return '/pt/app/calendar?view=appuntamenti';
   if (pathname.startsWith('/pt/calendar')) return '/pt/app/calendar';
   if (pathname.startsWith('/pt/groups')) return pathname.replace('/pt/groups', '/pt/app/groups');
   if (pathname.startsWith('/pt/events')) return '/pt/app/calendar';

@@ -29,6 +29,7 @@ import {
 } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { GoogleCalendarConnectButton } from '@/components/pt/GoogleCalendarConnectButton';
 import type { CalendarMode, CalendarView, EventsPanel } from './types';
 
 interface CalendarShellProps {
@@ -44,6 +45,8 @@ interface CalendarShellProps {
   /** Solo mode eventi: Calendario vs Elenco */
   eventsPanel?: EventsPanel;
   onEventsPanelChange?: (p: EventsPanel) => void;
+  /** Extra content below the calendar (e.g. disponibilità) */
+  footer?: ReactNode;
   children: ReactNode;
 }
 
@@ -59,6 +62,7 @@ export function CalendarShell({
   newLabel,
   eventsPanel = 'calendar',
   onEventsPanelChange,
+  footer,
   children,
 }: CalendarShellProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -122,10 +126,13 @@ export function CalendarShell({
             </p>
           </div>
         </div>
-        <Button onClick={onNew} className="self-start md:self-auto">
-          <Plus className="h-4 w-4 mr-2" />
-          {newLabel}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {isAppuntamenti && <GoogleCalendarConnectButton />}
+          <Button onClick={onNew}>
+            <Plus className="h-4 w-4 mr-2" />
+            {newLabel}
+          </Button>
+        </div>
       </div>
 
       {/* Switch vista eventi o link ad appuntamenti */}
@@ -242,6 +249,8 @@ export function CalendarShell({
 
       {/* Vista corrente */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">{children}</div>
+
+      {footer}
     </div>
   );
 }

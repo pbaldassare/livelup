@@ -21,6 +21,7 @@ import { ListSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { supabase } from '@/integrations/supabase/client';
+import { completeWorkout as completeWorkoutApi } from '@/lib/api/workouts';
 import { toast } from '@/hooks/use-toast';
 import {
   Dumbbell,
@@ -236,14 +237,7 @@ export function AtletaEserciziPage() {
     if (!workout) return;
     setActionLoading('complete');
     try {
-      const { error } = await supabase
-        .from('workouts')
-        .update({
-          status: 'completato',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', workout.id);
-      if (error) throw error;
+      await completeWorkoutApi(workout.id, { recomputeFromLogs: true });
       try {
         if (storageKey) localStorage.removeItem(storageKey);
       } catch {
@@ -254,6 +248,7 @@ export function AtletaEserciziPage() {
         queryKey: ['atleta-esercizi-priority'],
       });
       await queryClient.invalidateQueries({ queryKey: ['atleta-programma-attivo'] });
+      await queryClient.invalidateQueries({ queryKey: ['workout-history'] });
     } catch (e: any) {
       toast({
         title: 'Errore',

@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { CreatePublicEventDialog } from '@/components/pt/CreatePublicEventDialog';
+import { PTAvailabilityManager } from '@/components/pt/PTAvailabilityManager';
+import { GoogleCalendarConnectButton } from '@/components/pt/GoogleCalendarConnectButton';
+import { syncAppointmentToGoogleCalendar } from '@/lib/api/googleCalendarSync';
 import { toast } from 'sonner';
 import { 
   Calendar as CalendarIcon, 
@@ -56,6 +59,8 @@ export function PTAppCalendarPage() {
         .update({ is_cancelled: true, cancelled_at: new Date().toISOString() })
         .eq('id', eventId);
       if (error) throw error;
+      // Best-effort: remove from Google Calendar if linked
+      void syncAppointmentToGoogleCalendar(eventId, 'delete');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
@@ -138,7 +143,8 @@ export function PTAppCalendarPage() {
       backTo="/pt/app"
       flush
       actions={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 justify-end">
+          <GoogleCalendarConnectButton variant="app" />
           {!appointmentsOnly && (
             <Button
               size="sm"
@@ -246,6 +252,10 @@ export function PTAppCalendarPage() {
             </CardContent>
           </Card>
         )}
+
+        <div className="pt-4">
+          <PTAvailabilityManager compact />
+        </div>
       </div>
       </div>
     </PTAppPageShell>

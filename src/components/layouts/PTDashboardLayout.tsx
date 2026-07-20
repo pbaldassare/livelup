@@ -47,7 +47,7 @@ const navigationItems = [
   { label: 'Messaggi', href: '/pt/messages', icon: MessageSquare },
   { label: 'Pagamenti', href: '/pt/payments', icon: CreditCard },
   { label: 'Coupon', href: '/pt/coupons', icon: Tag },
-  { label: 'Blog', href: '/pt/blog', icon: BookOpen },
+  { label: 'Blog & Q&A', href: '/pt/blog', icon: BookOpen },
   { label: 'Impostazioni', href: '/pt/settings', icon: Settings },
 ];
 

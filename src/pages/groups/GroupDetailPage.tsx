@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -38,9 +38,17 @@ interface GroupDetailPageProps {
 export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState('chat');
+  const tabFromUrl = searchParams.get('tab');
+  const [tab, setTab] = useState(tabFromUrl === 'members' ? 'members' : 'chat');
+
+  useEffect(() => {
+    if (tabFromUrl === 'members' || tabFromUrl === 'chat') {
+      setTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   const { data: group, isLoading } = useQuery({
     queryKey: ['group', groupId, user?.id],
@@ -48,11 +56,27 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
     enabled: !!groupId,
   });
 
-  const { data: members = [] } = useQuery({
+  const canViewMembers =
+    !!group &&
+    (group.is_member ||
+      (group.visibility === 'public' && group.status === 'active'));
+
+  const {
+    data: members = [],
+    isError: membersError,
+    isFetching: membersLoading,
+    refetch: refetchMembers,
+  } = useQuery({
     queryKey: ['group-members', groupId],
     queryFn: () => getGroupMembers(groupId!),
-    enabled: !!groupId && !!group?.is_member,
+    enabled: !!groupId && canViewMembers,
   });
+
+  useEffect(() => {
+    if (membersError) {
+      toast.error('Impossibile caricare i membri del gruppo. Riprova.');
+    }
+  }, [membersError]);
 
   const joinMutation = useMutation({
     mutationFn: () => joinGroup(groupId!),
@@ -60,6 +84,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
       toast.success('Sei entrato nel gruppo!');
       queryClient.invalidateQueries({ queryKey: ['group', groupId] });
       queryClient.invalidateQueries({ queryKey: ['my-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['group-members', groupId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -80,6 +105,11 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
     toast.success('Link copiato negli appunti');
   };
 
+  const onTabChange = (value: string) => {
+    setTab(value);
+    setSearchParams(value === 'chat' ? {} : { tab: value }, { replace: true });
+  };
+
   if (isLoading) {
     return (
       <div className="p-4">
@@ -98,6 +128,11 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
 
   const isAdmin = group.my_role === 'owner' || group.my_role === 'admin';
   const location = formatGroupLocation(group);
+  const publicMembersOnly = !group.is_member && canViewMembers;
+
+  // Non-members on public groups: default to members tab if chat unavailable
+  const effectiveTab =
+    !group.is_member && tab === 'chat' && canViewMembers ? 'members' : tab;
 
   return (
     <div className="min-h-screen bg-app-background pb-24">
@@ -161,10 +196,19 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
             <p className="text-sm text-app-muted-foreground">{group.description}</p>
           )}
 
-          <p className="text-xs text-app-muted-foreground flex items-center gap-1">
+          <button
+            type="button"
+            className="text-xs text-app-muted-foreground flex items-center gap-1 hover:text-app-accent transition-colors"
+            onClick={() => canViewMembers && onTabChange('members')}
+            disabled={!canViewMembers}
+          >
             <Users className="h-3 w-3" />
-            {group.members_count} membri
-          </p>
+            {group.members_count}{' '}
+            {group.members_count === 1 ? 'membro' : 'membri'}
+            {canViewMembers && (
+              <span className="text-app-accent ml-1">· Vedi lista</span>
+            )}
+          </button>
 
           <div className="flex flex-wrap gap-2 pt-1">
             {!group.is_member && (
@@ -206,7 +250,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
         </div>
 
         {group.is_member ? (
-          <Tabs value={tab} onValueChange={setTab}>
+          <Tabs value={effectiveTab} onValueChange={onTabChange}>
             <TabsList className="w-full grid grid-cols-2 bg-app-muted border border-app-border p-1">
               <TabsTrigger
                 value="chat"
@@ -224,24 +268,70 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="chat">
-              <GroupChatPanel
-                groupId={group.id}
-                userId={user!.id}
-                myRole={group.my_role}
-              />
+              {user?.id ? (
+                <GroupChatPanel
+                  groupId={group.id}
+                  userId={user.id}
+                  myRole={group.my_role}
+                />
+              ) : null}
             </TabsContent>
             <TabsContent value="members">
+              {membersError ? (
+                <div className="py-6 text-center space-y-2">
+                  <p className="text-sm text-app-muted-foreground">
+                    Impossibile caricare i membri del gruppo.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => refetchMembers()}>
+                    Riprova
+                  </Button>
+                </div>
+              ) : (
+                <GroupMembersPanel
+                  groupId={group.id}
+                  members={members}
+                  myRole={group.my_role}
+                  currentUserId={user?.id}
+                  isLoading={membersLoading}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
+        ) : canViewMembers ? (
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-app-foreground flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Membri
+            </h2>
+            {membersError ? (
+              <div className="py-6 text-center space-y-2">
+                <p className="text-sm text-app-muted-foreground">
+                  Impossibile caricare i membri del gruppo.
+                </p>
+                <Button variant="outline" size="sm" onClick={() => refetchMembers()}>
+                  Riprova
+                </Button>
+              </div>
+            ) : (
               <GroupMembersPanel
                 groupId={group.id}
                 members={members}
-                myRole={group.my_role}
-                currentUserId={user!.id}
+                myRole={null}
+                currentUserId={user?.id}
+                publicView
+                isLoading={membersLoading}
               />
-            </TabsContent>
-          </Tabs>
+            )}
+          </div>
         ) : (
           <p className="text-sm text-center text-app-muted-foreground py-6">
             Unisciti al gruppo per accedere alla chat e ai membri
+          </p>
+        )}
+
+        {publicMembersOnly && (
+          <p className="text-xs text-center text-app-muted-foreground">
+            La chat è riservata agli iscritti.
           </p>
         )}
       </div>

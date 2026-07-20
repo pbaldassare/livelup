@@ -203,13 +203,90 @@ export async function getPTCreatedWorkouts(ptUserId: string, atletaUserId?: stri
 }
 
 // =====================================================
-// COMPLETA WORKOUT
+// COMPLETA WORKOUT (+ riepilogo sessione per PT e atleta)
 // =====================================================
 
-export async function completeWorkout(workoutId: string, feedback?: {
-  notesAtleta?: string;
-  rating?: number;
-}) {
+export type WorkoutSessionSummary = {
+  durationSeconds?: number | null;
+  setsCompleted?: number | null;
+  repsTotal?: number | null;
+  volumeKg?: number | null;
+};
+
+/** Aggrega set/reps/volume dai workout_logs (fonte di verità). */
+export async function computeWorkoutSessionSummaryFromLogs(
+  workoutId: string,
+): Promise<Pick<WorkoutSessionSummary, 'setsCompleted' | 'repsTotal' | 'volumeKg'>> {
+  const { data: exercises, error: exErr } = await supabase
+    .from('workout_exercises')
+    .select('id')
+    .eq('workout_id', workoutId);
+  if (exErr) throw new Error(exErr.message);
+
+  const ids = (exercises || []).map((e) => e.id);
+  if (ids.length === 0) {
+    return { setsCompleted: 0, repsTotal: 0, volumeKg: 0 };
+  }
+
+  const { data: logs, error: logErr } = await supabase
+    .from('workout_logs')
+    .select('reps_completed, weight_used, is_completed')
+    .in('workout_exercise_id', ids)
+    .eq('is_completed', true);
+  if (logErr) throw new Error(logErr.message);
+
+  let setsCompleted = 0;
+  let repsTotal = 0;
+  let volumeKg = 0;
+  for (const log of logs || []) {
+    setsCompleted += 1;
+    const reps = log.reps_completed ?? 0;
+    const weight = Number(log.weight_used) || 0;
+    repsTotal += reps;
+    volumeKg += reps * weight;
+  }
+
+  return {
+    setsCompleted,
+    repsTotal,
+    volumeKg: Math.round(volumeKg * 10) / 10,
+  };
+}
+
+export async function completeWorkout(
+  workoutId: string,
+  feedback?: {
+    notesAtleta?: string;
+    rating?: number;
+    /** Timer client (secondi). */
+    durationSeconds?: number;
+    /** Se true (default), ricalcola set/reps/volume dai log. */
+    recomputeFromLogs?: boolean;
+    /** Override opzionali se non si vuole ricalcolare. */
+    setsCompleted?: number;
+    repsTotal?: number;
+    volumeKg?: number;
+  },
+) {
+  const recompute = feedback?.recomputeFromLogs !== false;
+  let setsCompleted = feedback?.setsCompleted ?? null;
+  let repsTotal = feedback?.repsTotal ?? null;
+  let volumeKg = feedback?.volumeKg ?? null;
+
+  if (recompute) {
+    try {
+      const fromLogs = await computeWorkoutSessionSummaryFromLogs(workoutId);
+      // Preferisci i log se presenti; altrimenti fallback UI (es. log falliti)
+      if ((fromLogs.setsCompleted ?? 0) > 0) {
+        setsCompleted = fromLogs.setsCompleted ?? null;
+        repsTotal = fromLogs.repsTotal ?? null;
+        volumeKg = fromLogs.volumeKg ?? null;
+      }
+    } catch (e) {
+      console.warn('[completeWorkout] compute summary from logs failed', e);
+    }
+  }
+
   const { data, error } = await supabase
     .from('workouts')
     .update({
@@ -217,7 +294,11 @@ export async function completeWorkout(workoutId: string, feedback?: {
       completed_at: new Date().toISOString(),
       notes_atleta: feedback?.notesAtleta,
       rating: feedback?.rating,
-    })
+      duration_seconds: feedback?.durationSeconds ?? null,
+      sets_completed: setsCompleted,
+      reps_total: repsTotal,
+      volume_kg: volumeKg,
+    } as any)
     .eq('id', workoutId)
     .in('status', ['attivo', 'in_corso', 'in_sospeso'])
     .select()

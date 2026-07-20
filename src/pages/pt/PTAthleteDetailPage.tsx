@@ -22,6 +22,8 @@ import {
 import { PTAthleteWorkoutRunner } from '@/components/pt/PTAthleteWorkoutRunner';
 import { AnagraficaEditor } from '@/components/pt/athlete-detail/AnagraficaEditor';
 import { AthletePtActiveToggle } from '@/components/pt/AthletePtActiveToggle';
+import { AthleteTrainingModalitySelect } from '@/components/pt/AthleteTrainingModalitySelect';
+import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
 import { PTNotesTab } from '@/components/pt/athlete-detail/PTNotesTab';
 import { DocumentsTab } from '@/components/pt/athlete-detail/DocumentsTab';
 import { ProgressTab } from '@/components/pt/athlete-detail/ProgressTab';
@@ -155,6 +157,8 @@ export function PTAthleteDetailPage() {
 
   const { connection, profile, atletaProfile } = athlete;
   const isPtActive = (connection as { is_pt_active?: boolean } | null)?.is_pt_active !== false;
+  const trainingModality = (connection as { training_modality?: string | null } | null)
+    ?.training_modality;
   const ptManagedStatus =
     connection?.status === 'active'
       ? isPtActive
@@ -209,6 +213,9 @@ export function PTAthleteDetailPage() {
                   {atletaProfile.level}
                 </Badge>
               )}
+              {connection?.status === 'active' && (
+                <TrainingModalityBadge modality={trainingModality} />
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -217,6 +224,14 @@ export function PTAthleteDetailPage() {
                 connectionId={connection.id}
                 atletaUserId={atletaId}
                 isPtActive={isPtActive}
+                ptUserId={user?.id}
+              />
+            )}
+            {connection?.status === 'active' && connection.id && atletaId && (
+              <AthleteTrainingModalitySelect
+                connectionId={connection.id}
+                atletaUserId={atletaId}
+                modality={trainingModality}
                 ptUserId={user?.id}
               />
             )}

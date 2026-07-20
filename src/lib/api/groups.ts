@@ -447,17 +447,40 @@ export async function leaveGroup(groupId: string, userId: string) {
 // =====================================================
 
 export async function getGroupMembers(groupId: string) {
+  // Niente embed FK (group_members.user_id → profiles non esiste come foreign key,
+  // entrambe referenziano solo auth.users): fetch separato + merge in JS, come nel
+  // resto della codebase (vedi src/lib/api/eventParticipants.ts).
   const { data, error } = await db()
     .from('group_members')
-    .select(
-      `id, group_id, user_id, role, status, joined_at,
-       profiles:user_id (first_name, last_name, avatar_url, email)`,
-    )
+    .select('id, group_id, user_id, role, status, joined_at')
     .eq('group_id', groupId)
     .eq('status', 'active')
     .order('joined_at', { ascending: true });
   if (error) throw new Error(error.message);
-  return data || [];
+
+  const members = data || [];
+  if (members.length === 0) return [];
+
+  const userIds = [...new Set(members.map((m: { user_id: string }) => m.user_id))];
+  const { data: profilesData, error: profilesError } = await db()
+    .from('profiles')
+    .select('user_id, first_name, last_name, avatar_url, email')
+    .in('user_id', userIds);
+
+  // Non bloccare la lista membri se i profili non sono leggibili (RLS/rete):
+  // meglio mostrare i membri con nome generico che una lista vuota.
+  if (profilesError) {
+    return members.map((m: Record<string, unknown>) => ({ ...m, profiles: null }));
+  }
+
+  const profileByUser = new Map(
+    (profilesData || []).map((p: { user_id: string }) => [p.user_id, p]),
+  );
+
+  return members.map((m: { user_id: string } & Record<string, unknown>) => ({
+    ...m,
+    profiles: profileByUser.get(m.user_id) || null,
+  }));
 }
 
 export async function setMemberRole(

@@ -6,7 +6,7 @@ export type GroupVisibility = 'public' | 'private';
 export type GroupStatus = 'active' | 'suspended' | 'pending_review';
 export type GroupMemberRole = 'owner' | 'admin' | 'member';
 export type GroupMemberStatus = 'active' | 'banned';
-export type GroupChannel = 'general' | 'announcements';
+export type GroupChannel = 'general' | 'announcements' | 'admins';
 
 export interface GroupRow {
   id: string;

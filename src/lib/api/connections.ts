@@ -4,12 +4,17 @@
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';
+import {
+  isTrainingModality,
+  type TrainingModality,
+} from '@/lib/trainingModality';
 
 export interface PtConnectionWithPtActive {
   id?: string;
   atleta_user_id: string;
   status?: string;
   is_pt_active?: boolean | null;
+  training_modality?: TrainingModality | null;
   created_at?: string;
   accepted_at?: string | null;
 }
@@ -37,6 +42,28 @@ export class PtActiveMigrationRequiredError extends Error {
   }
 }
 
+export const TRAINING_MODALITY_MIGRATION_HINT =
+  'Funzione non disponibile: applica su Lovable la migration 20260718190000_pt_athlete_training_modality.sql e attendi il deploy del backend.';
+
+function isMissingTrainingModalityColumn(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === '42703' || error.code === 'PGRST204') return true;
+  const msg = (error.message ?? '').toLowerCase();
+  return (
+    msg.includes('training_modality') &&
+    (msg.includes('does not exist') ||
+      msg.includes('schema cache') ||
+      msg.includes('could not find'))
+  );
+}
+
+export class TrainingModalityMigrationRequiredError extends Error {
+  constructor(message = TRAINING_MODALITY_MIGRATION_HINT) {
+    super(message);
+    this.name = 'TrainingModalityMigrationRequiredError';
+  }
+}
+
 /** Probe whether is_pt_active exists on pt_atleta_connections (migration applied). */
 export async function checkPtActiveColumnAvailable(): Promise<boolean> {
   const { error } = await supabase
@@ -61,7 +88,11 @@ export async function getPTConnectionsWithPtActive(
   },
 ): Promise<PtConnectionWithPtActive[]> {
   const status = options?.status;
-  const withPtActive =
+  const withAll =
+    options?.columns === 'list'
+      ? 'id, atleta_user_id, status, is_pt_active, training_modality, created_at, accepted_at'
+      : 'atleta_user_id, is_pt_active, training_modality';
+  const withoutModality =
     options?.columns === 'list'
       ? 'id, atleta_user_id, status, is_pt_active, created_at, accepted_at'
       : 'atleta_user_id, is_pt_active';
@@ -72,7 +103,7 @@ export async function getPTConnectionsWithPtActive(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = (supabase.from('pt_atleta_connections') as any)
-    .select(withPtActive)
+    .select(withAll)
     .eq('pt_user_id', ptUserId);
 
   if (status) query = query.eq('status', status);
@@ -84,7 +115,30 @@ export async function getPTConnectionsWithPtActive(
     return (data ?? []) as PtConnectionWithPtActive[];
   }
 
-  if (!isMissingPtActiveColumn(error)) {
+  // Prefer modality-aware select; fall back if column missing
+  if (isMissingTrainingModalityColumn(error) && !isMissingPtActiveColumn(error)) {
+    let modalityFallback = supabase
+      .from('pt_atleta_connections')
+      .select(withoutModality)
+      .eq('pt_user_id', ptUserId);
+    if (status) modalityFallback = modalityFallback.eq('status', status);
+    if (options?.orderByCreatedAt) {
+      modalityFallback = modalityFallback.order('created_at', { ascending: false });
+    }
+    const { data: midData, error: midError } = await modalityFallback;
+    if (midError) {
+      if (!isMissingPtActiveColumn(midError)) {
+        throw new Error('Errore nel recupero connessioni: ' + midError.message);
+      }
+    } else {
+      return (midData ?? []).map((row) => ({
+        ...row,
+        training_modality: 'mix' as TrainingModality,
+      })) as PtConnectionWithPtActive[];
+    }
+  }
+
+  if (!isMissingPtActiveColumn(error) && !isMissingTrainingModalityColumn(error)) {
     throw new Error('Errore nel recupero connessioni: ' + error.message);
   }
 
@@ -110,7 +164,8 @@ export async function getPTConnectionsWithPtActive(
   return (fallbackData ?? []).map((row) => ({
     ...(row as Record<string, unknown>),
     is_pt_active: true,
-  })) as unknown as PtConnectionWithPtActive[];
+    training_modality: 'mix' as TrainingModality,
+  })) as PtConnectionWithPtActive[];
 }
 
 // =====================================================
@@ -237,6 +292,38 @@ export async function setAthletePtActive(connectionId: string, isPtActive: boole
       throw new PtActiveMigrationRequiredError();
     }
     throw new Error('Errore durante l\'aggiornamento stato atleta: ' + error.message);
+  }
+
+  return data;
+}
+
+// =====================================================
+// MODALITÀ ALLENAMENTO (in presenza / online / mix)
+// =====================================================
+
+export async function setAthleteTrainingModality(
+  connectionId: string,
+  modality: TrainingModality,
+) {
+  if (!isTrainingModality(modality)) {
+    throw new Error('Modalità non valida');
+  }
+
+  const { data, error } = await (supabase.from('pt_atleta_connections') as any)
+    .update({
+      training_modality: modality,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', connectionId)
+    .eq('status', 'active')
+    .select()
+    .single();
+
+  if (error) {
+    if (isMissingTrainingModalityColumn(error)) {
+      throw new TrainingModalityMigrationRequiredError();
+    }
+    throw new Error('Errore durante l\'aggiornamento modalità: ' + error.message);
   }
 
   return data;
@@ -411,6 +498,21 @@ export interface RecallableAthlete {
   transferred_at: string | null;
 }
 
+export interface CededAthlete {
+  atleta_user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  email: string | null;
+  training_modality: TrainingModality | null;
+  fitness_level: string | null;
+  current_pt_user_id: string | null;
+  current_pt_first_name: string | null;
+  current_pt_last_name: string | null;
+  transferred_at: string | null;
+  is_recallable: boolean;
+}
+
 export interface PtAthleteTransferLog {
   id: string;
   atleta_user_id: string;
@@ -465,6 +567,82 @@ export async function transferAthleteToPt(params: {
   }
 
   return data as string;
+}
+
+export async function transferAthletesToPt(params: {
+  atletaUserIds: string[];
+  toPtUserId: string;
+  notes?: string;
+}): Promise<number> {
+  const ids = params.atletaUserIds.filter(Boolean);
+  if (ids.length === 0) {
+    throw new Error('Seleziona almeno un atleta');
+  }
+
+  const { data, error } = await (supabase.rpc as any)('transfer_athletes_to_pt', {
+    _atleta_user_ids: ids,
+    _to_pt_user_id: params.toPtUserId,
+    _notes: params.notes ?? null,
+  });
+
+  if (!error) {
+    return (data as number) ?? ids.length;
+  }
+
+  // Fallback: sequential single transfers if bulk RPC not deployed yet
+  const msg = (error.message ?? '').toLowerCase();
+  const missingRpc =
+    error.code === 'PGRST202' ||
+    msg.includes('transfer_athletes_to_pt') ||
+    msg.includes('could not find the function');
+
+  if (!missingRpc) {
+    throw new Error(error.message);
+  }
+
+  for (const atletaUserId of ids) {
+    await transferAthleteToPt({
+      atletaUserId,
+      toPtUserId: params.toPtUserId,
+      notes: params.notes,
+    });
+  }
+  return ids.length;
+}
+
+export async function getCededAthletes(): Promise<CededAthlete[]> {
+  const { data, error } = await (supabase.rpc as any)('get_ceded_athletes_for_pt');
+
+  if (!error) {
+    return (data ?? []) as CededAthlete[];
+  }
+
+  const msg = (error.message ?? '').toLowerCase();
+  const missingRpc =
+    error.code === 'PGRST202' ||
+    msg.includes('get_ceded_athletes_for_pt') ||
+    msg.includes('could not find the function');
+
+  if (!missingRpc) {
+    throw new Error('Errore recupero atleti ceduti: ' + error.message);
+  }
+
+  // Fallback from recallable list when RPC not yet applied
+  const recallable = await getRecallableAthletes();
+  return recallable.map((r) => ({
+    atleta_user_id: r.atleta_user_id,
+    first_name: r.first_name,
+    last_name: r.last_name,
+    avatar_url: r.avatar_url,
+    email: null,
+    training_modality: 'mix' as TrainingModality,
+    fitness_level: null,
+    current_pt_user_id: r.current_pt_user_id,
+    current_pt_first_name: r.current_pt_first_name,
+    current_pt_last_name: r.current_pt_last_name,
+    transferred_at: r.transferred_at,
+    is_recallable: true,
+  }));
 }
 
 export async function recallAthleteFromTransfer(params: {

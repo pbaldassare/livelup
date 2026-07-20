@@ -1,10 +1,10 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Users, Lock, Globe } from 'lucide-react';
 import type { GroupWithDetails } from '@/types/groups';
 import { OfficialBadge } from './OfficialBadge';
-import { formatGroupLocation, formatGroupLocationLine } from '@/lib/groups/location';
+import { formatGroupLocationLine } from '@/lib/groups/location';
 import { cn } from '@/lib/utils';
 
 interface GroupCardProps {
@@ -14,7 +14,9 @@ interface GroupCardProps {
 }
 
 export function GroupCard({ group, basePath, className }: GroupCardProps) {
+  const navigate = useNavigate();
   const locationLine = formatGroupLocationLine(group);
+  const canOpenMembers = group.is_member || group.visibility === 'public';
 
   return (
     <Link to={`${basePath}/${group.id}`}>
@@ -84,6 +86,19 @@ export function GroupCard({ group, basePath, className }: GroupCardProps) {
             {group.members_count} {group.members_count === 1 ? 'membro' : 'membri'}
             {group.is_member && (
               <span className="text-app-accent ml-1">· Iscritto</span>
+            )}
+            {canOpenMembers && (
+              <button
+                type="button"
+                className="text-app-accent ml-1 hover:underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate(`${basePath}/${group.id}?tab=members`);
+                }}
+              >
+                · Vedi
+              </button>
             )}
           </p>
         </CardContent>

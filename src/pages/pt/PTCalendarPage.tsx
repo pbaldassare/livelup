@@ -11,6 +11,7 @@ import { NewAppointmentDialog } from '@/components/pt/calendar/NewAppointmentDia
 import { EditEventDialog } from '@/components/pt/EditEventDialog';
 import { CreatePublicEventDialog } from '@/components/pt/CreatePublicEventDialog';
 import { EventsListPanel } from '@/components/pt/events/EventsListPanel';
+import { PTAvailabilityManager } from '@/components/pt/PTAvailabilityManager';
 import type {
   CalendarEventRow,
   CalendarView,
@@ -178,6 +179,13 @@ export function PTCalendarPage({ mode = 'eventi' }: PTCalendarPageProps = {}) {
         newLabel={isAppuntamenti ? 'Nuovo appuntamento' : 'Nuovo evento'}
         eventsPanel={isAppuntamenti ? undefined : eventsPanel}
         onEventsPanelChange={isAppuntamenti ? undefined : setEventsPanel}
+        footer={
+          isAppuntamenti ? (
+            <div className="pt-2">
+              <PTAvailabilityManager compact />
+            </div>
+          ) : undefined
+        }
       >
         {!isAppuntamenti && eventsPanel === 'list' ? (
           <EventsListPanel />

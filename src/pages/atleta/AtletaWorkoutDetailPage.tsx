@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { completeWorkout } from '@/lib/api/workouts';
 import { GuidedWorkoutFlow } from '@/components/app/GuidedWorkoutFlow';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
 import {
@@ -265,24 +266,25 @@ export function AtletaWorkoutDetailPage() {
     enabled: !!workout?.pt_user_id,
   });
 
-  // Complete workout mutation
+  // Complete workout mutation — salva anche riepilogo sessione (PT + atleta)
   const completeWorkoutMutation = useMutation({
     mutationFn: async () => {
       if (!workoutId) throw new Error('Workout ID mancante');
-      const { error } = await supabase
-        .from('workouts')
-        .update({
-          status: 'completato',
-          completed_at: new Date().toISOString(),
-          rating: workoutRating || null,
-          notes_atleta: workoutNotes || null,
-        })
-        .eq('id', workoutId);
-      if (error) throw error;
+      await completeWorkout(workoutId, {
+        rating: workoutRating || undefined,
+        notesAtleta: workoutNotes || undefined,
+        durationSeconds: elapsedTime,
+        // fallback UI se i log non sono ancora leggibili
+        setsCompleted: totalSetsCompleted,
+        repsTotal: totalReps,
+        volumeKg: totalVolume,
+        recomputeFromLogs: true,
+      });
     },
     onSuccess: () => {
       toast.success('Allenamento completato! 🎉');
       queryClient.invalidateQueries({ queryKey: ['atleta-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['workout-history'] });
       navigate('/app/workout');
     },
     onError: (error: any) => {

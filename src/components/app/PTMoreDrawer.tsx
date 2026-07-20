@@ -22,6 +22,10 @@ import {
   Users,
   UserPlus,
   ArrowRightLeft,
+  Search,
+  MapPin,
+  Monitor,
+  Combine,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -33,14 +37,18 @@ interface PTMoreDrawerProps {
 const SECTIONS: Array<{ label: string; href: string; icon: typeof Calendar; group: string }> = [
   { group: 'Rapide', label: 'Atleti', href: '/pt/app/athletes', icon: Users },
   { group: 'Rapide', label: 'Invita atleta', href: '/pt/app/athletes?invite=1', icon: UserPlus },
+  { group: 'Atleti per modalità', label: 'In presenza', href: '/pt/app/athletes?modality=in_presenza', icon: MapPin },
+  { group: 'Atleti per modalità', label: 'Online', href: '/pt/app/athletes?modality=online', icon: Monitor },
+  { group: 'Atleti per modalità', label: 'Mix', href: '/pt/app/athletes?modality=mix', icon: Combine },
   { group: 'Community', label: 'Gruppi', href: '/pt/app/groups', icon: UsersRound },
+  { group: 'Community', label: 'Cerca PT e professionisti', href: '/pt/app/cerca-professionisti', icon: Search },
   { group: 'Lavoro', label: 'Calendario', href: '/pt/app/calendar', icon: Calendar },
   { group: 'Lavoro', label: 'Esercizi', href: '/pt/app/exercises', icon: Library },
   { group: 'Lavoro', label: 'Template', href: '/pt/app/templates', icon: ClipboardList },
   { group: 'Lavoro', label: 'Assegna atleta', href: '/pt/app/athlete-transfer', icon: ArrowRightLeft },
   { group: 'Business', label: 'Coupons', href: '/pt/app/coupons', icon: Tag },
   { group: 'Business', label: 'Pagamenti', href: '/pt/app/payments', icon: CreditCard },
-  { group: 'Business', label: 'Blog', href: '/pt/app/blog', icon: BookOpen },
+  { group: 'Business', label: 'Blog & Q&A', href: '/pt/app/blog', icon: BookOpen },
   { group: 'Account', label: 'Profilo', href: '/pt/app/profile', icon: User },
   { group: 'Account', label: 'Impostazioni', href: '/pt/app/settings', icon: Settings },
 ];

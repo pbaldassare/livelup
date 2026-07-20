@@ -224,7 +224,10 @@ export interface Chat {
 
 export interface Message {
   id: string;
-  chat_id: string;
+  /** Null quando il messaggio appartiene a un gruppo chat PT (vedi `chat_group_id`) */
+  chat_id: string | null;
+  /** Non-null quando il messaggio appartiene a un gruppo chat PT-atleti */
+  chat_group_id?: string | null;
   sender_user_id: string;
   content: string | null;
   attachment_url: string | null;
@@ -254,6 +257,8 @@ export interface CalendarEvent {
   recurrence_rule: string | null;
   is_cancelled: boolean;
   cancelled_at: string | null;
+  /** Set when synced to Google Calendar via google-calendar-sync */
+  google_event_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -328,6 +333,101 @@ export interface Notification {
   read_at: string | null;
   action_url: string | null;
   created_at: string;
+}
+
+// =====================================================
+// BLOG & Q&A (colonne aggiunte a blog_posts, non ancora in types.ts)
+// =====================================================
+
+export type BlogPostType = 'article' | 'curiosity' | 'qa';
+export type BlogPostStatus = 'draft' | 'published' | 'hidden';
+export type BlogAuthorKind = 'pt' | 'nutrizionista' | 'fisioterapista' | 'admin';
+
+export interface BlogPost {
+  id: string;
+  /** Autore del contenuto (PT, admin, o utente collegato a professional_profiles). Nome colonna storico. */
+  pt_user_id: string;
+  professional_profile_id: string | null;
+  title: string;
+  content: string;
+  cover_image_url: string | null;
+  slug: string | null;
+  tags: string[] | null;
+  post_type: BlogPostType;
+  status: BlogPostStatus;
+  author_kind: BlogAuthorKind;
+  is_published: boolean | null;
+  published_at: string | null;
+  hidden_at: string | null;
+  hidden_by: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export const BLOG_POST_TYPE_LABELS: Record<BlogPostType, string> = {
+  article: 'Articolo',
+  curiosity: 'Curiosità',
+  qa: 'Q&A',
+};
+
+export const BLOG_POST_STATUS_LABELS: Record<BlogPostStatus, string> = {
+  draft: 'Bozza',
+  published: 'Pubblicato',
+  hidden: 'Nascosto',
+};
+
+export const BLOG_AUTHOR_KIND_LABELS: Record<BlogAuthorKind, string> = {
+  pt: 'Personal Trainer',
+  nutrizionista: 'Nutrizionista',
+  fisioterapista: 'Fisioterapista',
+  admin: 'Admin',
+};
+
+const BLOG_POST_TYPES: BlogPostType[] = ['article', 'curiosity', 'qa'];
+const BLOG_POST_STATUSES: BlogPostStatus[] = ['draft', 'published', 'hidden'];
+const BLOG_AUTHOR_KINDS: BlogAuthorKind[] = ['pt', 'nutrizionista', 'fisioterapista', 'admin'];
+
+/** Normalizza una riga blog_posts (anche pre-migration: solo is_published). */
+export function normalizeBlogPost(row: Record<string, unknown>): BlogPost {
+  const rawType = row.post_type as string | undefined;
+  const post_type: BlogPostType = BLOG_POST_TYPES.includes(rawType as BlogPostType)
+    ? (rawType as BlogPostType)
+    : 'article';
+
+  const rawStatus = row.status as string | undefined;
+  let status: BlogPostStatus;
+  if (BLOG_POST_STATUSES.includes(rawStatus as BlogPostStatus)) {
+    status = rawStatus as BlogPostStatus;
+  } else if (row.is_published === true) {
+    status = 'published';
+  } else {
+    status = 'draft';
+  }
+
+  const rawKind = row.author_kind as string | undefined;
+  const author_kind: BlogAuthorKind = BLOG_AUTHOR_KINDS.includes(rawKind as BlogAuthorKind)
+    ? (rawKind as BlogAuthorKind)
+    : 'pt';
+
+  return {
+    id: String(row.id ?? ''),
+    pt_user_id: String(row.pt_user_id ?? ''),
+    professional_profile_id: (row.professional_profile_id as string | null) ?? null,
+    title: String(row.title ?? ''),
+    content: String(row.content ?? ''),
+    cover_image_url: (row.cover_image_url as string | null) ?? null,
+    slug: (row.slug as string | null) ?? null,
+    tags: Array.isArray(row.tags) ? (row.tags as string[]) : null,
+    post_type,
+    status,
+    author_kind,
+    is_published: (row.is_published as boolean | null) ?? status === 'published',
+    published_at: (row.published_at as string | null) ?? null,
+    hidden_at: (row.hidden_at as string | null) ?? null,
+    hidden_by: (row.hidden_by as string | null) ?? null,
+    created_at: String(row.created_at ?? new Date(0).toISOString()),
+    updated_at: (row.updated_at as string | null) ?? null,
+  };
 }
 
 // =====================================================

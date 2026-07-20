@@ -23,13 +23,13 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { AthletePtActiveToggle } from '@/components/pt/AthletePtActiveToggle';
+import { InviteAtletaCTA } from '@/components/shared/InviteAtletaCTA';
 import {
   CalendarClock,
   ChevronRight,
   AlertTriangle,
   CheckCircle2,
   MapPin,
-  UserPlus,
   Users,
   Bell,
   Wallet,
@@ -103,13 +103,16 @@ export function PTAppHome() {
             >
               Atleti
             </h2>
-            <button
-              type="button"
-              onClick={() => navigate(routes.athletes)}
-              className="text-xs font-semibold text-app-accent flex items-center gap-0.5"
-            >
-              Vedi tutti <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+            <div className="flex items-center gap-3">
+              <InviteAtletaCTA refUserId={user?.id} variant="compact" />
+              <button
+                type="button"
+                onClick={() => navigate(routes.athletes)}
+                className="text-xs font-semibold text-app-accent flex items-center gap-0.5"
+              >
+                Vedi tutti <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           {isLoading ? (
@@ -119,20 +122,10 @@ export function PTAppHome() {
               ))}
             </div>
           ) : athletes.length === 0 ? (
-            <button
-              type="button"
-              onClick={() => navigate(routes.athletesInvite)}
-              className="w-full flex items-center gap-3 p-4 rounded-2xl border border-dashed border-app-border bg-app-card/50 text-left active:scale-[0.99] transition-transform"
-            >
-              <div className="h-10 w-10 rounded-xl bg-app-accent/15 flex items-center justify-center shrink-0">
-                <UserPlus className="h-5 w-5 text-app-accent" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold">Invita il tuo primo atleta</p>
-                <p className="text-xs text-app-muted-foreground">Genera un link di invito</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-app-muted-foreground shrink-0" />
-            </button>
+            <InviteAtletaCTA
+              refUserId={user?.id}
+              title="Invita il tuo primo atleta"
+            />
           ) : (
             <AthletesAccordion
               athletes={athletes.slice(0, 4)}

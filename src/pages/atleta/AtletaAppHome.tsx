@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AppHeader } from '@/components/app/AppHeader';
 import { CoachCard } from '@/components/app/CoachCard';
+import { InviteAtletaCTA } from '@/components/shared/InviteAtletaCTA';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -183,6 +184,15 @@ export function AtletaAppHome() {
                 onChat={() => navigate('/app/chat')}
                 onDiscover={() => navigate('/app/discover')}
                 hasCoach={!!connection}
+              />
+            )}
+
+            {/* Invita un atleta — link condivisibile per far scaricare l'app */}
+            {!hasPendingRequest && (
+              <InviteAtletaCTA
+                refUserId={isConnected ? connection?.pt_user_id : undefined}
+                subtitle="Condividi il link e invita un amico"
+                shareText="Allenati con me su LIVEL APP: scarica l'app e inizia il tuo percorso fitness!"
               />
             )}
 

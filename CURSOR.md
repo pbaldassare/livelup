@@ -545,4 +545,4 @@ bunx vitest run  # tests
 
 ---
 
-_Last updated: 2026-06-22_
+_Last updated: 2026-07-18 — see `CLAUDE.md` §15 Changelog for the latest entries (chat: multi-select broadcast, PT athlete groups, media attachments)._

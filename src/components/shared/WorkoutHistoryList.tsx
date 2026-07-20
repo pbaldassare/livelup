@@ -3,10 +3,17 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, Dumbbell, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Dumbbell, AlertTriangle, Timer, Star } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+
+function formatDuration(seconds: number | null | undefined): string | null {
+  if (seconds == null || seconds < 0) return null;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
 
 // =====================================================
 // REUSABLE WORKOUT HISTORY LIST
@@ -37,6 +44,12 @@ type Workout = {
   completed_at: string | null;
   created_at: string;
   athlete_reordered_at?: string | null;
+  duration_seconds?: number | null;
+  sets_completed?: number | null;
+  reps_total?: number | null;
+  volume_kg?: number | null;
+  rating?: number | null;
+  notes_atleta?: string | null;
   workout_exercises: WorkoutExercise[];
 };
 
@@ -230,6 +243,14 @@ function WorkoutRow({ workout, variant }: { workout: Workout; variant: 'pt' | 'a
                   )}
                 >
                   {dateLabel} · {workout.workout_exercises.length} esercizi
+                  {formatDuration(workout.duration_seconds) &&
+                    ` · ${formatDuration(workout.duration_seconds)}`}
+                  {workout.sets_completed != null && ` · ${workout.sets_completed} set`}
+                  {workout.reps_total != null && ` · ${workout.reps_total} reps`}
+                  {workout.volume_kg != null &&
+                    Number(workout.volume_kg) > 0 &&
+                    ` · ${Number(workout.volume_kg).toFixed(0)} kg`}
+                  {workout.rating != null && workout.rating > 0 && ` · ★${workout.rating}`}
                 </p>
                 {workout.athlete_reordered_at && (
                   <Badge
@@ -263,6 +284,48 @@ function WorkoutRow({ workout, variant }: { workout: Workout; variant: 'pt' | 'a
               isAtleta ? 'border-app-border' : '',
             )}
           >
+            {(workout.duration_seconds != null ||
+              workout.sets_completed != null ||
+              workout.notes_atleta) && (
+              <div
+                className={cn(
+                  'rounded-lg p-2.5 text-xs space-y-1.5',
+                  isAtleta ? 'bg-white/5' : 'bg-muted/50',
+                )}
+              >
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {formatDuration(workout.duration_seconds) && (
+                    <span className="inline-flex items-center gap-1">
+                      <Timer className="h-3 w-3" />
+                      {formatDuration(workout.duration_seconds)}
+                    </span>
+                  )}
+                  {workout.sets_completed != null && (
+                    <span>{workout.sets_completed} set</span>
+                  )}
+                  {workout.reps_total != null && <span>{workout.reps_total} reps</span>}
+                  {workout.volume_kg != null && Number(workout.volume_kg) > 0 && (
+                    <span>{Number(workout.volume_kg).toFixed(0)} kg volume</span>
+                  )}
+                  {workout.rating != null && workout.rating > 0 && (
+                    <span className="inline-flex items-center gap-0.5">
+                      <Star className="h-3 w-3 fill-current text-yellow-500" />
+                      {workout.rating}/5
+                    </span>
+                  )}
+                </div>
+                {workout.notes_atleta && (
+                  <p
+                    className={cn(
+                      'italic',
+                      isAtleta ? 'text-app-muted-foreground' : 'text-muted-foreground',
+                    )}
+                  >
+                    “{workout.notes_atleta}”
+                  </p>
+                )}
+              </div>
+            )}
             {workout.workout_exercises
               .sort((a, b) => a.order_index - b.order_index)
               .map((ex) => {
@@ -330,6 +393,7 @@ export function WorkoutHistoryList({
         .from('workouts')
         .select(
           `id, title, completed_at, created_at, athlete_reordered_at,
+          duration_seconds, sets_completed, reps_total, volume_kg, rating, notes_atleta,
           workout_exercises (
             id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,

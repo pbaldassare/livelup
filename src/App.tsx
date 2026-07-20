@@ -52,6 +52,7 @@ import AdminAuditCoherencePage from "./pages/admin/AdminAuditCoherencePage";
 import AdminPTReadinessPage from "./pages/admin/AdminPTReadinessPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminCoursesPage from "./pages/admin/AdminCoursesPage";
+import AdminBlogPage from "./pages/admin/AdminBlogPage";
 import AdminMessagesPage from "./pages/admin/AdminMessagesPage";
 import AdminSitemapPage from "./pages/admin/AdminSitemapPage";
 import AdminExercisesPage from "./pages/admin/AdminExercisesPage";
@@ -79,6 +80,7 @@ import PTAppAthletesPage from "./pages/pt/PTAppAthletesPage";
 import PTAppWorkoutsPage from "./pages/pt/PTAppWorkoutsPage";
 import PTAppChatPage from "./pages/pt/PTAppChatPage";
 import PTAppChatDetailPage from "./pages/pt/PTAppChatDetailPage";
+import PTAppChatGroupDetailPage from "./pages/pt/PTAppChatGroupDetailPage";
 import PTAppCalendarPage from "./pages/pt/PTAppCalendarPage";
 import PTAppProfilePage from "./pages/pt/PTAppProfilePage";
 import PTAppExercisesPage from "./pages/pt/PTAppExercisesPage";
@@ -88,6 +90,7 @@ import PTAppPaymentsPage from "./pages/pt/PTAppPaymentsPage";
 import PTAppBlogPage from "./pages/pt/PTAppBlogPage";
 import PTAppSettingsPage from "./pages/pt/PTAppSettingsPage";
 import PTAppAthleteTransferPage from "./pages/pt/PTAppAthleteTransferPage";
+import PTAppColleagueSearchPage from "./pages/pt/PTAppColleagueSearchPage";
 
 // Atleta App pages (Mobile/PWA)
 import AtletaAppHome from "./pages/atleta/AtletaAppHome";
@@ -99,6 +102,7 @@ import AtletaWorkoutDetailPage from "./pages/atleta/AtletaWorkoutDetailPage";
 import AtletaProgressPage from "./pages/atleta/AtletaProgressPage";
 import AtletaProfilePage from "./pages/atleta/AtletaProfilePage";
 import AtletaChatPage from "./pages/atleta/AtletaChatPage";
+import AtletaChatGroupDetailPage from "./pages/atleta/AtletaChatGroupDetailPage";
 import AtletaSubscriptionPage from "./pages/atleta/AtletaSubscriptionPage";
 import AtletaNotificationsPage from "./pages/atleta/AtletaNotificationsPage";
 import AtletaSettingsPage from "./pages/atleta/AtletaSettingsPage";
@@ -275,6 +279,13 @@ const App = () => {
                 <AdminRoute>
                   <AdminLayout>
                     <AdminCoursesPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/blog" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminBlogPage />
                   </AdminLayout>
                 </AdminRoute>
               } />
@@ -492,6 +503,13 @@ const App = () => {
                   </AppLayout>
                 </PTAppRoute>
               } />
+              <Route path="/pt/app/chat/group/:groupId" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppChatGroupDetailPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
               <Route path="/pt/app/chat/:atletaId" element={
                 <PTAppRoute>
                   <AppLayout>
@@ -563,6 +581,13 @@ const App = () => {
                   </AppLayout>
                 </PTAppRoute>
               } />
+              <Route path="/pt/app/cerca-professionisti" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppColleagueSearchPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
               {/* Athlete detail nella PWA — riusa la pagina web (responsive) */}
               <Route path="/pt/app/athlete/:atletaId" element={
                 <PTAppRoute>
@@ -625,7 +650,7 @@ const App = () => {
               } />
               <Route path="/pt/app/messages" element={<Navigate to="/pt/app/chat" replace />} />
               <Route path="/pt/app/calendar/eventi" element={<Navigate to="/pt/app/calendar" replace />} />
-              <Route path="/pt/app/calendar/appuntamenti" element={<Navigate to="/pt/app/calendar" replace />} />
+              <Route path="/pt/app/calendar/appuntamenti" element={<Navigate to="/pt/app/calendar?view=appuntamenti" replace />} />
 
 
               {/* ============================================= */}
@@ -714,6 +739,13 @@ const App = () => {
                 <AtletaRoute>
                   <AppLayout>
                     <AtletaChatPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/chat/group/:groupId" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaChatGroupDetailPage />
                   </AppLayout>
                 </AtletaRoute>
               } />

@@ -6,8 +6,9 @@ import { PageHeader } from '@/components/dashboard/PageHeader';
 import { PageLoader } from '@/components/common/PageLoader';
 import { ImageUpload } from '@/components/common/ImageUpload';
 import { MultiSelectSearch } from '@/components/common/MultiSelectSearch';
-import { PTAvailabilityManager } from '@/components/pt/PTAvailabilityManager';
 import { PTPackagesManager } from '@/components/pt/PTPackagesManager';
+import { Link } from 'react-router-dom';
+import { ptRoutes } from '@/lib/pt/routes';
 import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,8 +24,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { 
-  Settings, User, Globe, MapPin, Award, Euro, Eye, Save, Clock, Package,
-  Navigation, Loader2, CheckCircle2, Upload, FileText, Trash2, Plus, Lightbulb, X
+  Settings, User, Globe, MapPin, Award, Euro, Eye, Save, Package,
+  Navigation, Loader2, CheckCircle2, Upload, FileText, Trash2, Lightbulb, Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -368,9 +369,25 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
           <TabsTrigger value="profile" className="gap-2"><User className="h-4 w-4" />Profilo Pubblico</TabsTrigger>
           <TabsTrigger value="packages" className="gap-2"><Package className="h-4 w-4" />Pacchetti</TabsTrigger>
           <TabsTrigger value="pricing" className="gap-2"><Euro className="h-4 w-4" />Prezzi</TabsTrigger>
-          <TabsTrigger value="availability" className="gap-2"><Clock className="h-4 w-4" />Disponibilità</TabsTrigger>
           <TabsTrigger value="visibility" className="gap-2"><Eye className="h-4 w-4" />Visibilità</TabsTrigger>
         </TabsList>
+
+        <div className="rounded-lg border bg-muted/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <Calendar className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Disponibilità settimanale</p>
+              <p className="text-xs text-muted-foreground">
+                Gestisci orari e prenotazioni atleti nel Calendario Appuntamenti.
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link to={embedded ? ptRoutes.app.appointments : ptRoutes.web.appointments}>
+              Vai al Cal. Appuntamenti
+            </Link>
+          </Button>
+        </div>
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
@@ -627,9 +644,6 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Availability Tab */}
-        <TabsContent value="availability" className="space-y-6"><PTAvailabilityManager /></TabsContent>
 
         {/* Visibility Tab */}
         <TabsContent value="visibility" className="space-y-6">

@@ -260,6 +260,75 @@ export async function getPTAvailability(ptUserId: string) {
 }
 
 // =====================================================
+// RICERCA COLLEGHI (PT app — "Cerca PT e professionisti")
+// =====================================================
+
+export interface PTColleague {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  specializations: string[] | null;
+  location_city: string | null;
+  experience_years: number | null;
+  offers_online: boolean | null;
+  offers_in_person: boolean | null;
+  rating_avg: number | null;
+  review_count: number | null;
+}
+
+// pt_profiles non consente a un PT di leggere il profilo di un altro PT via
+// RLS diretta: la ricerca passa per la RPC SECURITY DEFINER dedicata.
+export async function searchPTColleagues(query?: string): Promise<PTColleague[]> {
+  const { data, error } = await supabase.rpc('search_pt_colleagues', {
+    _query: query?.trim() || null,
+  });
+
+  if (error) {
+    throw new Error('Errore ricerca colleghi: ' + error.message);
+  }
+
+  return (data ?? []) as PTColleague[];
+}
+
+export interface ProfessionalColleague {
+  id: string;
+  user_id: string;
+  profession_type: 'nutrizionista' | 'fisioterapista';
+  first_name: string;
+  last_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  specializations: string[] | null;
+  location_city: string | null;
+  experience_years: number | null;
+  offers_online: boolean | null;
+  offers_in_person: boolean | null;
+  rating_avg: number | null;
+  review_count: number | null;
+}
+
+// professional_profiles ha già una policy pubblica per le righe discoverable,
+// quindi qui basta una select diretta (nessuna RPC necessaria).
+export async function searchDiscoverableProfessionals(): Promise<ProfessionalColleague[]> {
+  const { data, error } = await supabase
+    .from('professional_profiles')
+    .select(
+      'id, user_id, profession_type, first_name, last_name, avatar_url, bio, specializations, location_city, experience_years, offers_online, offers_in_person, rating_avg, review_count'
+    )
+    .eq('is_discoverable', true)
+    .eq('status', 'attivo')
+    .order('rating_avg', { ascending: false });
+
+  if (error) {
+    throw new Error('Errore ricerca professionisti: ' + error.message);
+  }
+
+  return (data ?? []) as ProfessionalColleague[];
+}
+
+// =====================================================
 // OTTIENI SPECIALIZZAZIONI DISPONIBILI
 // =====================================================
 

@@ -423,7 +423,10 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | Data | Modifica |
 |---|---|
 | 2026-06-22 | Creazione `CLAUDE.md` — contesto iniziale allineato a `CURSOR.md` |
+| 2026-07-18 | Fix tab "Membri" gruppo vuoto: `getGroupMembers` non usa più embed PostgREST `profiles:user_id(...)` (nessun FK diretto group_members↔profiles) ma fetch separata + merge; nuove policy RLS su `profiles` per visibilità membri gruppo; UI mostra errore/retry invece di lista vuota silenziosa |
+| 2026-07-18 | Aggiunta CTA "Invita un atleta" su `PTAppHome` e `AtletaAppHome` (link condivisibile verso `/install`, con `?ref=<ptUserId>` propagato fino al signup per collegare automaticamente il nuovo atleta al PT); nuovi `src/lib/inviteLink.ts` e `src/components/shared/InviteAtletaCTA.tsx` |
+| 2026-07-18 | **Chat PT: invio multiplo, gruppi atleti, allegati media.** Migration `20260718170000_pt_chat_groups_and_attachments.sql` (nuove tabelle `pt_chat_groups`/`pt_chat_group_members`/`pt_chat_group_reads`; `messages.chat_id` ora nullable + nuova `messages.chat_group_id` con CHECK di esclusività; trigger `update_chat_last_message`/`create_message_notification` estesi; bucket storage privato `chat-attachments` con limiti 5MB immagini / 25MB video). Nuove API `src/lib/api/chatGroups.ts` e `src/lib/api/chatAttachments.ts` (queste ultime usano un cast `as any` sulle nuove tabelle finché `types.ts` non viene rigenerato da Lovable — non è un errore, è voluto). `ChatMessages.tsx` ora supporta allegati in tutte le chat (1:1 e gruppo, PT e atleta). `PTAppChatPage` ha modalità "Seleziona" per broadcast multi-atleta e tab "Gruppi" con creazione gruppo (`CreateChatGroupDialog`). Nuove pagine `PTAppChatGroupDetailPage` / `AtletaChatGroupDetailPage` e route `/pt/app/chat/group/:groupId` / `/app/chat/group/:groupId`. |
 
 ---
 
-_Ultimo aggiornamento: 2026-06-22_
+_Ultimo aggiornamento: 2026-07-18_

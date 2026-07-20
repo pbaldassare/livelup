@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Download, Share, Plus, Check, Smartphone, Monitor, ArrowLeft } from 'lucide-react';
+import { Download, Share, Plus, Check, Smartphone, Monitor, ArrowLeft, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Logo } from '@/components/common/Logo';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 type DeviceType = 'ios' | 'android' | 'desktop' | 'unknown';
@@ -55,10 +55,16 @@ const androidSteps = [
   },
 ];
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function InstallPage() {
   const [deviceType, setDeviceType] = useState<DeviceType>('unknown');
   const { isInstallable, isInstalled, install } = useInstallPrompt();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const rawRef = searchParams.get('ref');
+  const refPt = rawRef && UUID_RE.test(rawRef) ? rawRef : null;
 
   useEffect(() => {
     setDeviceType(getDeviceType());
@@ -70,6 +76,12 @@ export function InstallPage() {
 
   const handleGoBack = () => {
     navigate(-1);
+  };
+
+  const handleSignup = () => {
+    const params = new URLSearchParams({ mode: 'signup' });
+    if (refPt) params.set('ref', refPt);
+    navigate(`/auth?${params.toString()}`);
   };
 
   const steps = deviceType === 'ios' ? iosSteps : androidSteps;
@@ -100,6 +112,17 @@ export function InstallPage() {
             Aggiungi l'app alla tua schermata Home per un accesso rapido e un'esperienza migliore
           </p>
         </div>
+
+        {/* Crea account (propaga il referral PT se presente) */}
+        <Button
+          size="lg"
+          variant="outline"
+          className="w-full mb-6 h-12 gap-2"
+          onClick={handleSignup}
+        >
+          <UserPlus className="w-5 h-5" />
+          Crea il tuo account
+        </Button>
 
         {/* Already Installed */}
         {isInstalled && (

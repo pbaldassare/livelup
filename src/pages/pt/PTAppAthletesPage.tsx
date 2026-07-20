@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -14,6 +14,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { getPTConnectionsWithPtActive } from '@/lib/api/connections';
 import { AthleteSubscriptionsTab } from '@/components/pt/AthleteSubscriptionsTab';
 import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
+import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
+import {
+  TRAINING_MODALITIES,
+  TRAINING_MODALITY_LABELS,
+  isTrainingModality,
+  normalizeTrainingModality,
+  type TrainingModality,
+} from '@/lib/trainingModality';
 import { 
   Users, 
   Search, 
@@ -21,7 +29,6 @@ import {
   Dumbbell,
   ChevronRight,
   Clock,
-  CheckCircle2,
   UserPlus,
   UserRoundPlus,
   Package
@@ -40,6 +47,18 @@ export function PTAppAthletesPage() {
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
   const [addAthleteTab, setAddAthleteTab] = useState<'link' | 'create'>('link');
 
+  const modalityFilter = searchParams.get('modality');
+  const activeModality: TrainingModality | 'all' = isTrainingModality(modalityFilter)
+    ? modalityFilter
+    : 'all';
+
+  const setModalityFilter = (value: TrainingModality | 'all') => {
+    const next = new URLSearchParams(searchParams);
+    if (value === 'all') next.delete('modality');
+    else next.set('modality', value);
+    setSearchParams(next, { replace: true });
+  };
+
   useEffect(() => {
     if (searchParams.get('invite') !== '1') return;
     setAddAthleteTab('link');
@@ -49,6 +68,12 @@ export function PTAppAthletesPage() {
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al mount con ?invite=1
   }, []);
+
+  useEffect(() => {
+    if (isTrainingModality(searchParams.get('modality'))) {
+      setActiveTab('active');
+    }
+  }, [searchParams]);
 
   // Fetch connections
   const { data: connections, isLoading } = useQuery({
@@ -92,12 +117,17 @@ export function PTAppAthletesPage() {
     enabled: !!user?.id,
   });
 
-  // Filter by search
-  const filteredConnections = connections?.filter(conn => {
-    if (!searchQuery) return true;
-    const name = `${conn.profiles?.first_name || ''} ${conn.profiles?.last_name || ''}`.toLowerCase();
-    return name.includes(searchQuery.toLowerCase());
-  });
+  const filteredConnections = useMemo(() => {
+    if (!connections) return [];
+    return connections.filter((conn) => {
+      if (activeTab === 'active' && activeModality !== 'all') {
+        if (normalizeTrainingModality(conn.training_modality) !== activeModality) return false;
+      }
+      if (!searchQuery) return true;
+      const name = `${conn.profiles?.first_name || ''} ${conn.profiles?.last_name || ''}`.toLowerCase();
+      return name.includes(searchQuery.toLowerCase());
+    });
+  }, [connections, searchQuery, activeModality, activeTab]);
 
   const activeCount = connections?.length || 0;
 
@@ -142,6 +172,32 @@ export function PTAppAthletesPage() {
             className="pl-9"
           />
         </div>
+
+        {activeTab === 'active' && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={activeModality === 'all' ? 'default' : 'outline'}
+              className="h-8 text-xs"
+              onClick={() => setModalityFilter('all')}
+            >
+              Tutti
+            </Button>
+            {TRAINING_MODALITIES.map((m) => (
+              <Button
+                key={m}
+                type="button"
+                size="sm"
+                variant={activeModality === m ? 'default' : 'outline'}
+                className="h-8 text-xs"
+                onClick={() => setModalityFilter(m)}
+              >
+                {TRAINING_MODALITY_LABELS[m]}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -160,12 +216,12 @@ export function PTAppAthletesPage() {
             Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-20 w-full" />
             ))
-          ) : filteredConnections && filteredConnections.length > 0 ? (
+          ) : filteredConnections.length > 0 ? (
             filteredConnections.map((conn) => (
               <AthleteCard key={conn.id} connection={conn} type="active" />
             ))
           ) : (
-            <EmptyState type="active" />
+            <EmptyState type="active" modalityFilter={activeModality} />
           )}
         </TabsContent>
 
@@ -174,7 +230,7 @@ export function PTAppAthletesPage() {
             Array.from({ length: 2 }).map((_, i) => (
               <Skeleton key={i} className="h-20 w-full" />
             ))
-          ) : filteredConnections && filteredConnections.length > 0 ? (
+          ) : filteredConnections.length > 0 ? (
             filteredConnections.map((conn) => (
               <AthleteCard key={conn.id} connection={conn} type="pending" />
             ))
@@ -219,7 +275,7 @@ function AthleteCard({ connection, type }: { connection: any; type: 'active' | '
                 <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
               </div>
               
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {type === 'active' && (
                   <Badge
                     variant="outline"
@@ -232,6 +288,9 @@ function AthleteCard({ connection, type }: { connection: any; type: 'active' | '
                   >
                     {isPtActive ? 'Attivo' : 'Disattivo'}
                   </Badge>
+                )}
+                {type === 'active' && (
+                  <TrainingModalityBadge modality={connection.training_modality} />
                 )}
                 {connection.atleta_profiles?.fitness_level && (
                   <Badge variant="outline" className="text-xs capitalize">
@@ -270,16 +329,28 @@ function AthleteCard({ connection, type }: { connection: any; type: 'active' | '
   );
 }
 
-function EmptyState({ type }: { type: 'active' | 'pending' }) {
+function EmptyState({
+  type,
+  modalityFilter = 'all',
+}: {
+  type: 'active' | 'pending';
+  modalityFilter?: TrainingModality | 'all';
+}) {
   return (
     <Card className="border-dashed">
       <CardContent className="p-8 text-center">
         {type === 'active' ? (
           <>
             <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="font-semibold mb-2">Nessun atleta attivo</h3>
+            <h3 className="font-semibold mb-2">
+              {modalityFilter === 'all'
+                ? 'Nessun atleta attivo'
+                : `Nessun atleta ${TRAINING_MODALITY_LABELS[modalityFilter].toLowerCase()}`}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              I tuoi atleti collegati appariranno qui
+              {modalityFilter === 'all'
+                ? 'I tuoi atleti collegati appariranno qui'
+                : 'Prova un altro filtro modalità o cambia la categoria dell\'atleta dal dettaglio'}
             </p>
           </>
         ) : (

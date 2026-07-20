@@ -40,12 +40,24 @@ export function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const didRedirectRef = useRef(false);
+  const loginSafetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearLoginSafetyTimeout = () => {
+    if (loginSafetyTimeoutRef.current != null) {
+      clearTimeout(loginSafetyTimeoutRef.current);
+      loginSafetyTimeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => () => clearLoginSafetyTimeout(), []);
 
   // Redirect if already authenticated, handle referral connection
   useEffect(() => {
     if (didRedirectRef.current) return;
 
     if (isAuthenticated && role) {
+      clearLoginSafetyTimeout();
+      setIsLoading(false);
       // Process referral if present
       const storedRef = localStorage.getItem('livellapp_ref_pt');
       if (storedRef && role === 'atleta' && user) {
@@ -119,15 +131,17 @@ export function AuthPage() {
       });
     } else {
       toast.success('Accesso effettuato');
-      // Safety timeout: if redirect doesn't happen within 12s, unblock UI
-      const safetyTimeout = window.setTimeout(() => {
+      // Safety timeout: if redirect doesn't happen within 12s, unblock UI.
+      // Must use a ref + effect cleanup — returning a function from this
+      // handler does nothing (it is not a React effect).
+      clearLoginSafetyTimeout();
+      loginSafetyTimeoutRef.current = setTimeout(() => {
+        loginSafetyTimeoutRef.current = null;
         setIsLoading(false);
         toast.error('Accesso lento', {
           description: 'Il caricamento sta impiegando troppo. Riprova.',
         });
       }, 12000);
-      // Clear timeout if component unmounts (redirect happened)
-      return () => window.clearTimeout(safetyTimeout);
     }
   };
 

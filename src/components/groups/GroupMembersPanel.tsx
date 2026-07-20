@@ -29,7 +29,10 @@ interface GroupMembersPanelProps {
   groupId: string;
   members: Member[];
   myRole?: GroupMemberRole | null;
-  currentUserId: string;
+  currentUserId?: string | null;
+  /** Visitatori (non iscritti): niente email / azioni di gestione */
+  publicView?: boolean;
+  isLoading?: boolean;
 }
 
 function roleLabel(role: GroupMemberRole) {
@@ -49,9 +52,11 @@ export function GroupMembersPanel({
   members,
   myRole,
   currentUserId,
+  publicView = false,
+  isLoading = false,
 }: GroupMembersPanelProps) {
   const queryClient = useQueryClient();
-  const canManage = myRole === 'owner' || myRole === 'admin';
+  const canManage = !publicView && (myRole === 'owner' || myRole === 'admin');
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['group-members', groupId] });
@@ -77,12 +82,25 @@ export function GroupMembersPanel({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  if (members.length === 0) {
+    return (
+      <p className="text-sm text-center text-app-muted-foreground py-6">
+        {isLoading ? 'Caricamento membri…' : 'Nessun membro da mostrare'}
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-2">
+      {publicView && (
+        <p className="text-xs text-app-muted-foreground px-1 pb-1">
+          Lista membri del gruppo pubblico. Unisciti per chattare.
+        </p>
+      )}
       {members.map((m) => {
         const name =
           [m.profiles?.first_name, m.profiles?.last_name].filter(Boolean).join(' ') ||
-          m.profiles?.email ||
+          (!publicView ? m.profiles?.email : null) ||
           'Utente';
         const initials = name
           .split(' ')
@@ -90,7 +108,7 @@ export function GroupMembersPanel({
           .join('')
           .slice(0, 2);
         const RoleIcon = roleIcon(m.role);
-        const isSelf = m.user_id === currentUserId;
+        const isSelf = !!currentUserId && m.user_id === currentUserId;
         const isOwner = m.role === 'owner';
 
         return (
