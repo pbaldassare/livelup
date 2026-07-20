@@ -59,6 +59,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
   const canViewMembers =
     !!group &&
     (group.is_member ||
+      !!group.is_coach_access ||
       (group.visibility === 'public' && group.status === 'active'));
 
   const {
@@ -127,12 +128,13 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
   }
 
   const isAdmin = group.my_role === 'owner' || group.my_role === 'admin';
+  const canUseChat = !!group.is_member || !!group.is_coach_access;
   const location = formatGroupLocation(group);
-  const publicMembersOnly = !group.is_member && canViewMembers;
+  const publicMembersOnly = !canUseChat && canViewMembers;
 
   // Non-members on public groups: default to members tab if chat unavailable
   const effectiveTab =
-    !group.is_member && tab === 'chat' && canViewMembers ? 'members' : tab;
+    !canUseChat && tab === 'chat' && canViewMembers ? 'members' : tab;
 
   return (
     <div className="min-h-screen bg-app-background pb-24">
@@ -211,7 +213,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
           </button>
 
           <div className="flex flex-wrap gap-2 pt-1">
-            {!group.is_member && (
+            {!group.is_member && !group.is_coach_access && (
               <Button
                 className="bg-app-accent text-black"
                 onClick={() => joinMutation.mutate()}
@@ -249,7 +251,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
           </div>
         </div>
 
-        {group.is_member ? (
+        {canUseChat ? (
           <Tabs value={effectiveTab} onValueChange={onTabChange}>
             <TabsList className="w-full grid grid-cols-2 bg-app-muted border border-app-border p-1">
               <TabsTrigger

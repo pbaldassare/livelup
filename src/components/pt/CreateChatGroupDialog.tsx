@@ -33,8 +33,10 @@ interface CreateChatGroupDialogProps {
   onOpenChange: (open: boolean) => void;
   ptUserId: string;
   athletes: ConnectedAthleteOption[];
-  /** basePath del gruppo appena creato (es. /pt/app/chat/group) */
-  detailBasePath: string;
+  /** basePath del gruppo appena creato (es. /pt/app/chat/group). Opzionale se si passa onCreated. */
+  detailBasePath?: string;
+  /** Se presente, seleziona il gruppo in-page invece di navigare (es. dashboard web Messaggi). */
+  onCreated?: (groupId: string) => void;
 }
 
 export function CreateChatGroupDialog({
@@ -43,6 +45,7 @@ export function CreateChatGroupDialog({
   ptUserId,
   athletes,
   detailBasePath,
+  onCreated,
 }: CreateChatGroupDialogProps) {
   const [name, setName] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -66,7 +69,11 @@ export function CreateChatGroupDialog({
       queryClient.invalidateQueries({ queryKey: ['pt-chat-groups', ptUserId] });
       onOpenChange(false);
       resetForm();
-      navigate(`${detailBasePath}/${group.id}`);
+      if (onCreated) {
+        onCreated(group.id);
+      } else if (detailBasePath) {
+        navigate(`${detailBasePath}/${group.id}`);
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });

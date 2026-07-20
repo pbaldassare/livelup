@@ -66,6 +66,10 @@ export interface GroupWithDetails extends GroupRow {
   my_role?: GroupMemberRole | null;
   is_member?: boolean;
   distance_km?: number;
+  /** PT è owner o PT attivo del owner-atleta (accesso coach senza membership) */
+  is_coach_access?: boolean;
+  /** Nome display del creatore (per lista Messaggi PT) */
+  owner_name?: string | null;
 }
 
 export interface GroupSearchFilters {

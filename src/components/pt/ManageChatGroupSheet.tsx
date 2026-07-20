@@ -51,8 +51,10 @@ interface ManageChatGroupSheetProps {
   groupId: string;
   groupName: string;
   connectedAthletes: ConnectedAthleteOption[];
-  /** Rotta lista chat PT dopo aver eliminato il gruppo */
-  chatListPath: string;
+  /** Rotta lista chat PT dopo aver eliminato il gruppo (usata se onDeleted non è passato) */
+  chatListPath?: string;
+  /** Callback dopo eliminazione (es. deseleziona gruppo in dashboard web) */
+  onDeleted?: () => void;
 }
 
 export function ManageChatGroupSheet({
@@ -62,6 +64,7 @@ export function ManageChatGroupSheet({
   groupName,
   connectedAthletes,
   chatListPath,
+  onDeleted,
 }: ManageChatGroupSheetProps) {
   const [name, setName] = useState(groupName);
   const [addSelection, setAddSelection] = useState<string[]>([]);
@@ -123,7 +126,11 @@ export function ManageChatGroupSheet({
       toast.success('Gruppo eliminato');
       queryClient.invalidateQueries({ queryKey: ['pt-chat-groups'] });
       onOpenChange(false);
-      navigate(chatListPath);
+      if (onDeleted) {
+        onDeleted();
+      } else if (chatListPath) {
+        navigate(chatListPath);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });

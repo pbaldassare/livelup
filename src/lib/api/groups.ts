@@ -337,6 +337,32 @@ export async function getGroup(groupId: string, userId?: string): Promise<GroupW
   if (!data) return null;
   const [withDisc] = await attachDisciplines([data as GroupRow]);
   const [withMember] = await attachMyMembership([withDisc], userId);
+  if (!userId || !withMember) return withMember;
+
+  if (withMember.owner_user_id === userId) {
+    return {
+      ...withMember,
+      is_coach_access: true,
+      my_role: withMember.my_role ?? 'owner',
+    };
+  }
+
+  const { data: conn } = await supabase
+    .from('pt_atleta_connections')
+    .select('id')
+    .eq('pt_user_id', userId)
+    .eq('atleta_user_id', withMember.owner_user_id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (conn) {
+    return {
+      ...withMember,
+      is_coach_access: true,
+      my_role: withMember.my_role ?? 'admin',
+    };
+  }
+
   return withMember;
 }
 
@@ -359,6 +385,87 @@ export async function getMyGroups(userId: string): Promise<GroupWithDetails[]> {
 
   const withDisc = await attachDisciplines((data || []) as GroupRow[]);
   return attachMyMembership(withDisc, userId);
+}
+
+/**
+ * Gruppi community rilevanti per un PT:
+ * - creati dal PT stesso
+ * - creati da atleti con connessione attiva
+ * Non include gruppi pubblici casuali di terzi.
+ */
+export async function getPTRelevantCommunityGroups(
+  ptUserId: string,
+): Promise<GroupWithDetails[]> {
+  // Preferisci RPC (SECURITY DEFINER, scope esatto) se disponibile
+  const rpc = await db().rpc('get_pt_relevant_groups');
+  let rows: GroupRow[] = [];
+
+  if (!rpc.error && Array.isArray(rpc.data)) {
+    rows = rpc.data as GroupRow[];
+  } else {
+    const { data: connections, error: connErr } = await supabase
+      .from('pt_atleta_connections')
+      .select('atleta_user_id')
+      .eq('pt_user_id', ptUserId)
+      .eq('status', 'active');
+    if (connErr) throw new Error(connErr.message);
+
+    const athleteIds = (connections || []).map((c) => c.atleta_user_id);
+    const ownerIds = [ptUserId, ...athleteIds];
+
+    const { data, error } = await db()
+      .from('groups')
+      .select('*')
+      .in('owner_user_id', ownerIds)
+      .eq('status', 'active')
+      .order('updated_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    rows = (data || []) as GroupRow[];
+  }
+
+  const withDisc = await attachDisciplines(rows);
+  const withMember = await attachMyMembership(withDisc, ptUserId);
+
+  const ownerIds = [...new Set(withMember.map((g) => g.owner_user_id))];
+  const [{ data: profiles }, { data: connections }] = await Promise.all([
+    ownerIds.length
+      ? supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', ownerIds)
+      : Promise.resolve({
+          data: [] as {
+            user_id: string;
+            first_name: string | null;
+            last_name: string | null;
+          }[],
+        }),
+    supabase
+      .from('pt_atleta_connections')
+      .select('atleta_user_id')
+      .eq('pt_user_id', ptUserId)
+      .eq('status', 'active'),
+  ]);
+
+  const profileMap = new Map(
+    (profiles || []).map((p) => [
+      p.user_id,
+      `${p.first_name || ''} ${p.last_name || ''}`.trim() || null,
+    ]),
+  );
+  const athleteSet = new Set((connections || []).map((c) => c.atleta_user_id));
+
+  return withMember.map((g) => {
+    const coachAccess =
+      g.owner_user_id === ptUserId || athleteSet.has(g.owner_user_id);
+    return {
+      ...g,
+      is_coach_access: coachAccess,
+      // Se il PT non è membro ma ha accesso coach, UI tratta come admin
+      my_role: g.my_role ?? (coachAccess ? ('admin' as const) : null),
+      owner_name: profileMap.get(g.owner_user_id) ?? null,
+    };
+  });
 }
 
 export async function searchGroups(
