@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { promoteWaitlistIfSlot, registerForEvent } from '@/lib/api/eventParticipants';
+import { FollowStarButton } from '@/components/app/FollowStarButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -326,6 +327,7 @@ export function AtletaEventDetailPage() {
           <h1 className="text-lg font-bold text-app-foreground flex-1 truncate">
             {event.title}
           </h1>
+          <FollowStarButton targetType="event" targetId={event.id} />
           <Button variant="ghost" size="icon" onClick={handleShare} className="text-app-foreground">
             <Share2 className="h-5 w-5" />
           </Button>

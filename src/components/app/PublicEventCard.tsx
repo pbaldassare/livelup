@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { FollowStarButton } from '@/components/app/FollowStarButton';
 import { promoteWaitlistIfSlot, registerForEvent } from '@/lib/api/eventParticipants';
 import { toast } from 'sonner';
 import { 
@@ -152,10 +153,11 @@ export function PublicEventCard({ event, onRegistrationChange }: PublicEventProp
           <TypeIcon className="h-4 w-4" />
           <span className="text-sm font-medium">{event.event_type_name || typeConfig.label}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {event.is_closed_number && event.max_participants && (
-            <span className="text-xs opacity-80">{participantCount}/{event.max_participants}</span>
+            <span className="text-xs opacity-80 mr-1">{participantCount}/{event.max_participants}</span>
           )}
+          <FollowStarButton targetType="event" targetId={event.id} size="sm" />
           <ChevronRight className="h-4 w-4 opacity-70" />
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,7 +10,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { supabase } from '@/integrations/supabase/client';
-import { terminateConnection } from '@/lib/api/connections';
 import { toast } from 'sonner';
 import { 
   LogOut, 
@@ -19,7 +18,6 @@ import {
   Settings,
   HelpCircle,
   Edit,
-  Unlink,
   List,
   Award,
   Heart,
@@ -27,11 +25,11 @@ import {
   Download,
   Mail,
   Phone,
-  MapPin,
   Save,
   Ticket,
   FileText,
   GraduationCap,
+  Users,
 } from 'lucide-react';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
@@ -53,7 +51,7 @@ import { Palette } from 'lucide-react';
 export function AtletaProfilePage() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { status, connection, ptName, refetch } = useAtletaStatus();
+  const { status, connection, ptName } = useAtletaStatus();
   const queryClient = useQueryClient();
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [activeTab, setActiveTab] = useState('badges');
@@ -180,22 +178,6 @@ export function AtletaProfilePage() {
     'Streak': '🔥 Streak',
     'Social': '🤝 Social',
   };
-
-  // Terminate connection mutation
-  const terminateMutation = useMutation({
-    mutationFn: async () => {
-      if (!connection?.id) throw new Error('Nessuna connessione attiva');
-      return terminateConnection(connection.id);
-    },
-    onSuccess: () => {
-      toast.success('Connessione terminata');
-      refetch();
-      queryClient.invalidateQueries({ queryKey: ['atleta-connection'] });
-    },
-    onError: (error: any) => {
-      toast.error(error.message);
-    },
-  });
 
   const handleSignOut = async () => {
     await signOut();
@@ -447,6 +429,27 @@ export function AtletaProfilePage() {
         </div>
       </div>
 
+      {/* I miei Professionisti — apri il profilo PT per gestire la connessione */}
+      {status === 'collegato' && connection?.pt_user_id && (
+        <div className="px-4 mt-6">
+          <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">
+            I miei Professionisti
+          </h2>
+          <button
+            onClick={() => navigate(`/app/pt/${connection.pt_user_id}`)}
+            className="w-full flex items-center justify-between p-4 bg-app-muted rounded-xl hover:bg-app-muted/80 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Users className="h-5 w-5 text-app-muted-foreground" />
+              <span className="font-medium text-app-foreground">
+                {ptName || 'Professionista'}
+              </span>
+            </div>
+            <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+          </button>
+        </div>
+      )}
+
       {/* Settings menu */}
       <div className="px-4 mt-6 space-y-2">
         {menuItems.map((item) => (
@@ -462,49 +465,38 @@ export function AtletaProfilePage() {
             <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
           </button>
         ))}
-
-        {/* Terminate connection */}
-        {status === 'collegato' && connection && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button className="w-full flex items-center justify-between p-4 bg-app-muted rounded-xl hover:bg-app-muted/80 transition-colors">
-                <div className="flex items-center gap-3">
-                  <Unlink className="h-5 w-5 text-red-400" />
-                  <span className="font-medium text-red-400">Termina connessione PT</span>
-                </div>
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="bg-app-card border-app-border">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="text-app-foreground">Terminare la connessione?</AlertDialogTitle>
-                <AlertDialogDescription className="text-app-muted-foreground">
-                  Perderai accesso alle schede di allenamento e alla chat con {ptName}. 
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel className="bg-app-muted text-app-foreground border-app-border">Annulla</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => terminateMutation.mutate()}
-                  className="bg-red-500 text-white hover:bg-red-600"
-                >
-                  Termina
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
       </div>
 
       {/* Logout */}
       <div className="px-4 mt-6 mb-8">
-        <Button 
-          variant="outline" 
-          className="w-full bg-transparent border-app-border text-red-400 hover:bg-red-500/10 hover:text-red-400"
-          onClick={handleSignOut}
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Esci
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full bg-transparent border-app-border text-red-400 hover:bg-red-500/10 hover:text-red-400"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Esci
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent className="bg-app-card border-app-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-app-foreground">Vuoi uscire?</AlertDialogTitle>
+              <AlertDialogDescription className="text-app-muted-foreground">
+                Dovrai effettuare di nuovo l&apos;accesso per usare l&apos;app.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-app-muted text-app-foreground border-app-border">Annulla</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleSignOut}
+                className="bg-red-500 text-white hover:bg-red-600"
+              >
+                Esci
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       {/* Edit profile sheet */}

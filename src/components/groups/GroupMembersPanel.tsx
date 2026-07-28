@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { removeMember, setMemberRole } from '@/lib/api/groups';
 import type { GroupMemberRole } from '@/types/groups';
-import { Crown, MoreVertical, Shield, User } from 'lucide-react';
+import { Crown, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Member {
@@ -33,18 +33,6 @@ interface GroupMembersPanelProps {
   /** Visitatori (non iscritti): niente email / azioni di gestione */
   publicView?: boolean;
   isLoading?: boolean;
-}
-
-function roleLabel(role: GroupMemberRole) {
-  if (role === 'owner') return 'Proprietario';
-  if (role === 'admin') return 'Admin';
-  return 'Membro';
-}
-
-function roleIcon(role: GroupMemberRole) {
-  if (role === 'owner') return Crown;
-  if (role === 'admin') return Shield;
-  return User;
 }
 
 export function GroupMembersPanel({
@@ -107,9 +95,14 @@ export function GroupMembersPanel({
           .map((n) => n[0])
           .join('')
           .slice(0, 2);
-        const RoleIcon = roleIcon(m.role);
         const isSelf = !!currentUserId && m.user_id === currentUserId;
         const isOwner = m.role === 'owner';
+        // Owner: gestisce tutti (tranne sé/creatore). Admin: promuove/rimuove solo member.
+        const showManageMenu =
+          canManage &&
+          !isOwner &&
+          !isSelf &&
+          (myRole === 'owner' || m.role === 'member');
 
         return (
           <div
@@ -127,15 +120,17 @@ export function GroupMembersPanel({
                   <span className="text-app-muted-foreground font-normal"> (tu)</span>
                 )}
               </p>
-              <Badge
-                variant="outline"
-                className="text-[10px] gap-1 mt-0.5 border-app-border text-app-foreground"
-              >
-                <RoleIcon className="h-3 w-3" />
-                {roleLabel(m.role)}
-              </Badge>
+              {isOwner && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] gap-1 mt-0.5 border-app-border text-app-foreground"
+                >
+                  <Crown className="h-3 w-3" />
+                  Creatore
+                </Badge>
+              )}
             </div>
-            {canManage && !isOwner && !isSelf && (
+            {showManageMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="shrink-0">
@@ -143,7 +138,7 @@ export function GroupMembersPanel({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {m.role === 'member' && myRole === 'owner' && (
+                  {m.role === 'member' && (
                     <DropdownMenuItem
                       onClick={() =>
                         roleMutation.mutate({ userId: m.user_id, role: 'admin' })
@@ -161,12 +156,14 @@ export function GroupMembersPanel({
                       Rimuovi da admin
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => removeMutation.mutate(m.user_id)}
-                  >
-                    Rimuovi dal gruppo
-                  </DropdownMenuItem>
+                  {(myRole === 'owner' || m.role === 'member') && (
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => removeMutation.mutate(m.user_id)}
+                    >
+                      Rimuovi dal gruppo
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

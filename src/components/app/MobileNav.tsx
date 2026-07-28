@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { LucideIcon, Dumbbell, MessageSquare, Users, User, Zap, Home, Search, Calendar, TrendingUp, CalendarDays, CalendarClock, FileText } from 'lucide-react';
+import { LucideIcon, Dumbbell, MessageSquare, Users, User, Zap, Home, Search, Calendar, TrendingUp, CalendarDays, Sparkles, FileText } from 'lucide-react';
 
 
 // =====================================================
@@ -23,7 +23,7 @@ interface MobileNavProps {
 const atletaNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/app', tourId: 'nav-home' },
   { icon: CalendarDays, label: 'Programma', path: '/app/programma', tourId: 'nav-programma' },
-  { icon: CalendarClock, label: 'Appuntam.', path: '/app/appuntamenti', tourId: 'nav-appuntamenti' },
+  { icon: Sparkles, label: 'Attività', path: '/app/attivita', tourId: 'nav-attivita' },
   { icon: Search, label: 'Scopri', path: '/app/discover', tourId: 'nav-discover' },
   { icon: User, label: 'Profilo', path: '/app/profile', tourId: 'nav-profile' },
 ];

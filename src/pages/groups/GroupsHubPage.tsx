@@ -21,6 +21,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isPtApp = basePath.startsWith('/pt/app');
+  const isAtletaSurface = basePath.startsWith('/app');
   const [tab, setTab] = useState('mine');
   const [query, setQuery] = useState('');
   const [disciplineIds, setDisciplineIds] = useState<string[]>([]);
@@ -122,7 +123,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
             )}
             <div className="grid gap-3 sm:grid-cols-2">
               {myGroups.map((g) => (
-                <GroupCard key={g.id} group={g} basePath={basePath} />
+                <GroupCard key={g.id} group={g} basePath={basePath} showFollowStar={isAtletaSurface} />
               ))}
             </div>
           </TabsContent>
@@ -186,7 +187,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
             )}
             <div className="grid gap-3 sm:grid-cols-2">
               {discoverGroups.map((g) => (
-                <GroupCard key={g.id} group={g} basePath={basePath} />
+                <GroupCard key={g.id} group={g} basePath={basePath} showFollowStar={isAtletaSurface} />
               ))}
             </div>
           </TabsContent>

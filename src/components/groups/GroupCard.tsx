@@ -6,14 +6,17 @@ import type { GroupWithDetails } from '@/types/groups';
 import { OfficialBadge } from './OfficialBadge';
 import { formatGroupLocationLine } from '@/lib/groups/location';
 import { cn } from '@/lib/utils';
+import { FollowStarButton } from '@/components/app/FollowStarButton';
 
 interface GroupCardProps {
   group: GroupWithDetails;
   basePath: string;
   className?: string;
+  /** Mostra la stella "segui" (solo superficie atleta) */
+  showFollowStar?: boolean;
 }
 
-export function GroupCard({ group, basePath, className }: GroupCardProps) {
+export function GroupCard({ group, basePath, className, showFollowStar }: GroupCardProps) {
   const navigate = useNavigate();
   const locationLine = formatGroupLocationLine(group);
   const canOpenMembers = group.is_member || group.visibility === 'public';
@@ -50,6 +53,11 @@ export function GroupCard({ group, basePath, className }: GroupCardProps) {
               </Badge>
             )}
           </div>
+          {showFollowStar && (
+            <div className="absolute top-2 left-2 rounded-full bg-black/50 backdrop-blur">
+              <FollowStarButton targetType="group" targetId={group.id} size="sm" />
+            </div>
+          )}
         </div>
         <CardContent className="p-3 space-y-2">
           <h3 className="font-semibold text-app-foreground line-clamp-1">{group.name}</h3>

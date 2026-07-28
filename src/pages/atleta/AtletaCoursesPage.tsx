@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CourseProgressBar } from '@/components/app/CourseProgressBar';
+import { FollowStarButton } from '@/components/app/FollowStarButton';
 import { useAuth } from '@/hooks/useAuth';
 import {
   courseQueryKeys,
@@ -174,7 +175,10 @@ function CourseListCard({
           )}
 
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-app-foreground truncate">{course.title}</h3>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-app-foreground truncate">{course.title}</h3>
+              <FollowStarButton targetType="course" targetId={course.id} size="sm" className="shrink-0 -mt-1 -mr-1" />
+            </div>
             {course.pt_name ? (
               <p className="text-xs text-app-muted-foreground mt-0.5">con {course.pt_name}</p>
             ) : null}

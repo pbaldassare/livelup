@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { FollowStarButton } from '@/components/app/FollowStarButton';
 import {
   MapPin, 
   Star, 
@@ -63,7 +64,10 @@ export function ProfessionalCard({ professional }: ProfessionalCardProps) {
                   </h3>
                   <p className="text-xs text-app-accent">{professionLabel}</p>
                 </div>
-                <ChevronRight className="h-5 w-5 text-app-muted-foreground flex-shrink-0" />
+                <div className="flex items-center gap-1 shrink-0">
+                  <FollowStarButton targetType="professional" targetId={professional.id} size="sm" />
+                  <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+                </div>
               </div>
               
               {/* Rating & Reviews */}

@@ -6,14 +6,25 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { supabase } from '@/integrations/supabase/client';
-import { requestConnection } from '@/lib/api/connections';
+import { requestConnection, terminateConnection } from '@/lib/api/connections';
 import { PTPackagesSection } from '@/components/atleta/PTPackagesSection';
+import { FollowStarButton } from '@/components/app/FollowStarButton';
 import { toast } from 'sonner';
 import { buildCoachFullName, getCoachInitials } from '@/lib/coachName';
-import { MessageCircle } from 'lucide-react';
 import { 
   ArrowLeft,
   Star, 
@@ -24,10 +35,10 @@ import {
   Award,
   Clock,
   Calendar,
-  CheckCircle2,
   Send,
-  Heart,
-  Loader2
+  Loader2,
+  MessageCircle,
+  Unlink,
 } from 'lucide-react';
 
 // =====================================================
@@ -40,7 +51,7 @@ export function AtletaPTProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isConnected, hasPendingRequest, connection, refetch: refetchStatus } = useAtletaStatus();
+  const { isConnected, refetch: refetchStatus } = useAtletaStatus();
   const queryClient = useQueryClient();
 
   // Fetch PT profile
@@ -177,9 +188,27 @@ export function AtletaPTProfilePage() {
     },
   });
 
+  const terminateMutation = useMutation({
+    mutationFn: async () => {
+      if (!existingRequest?.id || existingRequest.status !== 'active') {
+        throw new Error('Nessuna connessione attiva con questo PT');
+      }
+      return terminateConnection(existingRequest.id);
+    },
+    onSuccess: () => {
+      toast.success('Connessione terminata');
+      refetchStatus();
+      queryClient.invalidateQueries({ queryKey: ['atleta-connection'] });
+      queryClient.invalidateQueries({ queryKey: ['connection-request', user?.id, userId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const isPendingThisPT = existingRequest?.status === 'pending';
   const isConnectedToThisPT = existingRequest?.status === 'active';
-  const canRequest = user && !isConnected && !isPendingThisPT && !isConnectedToThisPT;
+  const ptDisplayName = buildCoachFullName(pt?.profiles?.first_name, pt?.profiles?.last_name);
 
   if (isLoading) {
     return (
@@ -205,13 +234,16 @@ export function AtletaPTProfilePage() {
   return (
     <div className="pb-24 bg-app-background min-h-screen">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-app-card border-b border-app-border p-4">
+      <div className="sticky top-0 z-40 bg-app-card border-b border-app-border p-4 flex items-center justify-between">
         <button 
           onClick={() => navigate(-1)}
           className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors"
         >
           <ArrowLeft className="h-5 w-5 text-app-foreground" />
         </button>
+        {!isConnectedToThisPT && userId && (
+          <FollowStarButton targetType="pt" targetId={userId} withLabel />
+        )}
       </div>
 
       {/* Profile header */}
@@ -413,15 +445,52 @@ export function AtletaPTProfilePage() {
 
       {/* Fixed CTA */}
       <div className="fixed bottom-20 left-0 right-0 p-4 bg-app-card border-t border-app-border safe-bottom">
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-lg mx-auto space-y-2">
           {isConnectedToThisPT ? (
-            <Button 
-              className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 font-semibold"
-              onClick={() => navigate(`/app/chat/${userId}`)}
-            >
-              <MessageCircle className="h-4 w-4 mr-2" />
-              Scrivi al tuo coach
-            </Button>
+            <>
+              <Button 
+                className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 font-semibold"
+                onClick={() => navigate(`/app/chat/${userId}`)}
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Scrivi al tuo coach
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent border-app-border text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                    disabled={terminateMutation.isPending}
+                  >
+                    <Unlink className="h-4 w-4 mr-2" />
+                    Termina connessione
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-app-card border-app-border">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-app-foreground">
+                      Terminare la connessione?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-app-muted-foreground">
+                      Perderai il collegamento con questo Personal Trainer
+                      {ptDisplayName ? ` (${ptDisplayName})` : ''} e l&apos;accesso a schede di
+                      allenamento e chat con lui.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="bg-app-muted text-app-foreground border-app-border">
+                      Annulla
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => terminateMutation.mutate()}
+                      className="bg-red-500 text-white hover:bg-red-600"
+                    >
+                      Termina
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           ) : isPendingThisPT ? (
             <Button className="w-full bg-app-muted text-app-muted-foreground" disabled>
               <Clock className="h-4 w-4 mr-2" />

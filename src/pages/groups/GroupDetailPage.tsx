@@ -30,6 +30,7 @@ import {
 import { toast } from 'sonner';
 import { ListSkeleton } from '@/components/skeletons';
 import { formatGroupLocation } from '@/lib/groups/location';
+import { FollowStarButton } from '@/components/app/FollowStarButton';
 
 interface GroupDetailPageProps {
   basePath: string;
@@ -41,6 +42,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const isAtletaSurface = basePath.startsWith('/app');
   const tabFromUrl = searchParams.get('tab');
   const [tab, setTab] = useState(tabFromUrl === 'members' ? 'members' : 'chat');
 
@@ -157,7 +159,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
       <div className="p-4 space-y-4 -mt-6 relative z-10">
         <div className="rounded-xl border border-app-border bg-app-card p-4 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold text-app-foreground">{group.name}</h1>
+            <h1 className="text-xl font-bold text-app-foreground flex-1 min-w-0">{group.name}</h1>
             {group.is_official && <OfficialBadge />}
             {group.visibility === 'private' ? (
               <Badge variant="secondary" className="gap-1">
@@ -167,6 +169,9 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
               <Badge variant="secondary" className="gap-1">
                 <Globe className="h-3 w-3" /> Pubblico
               </Badge>
+            )}
+            {isAtletaSurface && (
+              <FollowStarButton targetType="group" targetId={group.id} withLabel />
             )}
           </div>
 

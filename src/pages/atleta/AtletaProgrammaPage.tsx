@@ -36,10 +36,10 @@ export function AtletaProgrammaPage() {
 
   return (
     <div className="bg-app-background">
-      {/* CTA Appuntamenti */}
+      {/* CTA Appuntamenti (prenotazione sessioni 1-on-1 con il PT) */}
       <div className="px-4 pt-4">
         <button
-          onClick={() => navigate('/app/appuntamenti')}
+          onClick={() => navigate('/app/booking')}
           className="w-full flex items-center gap-3 rounded-xl border border-app-border bg-app-card hover:border-app-accent/40 transition-colors p-3 text-left"
         >
           <div className="h-10 w-10 rounded-lg bg-app-accent/10 flex items-center justify-center shrink-0">

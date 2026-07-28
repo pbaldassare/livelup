@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { FollowStarButton } from '@/components/app/FollowStarButton';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -63,7 +64,8 @@ export default function AtletaProfessionalProfilePage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-lg font-semibold text-app-foreground">Profilo {professionLabel}</h1>
+            <h1 className="text-lg font-semibold text-app-foreground flex-1">Profilo {professionLabel}</h1>
+            <FollowStarButton targetType="professional" targetId={professional.id} withLabel />
           </div>
         </div>
 

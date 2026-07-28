@@ -22,6 +22,7 @@ import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { PublicEventCard } from '@/components/app/PublicEventCard';
 import { ProfessionalsSection } from '@/components/app/ProfessionalsSection';
 import { EventsSection } from '@/components/app/EventsSection';
+import { FollowStarButton } from '@/components/app/FollowStarButton';
 import { 
   Search, 
   MapPin, 
@@ -291,9 +292,11 @@ function ConnectedAthleteEventsView() {
 interface PTSearchSectionProps {
   isConnected?: boolean;
   ptName?: string | null;
+  /** user_id del PT attualmente collegato — niente stella "segui" su di lui (la connessione basta) */
+  connectedPtUserId?: string | null;
 }
 
-function PTSearchSection({ isConnected = false, ptName }: PTSearchSectionProps) {
+function PTSearchSection({ isConnected = false, ptName, connectedPtUserId }: PTSearchSectionProps) {
   // Location state
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -789,7 +792,12 @@ function PTSearchSection({ isConnected = false, ptName }: PTSearchSectionProps) 
                                 <span className="italic text-app-muted-foreground">Profilo incompleto</span>
                               )}
                             </h3>
-                            <ChevronRight className="h-5 w-5 text-app-muted-foreground flex-shrink-0" />
+                            <div className="flex items-center gap-1 shrink-0">
+                              {pt.user_id !== connectedPtUserId && (
+                                <FollowStarButton targetType="pt" targetId={pt.user_id} size="sm" />
+                              )}
+                              <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
+                            </div>
                           </div>
                           
                           {/* Rating & Reviews */}
@@ -876,7 +884,7 @@ function PTSearchSection({ isConnected = false, ptName }: PTSearchSectionProps) 
 // =====================================================
 
 export function AtletaDiscoverPage() {
-  const { isConnected, ptName } = useAtletaStatus();
+  const { isConnected, ptName, connection } = useAtletaStatus();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const initialCategory =
@@ -950,7 +958,13 @@ export function AtletaDiscoverPage() {
 
       {/* Content based on active category */}
       <div className="p-4">
-        {activeCategory === 'pt' && <PTSearchSection isConnected={isConnected} ptName={ptName} />}
+        {activeCategory === 'pt' && (
+          <PTSearchSection
+            isConnected={isConnected}
+            ptName={ptName}
+            connectedPtUserId={connection?.pt_user_id ?? null}
+          />
+        )}
         {activeCategory === 'events' && <EventsSection isConnected={isConnected} />}
         {activeCategory === 'professionals' && <ProfessionalsSection />}
       </div>

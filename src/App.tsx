@@ -119,7 +119,7 @@ import AtletaSchedaPage from "./pages/atleta/AtletaSchedaPage";
 import AtletaProgrammaPage from "./pages/atleta/AtletaProgrammaPage";
 import AtletaEserciziPage from "./pages/atleta/AtletaEserciziPage";
 import AtletaCouponsPage from "./pages/atleta/AtletaCouponsPage";
-import AtletaAppuntamentiPage from "./pages/atleta/AtletaAppuntamentiPage";
+import AtletaAttivitaPage from "./pages/atleta/AtletaAttivitaPage";
 import AtletaDocumentsPage from "./pages/atleta/AtletaDocumentsPage";
 
 // Gruppi (condivisi atleta + PT)
@@ -834,13 +834,14 @@ const App = () => {
                   <AtletaBookingPage />
                 </AtletaRoute>
               } />
-              <Route path="/app/appuntamenti" element={
+              <Route path="/app/attivita" element={
                 <AtletaRoute>
                   <AppLayout>
-                    <AtletaAppuntamentiPage />
+                    <AtletaAttivitaPage />
                   </AppLayout>
                 </AtletaRoute>
               } />
+              <Route path="/app/appuntamenti" element={<Navigate to="/app/attivita" replace />} />
               <Route path="/app/coupons" element={
                 <AtletaRoute>
                   <AtletaCouponsPage />
