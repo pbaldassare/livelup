@@ -32,8 +32,10 @@ async function emergencyReset() {
 if (new URLSearchParams(window.location.search).has('reset')) {
   emergencyReset();
 } else {
+  void registerServiceWorker();
 
   const root = document.getElementById("root")!;
+
 
   try {
     createRoot(root).render(<App />);

@@ -20,7 +20,11 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
-      includeAssets: ["livellapp-icon.svg", "favicon.ico", "apple-touch-icon.png"],
+      // La registrazione avviene solo da src/lib/pwa/registerSW.ts (guardata
+      // per dev/iframe/preview/?sw=off): il plugin non deve iniettarne una sua.
+      injectRegister: null,
+      includeAssets: ["livellapp-icon.svg", "favicon.ico", "apple-touch-icon.png", "offline.html", "push-sw.js"],
+
       manifest: {
         name: "LIVEL APP - Piattaforma Fitness",
         short_name: "LIVEL",
