@@ -104,7 +104,7 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024, // 8 MiB (main bundle > 3 MiB)
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api/, /^\/functions\//],
         runtimeCaching: [

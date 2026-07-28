@@ -131,10 +131,10 @@ export async function getPTConnectionsWithPtActive(
         throw new Error('Errore nel recupero connessioni: ' + midError.message);
       }
     } else {
-      return (midData ?? []).map((row) => ({
+      return ((midData ?? []) as unknown as Array<Record<string, unknown>>).map((row) => ({
         ...row,
         training_modality: 'mix' as TrainingModality,
-      })) as PtConnectionWithPtActive[];
+      })) as unknown as PtConnectionWithPtActive[];
     }
   }
 
