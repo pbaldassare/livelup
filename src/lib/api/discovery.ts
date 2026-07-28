@@ -286,7 +286,11 @@ export async function searchPTColleagues(query?: string): Promise<PTColleague[]>
   });
 
   if (error) {
-    throw new Error('Errore ricerca colleghi: ' + error.message);
+    const err = new Error('Errore ricerca colleghi: ' + error.message) as Error & {
+      code?: string;
+    };
+    err.code = error.code;
+    throw err;
   }
 
   return (data ?? []) as PTColleague[];

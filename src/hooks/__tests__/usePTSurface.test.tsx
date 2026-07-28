@@ -142,6 +142,10 @@ describe('mapPTWebToApp', () => {
     ['/pt/payments', '/pt/app/payments'],
     ['/pt/blog', '/pt/app/blog'],
     ['/pt/settings', '/pt/app/settings'],
+    ['/pt/cerca-professionisti', '/pt/app/cerca-professionisti'],
+    ['/pt/athlete-transfer', '/pt/app/athlete-transfer'],
+    ['/pt/assistant', '/pt/app'],
+    ['/pt/courses', '/pt/app'],
   ])('maps %s → %s', (input, expected) => {
     expect(mapPTWebToApp(input)).toBe(expected);
   });
@@ -218,6 +222,7 @@ describe('Surface gate redirect (e2e-style)', () => {
       ['/pt/blog', '/pt/app/blog'],
       ['/pt/settings', '/pt/app/settings'],
       ['/pt/exercises', '/pt/app/exercises'],
+      ['/pt/cerca-professionisti', '/pt/app/cerca-professionisti'],
     ];
     for (const [from, to] of cases) {
       const { unmount } = renderAt(from);

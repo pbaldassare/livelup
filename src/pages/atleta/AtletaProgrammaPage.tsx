@@ -68,7 +68,7 @@ export function AtletaProgrammaPage() {
       <AtletaCalendarView />
 
       {/* Lista allenamenti Programma / Completati (come pagina Allenamenti) */}
-      <div className="px-4 pt-2 pb-4">
+      <div className="px-4 pt-0 pb-4">
         <AtletaWorkoutList />
       </div>
     </div>

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -8,12 +9,17 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, X, Dumbbell } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Pencil, Trash2, X, Dumbbell, Plus, Search, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import {
   ExerciseCatalog,
   useCatalogExercises,
   useDeleteExerciseCatalog,
   useRemoveExerciseFromCatalog,
+  useToggleCatalogItem,
 } from '@/hooks/useExerciseCatalogs';
 import { CreateCatalogDialog } from '@/components/pt/CreateCatalogDialog';
 
@@ -26,9 +32,52 @@ interface CatalogDetailDialogProps {
 export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDetailDialogProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const { data: rows = [], isLoading } = useCatalogExercises(open ? catalog?.id ?? null : null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addSearch, setAddSearch] = useState('');
+  const { user } = useAuth();
+
+  const catalogId = open ? catalog?.id ?? null : null;
+  const {
+    data: rows = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useCatalogExercises(catalogId);
   const removeItem = useRemoveExerciseFromCatalog();
   const deleteCatalog = useDeleteExerciseCatalog();
+  const toggleItem = useToggleCatalogItem();
+
+  const inCatalogIds = useMemo(
+    () => new Set(rows.map((r) => r.exerciseId)),
+    [rows],
+  );
+
+  const { data: allExercises = [], isLoading: loadingExercises } = useQuery({
+    queryKey: ['pt-exercises-for-catalog-add', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error: qErr } = await supabase
+        .from('exercises')
+        .select('id, name, category, image_url')
+        .order('name');
+      if (qErr) throw qErr;
+      return (data ?? []) as Array<{
+        id: string;
+        name: string;
+        category: string | null;
+        image_url: string | null;
+      }>;
+    },
+    enabled: !!user?.id && addOpen,
+  });
+
+  const addable = useMemo(() => {
+    const q = addSearch.trim().toLowerCase();
+    return allExercises
+      .filter((ex) => !inCatalogIds.has(ex.id))
+      .filter((ex) => !q || ex.name.toLowerCase().includes(q));
+  }, [allExercises, inCatalogIds, addSearch]);
 
   if (!catalog) return null;
 
@@ -40,6 +89,15 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
       },
     });
   };
+
+  const errorMessage =
+    error && typeof error === 'object' && 'message' in error
+      ? String((error as { message?: unknown }).message ?? '')
+      : '';
+  const missingItemsTable =
+    errorMessage.toLowerCase().includes('schema cache') ||
+    errorMessage.toLowerCase().includes('does not exist') ||
+    (error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === 'PGRST205');
 
   return (
     <>
@@ -59,9 +117,12 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
             <span className="text-sm text-muted-foreground">
               {rows.length} {rows.length === 1 ? 'esercizio' : 'esercizi'} nel catalogo
             </span>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" /> Aggiungi
+              </Button>
               <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-3.5 w-3.5 mr-1.5" /> Modifica
+                <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rinomina
               </Button>
               <Button
                 size="sm"
@@ -77,13 +138,31 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
           <div className="max-h-[360px] overflow-y-auto space-y-1.5 -mx-1 px-1">
             {isLoading ? (
               <p className="text-sm text-muted-foreground text-center py-6">Caricamento...</p>
+            ) : isError ? (
+              <div className="text-center py-8 text-muted-foreground space-y-2">
+                <p className="text-sm">
+                  {missingItemsTable
+                    ? 'Tabella cataloghi esercizi non ancora creata sul backend. Applica la migration exercise_catalog_items su Lovable Cloud.'
+                    : 'Impossibile caricare gli esercizi del catalogo.'}
+                </p>
+                {!missingItemsTable && (
+                  <Button size="sm" variant="outline" onClick={() => refetch()}>
+                    Riprova
+                  </Button>
+                )}
+              </div>
             ) : rows.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Dumbbell className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Nessun esercizio in questo catalogo.</p>
-                <p className="text-xs mt-1">
-                  Usa l'icona catalogo sulla riga di un esercizio nell'archivio per aggiungerlo.
-                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => setAddOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" /> Aggiungi esercizi
+                </Button>
               </div>
             ) : (
               rows.map((row) => (
@@ -118,7 +197,9 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
                     size="icon"
                     variant="ghost"
                     className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => removeItem.mutate({ catalogId: catalog.id, exerciseId: row.exerciseId })}
+                    onClick={() =>
+                      removeItem.mutate({ catalogId: catalog.id, exerciseId: row.exerciseId })
+                    }
                     disabled={removeItem.isPending}
                     title="Rimuovi dal catalogo"
                   >
@@ -133,13 +214,91 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
 
       <CreateCatalogDialog open={editOpen} onOpenChange={setEditOpen} editCatalog={catalog} />
 
+      <Dialog
+        open={addOpen}
+        onOpenChange={(o) => {
+          setAddOpen(o);
+          if (!o) setAddSearch('');
+        }}
+      >
+        <DialogContent className="max-w-md w-[calc(100%-2rem)]">
+          <DialogHeader>
+            <DialogTitle>Aggiungi esercizi</DialogTitle>
+            <DialogDescription>
+              Seleziona esercizi dall&apos;archivio da aggiungere a &quot;{catalog.name}&quot;.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={addSearch}
+              onChange={(e) => setAddSearch(e.target.value)}
+              placeholder="Cerca esercizio..."
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+
+          <div className="max-h-[320px] overflow-y-auto space-y-1 -mx-1 px-1">
+            {loadingExercises ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : addable.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                {allExercises.length === 0
+                  ? 'Nessun esercizio disponibile nell\'archivio.'
+                  : addSearch
+                    ? 'Nessun risultato per questa ricerca.'
+                    : 'Tutti gli esercizi sono già in questo catalogo.'}
+              </p>
+            ) : (
+              addable.map((ex) => (
+                <button
+                  key={ex.id}
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left hover:bg-muted/50 transition-colors disabled:opacity-50"
+                  disabled={toggleItem.isPending}
+                  onClick={() =>
+                    toggleItem.mutate(
+                      { exerciseId: ex.id, catalogId: catalog.id, checked: true },
+                      {
+                        onSuccess: () => {
+                          toast.success(`«${ex.name}» aggiunto al catalogo`);
+                        },
+                      },
+                    )
+                  }
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
+                    {ex.image_url ? (
+                      <img src={ex.image_url} alt={ex.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <Dumbbell className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{ex.name}</p>
+                    {ex.category && (
+                      <p className="text-[11px] text-muted-foreground truncate">{ex.category}</p>
+                    )}
+                  </div>
+                  <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminare questo catalogo?</AlertDialogTitle>
             <AlertDialogDescription>
-              Il catalogo "{catalog.name}" verrà eliminato definitivamente. Gli esercizi non verranno
-              cancellati: verrà rimossa solo l'associazione al catalogo.
+              Il catalogo &quot;{catalog.name}&quot; verrà eliminato definitivamente. Gli esercizi non
+              verranno cancellati: verrà rimossa solo l&apos;associazione al catalogo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

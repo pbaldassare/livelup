@@ -133,9 +133,14 @@ export function useDeleteExerciseCatalog() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pt-exercise-catalogs', user?.id] });
+      qc.invalidateQueries({ queryKey: ['pt-all-catalog-items'] });
       toast.success('Catalogo eliminato');
     },
     onError: (err: unknown) => {
+      if (isMissingTableError(err)) {
+        toast.error(MISSING_TABLE_MESSAGE);
+        return;
+      }
       const message = getErrorMessage(err);
       toast.error(message ? `Errore: ${message}` : 'Errore eliminazione catalogo');
     },
@@ -183,8 +188,13 @@ export function useRemoveExerciseFromCatalog() {
       qc.invalidateQueries({ queryKey: ['pt-catalog-exercises', params.catalogId] });
       qc.invalidateQueries({ queryKey: ['pt-exercise-catalog-items'] });
       qc.invalidateQueries({ queryKey: ['pt-all-catalog-items'] });
+      toast.success('Esercizio rimosso dal catalogo');
     },
     onError: (err: unknown) => {
+      if (isMissingTableError(err)) {
+        toast.error(MISSING_ITEMS_TABLE_MESSAGE);
+        return;
+      }
       const message = getErrorMessage(err);
       toast.error(message ? `Errore: ${message}` : 'Errore rimozione esercizio');
     },

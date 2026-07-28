@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { GuidedWorkoutFlow, type GWExercise } from '@/components/app/GuidedWorkoutFlow';
+import { type GWExercise } from '@/components/app/GuidedWorkoutFlow';
+import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
 import { Loader2, UserCheck, X } from 'lucide-react';
 import { completeWorkout } from '@/lib/api/workouts';
 
@@ -41,7 +42,7 @@ export function PTAthleteWorkoutRunner({
             id, exercise_id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
             prescribed_duration_seconds, rest_seconds, notes,
-            protocol_type, protocol_params, sets_data,
+            protocol_type, protocol_params, sets_data, phase,
             exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
           )
         `)
@@ -150,11 +151,9 @@ export function PTAthleteWorkoutRunner({
         </Button>
       </div>
       <div className="rounded-lg overflow-hidden border">
-        <GuidedWorkoutFlow
+        <PhasedGuidedWorkout
           workoutId={workout.id}
-          exercises={exercises}
-          initialExerciseIndex={startIdx}
-          initialSet={startSet}
+          exercises={exercises as any}
           initialCompletedSets={completedSets}
           ptOnBehalfMode
           templateKind={(workout as { template_kind?: string }).template_kind}

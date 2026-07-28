@@ -187,6 +187,7 @@ export function AssignWorkoutDialog({
           title,
           difficulty_level,
           template_kind,
+          template_role,
           estimated_duration,
           template_exercises (id)
         `)
@@ -195,14 +196,17 @@ export function AssignWorkoutDialog({
 
       if (error) throw error;
 
-      return (data || []).map((t: any) => ({
-        id: t.id,
-        title: t.title,
-        difficulty_level: t.difficulty_level,
-        template_kind: (t.template_kind ?? 'libera') as WorkoutTemplate['template_kind'],
-        estimated_duration: t.estimated_duration,
-        exerciseCount: t.template_exercises?.length || 0,
-      })) as WorkoutTemplate[];
+      // Solo schede principali (escludi template riscaldamento/defaticamento)
+      return (data || [])
+        .filter((t: any) => !t.template_role || t.template_role === 'main')
+        .map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          difficulty_level: t.difficulty_level,
+          template_kind: (t.template_kind ?? 'libera') as WorkoutTemplate['template_kind'],
+          estimated_duration: t.estimated_duration,
+          exerciseCount: t.template_exercises?.length || 0,
+        })) as WorkoutTemplate[];
     },
     enabled: !!user?.id && open,
   });
@@ -308,45 +312,36 @@ export function AssignWorkoutDialog({
         const template = templates.find((t) => t.id === selectedTemplateId);
         if (!template) throw new Error('Template non trovato');
 
-        const [{ data: templateExercises, error }, { data: templateBlocks, error: blocksErr }] = await Promise.all([
-          supabase
-            .from('template_exercises')
-            .select('*')
-            .eq('template_id', selectedTemplateId)
-            .order('order_index'),
-          supabase
-            .from('template_blocks')
-            .select('id, order_index, type, name, params')
-            .eq('template_id', selectedTemplateId)
-            .order('order_index'),
-        ]);
-        if (error) throw error;
-        if (blocksErr) throw blocksErr;
+        const { loadTemplateWithRoutinesForWorkoutCreate } = await import(
+          '@/lib/api/templateLoader'
+        );
+        const loaded = await loadTemplateWithRoutinesForWorkoutCreate(selectedTemplateId);
 
-        // Mappa block_id originale → tempId riusabile dall'API workouts
-        blocksPayload = (templateBlocks || []).map((b: any) => ({
-          tempId: b.id, // riuso l'id template come tempId — è solo un alias locale
-          orderIndex: b.order_index,
-          type: (b.type as any) || 'SET',
+        blocksPayload = loaded.blocks.map((b) => ({
+          tempId: b.tempId,
+          orderIndex: b.orderIndex,
+          type: b.type || 'SET',
           name: b.name ?? null,
           params: b.params ?? {},
+          phase: b.phase,
         }));
 
         title = template.title;
         templateId = selectedTemplateId;
-        exercisesPayload = (templateExercises || []).map((te: any) => ({
-          exerciseId: te.exercise_id,
-          orderIndex: te.order_index,
-          prescribedSets: te.sets,
-          prescribedRepsMin: te.reps_min,
-          prescribedRepsMax: te.reps_max,
-          prescribedDurationSeconds: te.prescribed_duration_seconds ?? null,
-          restSeconds: te.rest_seconds,
+        exercisesPayload = loaded.exercises.map((te) => ({
+          exerciseId: te.exerciseId,
+          orderIndex: te.orderIndex,
+          prescribedSets: te.prescribedSets,
+          prescribedRepsMin: te.prescribedRepsMin,
+          prescribedRepsMax: te.prescribedRepsMax,
+          prescribedDurationSeconds: te.prescribedDurationSeconds ?? null,
+          restSeconds: te.restSeconds,
           notes: te.notes,
-          setsData: te.sets_data ?? null,
-          protocolType: te.protocol_type ?? 'SET',
-          protocolParams: te.protocol_params ?? {},
-          blockTempId: te.block_id ?? undefined,
+          setsData: te.setsData ?? null,
+          protocolType: te.protocolType ?? 'SET',
+          protocolParams: te.protocolParams ?? {},
+          blockTempId: te.blockTempId,
+          phase: te.phase,
         }));
       } else {
         if (!customTitle) throw new Error('Inserisci un titolo');

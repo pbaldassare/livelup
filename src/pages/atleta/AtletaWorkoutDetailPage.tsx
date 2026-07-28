@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { completeWorkout } from '@/lib/api/workouts';
-import { GuidedWorkoutFlow } from '@/components/app/GuidedWorkoutFlow';
+import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
+import { isSummaryPhase } from '@/lib/pt/templateRoles';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
 import {
   AlertDialog,
@@ -149,13 +150,42 @@ export function AtletaWorkoutDetailPage() {
             id, exercise_id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
             prescribed_duration_seconds, rest_seconds, notes, block_id,
-            protocol_type, protocol_params,
+            protocol_type, protocol_params, phase,
             exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
           )
         `)
         .eq('id', workoutId)
         .single();
-      if (error) throw error;
+      if (error) {
+        // Fallback se colonna phase non ancora migrata
+        if (/phase|42703|PGRST204|schema cache/i.test(error.message)) {
+          const { data: legacy, error: legacyErr } = await supabase
+            .from('workouts')
+            .select(`
+              id, title, description, status, scheduled_date, notes_pt, pt_user_id,
+              template_kind, athlete_reordered_at,
+              workout_blocks (id, order_index, type, name, params),
+              workout_exercises (
+                id, exercise_id, order_index, prescribed_sets,
+                prescribed_reps_min, prescribed_reps_max, prescribed_weight,
+                prescribed_duration_seconds, rest_seconds, notes, block_id,
+                protocol_type, protocol_params,
+                exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
+              )
+            `)
+            .eq('id', workoutId)
+            .single();
+          if (legacyErr) throw legacyErr;
+          const sortedEx = legacy.workout_exercises?.sort(
+            (a: any, b: any) => a.order_index - b.order_index,
+          );
+          const sortedBl = (legacy.workout_blocks || []).sort(
+            (a: any, b: any) => a.order_index - b.order_index,
+          );
+          return { ...legacy, workout_exercises: sortedEx, workout_blocks: sortedBl };
+        }
+        throw error;
+      }
       const sortedExercises = data.workout_exercises?.sort(
         (a: any, b: any) => a.order_index - b.order_index
       );
@@ -211,15 +241,22 @@ export function AtletaWorkoutDetailPage() {
       let resumedReps = 0;
       let resumedSets = 0;
 
+      const mainIds = new Set(
+        wExercises
+          .filter((e: any) => isSummaryPhase(e.phase))
+          .map((e: any) => e.id as string),
+      );
       existingLogs.forEach((log) => {
         if (log.is_completed) {
           if (!restored[log.workout_exercise_id]) {
             restored[log.workout_exercise_id] = [];
           }
           restored[log.workout_exercise_id].push(log.set_number);
-          resumedSets++;
-          resumedReps += log.reps_completed || 0;
-          resumedVolume += (log.reps_completed || 0) * (Number(log.weight_used) || 0);
+          if (mainIds.has(log.workout_exercise_id)) {
+            resumedSets++;
+            resumedReps += log.reps_completed || 0;
+            resumedVolume += (log.reps_completed || 0) * (Number(log.weight_used) || 0);
+          }
         }
       });
       setCompletedSets(restored);
@@ -1227,11 +1264,9 @@ export function AtletaWorkoutDetailPage() {
       </div>
 
       <div className="flex-1">
-        <GuidedWorkoutFlow
+        <PhasedGuidedWorkout
           workoutId={workoutId!}
           exercises={exercises as any}
-          initialExerciseIndex={currentExerciseIndex}
-          initialSet={currentSet}
           initialCompletedSets={completedSets}
           onCompleted={() => setShowSummary(true)}
           templateKind={templateKind}

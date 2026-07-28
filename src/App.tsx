@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { LastAppPathTracker } from "@/components/pwa/LastAppPathTracker";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SplashScreen } from "@/components/common/SplashScreen";
 // InstallBanner is mounted inside AppLayout (PWA-only), not globally.
@@ -73,6 +74,8 @@ import PTSettingsPage from "./pages/pt/PTSettingsPage";
 import PTBlogPage from "./pages/pt/PTBlogPage";
 import PTCouponsPage from "./pages/pt/PTCouponsPage";
 import PTExercisesArchivePage from "./pages/pt/PTExercisesArchivePage";
+import PTColleagueSearchPage from "./pages/pt/PTColleagueSearchPage";
+import PTCoursesPage from "./pages/pt/PTCoursesPage";
 
 // PT App pages (Mobile/PWA)
 import PTAppHome from "./pages/pt/PTAppHome";
@@ -111,6 +114,7 @@ import AtletaEventDetailPage from "./pages/atleta/AtletaEventDetailPage";
 import AtletaProfessionalProfilePage from "./pages/atleta/AtletaProfessionalProfilePage";
 import AtletaBookingPage from "./pages/atleta/AtletaBookingPage";
 import AtletaCoursesPage from "./pages/atleta/AtletaCoursesPage";
+import AtletaCourseDetailPage from "./pages/atleta/AtletaCourseDetailPage";
 import AtletaSchedaPage from "./pages/atleta/AtletaSchedaPage";
 import AtletaProgrammaPage from "./pages/atleta/AtletaProgrammaPage";
 import AtletaEserciziPage from "./pages/atleta/AtletaEserciziPage";
@@ -177,6 +181,7 @@ const App = () => {
         
         <BrowserRouter>
           <AuthProvider>
+            <LastAppPathTracker />
             <TourProvider>
             <AppTour />
             <AppTourPrompt />
@@ -433,6 +438,20 @@ const App = () => {
                 <PTDashboardRoute>
                   <PTDashboardLayout>
                     <PTExercisesArchivePage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/courses" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTCoursesPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/cerca-professionisti" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTColleagueSearchPage />
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
@@ -800,6 +819,13 @@ const App = () => {
                 <AtletaRoute>
                   <AppLayout>
                     <AtletaCoursesPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/courses/:courseId" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaCourseDetailPage />
                   </AppLayout>
                 </AtletaRoute>
               } />

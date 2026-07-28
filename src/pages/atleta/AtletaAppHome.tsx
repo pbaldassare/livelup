@@ -187,10 +187,11 @@ export function AtletaAppHome() {
               />
             )}
 
-            {/* Invita un atleta — link condivisibile per far scaricare l'app */}
+            {/* Invita un amico — link condivisibile per far scaricare l'app */}
             {!hasPendingRequest && (
               <InviteAtletaCTA
                 refUserId={isConnected ? connection?.pt_user_id : undefined}
+                title="Invita un amico"
                 subtitle="Condividi il link e invita un amico"
                 shareText="Allenati con me su LIVEL APP: scarica l'app e inizia il tuo percorso fitness!"
               />

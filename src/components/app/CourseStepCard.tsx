@@ -1,0 +1,167 @@
+import { useState } from 'react';
+import { Check, ChevronDown, Dumbbell, Lock, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { CourseProgressBar } from '@/components/app/CourseProgressBar';
+import { cn } from '@/lib/utils';
+import type { PtCourseStep, PtCourseStepExercise, PtCourseStepProgress } from '@/lib/api/courses';
+import { toast } from 'sonner';
+
+interface CourseStepCardProps {
+  step: PtCourseStep;
+  stepNumber: number;
+  progress?: PtCourseStepProgress | null;
+  onComplete?: () => void;
+  isCompleting?: boolean;
+}
+
+export function CourseStepCard({
+  step,
+  stepNumber,
+  progress,
+  onComplete,
+  isCompleting,
+}: CourseStepCardProps) {
+  const [open, setOpen] = useState(false);
+  const status = progress?.status ?? 'locked';
+  const isLocked = status === 'locked';
+  const isCompleted = status === 'completed';
+  const progressPct = progress?.progress_pct ?? 0;
+  const exercises = [...(step.pt_course_step_exercises || [])].sort(
+    (a, b) => a.order_index - b.order_index,
+  );
+
+  return (
+    <Collapsible open={open && !isLocked} onOpenChange={(v) => !isLocked && setOpen(v)}>
+      <div
+        className={cn(
+          'rounded-xl border border-app-border bg-app-card overflow-hidden',
+          isLocked && 'opacity-70',
+        )}
+      >
+        <CollapsibleTrigger asChild disabled={isLocked}>
+          <button
+            type="button"
+            className={cn(
+              'w-full flex items-start gap-3 p-4 text-left',
+              !isLocked && 'hover:bg-app-muted/30 transition-colors',
+            )}
+          >
+            <div
+              className={cn(
+                'h-10 w-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold',
+                isCompleted && 'bg-app-accent text-app-accent-foreground',
+                isLocked && 'bg-app-muted text-app-muted-foreground',
+                !isCompleted && !isLocked && 'bg-app-accent/20 text-app-accent',
+              )}
+            >
+              {isLocked ? <Lock className="h-4 w-4" /> : isCompleted ? <Check className="h-5 w-5" /> : stepNumber}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs text-app-muted-foreground">Step {stepNumber}</p>
+                  <h3 className="font-semibold text-app-foreground truncate">{step.title}</h3>
+                  {step.description ? (
+                    <p className="text-sm text-app-muted-foreground line-clamp-2 mt-0.5">
+                      {step.description}
+                    </p>
+                  ) : null}
+                </div>
+                {!isLocked && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <CourseProgressBar value={progressPct} size={44} strokeWidth={4} />
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 text-app-muted-foreground transition-transform',
+                        open && 'rotate-180',
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </button>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <div className="px-4 pb-4 space-y-3 border-t border-app-border pt-3">
+            {exercises.length === 0 ? (
+              <p className="text-sm text-app-muted-foreground">Nessun esercizio in questo step.</p>
+            ) : (
+              <ul className="space-y-2">
+                {exercises.map((ex) => (
+                  <ExerciseRow key={ex.id} exercise={ex} />
+                ))}
+              </ul>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 border-app-border text-app-foreground"
+                onClick={() => toast.info('Prossimamente')}
+              >
+                <Dumbbell className="h-4 w-4 mr-2" />
+                WORKOUT
+              </Button>
+              {!isCompleted && (
+                <Button
+                  type="button"
+                  className="flex-1 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+                  disabled={isLocked || isCompleting || !onComplete}
+                  onClick={() => onComplete?.()}
+                >
+                  {isCompleting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-2" />
+                  )}
+                  Segna come completato
+                </Button>
+              )}
+            </div>
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
+
+function ExerciseRow({ exercise }: { exercise: PtCourseStepExercise }) {
+  const name = exercise.exercises?.name || 'Esercizio';
+  const meta = [
+    exercise.sets != null ? `${exercise.sets} serie` : null,
+    exercise.reps ? `${exercise.reps} rip` : null,
+    exercise.rest_seconds != null ? `${exercise.rest_seconds}s riposo` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  return (
+    <li className="flex items-center gap-3 rounded-lg bg-app-muted/40 px-3 py-2">
+      <div className="h-9 w-9 rounded-md bg-app-muted flex items-center justify-center shrink-0 overflow-hidden">
+        {exercise.exercises?.image_url ? (
+          <img
+            src={exercise.exercises.image_url}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <Dumbbell className="h-4 w-4 text-app-muted-foreground" />
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-app-foreground truncate">{name}</p>
+        {meta ? <p className="text-xs text-app-muted-foreground">{meta}</p> : null}
+        {exercise.notes ? (
+          <p className="text-xs text-app-muted-foreground line-clamp-1">{exercise.notes}</p>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+export default CourseStepCard;

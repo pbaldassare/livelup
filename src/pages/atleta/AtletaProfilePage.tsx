@@ -30,7 +30,8 @@ import {
   MapPin,
   Save,
   Ticket,
-  FileText
+  FileText,
+  GraduationCap,
 } from 'lucide-react';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
@@ -256,6 +257,7 @@ export function AtletaProfilePage() {
 
   const menuItems = [
     ...(showInstallOption ? [{ icon: Download, label: 'Installa App', href: '/install' }] : []),
+    { icon: GraduationCap, label: 'Corsi', href: '/app/courses' },
     { icon: Ticket, label: 'I miei Coupon', href: '/app/coupons' },
     { icon: FileText, label: 'Documenti & Scadenze', href: '/app/documenti' },
     { icon: Bell, label: 'Notifiche', href: '/app/notifications' },
@@ -383,7 +385,7 @@ export function AtletaProfilePage() {
           {/* Badges by category */}
           {Object.entries(badgesByCategory).map(([category, categoryBadges]) => (
             <div key={category} className="mb-6">
-              <h3 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">
+              <h3 className="text-sm font-semibold text-app-foreground/70 uppercase tracking-wider mb-3">
                 {categoryLabels[category] || category}
               </h3>
               <div className="grid grid-cols-4 gap-3">

@@ -42,12 +42,13 @@ import {
 } from 'lucide-react';
 import { ProgramsTab } from '@/components/pt/ProgramsTab';
 import { ProtocolsTab } from '@/components/pt/ProtocolsTab';
+import { WarmupCooldownTab } from '@/components/pt/WarmupCooldownTab';
 import { ImportTemplateDialog } from '@/components/pt/ImportTemplateDialog';
 import {
   ReviewImportedTemplateDialog,
   type ImportedTemplate,
 } from '@/components/pt/ReviewImportedTemplateDialog';
-import { Sliders, Upload } from 'lucide-react';
+import { Sliders, Upload, Flame } from 'lucide-react';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
 import {
   TEMPLATE_KINDS,
@@ -172,7 +173,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
 
   const tabFromUrl = searchParams.get('tab');
   useEffect(() => {
-    const allowed = ['templates', 'programs', 'assigned', 'exercises', 'protocols'];
+    const allowed = ['templates', 'programs', 'assigned', 'exercises', 'routines', 'protocols'];
     if (tabFromUrl && allowed.includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
@@ -202,7 +203,10 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as WorkoutTemplate[];
+      // Solo schede principali (riscaldamento/defaticamento hanno tab dedicata)
+      return (data as WorkoutTemplate[]).filter(
+        (t: any) => !t.template_role || t.template_role === 'main',
+      );
     },
     enabled: !!user?.id,
   });
@@ -252,6 +256,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
           estimated_duration: newTemplate.estimated_duration,
           muscle_groups: newTemplate.muscle_groups,
           template_kind: newTemplate.template_kind,
+          template_role: 'main',
           is_public: false,
         } as any)
         .select()
@@ -1019,6 +1024,10 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                 <BookOpen className="h-4 w-4" />
                 Esercizi ({exercises.length})
               </TabsTrigger>
+              <TabsTrigger value="routines" className="gap-2">
+                <Flame className="h-4 w-4" />
+                Riscald. / Defatic.
+              </TabsTrigger>
               <TabsTrigger value="protocols" className="gap-2">
                 <Sliders className="h-4 w-4" />
                 Protocolli
@@ -1235,6 +1244,9 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                     ))}
                 </div>
               )}
+            </TabsContent>
+            <TabsContent value="routines" className="mt-4">
+              <WarmupCooldownTab />
             </TabsContent>
             <TabsContent value="protocols" className="mt-4">
               <ProtocolsTab />

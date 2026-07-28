@@ -47,7 +47,12 @@ export function PTAppPageShell({
       navigate(backTo);
       return;
     }
-    navigate(-1);
+    // Prefer history when available; otherwise stay in the PT PWA shell
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/pt/app');
   };
 
   return (

@@ -1,226 +1,265 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { GraduationCap, Loader2, Target } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ExerciseVideoPlayer } from '@/components/app/ExerciseVideoPlayer';
-import { GraduationCap, Play, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CourseProgressBar } from '@/components/app/CourseProgressBar';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  courseQueryKeys,
+  enrollInCourse,
+  listPublishedCoursesForAthlete,
+  type AtletaCourseCard,
+  type CourseDifficulty,
+} from '@/lib/api/courses';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+const DIFFICULTY_LABELS: Record<CourseDifficulty, string> = {
+  beginner: 'Principiante',
+  intermediate: 'Intermedio',
+  advanced: 'Avanzato',
+};
 
 export function AtletaCoursesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [selectedCourse, setSelectedCourse] = useState<any>(null);
-  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [tab, setTab] = useState<'discover' | 'mine'>('discover');
+  const [enrollingId, setEnrollingId] = useState<string | null>(null);
 
-  const { data: courses = [], isLoading } = useQuery({
-    queryKey: ['atleta-courses'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('is_published', true)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: enrollments = [] } = useQuery({
-    queryKey: ['my-enrollments', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('course_enrollments')
-        .select('*')
-        .eq('user_id', user.id);
-      if (error) throw error;
-      return data;
-    },
+  const { data, isLoading } = useQuery({
+    queryKey: courseQueryKeys.atletaList(user?.id || ''),
+    queryFn: () => listPublishedCoursesForAthlete(user!.id),
     enabled: !!user?.id,
   });
 
-  const { data: sessions = [] } = useQuery({
-    queryKey: ['course-sessions-view', selectedCourse?.id],
-    queryFn: async () => {
-      if (!selectedCourse?.id) return [];
-      const { data, error } = await supabase
-        .from('course_sessions')
-        .select('*')
-        .eq('course_id', selectedCourse.id)
-        .order('order_index');
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!selectedCourse?.id,
-  });
-
   const enrollMutation = useMutation({
-    mutationFn: async (courseId: string) => {
-      if (!user?.id) throw new Error('Not auth');
-      const course = courses.find((c) => c.id === courseId);
-      if (course && !course.is_free) {
-        throw new Error('paid_not_available');
-      }
-      const { error } = await supabase.from('course_enrollments').insert({ course_id: courseId, user_id: user.id });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
+    mutationFn: (courseId: string) => enrollInCourse(courseId, user!.id),
+    onMutate: (courseId) => setEnrollingId(courseId),
+    onSuccess: (_enrollment, courseId) => {
+      queryClient.invalidateQueries({ queryKey: courseQueryKeys.atletaList(user!.id) });
       toast.success('Iscritto al corso!');
+      navigate(`/app/courses/${courseId}`);
     },
     onError: (err: Error) => {
-      if (err.message === 'paid_not_available') {
-        toast.info('I pagamenti online sono in arrivo. Contatta il tuo trainer per acquistare il corso.');
-      } else {
-        toast.error('Errore iscrizione');
-      }
+      toast.error(err.message || 'Errore iscrizione');
     },
+    onSettled: () => setEnrollingId(null),
   });
 
-  const getEnrollment = (courseId: string) => enrollments.find(e => e.course_id === courseId);
-
-  if (selectedCourse) {
-    const enrollment = getEnrollment(selectedCourse.id);
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => { setSelectedCourse(null); setSelectedSession(null); }}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-app-foreground">{selectedCourse.title}</h1>
-            <p className="text-sm text-app-muted-foreground">{sessions.length} sessioni · {selectedCourse.duration_minutes || '?'} min</p>
-          </div>
-        </div>
-
-        {enrollment && (
-          <Progress value={enrollment.progress_pct || 0} className="h-2" />
-        )}
-
-        {!enrollment && (
-          selectedCourse.is_free ? (
-            <Button className="w-full" onClick={() => enrollMutation.mutate(selectedCourse.id)}>
-              Inizia Corso Gratuito
-            </Button>
-          ) : (
-            <div className="space-y-2">
-              <Button className="w-full" disabled>
-                Pagamento in arrivo
-              </Button>
-              <p className="text-xs text-center text-app-muted-foreground">
-                L&apos;acquisto online dei corsi a pagamento sarà disponibile a breve.
-                Contatta il tuo trainer per informazioni.
-              </p>
-            </div>
-          )
-        )}
-
-        <div className="space-y-2">
-          {sessions.map((session, i) => (
-            <Card
-              key={session.id}
-              className="cursor-pointer hover:bg-app-muted/50 transition-colors"
-              onClick={() => enrollment && setSelectedSession(session)}
-            >
-              <CardContent className="flex items-center gap-3 py-3">
-                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-app-muted text-app-foreground font-bold">
-                  {i + 1}
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-app-foreground">{session.title}</h3>
-                  <p className="text-xs text-app-muted-foreground">{session.duration_minutes || '?'} min</p>
-                </div>
-                {session.video_url && <Play className="h-4 w-4 text-app-muted-foreground" />}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Session detail dialog */}
-        <Dialog open={!!selectedSession} onOpenChange={() => setSelectedSession(null)}>
-          <DialogContent className="max-w-lg w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{selectedSession?.title}</DialogTitle>
-            </DialogHeader>
-            {selectedSession?.video_url && (
-              <ExerciseVideoPlayer videoUrl={selectedSession.video_url} exerciseName={selectedSession.title} setNumber={1} totalSets={1} />
-            )}
-            {selectedSession?.content && (
-              <div className="prose prose-sm max-w-none whitespace-pre-wrap text-app-foreground mt-4">
-                {selectedSession.content}
-              </div>
-            )}
-            {selectedSession?.description && (
-              <p className="text-sm text-app-muted-foreground mt-2">{selectedSession.description}</p>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
+  const discover = data?.discover || [];
+  const enrolled = data?.enrolled || [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-4">
       <div className="flex items-center gap-3">
         <GraduationCap className="h-6 w-6 text-app-accent" />
         <div>
           <h1 className="text-xl font-bold text-app-foreground">Corsi</h1>
-          <p className="text-sm text-app-muted-foreground">Percorsi formativi per migliorare</p>
+          <p className="text-sm text-app-muted-foreground">Scopri percorsi e segui i tuoi progressi</p>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-app-muted-foreground" /></div>
-      ) : courses.length === 0 ? (
-        <Card className="bg-app-card border-app-border">
-          <CardContent className="text-center py-12">
-            <GraduationCap className="h-12 w-12 mx-auto text-app-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold text-app-foreground mb-2">Nessun corso disponibile</h3>
-            <p className="text-sm text-app-muted-foreground">I corsi appariranno qui quando saranno pubblicati</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {courses.map((course, i) => {
-            const enrollment = getEnrollment(course.id);
-            return (
-              <motion.div key={course.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                <Card
-                  className="bg-app-card border-app-border cursor-pointer hover:bg-app-muted/30 transition-colors"
-                  onClick={() => setSelectedCourse(course)}
-                >
-                  <CardContent className="flex items-center gap-4 py-4">
-                    {course.cover_image_url ? (
-                      <div className="h-16 w-16 rounded-lg overflow-hidden shrink-0">
-                        <img src={course.cover_image_url} alt={course.title} className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="h-16 w-16 rounded-lg bg-app-accent/10 flex items-center justify-center shrink-0">
-                        <GraduationCap className="h-6 w-6 text-app-accent" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-app-foreground">{course.title}</h3>
-                      <p className="text-xs text-app-muted-foreground line-clamp-1">{course.description}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs">{course.is_free ? 'Gratuito' : `€${course.price}`}</Badge>
-                        <span className="text-xs text-app-muted-foreground">{course.duration_minutes || '?'} min</span>
-                        {enrollment && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'discover' | 'mine')}>
+        <TabsList className="w-full bg-app-muted/50">
+          <TabsTrigger
+            value="discover"
+            className="flex-1 data-[state=active]:bg-app-accent data-[state=active]:text-app-accent-foreground"
+          >
+            Scopri
+          </TabsTrigger>
+          <TabsTrigger
+            value="mine"
+            className="flex-1 data-[state=active]:bg-app-accent data-[state=active]:text-app-accent-foreground"
+          >
+            I miei corsi
+            {enrolled.length > 0 ? (
+              <span className="ml-1.5 text-xs opacity-80">({enrolled.length})</span>
+            ) : null}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="discover" className="mt-4 space-y-3">
+          {isLoading ? (
+            <LoadingState />
+          ) : discover.length === 0 ? (
+            <EmptyState
+              title="Nessun corso da scoprire"
+              description="I corsi pubblicati dai Professionisti appariranno qui"
+            />
+          ) : (
+            discover.map((course, i) => (
+              <CourseListCard
+                key={course.id}
+                course={course}
+                index={i}
+                mode="discover"
+                enrolling={enrollingId === course.id}
+                onOpen={() => navigate(`/app/courses/${course.id}`)}
+                onEnroll={() => enrollMutation.mutate(course.id)}
+              />
+            ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="mine" className="mt-4 space-y-3">
+          {isLoading ? (
+            <LoadingState />
+          ) : enrolled.length === 0 ? (
+            <EmptyState
+              title="Nessun corso attivo"
+              description="Iscriviti da Scopri per iniziare un percorso"
+            />
+          ) : (
+            enrolled.map((course, i) => (
+              <CourseListCard
+                key={course.id}
+                course={course}
+                index={i}
+                mode="mine"
+                onOpen={() => navigate(`/app/courses/${course.id}`)}
+              />
+            ))
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function CourseListCard({
+  course,
+  index,
+  mode,
+  enrolling,
+  onOpen,
+  onEnroll,
+}: {
+  course: AtletaCourseCard;
+  index: number;
+  mode: 'discover' | 'mine';
+  enrolling?: boolean;
+  onOpen: () => void;
+  onEnroll?: () => void;
+}) {
+  const difficulty = course.difficulty_level
+    ? DIFFICULTY_LABELS[course.difficulty_level]
+    : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04 }}
+      className="rounded-xl border border-app-border bg-app-card overflow-hidden"
+    >
+      <button type="button" onClick={onOpen} className="w-full text-left">
+        <div className="flex gap-3 p-3">
+          {course.cover_image_url ? (
+            <div className="h-20 w-20 rounded-lg overflow-hidden shrink-0">
+              <img
+                src={course.cover_image_url}
+                alt={course.title}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="h-20 w-20 rounded-lg bg-app-accent/10 flex items-center justify-center shrink-0">
+              <GraduationCap className="h-7 w-7 text-app-accent" />
+            </div>
+          )}
+
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-app-foreground truncate">{course.title}</h3>
+            {course.pt_name ? (
+              <p className="text-xs text-app-muted-foreground mt-0.5">con {course.pt_name}</p>
+            ) : null}
+            {course.target_exercise ? (
+              <p className="text-xs text-app-accent mt-1 flex items-center gap-1">
+                <Target className="h-3 w-3" />
+                <span className="truncate">{course.target_exercise}</span>
+              </p>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              {difficulty ? (
+                <Badge variant="outline" className="text-[10px] border-app-border text-app-muted-foreground">
+                  {difficulty}
+                </Badge>
+              ) : null}
+              <Badge variant="outline" className="text-[10px] border-app-border text-app-muted-foreground">
+                {course.steps_count} step
+              </Badge>
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-[10px] border-app-border',
+                  course.is_free !== false
+                    ? 'text-app-accent border-app-accent/40'
+                    : 'text-app-muted-foreground',
+                )}
+              >
+                {course.is_free !== false
+                  ? 'Gratuito'
+                  : `€ ${Number(course.price || 0).toFixed(2)}`}
+              </Badge>
+            </div>
+          </div>
+
+          {mode === 'mine' ? (
+            <CourseProgressBar
+              value={course.enrollment?.progress_pct ?? 0}
+              size={52}
+              strokeWidth={5}
+              className="shrink-0 self-center"
+            />
+          ) : null}
         </div>
-      )}
+      </button>
+
+      {mode === 'discover' && onEnroll ? (
+        <div className="px-3 pb-3">
+          {course.is_free === false ? (
+            <p className="text-xs text-app-muted-foreground text-center mb-2">
+              Corso a pagamento — chiedi al Professionista di assegnartelo
+            </p>
+          ) : null}
+          <Button
+            className={cn(
+              'w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90',
+            )}
+            disabled={enrolling || course.is_free === false}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEnroll();
+            }}
+          >
+            {enrolling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            {course.is_free === false ? 'Solo su assegnazione' : 'Iscriviti'}
+          </Button>
+        </div>
+      ) : null}
+    </motion.div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="flex justify-center py-12">
+      <Loader2 className="h-6 w-6 animate-spin text-app-muted-foreground" />
+    </div>
+  );
+}
+
+function EmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="rounded-xl border border-app-border bg-app-card text-center py-12 px-4">
+      <GraduationCap className="h-12 w-12 mx-auto text-app-muted-foreground mb-4" />
+      <h3 className="text-lg font-semibold text-app-foreground mb-2">{title}</h3>
+      <p className="text-sm text-app-muted-foreground">{description}</p>
     </div>
   );
 }

@@ -195,7 +195,7 @@ export function AtletaCalendarView() {
   }, [view, selected]);
 
   return (
-    <div className="min-h-screen bg-app-background text-app-foreground pb-6">
+    <div className="bg-app-background text-app-foreground pb-2">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 space-y-3">
         <div className="flex items-center gap-2">

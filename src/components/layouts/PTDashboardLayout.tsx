@@ -20,6 +20,8 @@ import {
   Library,
   Bot,
   UsersRound,
+  Search,
+  GraduationCap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -41,8 +43,10 @@ const navigationItems = [
   { label: 'Allenamenti', href: '/pt/workouts', icon: Dumbbell },
   { label: 'Assistente', href: '/pt/assistant', icon: Bot },
   { label: 'Archivio Esercizi', href: '/pt/exercises', icon: Library },
+  { label: 'Corsi', href: '/pt/courses', icon: GraduationCap },
   { label: 'Eventi', href: '/pt/events', icon: Calendar },
   { label: 'Gruppi', href: '/pt/groups', icon: UsersRound },
+  { label: 'Cerca PT e professionisti', href: '/pt/cerca-professionisti', icon: Search },
   { label: 'Cal. Appuntamenti', href: '/pt/calendar/appuntamenti', icon: Calendar },
   { label: 'Messaggi', href: '/pt/messages', icon: MessageSquare },
   { label: 'Pagamenti', href: '/pt/payments', icon: CreditCard },

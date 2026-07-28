@@ -9,7 +9,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { createWorkout } from './workouts';
-import { loadTemplateForWorkoutCreate } from './templateLoader';
+import { loadTemplateWithRoutinesForWorkoutCreate } from './templateLoader';
 
 export type ProgramMode = 'recurring' | 'day_by_day';
 
@@ -471,8 +471,8 @@ async function generateRotationWorkouts(params: {
       continue;
     }
 
-    // Carica blocchi + esercizi del template (preserva struttura protocolli)
-    const { blocks, exercises } = await loadTemplateForWorkoutCreate(sch.template_id);
+    // Carica blocchi + esercizi (+ riscaldamento/defaticamento se collegati)
+    const { blocks, exercises } = await loadTemplateWithRoutinesForWorkoutCreate(sch.template_id);
 
     const scheduledISO = new Date(date);
     scheduledISO.setHours(0, 0, 0, 0);
@@ -696,7 +696,7 @@ async function assignDayByDayProgram(params: {
       continue;
     }
 
-    const { blocks, exercises } = await loadTemplateForWorkoutCreate(sch.template_id);
+    const { blocks, exercises } = await loadTemplateWithRoutinesForWorkoutCreate(sch.template_id);
 
     await createWorkout({
       atletaUserId,

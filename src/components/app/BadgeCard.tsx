@@ -45,7 +45,7 @@ export function BadgeCard({
               r="46%"
               fill="none"
               strokeWidth="6"
-              className="stroke-app-muted"
+              className="stroke-app-border"
             />
             <circle
               cx="50%"
@@ -82,26 +82,28 @@ export function BadgeCard({
   return (
     <div className={cn(
       'flex flex-col items-center text-center',
-      !earned && 'opacity-50',
       className
     )}>
       <div className={cn(
         'w-16 h-16 rounded-2xl flex items-center justify-center mb-2 relative',
-        earned ? 'bg-app-accent/15' : 'bg-app-muted'
+        earned ? 'bg-app-accent/15' : 'bg-app-muted border border-app-border'
       )}>
         {emoji ? (
-          <span className={cn('text-2xl', !earned && 'grayscale')}>{emoji}</span>
+          <span className={cn('text-2xl', !earned && 'grayscale-[0.4]')}>{emoji}</span>
         ) : (
           <span className="text-2xl">🏆</span>
         )}
         {!earned && (
-          <div className="absolute inset-0 rounded-2xl flex items-center justify-center bg-app-background/60">
-            <Lock className="h-4 w-4 text-app-muted-foreground" />
+          <div className="absolute inset-0 rounded-2xl flex items-center justify-center bg-app-card/70">
+            <Lock className="h-4 w-4 text-app-foreground/70" />
           </div>
         )}
       </div>
       
-      <span className="text-xs font-medium text-app-foreground leading-tight">{name}</span>
+      <span className={cn(
+        'text-xs font-medium leading-tight',
+        earned ? 'text-app-foreground' : 'text-app-foreground/80'
+      )}>{name}</span>
       {earned && earnedAt && (
         <span className="text-[10px] text-app-muted-foreground mt-0.5">
           {format(new Date(earnedAt), 'd MMM yyyy', { locale: it })}

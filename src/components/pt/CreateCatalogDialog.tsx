@@ -12,12 +12,12 @@ interface CreateCatalogDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Chiamato con il catalogo appena creato (es. per aggiungerci subito un esercizio). */
   onCreated?: (catalog: ExerciseCatalog) => void;
-  /** Se presente, il dialog opera in modalità modifica. */
+  /** Se presente, il dialog opera in modalità modifica / rinomina. */
   editCatalog?: ExerciseCatalog | null;
 }
 
 const EMOJI_PRESETS = [
-  '­ƒùé´©Å', '­ƒÆ¬', '­ƒÅï´©Å', '­ƒöÑ', 'ÔÜí', '­ƒÅâ', '­ƒºÿ', '­ƒñ©', '­ƒÑç', '­ƒÄ»', 'Ô¡É', '­ƒ®▒',
+  '🗂️', '💪', '🏋️', '🔥', '⚡', '🎯', '🏃', '🧘', '🦵', '🦾', '❤️', '⭐',
 ];
 
 const emptyForm = {
@@ -29,13 +29,14 @@ const emptyForm = {
 export function CreateCatalogDialog({ open, onOpenChange, onCreated, editCatalog }: CreateCatalogDialogProps) {
   const [form, setForm] = useState(emptyForm);
   const createCatalog = useCreateExerciseCatalog();
+  const isEdit = !!editCatalog;
 
   useEffect(() => {
     if (open) {
       if (editCatalog) {
         setForm({
           name: editCatalog.name,
-          emoji: editCatalog.emoji,
+          emoji: editCatalog.emoji || EMOJI_PRESETS[0],
           description: editCatalog.description ?? '',
         });
       } else {
@@ -44,7 +45,7 @@ export function CreateCatalogDialog({ open, onOpenChange, onCreated, editCatalog
     }
   }, [open, editCatalog]);
 
-  const handleCreate = () => {
+  const handleSave = () => {
     createCatalog.mutate(
       { id: editCatalog?.id, name: form.name, emoji: form.emoji, description: form.description },
       {
@@ -60,9 +61,11 @@ export function CreateCatalogDialog({ open, onOpenChange, onCreated, editCatalog
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md w-[calc(100%-2rem)]">
         <DialogHeader>
-          <DialogTitle>Crea catalogo</DialogTitle>
+          <DialogTitle>{isEdit ? 'Rinomina catalogo' : 'Crea catalogo'}</DialogTitle>
           <DialogDescription>
-            Un catalogo raggruppa esercizi omogenei (es. per attrezzo, disciplina o obiettivo).
+            {isEdit
+              ? 'Aggiorna nome, emoticon o descrizione del catalogo.'
+              : 'Un catalogo raggruppa esercizi omogenei (es. per attrezzo, disciplina o obiettivo).'}
           </DialogDescription>
         </DialogHeader>
 
@@ -83,9 +86,9 @@ export function CreateCatalogDialog({ open, onOpenChange, onCreated, editCatalog
               <Input
                 value={form.emoji}
                 onChange={(e) => setForm((p) => ({ ...p, emoji: e.target.value }))}
-                placeholder="­ƒùé´©Å"
+                placeholder="🗂️"
                 className="w-16 text-center text-lg"
-                maxLength={4}
+                maxLength={8}
               />
               <div className="flex flex-wrap gap-1.5">
                 {EMOJI_PRESETS.map((e) => (
@@ -121,10 +124,12 @@ export function CreateCatalogDialog({ open, onOpenChange, onCreated, editCatalog
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annulla</Button>
           <Button
-            onClick={handleCreate}
+            onClick={handleSave}
             disabled={!form.name.trim() || createCatalog.isPending}
           >
-            {createCatalog.isPending ? 'Creazione...' : 'Crea catalogo'}
+            {createCatalog.isPending
+              ? (isEdit ? 'Salvataggio...' : 'Creazione...')
+              : (isEdit ? 'Salva' : 'Crea catalogo')}
           </Button>
         </div>
       </DialogContent>

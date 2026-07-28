@@ -37,6 +37,11 @@ import { it } from 'date-fns/locale';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 import { templateKindLabel } from '@/lib/pt/templateKinds';
+import { TemplateRoutineLinks } from '@/components/pt/TemplateRoutineLinks';
+import {
+  normalizeTemplateRole,
+  TEMPLATE_ROLE_LABEL,
+} from '@/lib/pt/templateRoles';
 
 // =====================================================
 // PT TEMPLATE DETAIL PAGE
@@ -148,17 +153,25 @@ export function PTTemplateDetailPage() {
       />
       )}
 
-      {exerciseStats.total === 0 && (
+      {(() => {
+        const role = normalizeTemplateRole((template as any).template_role);
+        const isRoutine = role === 'warmup' || role === 'cooldown';
+        return exerciseStats.total === 0 ? (
         <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
           <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
           <p>
-            <span className="font-medium text-warning">Scheda vuota — </span>
+            <span className="font-medium text-warning">
+              {isRoutine ? 'Template vuoto — ' : 'Scheda vuota — '}
+            </span>
             <span className="text-muted-foreground">
-              aggiungi almeno un esercizio per poterla assegnare.
+              {isRoutine
+                ? 'aggiungi almeno un esercizio.'
+                : 'aggiungi almeno un esercizio per poterla assegnare.'}
             </span>
           </p>
         </div>
-      )}
+        ) : null;
+      })()}
 
       <div className={isApp ? 'flex flex-col gap-4' : 'grid gap-4 lg:grid-cols-4'}>
         <Card className={isApp ? undefined : 'lg:col-span-1'}>
@@ -166,7 +179,14 @@ export function PTTemplateDetailPage() {
             <CardTitle className="text-base">Informazioni</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-0 space-y-3">
-            {/* Tipologia scheda */}
+            {normalizeTemplateRole((template as any).template_role) !== 'main' && (
+              <Badge variant="secondary" className="text-xs">
+                {TEMPLATE_ROLE_LABEL[normalizeTemplateRole((template as any).template_role)]}
+              </Badge>
+            )}
+
+            {/* Tipologia scheda — solo main */}
+            {normalizeTemplateRole((template as any).template_role) === 'main' && (
             <div className="space-y-1.5 rounded-md border border-border bg-muted/20 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">Tipologia</span>
@@ -195,6 +215,17 @@ export function PTTemplateDetailPage() {
                 {TEMPLATE_KIND_DESCRIPTION[normalizeTemplateKind((template as any).template_kind)]}
               </p>
             </div>
+            )}
+
+            {normalizeTemplateRole((template as any).template_role) === 'main' && (
+              <TemplateRoutineLinks
+                templateId={template.id}
+                includeWarmup={!!(template as any).include_warmup}
+                includeCooldown={!!(template as any).include_cooldown}
+                warmupTemplateId={(template as any).warmup_template_id ?? null}
+                cooldownTemplateId={(template as any).cooldown_template_id ?? null}
+              />
+            )}
 
             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm items-center">
               <dt className="text-muted-foreground whitespace-nowrap">Livello</dt>

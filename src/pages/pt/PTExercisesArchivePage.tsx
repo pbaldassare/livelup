@@ -17,9 +17,10 @@ import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader'
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
 import { CreateExerciseDialog } from '@/components/pt/CreateExerciseDialog';
 import { CreateCatalogDialog } from '@/components/pt/CreateCatalogDialog';
+import { CatalogDetailDialog } from '@/components/pt/CatalogDetailDialog';
 import { ExerciseCatalogAssignPopover } from '@/components/pt/ExerciseCatalogAssignPopover';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
-import { useExerciseCatalogs } from '@/hooks/useExerciseCatalogs';
+import { useExerciseCatalogs, type ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
 import { cn } from '@/lib/utils';
 
 type Exercise = {
@@ -76,10 +77,14 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
   const [selected, setSelected] = useState<Exercise | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createCatalogOpen, setCreateCatalogOpen] = useState(false);
+  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
 
   const { data: favIds } = useFavoriteIds();
   const { data: catalogs = [] } = useExerciseCatalogs();
   const toggleFav = useToggleFavorite();
+
+  const selectedCatalog: ExerciseCatalog | null =
+    catalogs.find((c) => c.id === selectedCatalogId) ?? null;
 
   const { data: exercises = [], isLoading } = useQuery({
     queryKey: ['pt-exercises-archive', user?.id, sourceFilter],
@@ -161,10 +166,24 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-muted-foreground mr-1">I tuoi cataloghi:</span>
           {catalogs.map((c) => (
-            <Badge key={c.id} variant="outline" className="gap-1 text-xs font-normal" title={c.description || undefined}>
-              <span>{c.emoji}</span>
-              {c.name}
-            </Badge>
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setSelectedCatalogId(c.id)}
+              title={c.description || 'Apri catalogo'}
+              className="inline-flex"
+            >
+              <Badge
+                variant="outline"
+                className={cn(
+                  'gap-1 text-xs font-normal cursor-pointer transition-colors hover:bg-primary/10 hover:border-primary/40',
+                  selectedCatalogId === c.id && 'bg-primary/10 border-primary/40',
+                )}
+              >
+                <span>{c.emoji}</span>
+                {c.name}
+              </Badge>
+            </button>
           ))}
         </div>
       )}
@@ -406,6 +425,14 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
       <CreateCatalogDialog
         open={createCatalogOpen}
         onOpenChange={setCreateCatalogOpen}
+      />
+
+      <CatalogDetailDialog
+        catalog={selectedCatalog}
+        open={!!selectedCatalog}
+        onOpenChange={(o) => {
+          if (!o) setSelectedCatalogId(null);
+        }}
       />
     </div>
   );

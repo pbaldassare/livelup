@@ -20,8 +20,6 @@ import {
   Eye,
   EyeOff,
   Settings,
-  Bell,
-  HelpCircle,
   Laptop,
   Award,
   MapPin,
@@ -117,10 +115,9 @@ export function PTAppProfilePage() {
 
   const menuItems = [
     ...(showInstallOption ? [{ icon: Download, label: 'Installa App', href: '/install', external: false }] : []),
-    { icon: Laptop, label: 'Dashboard Web', href: '/pt', external: false },
-    { icon: Settings, label: 'Impostazioni profilo', href: '/pt/settings', external: false },
-    { icon: Bell, label: 'Notifiche', href: '/pt/app/notifications', external: false },
-    { icon: HelpCircle, label: 'Aiuto', href: '/pt/app/help', external: false },
+    // ?view=web evita il surface-gate mobile che rimappa /pt → /pt/app (home)
+    { icon: Laptop, label: 'Dashboard Web', href: '/pt?view=web', external: false },
+    { icon: Settings, label: 'Impostazioni profilo', href: '/pt/app/settings', external: false },
   ];
 
   const statusLabel = {
@@ -196,7 +193,10 @@ export function PTAppProfilePage() {
             size="icon"
             className="text-app-foreground hover:text-app-accent"
             aria-label="Indietro"
-            onClick={() => navigate('/pt/app')}
+            onClick={() => {
+              if (window.history.length > 1) navigate(-1);
+              else navigate('/pt/app');
+            }}
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>

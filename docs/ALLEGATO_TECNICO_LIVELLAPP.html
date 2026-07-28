@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8"/>
+<title>Elenco funzioni LIVELLAPP</title>
+<style>
+@page { margin: 18mm 16mm; }
+body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1a1a1a; }
+h1 { font-size: 20pt; color: #0d4f4f; border-bottom: 2px solid #0d4f4f; padding-bottom: 8px; margin-top: 0; }
+h2 { font-size: 14pt; color: #0d4f4f; margin-top: 24px; page-break-after: avoid; }
+h3 { font-size: 12pt; color: #333; margin-top: 16px; page-break-after: avoid; }
+ul, ol { margin: 6px 0 14px 22px; }
+li { margin: 4px 0; }
+p { margin: 8px 0; }
+hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+strong { color: #111; }
+code { font-family: Consolas, monospace; font-size: 9.5pt; background: #f4f4f4; padding: 1px 4px; }
+</style></head><body><h1>Allegato — Elenco delle funzioni di LIVELLAPP</h1>
+<p><strong>Prodotto:</strong> LIVELLAPP   <strong>Ambito:</strong> piattaforma digitale per Personal Trainer, Atleti e Amministrazione   <strong>Ambiente di riferimento:</strong> https://livelapp.iaconnect.it   <strong>Data:</strong> 20 luglio 2026</p>
+<hr/>
+<h2>Premessa</h2>
+<p>Questo allegato descrive, in forma di elenco, <strong>tutte le funzioni principali</strong> disponibili nel sistema LIVELLAPP.   Il linguaggio è volutamente chiaro e orientato al contenuto funzionale (cosa si può fare), non agli aspetti tecnici di implementazione.</p>
+<p>Il sistema è organizzato in tre ruoli distinti:</p>
+<ol>
+<li><strong>Amministratore</strong> — gestisce la piattaforma  </li>
+<li><strong>Personal Trainer (PT)</strong> — gestisce atleti, allenamenti, comunicazione e attività professionali  </li>
+<li><strong>Atleta</strong> — si allena, comunica col PT, segue progressi e servizi  </li>
+</ol>
+<p>Il PT può lavorare da <strong>computer (dashboard web)</strong> e da <strong>telefono (app / PWA)</strong>.   L’Atleta usa principalmente l’<strong>app / PWA</strong>.   Esiste anche un’<strong>area pubblica</strong> (sito) per scoprire i PT, leggere contenuti e installare l’app.</p>
+<hr/>
+<h2>1. Area pubblica (sito)</h2>
+<ul>
+<li>Accesso alla piattaforma e installazione dell’app  </li>
+<li>Registrazione e accesso (login)  </li>
+<li>Scoperta dei Personal Trainer (elenco e scheda pubblica)  </li>
+<li>Lettura degli articoli / contenuti blog pubblici  </li>
+<li>Possibilità di arrivare tramite invito o codice coupon del PT  </li>
+</ul>
+<hr/>
+<h2>2. Funzioni Amministratore</h2>
+<h3>2.1 Panoramica e controllo</h3>
+<ul>
+<li>Dashboard di sintesi sulla piattaforma  </li>
+<li>Consultazione delle attività e degli indicatori principali  </li>
+<li>Impostazioni generali della piattaforma  </li>
+<li>Mappa / panoramica delle sezioni del sistema  </li>
+</ul>
+<h3>2.2 Gestione Personal Trainer</h3>
+<ul>
+<li>Elenco e gestione dei PT iscritti  </li>
+<li>Verifica dello stato / readiness dei PT  </li>
+<li>Supervisione dei profili professionali  </li>
+</ul>
+<h3>2.3 Cataloghi e contenuti</h3>
+<ul>
+<li>Gestione del catalogo esercizi della piattaforma  </li>
+<li>Gestione corsi (struttura, sessioni, iscrizioni)  </li>
+<li>Gestione e moderazione Blog & Q&A (pubblicazione, nascondere, eliminare contenuti)  </li>
+<li>Gestione gruppi community a livello piattaforma  </li>
+</ul>
+<h3>2.4 Aspetti commerciali e operativi</h3>
+<ul>
+<li>Gestione abbonamenti / piani  </li>
+<li>Gestione pagamenti  </li>
+<li>Gestione coupon e modelli di coupon  </li>
+<li>Supporto utenti (ticket e conversazioni di assistenza)  </li>
+<li>Messaggistica / comunicazioni di piattaforma  </li>
+<li>Registro delle operazioni rilevanti (audit)  </li>
+</ul>
+<hr/>
+<h2>3. Funzioni Personal Trainer (computer e telefono)</h2>
+<p>Salvo diversa indicazione, le funzioni sotto sono disponibili sia da <strong>dashboard web</strong> sia da <strong>app mobile</strong> del PT (con interfaccia adattata).</p>
+<h3>3.1 Home e panoramica</h3>
+<ul>
+<li>Visualizzazione della dashboard / home con sintesi attività  </li>
+<li>Accesso rapido alle sezioni principali  </li>
+<li>Invito di un atleta (link di installazione / referral)  </li>
+</ul>
+<h3>3.2 Gestione atleti</h3>
+<ul>
+<li>Elenco degli atleti collegati  </li>
+<li>Ricerca e filtri sugli atleti  </li>
+<li>Scheda dettaglio atleta (anagrafica e informazioni operative)  </li>
+<li>Note private sull’atleta  </li>
+<li>Visualizzazione progressi dell’atleta  </li>
+<li>Gestione badge dell’atleta  </li>
+<li>Visualizzazione / gestione programmi assegnati  </li>
+<li>Impostazione della modalità di allenamento (in presenza, online, mista)  </li>
+<li>Attivazione / disattivazione del PT rispetto all’atleta  </li>
+<li>Creazione di un nuovo atleta  </li>
+<li>Trasferimento / cessione di atleti ad altri PT  </li>
+<li>Visualizzazione atleti ceduti / storico relativo  </li>
+</ul>
+<h3>3.3 Allenamenti e schede</h3>
+<ul>
+<li>Creazione e modifica di schede / template di allenamento  </li>
+<li>Tre tipologie di scheda:</li>
+</ul>
+<p>  - <strong>Libera</strong>   - <strong>Propedeutica</strong>   - <strong>Progressiva</strong></p>
+<ul>
+<li>Organizzazione della scheda in blocchi ed esercizi  </li>
+<li>Supporto a protocolli di allenamento (standard, EMOM, AMRAP, superset, HIIT/Tabata, ecc.)  </li>
+<li>Assegnazione della scheda all’atleta  </li>
+<li>Assegnazione a più atleti  </li>
+<li>Programmi multi-settimana (pianificazione e assegnazione)  </li>
+<li>Consultazione storico allenamenti e risultati  </li>
+<li>Possibilità, dove previsto, di registrare l’allenamento per conto dell’atleta  </li>
+<li>Assistente per supportare la creazione delle schede  </li>
+</ul>
+<h3>3.4 Archivio esercizi e cataloghi</h3>
+<ul>
+<li>Consultazione dell’archivio esercizi pubblico  </li>
+<li>Gestione degli esercizi personali del PT  </li>
+<li>Preferiti  </li>
+<li>Filtri per difficoltà, categoria, muscoli e ricerca testuale  </li>
+<li>Creazione di <strong>cataloghi</strong> personalizzati  </li>
+<li>Rinomina di un catalogo  </li>
+<li>Eliminazione di un catalogo  </li>
+<li>Apertura di un catalogo per vedere gli esercizi contenuti  </li>
+<li>Aggiunta e rimozione di esercizi da un catalogo  </li>
+<li>Assegnazione rapida di un esercizio a uno o più cataloghi  </li>
+</ul>
+<h3>3.5 Calendario, eventi e appuntamenti</h3>
+<ul>
+<li>Gestione eventi  </li>
+<li>Calendario appuntamenti 1 a 1 con gli atleti  </li>
+<li>Creazione di un nuovo appuntamento  </li>
+<li>Gestione della disponibilità settimanale  </li>
+<li>Opzione per rendere la disponibilità prenotabile dagli atleti  </li>
+<li>Collegamento a Google Calendar  </li>
+<li>Sincronizzazione degli appuntamenti con Google Calendar (quando configurato)  </li>
+</ul>
+<h3>3.6 Messaggi e comunicazione</h3>
+<ul>
+<li>Chat individuale con gli atleti collegati  </li>
+<li>Creazione e gestione di <strong>gruppi chat</strong> con più atleti  </li>
+<li>Visualizzazione e interazione nei <strong>gruppi community</strong>:</li>
+</ul>
+<p>  - gruppi creati dal PT     - gruppi creati dai propri atleti  </p>
+<ul>
+<li>Invio e ricezione messaggi  </li>
+<li>Allegati (immagini / video, nei limiti previsti)  </li>
+<li>Indicatori di messaggi non letti  </li>
+<li>Gestione membri / impostazioni del gruppo (dove consentito)  </li>
+</ul>
+<h3>3.7 Gruppi community</h3>
+<ul>
+<li>Creazione di un gruppo  </li>
+<li>Modifica del gruppo  </li>
+<li>Ingresso tramite invito / token  </li>
+<li>Chat di gruppo  </li>
+<li>Gestione membri e canali (incluso canale staff, dove previsto)  </li>
+</ul>
+<h3>3.8 Rete professionale</h3>
+<ul>
+<li>Ricerca di altri Personal Trainer  </li>
+<li>Ricerca di professionisti (es. figure collegate / discoverable)  </li>
+<li>Visualizzazione scheda sintetica e profilo pubblico  </li>
+</ul>
+<h3>3.9 Blog & Q&A</h3>
+<ul>
+<li>Creazione di contenuti (articolo, curiosità, Q&A)  </li>
+<li>Bozza / pubblicazione / gestione stato del contenuto  </li>
+<li>Elenco e modifica dei propri contenuti  </li>
+<li>(Lato admin) possibilità di moderazione  </li>
+</ul>
+<h3>3.10 Coupon, pagamenti e impostazioni</h3>
+<ul>
+<li>Gestione coupon  </li>
+<li>Area pagamenti / pacchetti  </li>
+<li>Impostazioni profilo e preferenze  </li>
+<li>Notifiche  </li>
+<li>Logout  </li>
+</ul>
+<hr/>
+<h2>4. Funzioni Atleta (app)</h2>
+<h3>4.1 Accesso e avvio</h3>
+<ul>
+<li>Onboarding  </li>
+<li>Home personale  </li>
+<li>Installazione / uso come app  </li>
+<li>Profilo e impostazioni  </li>
+<li>Aiuto / supporto  </li>
+<li>Notifiche  </li>
+</ul>
+<h3>4.2 Relazione con il Personal Trainer</h3>
+<ul>
+<li>Scoperta e scelta del PT  </li>
+<li>Richiesta / gestione collegamento col PT  </li>
+<li>Visualizzazione del PT di riferimento  </li>
+<li>Prenotazione appuntamenti (se il PT ha reso disponibili gli slot)  </li>
+<li>Consultazione appuntamenti  </li>
+</ul>
+<h3>4.3 Allenamento</h3>
+<ul>
+<li>Visualizzazione scheda / attività assegnate  </li>
+<li>Visualizzazione programma multi-settimana  </li>
+<li>Avvio e svolgimento dell’allenamento guidato  </li>
+<li>Registrazione serie per serie (ripetizioni, carico, durata, sforzo percepito)  </li>
+<li>Supporto ai diversi protocolli di allenamento  </li>
+<li>Possibilità di mettere in pausa / riprendere  </li>
+<li>Anteprima del prossimo esercizio  </li>
+<li>Su scheda <strong>libera</strong>: possibilità di riordinare gli esercizi prima di iniziare  </li>
+<li>Completamento allenamento con riepilogo (durata, serie, ripetizioni, volume)  </li>
+<li>Consultazione storico allenamenti  </li>
+</ul>
+<h3>4.4 Progressi e motivazione</h3>
+<ul>
+<li>Monitoraggio progressi  </li>
+<li>Caricamento / consultazione foto progresso  </li>
+<li>Badge e riconoscimenti  </li>
+<li>Cheers / interazioni di incoraggiamento (nei limiti previsti)  </li>
+<li>Recensione del PT (quando maturati i requisiti)  </li>
+</ul>
+<h3>4.5 Comunicazione e community</h3>
+<ul>
+<li>Chat con il proprio PT  </li>
+<li>Partecipazione ai gruppi chat  </li>
+<li>Creazione e partecipazione a gruppi community  </li>
+<li>Chat di gruppo  </li>
+<li>Eventi (dettaglio e partecipazione)  </li>
+</ul>
+<h3>4.6 Servizi aggiuntivi</h3>
+<ul>
+<li>Area corsi  </li>
+<li>Coupon  </li>
+<li>Abbonamento / subscription  </li>
+<li>Documenti personali  </li>
+<li>Scheda professionista (dove applicabile)  </li>
+</ul>
+<hr/>
+<h2>5. Funzioni trasversali (valide per più ruoli)</h2>
+<ul>
+<li>Autenticazione sicura e gestione sessione  </li>
+<li>Separazione netta dei permessi per ruolo (ciascuno vede solo ciò che gli compete)  </li>
+<li>Notifiche in app  </li>
+<li>Notifiche push (dove attivate / consentite dal dispositivo)  </li>
+<li>Funzionamento da browser e come applicazione installabile (PWA)  </li>
+<li>Aggiornamento dell’app con avviso all’utente  </li>
+<li>Conservazione della pagina corrente dopo salvataggi / ripresa dell’app (esperienza mobile)  </li>
+<li>Interfaccia in italiano  </li>
+</ul>
+<hr/>
+<h2>6. Flussi principali (in sintesi narrativa)</h2>
+<h3>Collegamento PT – Atleta</h3>
+<p>L’atleta e il PT possono avviare una richiesta di collegamento. Dopo l’accettazione il rapporto diventa attivo: l’atleta risulta collegato e può ricevere schede, messaggi e servizi dal PT. Un atleta ha un solo PT attivo alla volta.</p>
+<h3>Assegnazione e svolgimento di un allenamento</h3>
+<p>Il PT prepara la scheda e la assegna. L’atleta la riceve in app, esegue l’allenamento guidato, registra i risultati e completa la sessione. Il PT può consultare lo storico e i progressi.</p>
+<h3>Comunicazione</h3>
+<p>PT e atleta si scrivono in chat privata; possono anche comunicare in gruppi creati dal PT o nella community. Il PT, nella propria area messaggi, vede le conversazioni individuali e i gruppi rilevanti (propri e dei propri atleti).</p>
+<h3>Appuntamenti</h3>
+<p>Il PT definisce disponibilità e crea appuntamenti. Se abilita la prenotazione, l’atleta può prenotare. Con Google Calendar collegato, gli appuntamenti possono sincronizzarsi sul calendario esterno.</p>
+<h3>Contenuti e crescita professionale</h3>
+<p>Il PT può pubblicare Blog & Q&A, gestire coupon, cercare colleghi e professionisti, e organizzare esercizi in cataloghi riutilizzabili.</p>
+<hr/>
+<h2>7. Cosa resta fuori o in evoluzione</h2>
+<p>Le funzioni seguenti possono essere parziali, in attivazione o da completare a seconda dell’ambiente e degli accordi commerciali:</p>
+<ul>
+<li>Pagamenti con addebito reale completo (es. Stripe in modalità piena)  </li>
+<li>Email automatiche su tutti gli eventi della piattaforma  </li>
+<li>Notifiche push completamente automatiche su ogni evento  </li>
+<li>Alcune integrazioni esterne (es. Google Calendar) richiedono configurazione e autorizzazioni  </li>
+<li>Funzioni di roadmap / evolutive (es. editor avanzato, feed sociale, diario alimentare, staff multi-collaboratore) non incluse come obbligo salvo diverso accordo  </li>
+</ul>
+<hr/>
+<h2>8. Criteri di accettazione funzionali (checklist)</h2>
+<p>Si considera il sistema utilizzabile per i ruoli previsti quando risultano operativi, a campione, i seguenti punti:</p>
+<p><strong>Amministratore:</strong> accesso dashboard, gestione PT, esercizi, blog, supporto.  </p>
+<p><strong>Personal Trainer:</strong> gestione atleti, creazione e assegnazione schede, cataloghi, messaggi (individuali e gruppi), appuntamenti/disponibilità, blog, ricerca colleghi.  </p>
+<p><strong>Atleta:</strong> collegamento al PT, esecuzione allenamento, chat, progressi, prenotazione (se attiva).  </p>
+<p><strong>Trasversale:</strong> login corretto per ruolo, navigazione coerente su web e mobile.</p>
+<hr/>
+<p>*Fine elenco funzioni — Allegato LIVELLAPP.*</p>
+</body></html>

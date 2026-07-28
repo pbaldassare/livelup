@@ -140,7 +140,6 @@ export function PTAppCalendarPage() {
       title={appointmentsOnly ? 'Appuntamenti' : 'Calendario'}
       description={appointmentsOnly ? 'Solo appuntamenti con atleti' : 'Eventi e appuntamenti della settimana'}
       showBack
-      backTo="/pt/app"
       flush
       actions={
         <div className="flex flex-wrap gap-2 justify-end">

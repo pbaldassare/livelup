@@ -5,6 +5,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type { TemplateKind } from '@/lib/pt/templateKinds';
+import { isSummaryPhase, type WorkoutPhase } from '@/lib/pt/templateRoles';
 
 export type { TemplateKind };
 
@@ -37,6 +38,8 @@ export async function createWorkout(params: {
     blockTempId?: string; // ref locale al circuito (vedi `blocks` sotto)
     protocolType?: string; // 'SET' | 'RAMPING' | ... default 'SET'
     protocolParams?: any;
+    /** warmup | main | cooldown — default main */
+    phase?: WorkoutPhase;
   }>;
   // Circuiti opzionali da duplicare in workout_blocks (puro raggruppamento);
   // gli esercizi possono referenziarli via `blockTempId`.
@@ -47,6 +50,7 @@ export async function createWorkout(params: {
     name?: string | null;
     params?: any;
     infoNote?: string | null;
+    phase?: WorkoutPhase;
   }>;
 }) {
   const {
@@ -87,22 +91,49 @@ export async function createWorkout(params: {
       name: b.name ?? null,
       params: b.params ?? {},
       info_note: b.infoNote ?? null,
+      phase: b.phase ?? 'main',
     }));
     const { data: insertedBlocks, error: blocksErr } = await supabase
       .from('workout_blocks')
-      .insert(blockInserts)
+      .insert(blockInserts as any)
       .select('id, order_index');
     if (blocksErr) {
-      await supabase.from('workouts').delete().eq('id', workout.id);
-      throw new Error('Errore creazione blocchi: ' + blocksErr.message);
+      // Fallback se colonna phase non ancora migrata
+      if (/phase|schema cache|42703|PGRST204/i.test(blocksErr.message)) {
+        const legacy = blocks.map((b) => ({
+          workout_id: workout.id,
+          order_index: b.orderIndex,
+          type: b.type as any,
+          name: b.name ?? null,
+          params: b.params ?? {},
+          info_note: b.infoNote ?? null,
+        }));
+        const { data: legacyBlocks, error: legacyErr } = await supabase
+          .from('workout_blocks')
+          .insert(legacy)
+          .select('id, order_index');
+        if (legacyErr) {
+          await supabase.from('workouts').delete().eq('id', workout.id);
+          throw new Error('Errore creazione blocchi: ' + legacyErr.message);
+        }
+        const byOrder = new Map<number, string>();
+        (legacyBlocks || []).forEach((b: any) => byOrder.set(b.order_index, b.id));
+        blocks.forEach((b) => {
+          const realId = byOrder.get(b.orderIndex);
+          if (realId) blockIdMap.set(b.tempId, realId);
+        });
+      } else {
+        await supabase.from('workouts').delete().eq('id', workout.id);
+        throw new Error('Errore creazione blocchi: ' + blocksErr.message);
+      }
+    } else {
+      const byOrder = new Map<number, string>();
+      (insertedBlocks || []).forEach((b: any) => byOrder.set(b.order_index, b.id));
+      blocks.forEach((b) => {
+        const realId = byOrder.get(b.orderIndex);
+        if (realId) blockIdMap.set(b.tempId, realId);
+      });
     }
-    // Associa per orderIndex (univoco nella stessa creazione)
-    const byOrder = new Map<number, string>();
-    (insertedBlocks || []).forEach((b: any) => byOrder.set(b.order_index, b.id));
-    blocks.forEach((b) => {
-      const realId = byOrder.get(b.orderIndex);
-      if (realId) blockIdMap.set(b.tempId, realId);
-    });
   }
 
   // Aggiungi esercizi
@@ -122,15 +153,25 @@ export async function createWorkout(params: {
       block_id: ex.blockTempId ? blockIdMap.get(ex.blockTempId) ?? null : null,
       protocol_type: ex.protocolType ?? 'SET',
       protocol_params: ex.protocolParams ?? {},
+      phase: ex.phase ?? 'main',
     }));
 
     const { error: exercisesError } = await supabase
       .from('workout_exercises')
-      .insert(exerciseInserts);
+      .insert(exerciseInserts as any);
 
     if (exercisesError) {
-      await supabase.from('workouts').delete().eq('id', workout.id);
-      throw new Error('Errore aggiunta esercizi: ' + exercisesError.message);
+      if (/phase|schema cache|42703|PGRST204/i.test(exercisesError.message)) {
+        const legacy = exerciseInserts.map(({ phase: _p, ...rest }) => rest);
+        const { error: legacyExErr } = await supabase.from('workout_exercises').insert(legacy);
+        if (legacyExErr) {
+          await supabase.from('workouts').delete().eq('id', workout.id);
+          throw new Error('Errore aggiunta esercizi: ' + legacyExErr.message);
+        }
+      } else {
+        await supabase.from('workouts').delete().eq('id', workout.id);
+        throw new Error('Errore aggiunta esercizi: ' + exercisesError.message);
+      }
     }
   }
 
@@ -217,13 +258,30 @@ export type WorkoutSessionSummary = {
 export async function computeWorkoutSessionSummaryFromLogs(
   workoutId: string,
 ): Promise<Pick<WorkoutSessionSummary, 'setsCompleted' | 'repsTotal' | 'volumeKg'>> {
-  const { data: exercises, error: exErr } = await supabase
-    .from('workout_exercises')
-    .select('id')
-    .eq('workout_id', workoutId);
-  if (exErr) throw new Error(exErr.message);
+  // Solo fase main: riscaldamento/defaticamento sono extra fuori riepilogo
+  let exercises: Array<{ id: string; phase?: string | null }> | null = null;
+  {
+    const withPhase = await supabase
+      .from('workout_exercises')
+      .select('id, phase')
+      .eq('workout_id', workoutId);
+    if (withPhase.error && /phase|42703|PGRST204|schema cache/i.test(withPhase.error.message)) {
+      const legacy = await supabase
+        .from('workout_exercises')
+        .select('id')
+        .eq('workout_id', workoutId);
+      if (legacy.error) throw new Error(legacy.error.message);
+      exercises = legacy.data;
+    } else if (withPhase.error) {
+      throw new Error(withPhase.error.message);
+    } else {
+      exercises = withPhase.data;
+    }
+  }
 
-  const ids = (exercises || []).map((e) => e.id);
+  const ids = (exercises || [])
+    .filter((e) => isSummaryPhase(e.phase))
+    .map((e) => e.id);
   if (ids.length === 0) {
     return { setsCompleted: 0, repsTotal: 0, volumeKg: 0 };
   }
