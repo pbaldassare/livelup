@@ -34,8 +34,8 @@ export function shouldRegisterServiceWorker(): boolean {
   if (!import.meta.env.PROD) return false;
   if (isInIframe()) return false;
   if (isBlockedHost(window.location.hostname)) return false;
-  if (new URLSearchParams(window.location.search).has('sw=off')) return false;
   if (new URLSearchParams(window.location.search).get('sw') === 'off') return false;
+
   return true;
 }
 
