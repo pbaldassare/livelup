@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { registerServiceWorker } from "@/lib/pwa/registerSW";
 
 /**
  * Emergency recovery: if the URL contains ?reset=1 we wipe all local
@@ -27,28 +28,14 @@ async function emergencyReset() {
   window.location.replace(window.location.pathname);
 }
 
-// Iframe / Lovable preview guard: disinstalla SW per evitare cache stale e 404 intermittenti
-(function unregisterSWInPreview() {
-  const isInIframe = (() => {
-    try { return window.self !== window.top; } catch { return true; }
-  })();
-  const host = window.location.hostname;
-  const isPreviewHost =
-    host.includes('id-preview--') ||
-    host.includes('lovableproject.com') ||
-    host.includes('lovable.app');
-  if ((isPreviewHost || isInIframe) && 'serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then((regs) => {
-      regs.forEach((r) => r.unregister());
-    }).catch(() => {});
-  }
-})();
-
 // Check for reset flag
 if (new URLSearchParams(window.location.search).has('reset')) {
   emergencyReset();
 } else {
+  void registerServiceWorker();
+
   const root = document.getElementById("root")!;
+
 
   try {
     createRoot(root).render(<App />);

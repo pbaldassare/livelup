@@ -16,20 +16,20 @@ export function usePWAUpdate() {
   });
 
   const updateServiceWorker = useCallback(() => {
-    if (state.registration?.waiting) {
-      // Tell the waiting service worker to skip waiting
-      state.registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-      
-      // Reload once the new service worker takes over
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-      });
-    }
+    const waiting = state.registration?.waiting;
+    if (!waiting) return;
+    waiting.postMessage({ type: 'SKIP_WAITING' });
   }, [state.registration]);
 
   useEffect(() => {
-    // Check if service workers are supported
     if (!('serviceWorker' in navigator)) return;
+
+    let reloading = false;
+    const handleControllerChange = () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    };
 
     const handleOnline = () => {
       setState(prev => ({ ...prev, isOffline: false }));
@@ -50,72 +50,55 @@ export function usePWAUpdate() {
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
-    // Listen for service worker updates from vite-plugin-pwa
-    const handleSWUpdate = async () => {
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+
+    const markUpdateAvailable = (registration: ServiceWorkerRegistration) => {
+      setState(prev => ({ ...prev, isUpdateAvailable: true, registration }));
+    };
+
+    const init = async () => {
       try {
         const registration = await navigator.serviceWorker.ready;
-        
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New update available
-                setState(prev => ({ 
-                  ...prev, 
-                  isUpdateAvailable: true,
-                  registration 
-                }));
-                
-                toast({
-                  title: "Aggiornamento disponibile",
-                  description: "Una nuova versione di LIVEL APP è pronta. Clicca per aggiornare.",
-                  action: (
-                    <button
-                      onClick={() => {
-                        if (registration.waiting) {
-                          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                        }
-                      }}
-                      className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground h-8 px-3 hover:bg-primary/90"
-                    >
-                      Aggiorna
-                    </button>
-                  ),
-                  duration: 10000,
-                });
-              }
-            });
-          }
-        });
-
-        // Check for updates periodically
-        setInterval(() => {
-          registration.update();
-        }, 60 * 60 * 1000); // Check every hour
 
         setState(prev => ({ ...prev, registration }));
+
+        // Un SW già in attesa = aggiornamento pronto
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          markUpdateAvailable(registration);
+        }
+
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              markUpdateAvailable(registration);
+            }
+          });
+        });
+
+        // Controllo periodico degli aggiornamenti
+        intervalId = setInterval(() => {
+          registration.update().catch(() => {});
+        }, 60 * 60 * 1000);
       } catch (error) {
         console.error('Error checking for SW updates:', error);
       }
     };
 
-    handleSWUpdate();
-
-    // Listen for controller change (when new SW takes over)
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (state.isUpdateAvailable) {
-        window.location.reload();
-      }
-    });
+    init();
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+      if (intervalId) clearInterval(intervalId);
     };
-  }, [toast, state.isUpdateAvailable]);
+  }, [toast]);
+
 
   return {
     ...state,

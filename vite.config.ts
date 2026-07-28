@@ -20,7 +20,11 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
-      includeAssets: ["livellapp-icon.svg", "favicon.ico", "apple-touch-icon.png"],
+      // La registrazione avviene solo da src/lib/pwa/registerSW.ts (guardata
+      // per dev/iframe/preview/?sw=off): il plugin non deve iniettarne una sua.
+      injectRegister: null,
+      includeAssets: ["livellapp-icon.svg", "favicon.ico", "apple-touch-icon.png", "offline.html", "push-sw.js"],
+
       manifest: {
         name: "LIVEL APP - Piattaforma Fitness",
         short_name: "LIVEL",
@@ -106,8 +110,14 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024, // 8 MiB (main bundle > 3 MiB)
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Handler push/notificationclick (file dedicato, non generato)
+        importScripts: ["/push-sw.js"],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api/, /^\/functions\//],
         runtimeCaching: [
+
           {
             urlPattern: /^https:\/\/.*supabase.*$/,
             handler: "NetworkFirst",

@@ -1,29 +1,38 @@
-## Situazione
+## Cosa ho verificato
 
-- Il repo `origin` (Lovable Git) è **allineato** al codice del progetto: ultimo commit `a59e156 "Aggiunta sezione Rapide"`, nessun commit locale/remoto in disallineamento.
-- Lovable ↔ GitHub è sync bidirezionale, quindi in teoria `github.com/pbaldassare/elevate-roles-hub` deve coincidere con `origin/main`.
-- **Non ho accesso** al repo GitHub da questo ambiente: `https://api.github.com/repos/pbaldassare/elevate-roles-hub` risponde `404` (repo privato o path diverso). Senza accesso non posso confrontare file per file.
+- `vite-plugin-pwa` è attivo con `registerType: "autoUpdate"` e genera un service worker in `/sw.js`.
+- Esiste anche un `public/sw.js` scritto a mano (cache + **push notifications** + `notificationclick`). In build i due file finiscono sullo stesso path: **il SW generato sovrascrive quello manuale**, quindi gli handler push rischiano di sparire dal build di produzione.
+- Non esiste un modulo unico di registrazione: `injectRegister` non è impostato (il plugin inietta la sua registrazione) mentre `src/main.tsx` fa una disinstallazione ad hoc.
+- La guardia in `main.tsx` disinstalla il SW su qualsiasi host che contiene `lovable.app` — che include **anche il dominio pubblicato** `elevate-roles-hub.lovable.app`: lì la PWA (offline + push) di fatto non si attiva mai.
+- Manca un kill-switch `?sw=off`; il reset attuale è solo `?reset=1` in `main.tsx`.
 
-## Piano
+## Cosa farò
 
-1. **Attivare il connector GitHub** (`standard_connectors--connect` → `github`) usando il tuo Personal Access Token con scope `repo`. Serve solo la prima volta; è la via ufficiale per farmi leggere il repo.
-2. **Confronto automatico**: elenco i commit su GitHub `main` più recenti di `a59e156`; per ognuno estraggo i file modificati e li confronto con quelli nel progetto (`git diff` logico file-per-file).
-3. **Report allineamento**: per ogni differenza riporto `PRESENTE / MANCANTE / DIVERSO` con path preciso (pagine, componenti, hook, migration, edge function).
-4. **Applicazione fix** (in build mode, dopo la tua conferma sul report):
-   - Riporto le modifiche mancanti dal GitHub nel progetto (file frontend/edge functions).
-   - Se ci sono migration SQL nuove, le applico con `supabase--migration`.
-   - Ridispiego eventuali Edge Function toccate.
-5. **Verifica finale**: typecheck + visita rapida della pagina in cui pensavi mancasse la feature (`/pt/app/athlete/:id`) per confermare.
+**1. Un solo service worker, senza perdere il push**
+- Sposto gli handler push/notificationclick in `public/push-sw.js` (file dedicato, non toccato dal build).
+- Rimuovo `public/sw.js` manuale e lo faccio generare solo da `vite-plugin-pwa`, includendo il push via `workbox.importScripts: ['/push-sw.js']`.
+- Navigazioni in `NetworkFirst` con fallback a `offline.html`; asset hashati in `CacheFirst`; `/~oauth` escluso.
 
-## Alternativa senza connector
+**2. Registrazione guardata in un unico punto**
+- Nuovo `src/lib/pwa/registerSW.ts`: registra solo in produzione e rifiuta (disinstallando eventuali SW residui) quando è in iframe, su host `id-preview--*` / `preview--*` / `*.lovableproject.com` / `*.lovableproject-dev.com` / `beta.lovable.dev`, o con `?sw=off`.
+- Il dominio pubblicato (`elevate-roles-hub.lovable.app`, `livelapp.iaconnect.it`) **non** viene più escluso: lì la PWA funziona.
+- `injectRegister: null` in `vite.config.ts`, così l'unico registrante è il wrapper; tolgo la logica duplicata da `main.tsx` lasciando solo `?reset=1`.
 
-Se preferisci non connettere GitHub, indicami **una** delle seguenti e procedo lo stesso:
-- rendi temporaneamente pubblico il repo, oppure
-- incolla l'URL del file/commit GitHub specifico che vedi mancare, oppure
-- descrivi la funzione (dove sta nell'UI, cosa fa) così la cerco nel codice attuale.
+**3. Prompt di aggiornamento coerente**
+- `usePWAUpdate` allineato al nuovo SW (waiting → `SKIP_WAITING` → reload una sola volta), evitando il doppio listener `controllerchange` attuale.
+
+**4. Verifica**
+- Build di produzione + controllo che `dist/sw.js`, `manifest.webmanifest`, icone e `push-sw.js` siano presenti e coerenti.
+- Check con browser headless: manifest valido, nessuna registrazione SW in preview/iframe, nessun errore console su `/app` e `/pt/app`.
+- Report finale con esito punto per punto.
+
+## Nota
+
+"Aggiorna tutto" l'ho interpretato come: allineare la PWA e verificarne il funzionamento end-to-end (build, manifest, offline, push, update prompt). Se intendevi anche un sync/apply di migration o feature specifiche non ancora applicate, dimmelo e lo aggiungo — al momento l'ultimo sync backend risultava già completo.
 
 ## Dettagli tecnici
 
-- Il file `src/integrations/supabase/client.ts`, `types.ts`, `.env`, `supabase/config.toml` restano intoccati (auto-generati).
-- Ogni tabella nuova ⇒ GRANT + RLS + policy nella stessa migration.
-- Le Edge Function toccate vengono redeployate.
+- File nuovi: `public/push-sw.js`, `src/lib/pwa/registerSW.ts`
+- File modificati: `vite.config.ts`, `src/main.tsx`, `src/hooks/usePWAUpdate.tsx`
+- File rimosso: `public/sw.js` (contenuto migrato)
+- Nessuna modifica a `.env`, `client.ts`, `types.ts`, `supabase/config.toml`
