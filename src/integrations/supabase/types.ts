@@ -183,6 +183,30 @@ export type Database = {
           },
         ]
       }
+      atleta_follows: {
+        Row: {
+          atleta_user_id: string
+          created_at: string
+          id: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          atleta_user_id: string
+          created_at?: string
+          id?: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          atleta_user_id?: string
+          created_at?: string
+          id?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: []
+      }
       atleta_profiles: {
         Row: {
           bio: string | null
@@ -2268,6 +2292,396 @@ export type Database = {
         }
         Relationships: []
       }
+      pt_course_enrollments: {
+        Row: {
+          assigned_by: string
+          atleta_user_id: string
+          completed_at: string | null
+          course_id: string
+          enrolled_at: string
+          id: string
+          progress_pct: number
+          status: string
+        }
+        Insert: {
+          assigned_by?: string
+          atleta_user_id: string
+          completed_at?: string | null
+          course_id: string
+          enrolled_at?: string
+          id?: string
+          progress_pct?: number
+          status?: string
+        }
+        Update: {
+          assigned_by?: string
+          atleta_user_id?: string
+          completed_at?: string | null
+          course_id?: string
+          enrolled_at?: string
+          id?: string
+          progress_pct?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_course_enrollments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "pt_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pt_course_lessons: {
+        Row: {
+          content: string | null
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_preview: boolean
+          module_id: string
+          order_index: number
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_preview?: boolean
+          module_id: string
+          order_index?: number
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_preview?: boolean
+          module_id?: string
+          order_index?: number
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_course_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "pt_course_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pt_course_modules: {
+        Row: {
+          course_id: string
+          created_at: string
+          description: string | null
+          id: string
+          order_index: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_index?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_index?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_course_modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "pt_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pt_course_progress: {
+        Row: {
+          atleta_user_id: string
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          enrollment_id: string
+          id: string
+          lesson_id: string | null
+          step_id: string | null
+          updated_at: string
+          watch_seconds: number
+        }
+        Insert: {
+          atleta_user_id: string
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          enrollment_id: string
+          id?: string
+          lesson_id?: string | null
+          step_id?: string | null
+          updated_at?: string
+          watch_seconds?: number
+        }
+        Update: {
+          atleta_user_id?: string
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          enrollment_id?: string
+          id?: string
+          lesson_id?: string | null
+          step_id?: string | null
+          updated_at?: string
+          watch_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_course_progress_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "pt_course_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pt_course_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "pt_course_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pt_course_progress_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "pt_course_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pt_course_step_exercises: {
+        Row: {
+          created_at: string
+          exercise_id: string
+          id: string
+          notes: string | null
+          order_index: number
+          reps: string | null
+          rest_seconds: number | null
+          sets: number | null
+          step_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          exercise_id: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          reps?: string | null
+          rest_seconds?: number | null
+          sets?: number | null
+          step_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          exercise_id?: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          reps?: string | null
+          rest_seconds?: number | null
+          sets?: number | null
+          step_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_course_step_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pt_course_step_exercises_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "pt_course_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pt_course_step_progress: {
+        Row: {
+          atleta_user_id: string
+          completed_at: string | null
+          created_at: string
+          enrollment_id: string
+          id: string
+          progress_pct: number
+          status: string
+          step_id: string
+          updated_at: string
+        }
+        Insert: {
+          atleta_user_id: string
+          completed_at?: string | null
+          created_at?: string
+          enrollment_id: string
+          id?: string
+          progress_pct?: number
+          status?: string
+          step_id: string
+          updated_at?: string
+        }
+        Update: {
+          atleta_user_id?: string
+          completed_at?: string | null
+          created_at?: string
+          enrollment_id?: string
+          id?: string
+          progress_pct?: number
+          status?: string
+          step_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_course_step_progress_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "pt_course_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pt_course_step_progress_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "pt_course_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pt_course_steps: {
+        Row: {
+          completion_threshold: number
+          course_id: string
+          created_at: string
+          description: string | null
+          id: string
+          order_index: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completion_threshold?: number
+          course_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_index?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completion_threshold?: number
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_index?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_course_steps_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "pt_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pt_courses: {
+        Row: {
+          category: string | null
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          difficulty_level: string | null
+          duration_minutes: number | null
+          id: string
+          is_free: boolean
+          price: number
+          pt_user_id: string
+          requires_sequential_steps: boolean
+          status: string
+          target_exercise: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_free?: boolean
+          price?: number
+          pt_user_id: string
+          requires_sequential_steps?: boolean
+          status?: string
+          target_exercise?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_free?: boolean
+          price?: number
+          pt_user_id?: string
+          requires_sequential_steps?: boolean
+          status?: string
+          target_exercise?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pt_favorite_exercises: {
         Row: {
           created_at: string
@@ -3063,6 +3477,7 @@ export type Database = {
           name: string | null
           order_index: number
           params: Json
+          phase: string
           type: Database["public"]["Enums"]["protocol_type"]
           updated_at: string
           workout_id: string
@@ -3074,6 +3489,7 @@ export type Database = {
           name?: string | null
           order_index?: number
           params?: Json
+          phase?: string
           type?: Database["public"]["Enums"]["protocol_type"]
           updated_at?: string
           workout_id: string
@@ -3085,6 +3501,7 @@ export type Database = {
           name?: string | null
           order_index?: number
           params?: Json
+          phase?: string
           type?: Database["public"]["Enums"]["protocol_type"]
           updated_at?: string
           workout_id?: string
@@ -3107,6 +3524,7 @@ export type Database = {
           id: string
           notes: string | null
           order_index: number
+          phase: string
           prescribed_duration_seconds: number | null
           prescribed_reps_max: number | null
           prescribed_reps_min: number | null
@@ -3125,6 +3543,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_index?: number
+          phase?: string
           prescribed_duration_seconds?: number | null
           prescribed_reps_max?: number | null
           prescribed_reps_min?: number | null
@@ -3143,6 +3562,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_index?: number
+          phase?: string
           prescribed_duration_seconds?: number | null
           prescribed_reps_max?: number | null
           prescribed_reps_min?: number | null
@@ -3273,50 +3693,80 @@ export type Database = {
       workout_templates: {
         Row: {
           category: string | null
+          cooldown_template_id: string | null
           created_at: string
           description: string | null
           difficulty_level: Database["public"]["Enums"]["fitness_level"]
           estimated_duration: number | null
           id: string
+          include_cooldown: boolean
+          include_warmup: boolean
           is_public: boolean
           muscle_groups: string[]
           pt_user_id: string
           tags: string[] | null
           template_kind: string | null
+          template_role: string
           title: string
           updated_at: string
+          warmup_template_id: string | null
         }
         Insert: {
           category?: string | null
+          cooldown_template_id?: string | null
           created_at?: string
           description?: string | null
           difficulty_level?: Database["public"]["Enums"]["fitness_level"]
           estimated_duration?: number | null
           id?: string
+          include_cooldown?: boolean
+          include_warmup?: boolean
           is_public?: boolean
           muscle_groups?: string[]
           pt_user_id: string
           tags?: string[] | null
           template_kind?: string | null
+          template_role?: string
           title: string
           updated_at?: string
+          warmup_template_id?: string | null
         }
         Update: {
           category?: string | null
+          cooldown_template_id?: string | null
           created_at?: string
           description?: string | null
           difficulty_level?: Database["public"]["Enums"]["fitness_level"]
           estimated_duration?: number | null
           id?: string
+          include_cooldown?: boolean
+          include_warmup?: boolean
           is_public?: boolean
           muscle_groups?: string[]
           pt_user_id?: string
           tags?: string[] | null
           template_kind?: string | null
+          template_role?: string
           title?: string
           updated_at?: string
+          warmup_template_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workout_templates_cooldown_template_id_fkey"
+            columns: ["cooldown_template_id"]
+            isOneToOne: false
+            referencedRelation: "workout_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_templates_warmup_template_id_fkey"
+            columns: ["warmup_template_id"]
+            isOneToOne: false
+            referencedRelation: "workout_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workouts: {
         Row: {
@@ -3644,6 +4094,23 @@ export type Database = {
       is_premium: { Args: { _user_id: string }; Returns: boolean }
       is_pt: { Args: { _user_id: string }; Returns: boolean }
       is_pt_active: { Args: { _user_id: string }; Returns: boolean }
+      is_pt_course_lesson_owner: {
+        Args: { _lesson_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_pt_course_module_owner: {
+        Args: { _module_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_pt_course_owner: {
+        Args: { _course_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_pt_course_published: { Args: { _course_id: string }; Returns: boolean }
+      is_pt_course_step_owner: {
+        Args: { _step_id: string; _user_id: string }
+        Returns: boolean
+      }
       join_group: { Args: { _group_id: string }; Returns: Json }
       pt_save_workout_log: {
         Args: {
