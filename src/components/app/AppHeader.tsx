@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Bell } from 'lucide-react';
+import { Bell, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 // =====================================================
@@ -14,8 +14,11 @@ interface AppHeaderProps {
   avatarInitials?: string;
   showNotifications?: boolean;
   notificationCount?: number;
+  showMessages?: boolean;
+  messageCount?: number;
   onAvatarPress?: () => void;
   onNotificationPress?: () => void;
+  onMessagePress?: () => void;
   children?: React.ReactNode;
   className?: string;
 }
@@ -26,8 +29,11 @@ export function AppHeader({
   avatarInitials = 'U',
   showNotifications = false,
   notificationCount = 0,
+  showMessages = false,
+  messageCount = 0,
   onAvatarPress,
   onNotificationPress,
+  onMessagePress,
   children,
   className,
 }: AppHeaderProps) {
@@ -51,26 +57,48 @@ export function AppHeader({
           <div className="flex-1 mx-4">{children}</div>
         ) : null}
 
-        {/* Notifications */}
-        {showNotifications && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="relative text-white/60 hover:text-white"
-            onClick={onNotificationPress}
-          >
-            <Bell className="h-6 w-6" />
-            {notificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-app-accent text-[10px] font-bold text-black">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </span>
-            )}
-          </Button>
-        )}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Messaggi */}
+          {showMessages && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Messaggi"
+              className="relative text-white/60 hover:text-white"
+              onClick={onMessagePress}
+            >
+              <MessageCircle className="h-6 w-6" />
+              {messageCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-app-accent text-[10px] font-bold text-black">
+                  {messageCount > 9 ? '9+' : messageCount}
+                </span>
+              )}
+            </Button>
+          )}
+
+          {/* Notifications */}
+          {showNotifications && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Notifiche"
+              className="relative text-white/60 hover:text-white"
+              onClick={onNotificationPress}
+            >
+              <Bell className="h-6 w-6" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-app-accent text-[10px] font-bold text-black">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
     </header>
   );
 }
+
 
 // =====================================================
 // SIMPLE HEADER - Header semplice con back e titolo
