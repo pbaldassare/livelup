@@ -30,24 +30,37 @@ import {
   GripVertical,
   ChevronDown,
   ChevronRight,
+  Star,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
+  DndPlaceholder,
+  dndDragHandleClassName,
+  dndDraggableClassName,
+  dndDroppableClassName,
+  getDraggingStyle,
+  portalWhileDragging,
+  useDndSessionState,
+} from '@/lib/dnd/helloPangea';
+import {
   resolveSetsData,
   summarizeSets,
   DEFAULT_SET,
+  getSetTargetMode,
   type SetItem,
 } from '@/lib/setsData';
+import { defaultLoadFields } from '@/lib/loadPrescription';
+import { LoadField } from '@/components/pt/LoadField';
 import {
-  PROTOCOL_LIST,
   getProtocolDef,
-  getDefaultParamsForProtocol,
   getNested,
   setNested,
   resolveRampingUnit,
+  isProtocolType,
+  describeExerciseProtocol,
   type ProtocolType,
   type ProtocolParams,
 } from '@/lib/protocols/registry';
@@ -67,19 +80,28 @@ import {
   exercisePickerPopoverClassName,
   exercisePickerPopoverProps,
 } from '@/components/pt/ExerciseArchivePickerPanel';
+import { AddProtocolDialog, type AddProtocolResult } from '@/components/pt/AddProtocolDialog';
+import {
+  seedParamsWithHostExercise,
+  updatePtProtocol,
+  saveSheetProtocolAsMine,
+  getProtocolById,
+} from '@/lib/api/ptProtocols';
+import { useFavoriteProtocolIds } from '@/hooks/usePTFavoriteProtocols';
 import { Link } from 'react-router-dom';
 import {
   type ProtocolConfig,
   type SetData,
+  type SetTargetMode,
   type TemplateExerciseInsert,
   type TemplateExerciseUpdate,
   toJson,
 } from '@/types/database';
 
 // =====================================================
-// TEMPLATE EXERCISE BUILDER
-// Aggiunge esercizi a un template (singoli o dentro un circuito).
-// Ogni esercizio ha il PROPRIO protocollo (SET di default) e i propri set.
+// TEMPLATE SEQUENCE BUILDER
+// Sequenza scheda: esercizi (Set standard) + protocolli (blocchi).
+// Set standard NON è un protocollo.
 // =====================================================
 
 interface Exercise {
@@ -108,6 +130,8 @@ interface TemplateExercise {
   sets_data?: SetData[] | null;
   protocol_type?: string | null;
   protocol_params?: ProtocolConfig | null;
+  protocol_name?: string | null;
+  library_protocol_id?: string | null;
   block_id?: string | null;
   exercise?: Exercise;
 }
@@ -122,7 +146,10 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [protocolDialogOpen, setProtocolDialogOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const dndSession = useDndSessionState();
+  const { data: favoriteProtocolIds } = useFavoriteProtocolIds();
 
   const toggleExpanded = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -165,27 +192,40 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   const { data: templateExercises = [], isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
-      let q = supabase
-        .from('template_exercises')
-        .select(`
-          id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params,
-          exercises (*)
-        `)
-        .eq('template_id', templateId)
-        .order('order_index');
+      const mapRows = (data: any[]) =>
+        data.map((te) => ({
+          ...te,
+          protocol_name:
+            te.protocol_name ??
+            (te.protocol_params as any)?.protocol_name ??
+            null,
+          exercise: te.exercises,
+        })) as unknown as TemplateExercise[];
 
-      if (blockId) {
-        q = q.eq('block_id', blockId);
-      } else {
-        q = q.is('block_id', null);
+      const baseSelect =
+        'id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params, protocol_name, library_protocol_id, exercises (*)';
+      const legacySelect =
+        'id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params, exercises (*)';
+
+      const run = async (select: string) => {
+        let q = supabase
+          .from('template_exercises')
+          .select(select)
+          .eq('template_id', templateId)
+          .order('order_index');
+        if (blockId) q = q.eq('block_id', blockId);
+        else q = q.is('block_id', null);
+        return q;
+      };
+
+      const first = await run(baseSelect);
+      if (!first.error) return mapRows(first.data || []);
+      if (/protocol_name|library_protocol_id|42703|PGRST204|schema cache/i.test(first.error.message)) {
+        const legacy = await run(legacySelect);
+        if (legacy.error) throw legacy.error;
+        return mapRows(legacy.data || []);
       }
-
-      const { data, error } = await q;
-      if (error) throw error;
-      return data.map(te => ({
-        ...te,
-        exercise: te.exercises
-      })) as unknown as TemplateExercise[];
+      throw first.error;
     },
     enabled: !!templateId,
   });
@@ -268,8 +308,10 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       const rest = 60;
 
       const sets_data: SetData[] = Array.from({ length: sets }).map(() => ({
+        mode: 'reps' as const,
         reps: repsVal,
-        weight: null,
+        duration_seconds: null,
+        ...defaultLoadFields(),
         rest_seconds: rest,
       }));
 
@@ -288,15 +330,21 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         protocol_params: toJson({}),
       };
 
-      const { error } = await supabase.from('template_exercises').insert(insertRow);
+      const { data, error } = await supabase
+        .from('template_exercises')
+        .insert(insertRow)
+        .select('id')
+        .single();
 
       if (error) throw error;
+      return data.id as string;
     },
-    onSuccess: () => {
+    onSuccess: (newId) => {
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['template-blocks', templateId] });
       queryClient.invalidateQueries({ queryKey: ['template-blocks-counts', templateId] });
       queryClient.invalidateQueries({ queryKey: ['template-exercise-options', templateId] });
+      setExpandedIds(new Set([newId]));
       toast.success('Esercizio aggiunto');
       setSearchOpen(false);
     },
@@ -305,35 +353,263 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     },
   });
 
-  // Cambio protocollo per esercizio: aggiorna protocol_type e azzera/riprenseta protocol_params
-  const updateProtocolMutation = useMutation({
-    mutationFn: async ({ id, type }: { id: string; type: ProtocolType }) => {
-      const params = getDefaultParamsForProtocol(type);
-      const updateRow: TemplateExerciseUpdate = {
-        protocol_type: type,
+  const nextOrderIndex = () =>
+    templateExercises.length > 0
+      ? Math.max(...templateExercises.map((te) => te.order_index)) + 1
+      : 0;
+
+  /** Aggiunge un protocollo come item di sequenza (non come proprietà dell'esercizio). */
+  const addProtocolMutation = useMutation({
+    mutationFn: async (result: AddProtocolResult) => {
+      if (!user?.id) throw new Error('Non autenticato');
+
+      let protocolType: Exclude<ProtocolType, 'SET'>;
+      let protocolName: string;
+      let hostExerciseId: string;
+      let hostExerciseName: string;
+      let libraryId: string | null = null;
+      let params: ProtocolParams & { protocol_name?: string; host_exercise_id?: string };
+
+      if (result.mode === 'mine') {
+        // Solo copie private del PT
+        if (result.protocol.is_public) {
+          throw new Error('Usa lo standard dalla tab Standard, non come protocollo personale');
+        }
+        protocolType = result.protocol.type;
+        protocolName = result.protocol.name;
+        hostExerciseId = result.hostExerciseId;
+        hostExerciseName = result.hostExerciseName;
+        libraryId = result.protocol.id;
+        params = seedParamsWithHostExercise(
+          protocolType,
+          hostExerciseId,
+          hostExerciseName,
+          result.protocol.config as ProtocolParams,
+        );
+        params.protocol_name = protocolName;
+      } else {
+        // standard | new (personalizzazione)
+        protocolType = result.type;
+        protocolName = result.name;
+        hostExerciseId = result.hostExerciseId;
+        hostExerciseName = result.hostExerciseName;
+        params = seedParamsWithHostExercise(protocolType, hostExerciseId, hostExerciseName);
+        params.protocol_name = protocolName;
+
+        if (result.saveAsMine) {
+          const saved = await saveSheetProtocolAsMine(user.id, {
+            type: protocolType,
+            name: protocolName,
+            config: params,
+            favoriteOnCreate: result.favorite,
+            updateOnly: true,
+          });
+          libraryId = saved.id;
+        }
+        // mode standard senza saveAsMine: nessuna riga libreria (solo in scheda)
+      }
+
+      const insertRow: TemplateExerciseInsert & {
+        protocol_name?: string | null;
+        library_protocol_id?: string | null;
+      } = {
+        template_id: templateId,
+        exercise_id: hostExerciseId,
+        order_index: nextOrderIndex(),
+        sets: 1,
+        reps_min: null,
+        reps_max: null,
+        rest_seconds: 60,
+        prescribed_duration_seconds: null,
+        sets_data: toJson([]),
+        block_id: blockId ?? null,
+        protocol_type: protocolType,
         protocol_params: toJson(params),
+        protocol_name: protocolName,
+        library_protocol_id: libraryId,
       };
-      const { error } = await supabase
+
+      const { data, error } = await supabase
         .from('template_exercises')
-        .update(updateRow)
-        .eq('id', id);
-      if (error) throw error;
+        .insert(insertRow as any)
+        .select('id')
+        .single();
+      if (error) {
+        if (/protocol_name|library_protocol_id|42703|PGRST204|schema cache/i.test(error.message)) {
+          const { protocol_name: _n, library_protocol_id: _l, ...legacy } = insertRow;
+          const legacyParams = {
+            ...params,
+            ...(libraryId ? { library_protocol_id: libraryId } : {}),
+          };
+          const { data: legacyData, error: legacyErr } = await supabase
+            .from('template_exercises')
+            .insert({ ...legacy, protocol_params: toJson(legacyParams) } as any)
+            .select('id')
+            .single();
+          if (legacyErr) throw legacyErr;
+          return { id: legacyData.id as string, protocolName };
+        } else {
+          throw error;
+        }
+      }
+      return { id: data.id as string, protocolName };
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-    onError: () => toast.error('Errore aggiornamento protocollo'),
+    onSuccess: ({ id: newId, protocolName }) => {
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['pt-protocols-mine', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['pt-protocols', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['pt-favorite-protocol-ids', user?.id] });
+      setExpandedIds(new Set([newId]));
+      toast.success(`Protocollo “${protocolName}” aggiunto`);
+      setProtocolDialogOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message || 'Errore aggiunta protocollo'),
   });
 
-  // Aggiorna un parametro del protocol_params (per protocolli non-SET)
+  const renameProtocolMutation = useMutation({
+    mutationFn: async ({
+      id,
+      name,
+      libraryProtocolId,
+      params,
+    }: {
+      id: string;
+      name: string;
+      libraryProtocolId?: string | null;
+      params: ProtocolConfig;
+    }) => {
+      const nextParams = { ...(params || {}), protocol_name: name };
+      const updateRow: any = {
+        protocol_name: name,
+        protocol_params: toJson(nextParams),
+      };
+      const { error } = await supabase.from('template_exercises').update(updateRow).eq('id', id);
+      if (error) {
+        if (/protocol_name|42703|PGRST204|schema cache/i.test(error.message)) {
+          const { error: legacyErr } = await supabase
+            .from('template_exercises')
+            .update({ protocol_params: toJson(nextParams) })
+            .eq('id', id);
+          if (legacyErr) throw legacyErr;
+        } else {
+          throw error;
+        }
+      }
+      // Aggiorna libreria solo se copia privata (mai standard pubblico)
+      if (libraryProtocolId) {
+        const lib = await getProtocolById(libraryProtocolId);
+        if (lib && !lib.is_public) {
+          await updatePtProtocol(libraryProtocolId, { name, config: nextParams as ProtocolParams });
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['pt-protocols-mine', user?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message || 'Errore rinomina protocollo'),
+  });
+
+  const saveProtocolToLibraryMutation = useMutation({
+    mutationFn: async (te: TemplateExercise) => {
+      if (!user?.id) throw new Error('Non autenticato');
+      const ptype = te.protocol_type as Exclude<ProtocolType, 'SET'>;
+      if (!isProtocolType(ptype)) throw new Error('Non è un protocollo');
+      const name =
+        te.protocol_name?.trim() ||
+        (te.protocol_params as any)?.protocol_name ||
+        getProtocolDef(ptype).label;
+      const config = {
+        ...(te.protocol_params as ProtocolParams),
+        protocol_name: name,
+        host_exercise_id: te.exercise_id,
+      };
+
+      const libId =
+        te.library_protocol_id ||
+        ((te.protocol_params as any)?.library_protocol_id as string | undefined) ||
+        null;
+      const currentlyFavorite = libId ? favoriteProtocolIds?.has(libId) ?? false : false;
+
+      const saved = await saveSheetProtocolAsMine(user.id, {
+        libraryProtocolId: libId,
+        type: ptype,
+        name,
+        config,
+        currentlyFavorite,
+      });
+
+      // Collega la riga scheda alla copia privata
+      if (saved.id !== libId) {
+        const { error } = await supabase
+          .from('template_exercises')
+          .update({ library_protocol_id: saved.id } as any)
+          .eq('id', te.id);
+        if (error && !/library_protocol_id|42703|PGRST204/i.test(error.message)) {
+          await supabase
+            .from('template_exercises')
+            .update({
+              protocol_params: toJson({
+                ...config,
+                library_protocol_id: saved.id,
+              }),
+            } as any)
+            .eq('id', te.id);
+        }
+      }
+      return saved;
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['pt-protocols-mine', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['pt-favorite-protocol-ids', user?.id] });
+      toast.success(
+        res.action === 'removed'
+          ? 'Rimosso dai tuoi preferiti'
+          : 'Salvato nei tuoi protocolli (copia personale)',
+      );
+    },
+    onError: (e: Error) => toast.error(e.message || 'Errore salvataggio preferito'),
+  });
+
+  // Aggiorna protocol_params preservando nome / link libreria
   const updateProtocolParamMutation = useMutation({
     mutationFn: async ({ id, params }: { id: string; params: ProtocolConfig }) => {
+      const current = templateExercises.find((t) => t.id === id);
+      const merged = {
+        ...(params as any),
+        protocol_name:
+          (params as any)?.protocol_name ||
+          current?.protocol_name ||
+          (current?.protocol_params as any)?.protocol_name,
+        host_exercise_id:
+          (params as any)?.host_exercise_id ||
+          current?.exercise_id ||
+          (current?.protocol_params as any)?.host_exercise_id,
+        library_protocol_id:
+          (params as any)?.library_protocol_id ||
+          current?.library_protocol_id ||
+          (current?.protocol_params as any)?.library_protocol_id,
+      };
       const updateRow: TemplateExerciseUpdate = {
-        protocol_params: toJson(params),
+        protocol_params: toJson(merged),
       };
       const { error } = await supabase
         .from('template_exercises')
         .update(updateRow)
         .eq('id', id);
       if (error) throw error;
+
+      // Sincronizza solo copie private del PT — mai gli standard pubblici
+      if (current?.library_protocol_id) {
+        const lib = await getProtocolById(current.library_protocol_id).catch(() => null);
+        if (lib && !lib.is_public) {
+          await updatePtProtocol(current.library_protocol_id, {
+            config: merged as ProtocolParams,
+            name: merged.protocol_name,
+          }).catch(() => undefined);
+        }
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
@@ -391,6 +667,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         reps_min: summary.reps_min,
         reps_max: summary.reps_max,
         rest_seconds: summary.rest_seconds,
+        prescribed_duration_seconds: summary.prescribed_duration_seconds,
       };
       const { error } = await supabase
         .from('template_exercises')
@@ -401,8 +678,21 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     onMutate: async ({ id, sets_data }) => {
       await queryClient.cancelQueries({ queryKey });
       const prev = queryClient.getQueryData<TemplateExercise[]>(queryKey);
+      const summary = summarizeSets(sets_data);
       queryClient.setQueryData<TemplateExercise[]>(queryKey, (old) =>
-        (old || []).map((te) => (te.id === id ? { ...te, sets_data } : te)),
+        (old || []).map((te) =>
+          te.id === id
+            ? {
+                ...te,
+                sets_data,
+                sets: summary.sets,
+                reps_min: summary.reps_min,
+                reps_max: summary.reps_max,
+                rest_seconds: summary.rest_seconds,
+                prescribed_duration_seconds: summary.prescribed_duration_seconds,
+              }
+            : te,
+        ),
       );
       return { prev };
     },
@@ -490,143 +780,224 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     reorderMutation.mutate({ updates, previousOrder });
   };
 
+  const allExerciseOptionsForProtocol = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { id: string; name: string }[] = [];
+    for (const o of [
+      ...allTemplateExerciseOptions,
+      ...protocolExerciseArchive.favoriteOptions,
+      ...protocolExerciseArchive.mineOptions,
+      ...protocolExerciseArchive.globalOptions,
+    ]) {
+      if (!o.id || seen.has(o.id)) continue;
+      seen.add(o.id);
+      out.push({ id: o.id, name: o.name });
+    }
+    return out;
+  }, [allTemplateExerciseOptions, protocolExerciseArchive]);
+
+  const protocolCount = templateExercises.filter((te) => isProtocolType(te.protocol_type)).length;
+  const exerciseCount = templateExercises.length - protocolCount;
+
   return (
     <div className="space-y-4">
-      {/* Add Exercise Button */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <p className="text-sm text-muted-foreground">
-            {templateExercises.length} esercizi • Trascina per riordinare
+            {exerciseCount} esercizi · {protocolCount} protocolli • Trascina per riordinare
           </p>
         </div>
-        <Popover open={searchOpen} onOpenChange={setSearchOpen}>
-          <PopoverTrigger asChild>
-            <Button size="default">
-              <Plus className="h-4 w-4 mr-2" />
-              Aggiungi esercizio
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            className={exercisePickerPopoverClassName}
-            {...exercisePickerPopoverProps}
-          >
-            <ExerciseArchivePickerPanel
-              open={searchOpen}
-              workoutExerciseOptions={addExercisePickerOptions.workout}
-              favoriteExerciseOptions={addExercisePickerOptions.favorites}
-              mineExerciseOptions={addExercisePickerOptions.mine}
-              globalExerciseOptions={addExercisePickerOptions.global}
-              onSelect={(opt) => {
-                if (opt.id) addExerciseMutation.mutate({ id: opt.id });
-              }}
-              emptyFallback={
-                <div className="py-6 px-4 text-center space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Nessun esercizio disponibile. Aggiungi preferiti o crea esercizi personali.
-                  </p>
-                  <Link
-                    to="/pt/exercises"
-                    onClick={() => setSearchOpen(false)}
-                    className="inline-block text-sm font-medium text-primary hover:underline"
-                  >
-                    Vai agli Esercizi →
-                  </Link>
-                </div>
-              }
-            />
-          </PopoverContent>
-        </Popover>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button size="default" variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Aggiungi esercizio
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className={exercisePickerPopoverClassName}
+              {...exercisePickerPopoverProps}
+            >
+              <ExerciseArchivePickerPanel
+                open={searchOpen}
+                workoutExerciseOptions={addExercisePickerOptions.workout}
+                favoriteExerciseOptions={addExercisePickerOptions.favorites}
+                mineExerciseOptions={addExercisePickerOptions.mine}
+                globalExerciseOptions={addExercisePickerOptions.global}
+                onSelect={(opt) => {
+                  if (opt.id) addExerciseMutation.mutate({ id: opt.id });
+                }}
+                emptyFallback={
+                  <div className="py-6 px-4 text-center space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Nessun esercizio disponibile. Aggiungi preferiti o crea esercizi personali.
+                    </p>
+                    <Link
+                      to="/pt/exercises"
+                      onClick={() => setSearchOpen(false)}
+                      className="inline-block text-sm font-medium text-primary hover:underline"
+                    >
+                      Vai agli Esercizi →
+                    </Link>
+                  </div>
+                }
+              />
+            </PopoverContent>
+          </Popover>
+          <Button size="default" onClick={() => setProtocolDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Aggiungi protocollo
+          </Button>
+        </div>
       </div>
 
-      {/* Exercise List with Drag and Drop */}
+      <AddProtocolDialog
+        open={protocolDialogOpen}
+        onOpenChange={setProtocolDialogOpen}
+        exerciseOptions={allExerciseOptionsForProtocol}
+        isSubmitting={addProtocolMutation.isPending}
+        onConfirm={(result) => addProtocolMutation.mutate(result)}
+      />
+
+      {/* Sequenza esercizi + protocolli */}
       {templateExercises.length === 0 ? (
         <div className="py-6 text-center text-sm text-muted-foreground">
-          Nessun esercizio. Aggiungi il primo per iniziare.
+          Nessun elemento. Aggiungi un esercizio o un protocollo per iniziare.
         </div>
       ) : (
-        <DragDropContext onDragEnd={handleDragEnd}>
+        <DragDropContext
+          onDragStart={dndSession.onDragStart}
+          onDragEnd={dndSession.wrapDragEnd(handleDragEnd)}
+        >
           <Droppable droppableId="template-exercises">
             {(provided, snapshot) => (
               <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
-                  className={cn(
-                    "space-y-3 min-h-[80px] transition-colors rounded-lg p-1",
-                    snapshot.isDraggingOver && "bg-accent/50"
+                  className={dndDroppableClassName(
+                    snapshot.isDraggingOver,
+                    'space-y-3 min-h-[80px]',
                   )}
                 >
                   {templateExercises.map((te, index) => (
                     <Draggable key={te.id} draggableId={te.id} index={index}>
-                      {(provided, snapshot) => (
-                        <Card
+                      {(provided, snapshot) => {
+                        const rowIsProtocol = isProtocolType(te.protocol_type);
+                        const isRowExpanded =
+                          expandedIds.has(te.id) &&
+                          !snapshot.isDragging &&
+                          dndSession.draggingId !== te.id;
+                        return portalWhileDragging(
+                          snapshot,
+                          <Card
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          className={cn(
-                            "overflow-hidden transition-shadow",
-                            snapshot.isDragging && "shadow-lg ring-2 ring-primary"
+                          style={getDraggingStyle(provided.draggableProps.style, snapshot)}
+                          className={dndDraggableClassName(
+                            snapshot,
+                            'overflow-hidden',
+                            rowIsProtocol && 'border-primary/30 bg-primary/[0.02]',
                           )}
                         >
                           <CardContent className="p-4">
-                            <div className="flex gap-4">
-                              {/* Drag Handle */}
+                            <div className="flex gap-3 sm:gap-4">
+                              {/* Drag Handle — solo da qui, target touch ~44px */}
                               <div
                                 {...provided.dragHandleProps}
-                                className="flex flex-col items-center justify-center gap-1 cursor-grab active:cursor-grabbing"
+                                className={dndDragHandleClassName}
+                                aria-label="Trascina per riordinare"
+                                title="Trascina per riordinare"
                               >
-                                <GripVertical className="h-5 w-5 text-muted-foreground" />
-                                <span className="text-sm font-medium text-muted-foreground">
+                                <GripVertical className="h-5 w-5" />
+                                <span className="text-xs font-medium tabular-nums">
                                   {index + 1}
                                 </span>
                               </div>
 
-                              {/* Exercise Info */}
+                              {/* Exercise / Protocol Info */}
                               <div className="flex-1 min-w-0 space-y-3">
+                                {(() => {
+                                  const isProtocol = isProtocolType(te.protocol_type);
+                                  const ptype = (te.protocol_type as ProtocolType) || 'SET';
+                                  const def = getProtocolDef(ptype);
+                                  const ProtocolIcon = def.icon;
+                                  const protocolDisplayName =
+                                    te.protocol_name?.trim() ||
+                                    (te.protocol_params as any)?.protocol_name ||
+                                    def.label;
+                                  return (
                                 <div className="flex items-start justify-between gap-2">
                                   <button
                                     type="button"
                                     onClick={() => toggleExpanded(te.id)}
                                     className="flex min-w-0 items-start gap-2 text-left"
-                                    aria-expanded={expandedIds.has(te.id)}
-                                    title={expandedIds.has(te.id) ? 'Comprimi' : 'Espandi'}
+                                    aria-expanded={isRowExpanded}
+                                    title={isRowExpanded ? 'Comprimi' : 'Espandi'}
                                   >
-                                    {!expandedIds.has(te.id) ? (
+                                    {!isRowExpanded ? (
                                       <ChevronRight className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                                     ) : (
                                       <ChevronDown className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                                     )}
                                     <div className="min-w-0">
-                                      <p className="font-medium truncate">{te.exercise?.name}</p>
-                                      <p className="text-sm text-muted-foreground truncate">
-                                        {te.exercise?.category} • {te.exercise?.muscle_groups.join(', ')}
-                                      </p>
+                                      {isProtocol ? (
+                                        <>
+                                          <p className="font-medium truncate flex items-center gap-1.5">
+                                            <ProtocolIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                            {protocolDisplayName}
+                                          </p>
+                                          <p className="text-sm text-muted-foreground truncate">
+                                            Protocollo · {def.label}
+                                            {te.exercise?.name ? ` · ${te.exercise.name}` : ''}
+                                            {' · '}
+                                            {describeExerciseProtocol(
+                                              ptype,
+                                              te.protocol_params as ProtocolParams,
+                                              te.sets,
+                                            )}
+                                          </p>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <p className="font-medium truncate">{te.exercise?.name}</p>
+                                          <p className="text-sm text-muted-foreground truncate">
+                                            {te.exercise?.category}
+                                            {te.exercise?.muscle_groups?.length
+                                              ? ` • ${te.exercise.muscle_groups.join(', ')}`
+                                              : ''}
+                                          </p>
+                                        </>
+                                      )}
                                     </div>
                                   </button>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {/* Selettore Protocollo */}
-                                    <Select
-                                      value={(te.protocol_type as ProtocolType) || 'SET'}
-                                      onValueChange={(v) =>
-                                        updateProtocolMutation.mutate({ id: te.id, type: v as ProtocolType })
-                                      }
-                                    >
-                                      <SelectTrigger className="h-8 w-[140px] text-xs">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {PROTOCOL_LIST.map((def) => {
-                                          const Icon = def.icon;
-                                          return (
-                                            <SelectItem key={def.type} value={def.type}>
-                                              <span className="flex items-center gap-2">
-                                                <Icon className="h-3.5 w-3.5" />
-                                                {def.label}
-                                              </span>
-                                            </SelectItem>
-                                          );
-                                        })}
-                                      </SelectContent>
-                                    </Select>
-                                    <ProtocolInfoPopover type={(te.protocol_type as ProtocolType) || 'SET'} />
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {isProtocol && (
+                                      <>
+                                        <ProtocolInfoPopover type={ptype} />
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          title="Salva nei preferiti"
+                                          disabled={saveProtocolToLibraryMutation.isPending}
+                                          onClick={() => saveProtocolToLibraryMutation.mutate(te)}
+                                        >
+                                          <Star
+                                            className={cn(
+                                              'h-4 w-4',
+                                              (() => {
+                                                const libId =
+                                                  te.library_protocol_id ||
+                                                  (te.protocol_params as any)?.library_protocol_id;
+                                                return libId && favoriteProtocolIds?.has(libId)
+                                                  ? 'fill-amber-400 text-amber-400'
+                                                  : 'text-muted-foreground';
+                                              })(),
+                                            )}
+                                          />
+                                        </Button>
+                                      </>
+                                    )}
                                     <Button
                                       variant="ghost"
                                       size="icon"
@@ -637,9 +1008,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                     </Button>
                                   </div>
                                 </div>
+                                  );
+                                })()}
 
-                                {/* Render condizionale per protocollo */}
-                                {expandedIds.has(te.id) && (() => {
+                                {/* Render condizionale: esercizio SET vs editor protocollo */}
+                                {isRowExpanded && (() => {
                                   const ptype = ((te.protocol_type as ProtocolType) || 'SET');
                                   if (ptype === 'SET') {
                                     return (
@@ -651,6 +1024,37 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       />
                                     );
                                   }
+
+                                  const protocolDisplayName =
+                                    te.protocol_name?.trim() ||
+                                    (te.protocol_params as any)?.protocol_name ||
+                                    getProtocolDef(ptype).label;
+
+                                  const nameField = (
+                                    <div className="space-y-1.5 rounded-md border bg-muted/20 p-3">
+                                      <Label className="text-xs">Nome protocollo</Label>
+                                      <Input
+                                        defaultValue={protocolDisplayName}
+                                        key={`${te.id}-${protocolDisplayName}`}
+                                        className="h-8"
+                                        placeholder="Nome del protocollo"
+                                        onBlur={(e) => {
+                                          const next = e.target.value.trim();
+                                          if (!next || next === protocolDisplayName) return;
+                                          renameProtocolMutation.mutate({
+                                            id: te.id,
+                                            name: next,
+                                            libraryProtocolId: te.library_protocol_id,
+                                            params: (te.protocol_params || {}) as ProtocolConfig,
+                                          });
+                                        }}
+                                      />
+                                      <p className="text-[11px] text-muted-foreground">
+                                        Combina gli esercizi sotto. Puoi spostare questo blocco nella scheda come un esercizio.
+                                      </p>
+                                    </div>
+                                  );
+
                                   if (ptype === 'TOP_SET_BACKOFF') {
                                     const rawParams = te.protocol_params ?? {};
                                     const params = normalizeTopSetBackoff(rawParams);
@@ -703,6 +1107,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
 
                                     return (
                                       <div className="space-y-3">
+                                        {nameField}
                                         <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                           <p className="text-xs font-medium text-muted-foreground">
                                             Parametri Top Set + Back Off
@@ -870,93 +1275,103 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                       params as Record<string, unknown>,
                                       fallbackName,
                                     );
-                                    // Opzioni dropdown = workout + archivio completo
                                     return (
-                                      <EmomBlocksEditor
-                                        value={emomValue}
-                                        workoutExerciseOptions={allTemplateExerciseOptions}
-                                        favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
-                                        mineExerciseOptions={protocolExerciseArchive.mineOptions}
-                                        globalExerciseOptions={protocolExerciseArchive.globalOptions}
-                                        onChange={(next) => {
-                                          updateProtocolParamMutation.mutate({
-                                            id: te.id,
-                                            params: next as unknown as ProtocolParams,
-                                          });
-                                        }}
-                                      />
+                                      <div className="space-y-3">
+                                        {nameField}
+                                        <EmomBlocksEditor
+                                          value={emomValue}
+                                          workoutExerciseOptions={allTemplateExerciseOptions}
+                                          favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
+                                          mineExerciseOptions={protocolExerciseArchive.mineOptions}
+                                          globalExerciseOptions={protocolExerciseArchive.globalOptions}
+                                          onChange={(next) => {
+                                            updateProtocolParamMutation.mutate({
+                                              id: te.id,
+                                              params: next as unknown as ProtocolParams,
+                                            });
+                                          }}
+                                        />
+                                      </div>
                                     );
                                   }
 
-                                  // AMRAP: editor dedicato (timer globale + lista piatta esercizi)
                                   if (ptype === 'AMRAP') {
                                     const amrapValue = normalizeAmrapParams(
                                       params as Record<string, unknown>,
                                     );
                                     return (
-                                      <AmrapEditor
-                                        value={amrapValue}
-                                        workoutExerciseOptions={allTemplateExerciseOptions}
-                                        favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
-                                        mineExerciseOptions={protocolExerciseArchive.mineOptions}
-                                        globalExerciseOptions={protocolExerciseArchive.globalOptions}
-                                        onChange={(next) => {
-                                          updateProtocolParamMutation.mutate({
-                                            id: te.id,
-                                            params: next as unknown as ProtocolParams,
-                                          });
-                                        }}
-                                      />
+                                      <div className="space-y-3">
+                                        {nameField}
+                                        <AmrapEditor
+                                          value={amrapValue}
+                                          workoutExerciseOptions={allTemplateExerciseOptions}
+                                          favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
+                                          mineExerciseOptions={protocolExerciseArchive.mineOptions}
+                                          globalExerciseOptions={protocolExerciseArchive.globalOptions}
+                                          onChange={(next) => {
+                                            updateProtocolParamMutation.mutate({
+                                              id: te.id,
+                                              params: next as unknown as ProtocolParams,
+                                            });
+                                          }}
+                                        />
+                                      </div>
                                     );
                                   }
 
-                                  // SUPERSET: editor strutturato (set-based, tabella set = fonte di verità)
                                   if (ptype === 'SUPERSET') {
                                     const supersetValue = normalizeSupersetParams(
                                       params as Record<string, unknown>,
                                     );
                                     return (
-                                      <SupersetEditor
-                                        value={supersetValue}
-                                        workoutExerciseOptions={allTemplateExerciseOptions}
-                                        favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
-                                        mineExerciseOptions={protocolExerciseArchive.mineOptions}
-                                        globalExerciseOptions={protocolExerciseArchive.globalOptions}
-                                        onChange={(next) => {
-                                          updateProtocolParamMutation.mutate({
-                                            id: te.id,
-                                            params: next as unknown as ProtocolParams,
-                                          });
-                                        }}
-                                      />
+                                      <div className="space-y-3">
+                                        {nameField}
+                                        <SupersetEditor
+                                          value={supersetValue}
+                                          workoutExerciseOptions={allTemplateExerciseOptions}
+                                          favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
+                                          mineExerciseOptions={protocolExerciseArchive.mineOptions}
+                                          globalExerciseOptions={protocolExerciseArchive.globalOptions}
+                                          onChange={(next) => {
+                                            updateProtocolParamMutation.mutate({
+                                              id: te.id,
+                                              params: next as unknown as ProtocolParams,
+                                            });
+                                          }}
+                                        />
+                                      </div>
                                     );
                                   }
 
-                                  // HIIT / TABATA: editor condiviso a tempo + lista esercizi
                                   if (ptype === 'HIIT' || ptype === 'TABATA') {
                                     const trValue = normalizeTimedRoundsParams(
                                       params as Record<string, unknown>,
                                     );
                                     return (
-                                      <TimedRoundsEditor
-                                        value={trValue}
-                                        title={ptype}
-                                        workoutExerciseOptions={allTemplateExerciseOptions}
-                                        favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
-                                        mineExerciseOptions={protocolExerciseArchive.mineOptions}
-                                        globalExerciseOptions={protocolExerciseArchive.globalOptions}
-                                        onChange={(next) => {
-                                          updateProtocolParamMutation.mutate({
-                                            id: te.id,
-                                            params: next as unknown as ProtocolParams,
-                                          });
-                                        }}
-                                      />
+                                      <div className="space-y-3">
+                                        {nameField}
+                                        <TimedRoundsEditor
+                                          value={trValue}
+                                          title={ptype}
+                                          workoutExerciseOptions={allTemplateExerciseOptions}
+                                          favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
+                                          mineExerciseOptions={protocolExerciseArchive.mineOptions}
+                                          globalExerciseOptions={protocolExerciseArchive.globalOptions}
+                                          onChange={(next) => {
+                                            updateProtocolParamMutation.mutate({
+                                              id: te.id,
+                                              params: next as unknown as ProtocolParams,
+                                            });
+                                          }}
+                                        />
+                                      </div>
                                     );
                                   }
 
 
                                   return (
+                                    <div className="space-y-3">
+                                    {nameField}
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
                                         Parametri {def.label}
@@ -1108,12 +1523,13 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                         </div>
                                       )}
                                     </div>
+                                    </div>
                                   );
                                 })()}
 
                                 {/* Avanzate: tempo + note (collassate) */}
-                                {expandedIds.has(te.id) && (
-                                <Collapsible>
+                                {isRowExpanded && (
+                                  <Collapsible>
                                   <CollapsibleTrigger asChild>
                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
                                       <ChevronDown className="h-3 w-3" />
@@ -1173,11 +1589,15 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                               </div>
                             </div>
                           </CardContent>
-                        </Card>
-                      )}
+                        </Card>,
+                        );
+                      }}
                     </Draggable>
                   ))}
-                  {provided.placeholder}
+                  <DndPlaceholder
+                    placeholder={provided.placeholder}
+                    isDraggingOver={snapshot.isDraggingOver}
+                  />
                 </div>
             )}
           </Droppable>
@@ -1215,6 +1635,27 @@ function SetsTable({ te, onChange }: SetsTableProps) {
     onChange(next);
   };
 
+  const setTargetMode = (idx: number, mode: SetTargetMode) => {
+    const current = sets[idx];
+    if (!current || getSetTargetMode(current) === mode) return;
+    if (mode === 'seconds') {
+      updateSet(idx, {
+        mode: 'seconds',
+        reps: null,
+        duration_seconds:
+          typeof current.duration_seconds === 'number' && current.duration_seconds > 0
+            ? current.duration_seconds
+            : 20,
+      });
+    } else {
+      updateSet(idx, {
+        mode: 'reps',
+        duration_seconds: null,
+        reps: typeof current.reps === 'number' && current.reps > 0 ? current.reps : 10,
+      });
+    }
+  };
+
   const addSet = () => {
     const last = sets[sets.length - 1] ?? DEFAULT_SET;
     onChange([...sets, { ...last }]);
@@ -1245,7 +1686,7 @@ function SetsTable({ te, onChange }: SetsTableProps) {
             <tr>
               <th className="text-left font-medium text-muted-foreground pr-2 py-1 sticky left-0 bg-muted/20"></th>
               {sets.map((_, i) => (
-                <th key={i} className="px-1 py-1 text-center font-medium text-muted-foreground min-w-[64px]">
+                <th key={i} className="px-1 py-1 text-center font-medium text-muted-foreground min-w-[72px]">
                   Set {i + 1}
                 </th>
               ))}
@@ -1263,31 +1704,76 @@ function SetsTable({ te, onChange }: SetsTableProps) {
           </thead>
           <tbody>
             <tr>
-              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Reps</td>
-              {sets.map((s, i) => (
-                <td key={i} className="px-1 py-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={s.reps ?? ''}
-                    onChange={(e) => updateSet(i, { reps: parseNum(e.target.value) })}
-                    className="h-8 text-center px-1"
-                  />
-                </td>
-              ))}
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20 align-top pt-2">
+                Target
+              </td>
+              {sets.map((s, i) => {
+                const mode = getSetTargetMode(s);
+                return (
+                  <td key={i} className="px-1 py-1 align-top">
+                    <div className="flex flex-col gap-1 items-stretch">
+                      <div className="flex rounded border border-border overflow-hidden h-6">
+                        <button
+                          type="button"
+                          className={cn(
+                            'flex-1 text-[10px] font-medium transition-colors',
+                            mode === 'reps'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-background text-muted-foreground hover:bg-muted',
+                          )}
+                          onClick={() => setTargetMode(i, 'reps')}
+                        >
+                          Reps
+                        </button>
+                        <button
+                          type="button"
+                          className={cn(
+                            'flex-1 text-[10px] font-medium transition-colors border-l border-border',
+                            mode === 'seconds'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-background text-muted-foreground hover:bg-muted',
+                          )}
+                          onClick={() => setTargetMode(i, 'seconds')}
+                        >
+                          Sec
+                        </button>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={
+                          mode === 'seconds'
+                            ? (s.duration_seconds ?? '')
+                            : (s.reps ?? '')
+                        }
+                        onChange={(e) => {
+                          const n = parseNum(e.target.value);
+                          if (mode === 'seconds') {
+                            updateSet(i, { mode: 'seconds', duration_seconds: n, reps: null });
+                          } else {
+                            updateSet(i, { mode: 'reps', reps: n, duration_seconds: null });
+                          }
+                        }}
+                        className="h-8 text-center px-1"
+                        aria-label={mode === 'seconds' ? `Secondi set ${i + 1}` : `Reps set ${i + 1}`}
+                      />
+                    </div>
+                  </td>
+                );
+              })}
               <td />
             </tr>
             <tr>
-              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Kg</td>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20 align-top pt-2">
+                Carico
+              </td>
               {sets.map((s, i) => (
-                <td key={i} className="px-1 py-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={s.weight ?? ''}
-                    onChange={(e) => updateSet(i, { weight: parseNum(e.target.value) })}
-                    className="h-8 text-center px-1"
+                <td key={i} className="px-1 py-1 align-top">
+                  <LoadField
+                    compact
+                    showLabel={false}
+                    value={s}
+                    onChange={(load) => updateSet(i, load)}
                   />
                 </td>
               ))}
@@ -1390,7 +1876,16 @@ function applyTopAutoWeights(
 ): TSBOSetItem[] {
   if (typeof top_kg !== 'number') return rows;
   return rows.map((s, i) =>
-    s.weight_is_manual ? s : { ...s, weight: computeTopKg(top_kg, increasePct, i), weight_is_manual: false },
+    s.weight_is_manual
+      ? s
+      : {
+          ...s,
+          load_mode: 'kg' as const,
+          weight: computeTopKg(top_kg, increasePct, i),
+          band_color: null,
+          other_text: null,
+          weight_is_manual: false,
+        },
   );
 }
 
@@ -1401,7 +1896,16 @@ function applyBackoffAutoWeights(
 ): TSBOSetItem[] {
   if (typeof backoff_kg !== 'number') return rows;
   return rows.map((s, i) =>
-    s.weight_is_manual ? s : { ...s, weight: computeBackoffKg(backoff_kg, reductionPct, i), weight_is_manual: false },
+    s.weight_is_manual
+      ? s
+      : {
+          ...s,
+          load_mode: 'kg' as const,
+          weight: computeBackoffKg(backoff_kg, reductionPct, i),
+          band_color: null,
+          other_text: null,
+          weight_is_manual: false,
+        },
   );
 }
 
@@ -1581,19 +2085,21 @@ function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }
               {onAddSet && <td />}
             </tr>
             <tr>
-              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Kg</td>
+              <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20 align-top pt-2">
+                Carico
+              </td>
               {sets.map((s, i) => (
-                <td key={i} className="px-1 py-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={s.weight ?? ''}
-                    onChange={(e) => {
-                      const w = parseNum(e.target.value);
-                      onCellChange(i, { weight: w, weight_is_manual: w !== null });
-                    }}
-                    className="h-8 text-center px-1"
+                <td key={i} className="px-1 py-1 align-top">
+                  <LoadField
+                    compact
+                    showLabel={false}
+                    value={s}
+                    onChange={(load) =>
+                      onCellChange(i, {
+                        ...load,
+                        weight_is_manual: true,
+                      })
+                    }
                   />
                 </td>
               ))}

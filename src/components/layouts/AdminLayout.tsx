@@ -148,7 +148,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <div className="flex items-center gap-3">
               <Logo variant="icon" className="h-9 w-9 rounded-lg" />
               <div>
-                <span className="text-base font-semibold">LIVEL APP</span>
+                <span className="text-base font-semibold">Livelapp</span>
                 <span className="block text-xs text-white/60 uppercase tracking-wider">Admin</span>
               </div>
             </div>

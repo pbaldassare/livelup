@@ -6,7 +6,7 @@
 
 self.addEventListener('push', (event) => {
   let data = {
-    title: 'LIVELLAPP',
+    title: 'Livelapp',
     body: 'Hai una nuova notifica',
     icon: '/pwa-192x192.png',
     badge: '/pwa-192x192.png',

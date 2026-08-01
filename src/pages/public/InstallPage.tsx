@@ -106,7 +106,7 @@ export function InstallPage() {
           </div>
           
           <h1 className="text-2xl font-bold text-foreground mb-2">
-            Installa LIVEL APP
+            Installa Livelapp
           </h1>
           <p className="text-muted-foreground">
             Aggiungi l'app alla tua schermata Home per un accesso rapido e un'esperienza migliore
@@ -136,7 +136,7 @@ export function InstallPage() {
                   App già installata!
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  LIVEL APP è già nella tua schermata Home
+                  Livelapp è già nella tua schermata Home
                 </p>
               </div>
             </CardContent>

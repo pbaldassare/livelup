@@ -47,9 +47,13 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
-  GripVertical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  formatSetsTargetSummary,
+  getSetTargetMode,
+  resolveSetsData,
+} from '@/lib/setsData';
 import { toast } from 'sonner';
 import { reorderWorkoutFreeExercises } from '@/lib/api/workouts';
 import {
@@ -61,6 +65,7 @@ import {
   normalizeTemplateKind,
   requiresFullCompletion,
 } from '@/lib/pt/templateKinds';
+import { ExportSheetPdfButton } from '@/components/shared/ExportSheetPdfButton';
 
 // =====================================================
 // ATLETA WORKOUT DETAIL PAGE - Workout execution
@@ -79,6 +84,9 @@ interface WorkoutExercise {
   rest_seconds?: number;
   notes?: string;
   block_id?: string | null;
+  sets_data?: unknown;
+  protocol_type?: string | null;
+  protocol_params?: unknown;
   exercises?: {
     name: string;
     category: string;
@@ -150,7 +158,7 @@ export function AtletaWorkoutDetailPage() {
             id, exercise_id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
             prescribed_duration_seconds, rest_seconds, notes, block_id,
-            protocol_type, protocol_params, phase,
+            protocol_type, protocol_params, sets_data, phase,
             exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
           )
         `)
@@ -169,7 +177,7 @@ export function AtletaWorkoutDetailPage() {
                 id, exercise_id, order_index, prescribed_sets,
                 prescribed_reps_min, prescribed_reps_max, prescribed_weight,
                 prescribed_duration_seconds, rest_seconds, notes, block_id,
-                protocol_type, protocol_params,
+                protocol_type, protocol_params, sets_data,
                 exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
               )
             `)
@@ -815,8 +823,14 @@ export function AtletaWorkoutDetailPage() {
             <button onClick={() => navigate('/app/workout')} className="p-2 -ml-2 hover:bg-app-muted rounded-lg transition-colors">
               <ArrowLeft className="h-5 w-5 text-app-foreground" />
             </button>
-            <h1 className="font-semibold text-app-foreground">{workout.title}</h1>
-            <div className="w-10" />
+            <h1 className="font-semibold text-app-foreground truncate px-2">{workout.title}</h1>
+            <ExportSheetPdfButton
+              mode="workout"
+              workoutId={workout.id}
+              iconOnly
+              variant="ghost"
+              className="text-app-foreground hover:text-app-accent shrink-0"
+            />
           </div>
         </div>
 
@@ -960,13 +974,17 @@ export function AtletaWorkoutDetailPage() {
                         const logCount = completedSets[ex.id]?.length
                           ?? (existingLogs?.filter(l => l.workout_exercise_id === ex.id && l.is_completed).length || 0);
                         const status = getExerciseStatus(ex, logCount);
-                        const isDuration = !!ex.prescribed_duration_seconds && ex.prescribed_duration_seconds > 0;
-                        const durationLabel = isDuration
-                          ? `${Math.floor(ex.prescribed_duration_seconds! / 60).toString().padStart(2, '0')}:${(ex.prescribed_duration_seconds! % 60).toString().padStart(2, '0')}`
-                          : null;
-                        const repsCount = ex.prescribed_reps_max
-                          ? `${ex.prescribed_reps_min ?? ex.prescribed_reps_max}-${ex.prescribed_reps_max}`
-                          : `${ex.prescribed_reps_min ?? 0}`;
+                        const resolvedSets = resolveSetsData(ex.sets_data, {
+                          sets: ex.prescribed_sets,
+                          reps_min: ex.prescribed_reps_min,
+                          reps_max: ex.prescribed_reps_max,
+                          rest_seconds: ex.rest_seconds,
+                          prescribed_duration_seconds: ex.prescribed_duration_seconds,
+                        });
+                        const targetSummary = formatSetsTargetSummary(resolvedSets);
+                        const allSeconds =
+                          resolvedSets.length > 0 &&
+                          resolvedSets.every((s) => getSetTargetMode(s) === 'seconds');
                         const freeIdx = freeExerciseIds.indexOf(ex.id);
                         const showReorder = canReorder && isFreeGroup && freeIdx >= 0 && freeExerciseIds.length > 1;
                         return (
@@ -985,18 +1003,18 @@ export function AtletaWorkoutDetailPage() {
                                   aria-label="Sposta su"
                                   disabled={freeIdx === 0 || reorderFreeMutation.isPending}
                                   onClick={() => moveFreeExercise(ex.id, -1)}
-                                  className="p-1.5 rounded-md text-app-muted-foreground hover:text-app-foreground hover:bg-app-muted disabled:opacity-30"
+                                  className="min-h-11 min-w-11 flex items-center justify-center rounded-md text-app-muted-foreground hover:text-app-foreground hover:bg-app-muted disabled:opacity-30"
                                 >
-                                  <ChevronUp className="h-4 w-4" />
+                                  <ChevronUp className="h-5 w-5" />
                                 </button>
                                 <button
                                   type="button"
                                   aria-label="Sposta giù"
                                   disabled={freeIdx === freeExerciseIds.length - 1 || reorderFreeMutation.isPending}
                                   onClick={() => moveFreeExercise(ex.id, 1)}
-                                  className="p-1.5 rounded-md text-app-muted-foreground hover:text-app-foreground hover:bg-app-muted disabled:opacity-30"
+                                  className="min-h-11 min-w-11 flex items-center justify-center rounded-md text-app-muted-foreground hover:text-app-foreground hover:bg-app-muted disabled:opacity-30"
                                 >
-                                  <ChevronDown className="h-4 w-4" />
+                                  <ChevronDown className="h-5 w-5" />
                                 </button>
                               </div>
                             )}
@@ -1011,9 +1029,6 @@ export function AtletaWorkoutDetailPage() {
                               }}
                               className="flex-1 flex items-center gap-3 p-3 text-left hover:bg-app-muted/40 transition-colors min-w-0"
                             >
-                              {showReorder && (
-                                <GripVertical className="h-4 w-4 text-app-muted-foreground/50 shrink-0" />
-                              )}
                               <div className={cn(
                                 "w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-app-muted border-2",
                                 status === 'in_progress' ? "border-app-accent" : "border-transparent"
@@ -1039,15 +1054,19 @@ export function AtletaWorkoutDetailPage() {
                                   </p>
                                 )}
                                 <div className="flex items-center gap-1.5 text-sm text-app-muted-foreground mt-0.5">
-                                  {isDuration ? (
+                                  {allSeconds ? (
                                     <>
                                       <Clock className="h-3.5 w-3.5" />
-                                      <span className="tabular-nums">{durationLabel}</span>
+                                      <span className="tabular-nums">{targetSummary}</span>
                                     </>
                                   ) : (
                                     <>
                                       <Repeat className="h-3.5 w-3.5" />
-                                      <span className="tabular-nums">×{repsCount} · {ex.prescribed_sets} set</span>
+                                      <span className="tabular-nums">
+                                        {targetSummary !== '—'
+                                          ? targetSummary
+                                          : `${ex.prescribed_sets} set`}
+                                      </span>
                                     </>
                                   )}
                                   {status === 'in_progress' && (
@@ -1085,7 +1104,20 @@ export function AtletaWorkoutDetailPage() {
             </motion.div>
           )}
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="space-y-3"
+          >
+            <ExportSheetPdfButton
+              mode="workout"
+              workoutId={workout.id}
+              label="Scarica scheda"
+              variant="outline"
+              size="default"
+              className="w-full h-11 rounded-full border-app-border text-app-foreground"
+            />
             <Button
               onClick={async () => {
                 setIsWorkoutStarted(true);

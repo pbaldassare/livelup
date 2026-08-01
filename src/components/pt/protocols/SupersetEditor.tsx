@@ -32,6 +32,10 @@ import {
   type ProtocolExerciseOption,
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
+import { ProtocolTargetField } from '@/components/pt/protocols/ProtocolTargetField';
+import { LoadField } from '@/components/pt/LoadField';
+import { getProtocolTargetMode } from '@/lib/protocols/exerciseTarget';
+import { getLoadMode } from '@/lib/loadPrescription';
 
 export type SupersetExerciseOption = ProtocolExerciseOption;
 
@@ -103,18 +107,45 @@ export function SupersetEditor({
       i === idx ? { ...e, ...patch } : e,
     );
 
-    // Propaga reps/weight/name nelle celle che ancora hanno il vecchio valore di default
+    // Propaga target/carico/name nelle celle che ancora hanno il vecchio valore di default
     const nextSetData = value.set_data.map((row, r) => {
       if (r !== idx) return row;
       const nextRow = { ...row };
       if (patch.exercise_id !== undefined) nextRow.exercise_id = patch.exercise_id;
       if (patch.name !== undefined) nextRow.exercise_name = patch.name;
-      if (patch.reps !== undefined || patch.weight !== undefined) {
+      const targetChanged =
+        patch.reps !== undefined ||
+        patch.mode !== undefined ||
+        patch.duration_seconds !== undefined;
+      const loadChanged =
+        patch.weight !== undefined ||
+        patch.load_mode !== undefined ||
+        patch.band_color !== undefined ||
+        patch.other_text !== undefined;
+      if (targetChanged || loadChanged) {
         nextRow.sets = row.sets.map((c) => {
           const next = { ...c };
-          if (patch.reps !== undefined && c.reps === oldEx.reps) next.reps = patch.reps as number;
-          if (patch.weight !== undefined && c.weight === oldEx.weight) {
-            next.weight = patch.weight as number | null;
+          const sameOldTarget =
+            getProtocolTargetMode(c) === getProtocolTargetMode(oldEx) &&
+            c.reps === oldEx.reps &&
+            (c.duration_seconds ?? null) === (oldEx.duration_seconds ?? null);
+          if (targetChanged && sameOldTarget) {
+            if (patch.mode !== undefined) next.mode = patch.mode;
+            if (patch.reps !== undefined) next.reps = patch.reps;
+            if (patch.duration_seconds !== undefined) {
+              next.duration_seconds = patch.duration_seconds;
+            }
+          }
+          const sameOldLoad =
+            getLoadMode(c) === getLoadMode(oldEx) &&
+            c.weight === oldEx.weight &&
+            (c.band_color ?? null) === (oldEx.band_color ?? null) &&
+            (c.other_text ?? null) === (oldEx.other_text ?? null);
+          if (loadChanged && sameOldLoad) {
+            if (patch.load_mode !== undefined) next.load_mode = patch.load_mode;
+            if (patch.weight !== undefined) next.weight = patch.weight;
+            if (patch.band_color !== undefined) next.band_color = patch.band_color;
+            if (patch.other_text !== undefined) next.other_text = patch.other_text;
           }
           return next;
         });
@@ -275,41 +306,18 @@ export function SupersetEditor({
                 />
               </div>
               <div className="flex items-end gap-1.5">
-                <div className="w-20 space-y-0.5">
-                  <Label className="text-[10px] text-muted-foreground">Reps</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={ex.reps}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      updateExercise(eIdx, {
-                        reps: Number.isFinite(n) && n > 0 ? Math.floor(n) : 1,
-                      });
-                    }}
-                    className="h-8"
+                <div className="w-24">
+                  <ProtocolTargetField
+                    value={ex}
+                    label="Target"
+                    onChange={(next) => updateExercise(eIdx, next)}
                   />
                 </div>
-                <div className="w-24 space-y-0.5">
-                  <Label className="text-[10px] text-muted-foreground">Kg</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={ex.weight ?? ''}
-                    placeholder="—"
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      if (raw === '') {
-                        updateExercise(eIdx, { weight: null });
-                        return;
-                      }
-                      const n = Number(raw);
-                      updateExercise(eIdx, {
-                        weight: Number.isFinite(n) && n >= 0 ? n : null,
-                      });
-                    }}
-                    className="h-8"
+                <div className="w-36">
+                  <LoadField
+                    compact
+                    value={ex}
+                    onChange={(load) => updateExercise(eIdx, load)}
                   />
                 </div>
                 <Button
@@ -383,57 +391,36 @@ export function SupersetEditor({
                   </TableCell>
                   {row.sets.map((cell, cIdx) => (
                     <TableCell key={cIdx} className="py-2 align-top">
-                      <div className="grid grid-cols-3 gap-1 min-w-[180px]">
-                        <Input
-                          type="number"
-                          min={1}
-                          value={cell.reps}
-                          onChange={(e) => {
-                            const n = Number(e.target.value);
-                            updateCell(rIdx, cIdx, {
-                              reps: Number.isFinite(n) && n > 0 ? Math.floor(n) : 1,
-                            });
-                          }}
-                          className="h-7 text-xs px-1.5"
-                          aria-label={`Reps Set ${cIdx + 1}`}
-                          title="reps"
+                      <div className="flex flex-col gap-1 min-w-[140px]">
+                        <ProtocolTargetField
+                          value={cell}
+                          showLabel={false}
+                          inputClassName="h-7 text-xs px-1.5"
+                          onChange={(next) => updateCell(rIdx, cIdx, next)}
                         />
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.5}
-                          value={cell.weight ?? ''}
-                          placeholder="kg"
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            if (raw === '') {
-                              updateCell(rIdx, cIdx, { weight: null });
-                              return;
-                            }
-                            const n = Number(raw);
-                            updateCell(rIdx, cIdx, {
-                              weight: Number.isFinite(n) && n >= 0 ? n : null,
-                            });
-                          }}
-                          className="h-7 text-xs px-1.5"
-                          aria-label={`Kg Set ${cIdx + 1}`}
-                          title="kg"
+                        <LoadField
+                          compact
+                          showLabel={false}
+                          value={cell}
+                          onChange={(load) => updateCell(rIdx, cIdx, load)}
                         />
-                        <Input
-                          type="number"
-                          min={0}
-                          step={5}
-                          value={cell.rest_seconds}
-                          onChange={(e) => {
-                            const n = Number(e.target.value);
-                            updateCell(rIdx, cIdx, {
-                              rest_seconds: Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0,
-                            });
-                          }}
-                          className="h-7 text-xs px-1.5"
-                          aria-label={`Recupero Set ${cIdx + 1}`}
-                          title="rec (s)"
-                        />
+                        <div className="grid grid-cols-1 gap-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            step={5}
+                            value={cell.rest_seconds}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              updateCell(rIdx, cIdx, {
+                                rest_seconds: Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0,
+                              });
+                            }}
+                            className="h-7 text-xs px-1.5"
+                            aria-label={`Recupero Set ${cIdx + 1}`}
+                            title="rec (s)"
+                          />
+                        </div>
                       </div>
                     </TableCell>
                   ))}

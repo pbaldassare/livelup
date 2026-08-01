@@ -64,15 +64,15 @@ export function InstallBanner() {
           {/* App Icon */}
           <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
             <img 
-              src="/livellapp-icon.svg" 
-              alt="LIVEL APP" 
-              className="w-8 h-8"
+              src="/livelapp-icon.png" 
+              alt="Livelapp" 
+              className="w-8 h-8 rounded-lg"
             />
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-foreground">Installa LIVEL APP</h3>
+            <h3 className="font-semibold text-foreground">Installa Livelapp</h3>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isIOS 
                 ? 'Aggiungi alla schermata Home per un accesso rapido'

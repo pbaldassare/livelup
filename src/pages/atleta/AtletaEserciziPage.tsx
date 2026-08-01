@@ -32,6 +32,10 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  formatSetsTargetSummary,
+  resolveSetsData,
+} from '@/lib/setsData';
 
 // =====================================================
 // ATLETA ESERCIZI PAGE — vista operativa "del giorno"
@@ -405,11 +409,14 @@ export function AtletaEserciziPage() {
           <div className="overflow-hidden rounded-[1.35rem] border border-app-border/70 bg-app-card/35 divide-y divide-app-border/70">
             {workout.workout_exercises.map((ex, idx) => {
               const status = getExerciseStatus(ex);
-              const isDuration = !!ex.prescribed_duration_seconds && ex.prescribed_duration_seconds > 0;
-              const durationLabel = isDuration
-                ? formatDuration(ex.prescribed_duration_seconds!)
-                : null;
-              const repsCount = formatReps(ex.prescribed_reps_min, ex.prescribed_reps_max);
+              const resolvedSets = resolveSetsData(ex.sets_data, {
+                sets: ex.prescribed_sets,
+                reps_min: ex.prescribed_reps_min,
+                reps_max: ex.prescribed_reps_max,
+                rest_seconds: ex.rest_seconds,
+                prescribed_duration_seconds: ex.prescribed_duration_seconds,
+              });
+              const targetSummary = formatSetsTargetSummary(resolvedSets);
               const statusInfo = exerciseStatusInfo(status);
               return (
                 <button
@@ -453,7 +460,7 @@ export function AtletaEserciziPage() {
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <span className="text-base font-bold text-app-muted-foreground tabular-nums">
-                        {isDuration ? durationLabel : `x${repsCount}`}
+                        {targetSummary !== '—' ? targetSummary : `×${formatReps(ex.prescribed_reps_min, ex.prescribed_reps_max)}`}
                       </span>
                     </div>
                     <div className="mt-3 flex items-center gap-2">
@@ -598,12 +605,6 @@ function formatReps(min: number | null, max: number | null): string {
   if (min) return String(min);
   if (max) return String(max);
   return '—';
-}
-
-function formatDuration(secs: number): string {
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
 function exerciseStatusInfo(status: 'not_started' | 'in_progress' | 'completed') {

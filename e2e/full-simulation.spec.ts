@@ -10,7 +10,7 @@ import {
 import { state, recordStep, markNotCovered, finalize } from './helpers/state';
 
 // =====================================================
-// LIVELLAPP — SIMULAZIONE E2E COMPLETA
+// LIVELAPP — SIMULAZIONE E2E COMPLETA
 //
 // Sequenza di test NON `serial`: ogni test gira nello stesso
 // worker (--workers=1) e in ordine di file, ma un fallimento
@@ -42,7 +42,7 @@ const TEMPLATE_TITLE = `E2E Scheda ${RUN_ID}`;
 const GROUP_NAME = `E2E Gruppo ${RUN_ID}`;
 const EVENT_TITLE = `E2E Evento ${RUN_ID}`;
 
-test.describe('LIVELLAPP — simulazione end-to-end', () => {
+test.describe('Livelapp — simulazione end-to-end', () => {
   test.describe.configure({ mode: 'default', timeout: 130_000 });
 
   test.afterAll(() => {

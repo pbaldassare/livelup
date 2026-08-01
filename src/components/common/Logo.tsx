@@ -1,5 +1,4 @@
-import livellappLogo from '@/assets/livellapp-logo.svg';
-import livellappIcon from '@/assets/livellapp-icon.svg';
+import livelappMark from '@/assets/livelapp-mark.png';
 
 interface LogoProps {
   variant?: 'full' | 'icon';
@@ -7,12 +6,15 @@ interface LogoProps {
 }
 
 export function Logo({ variant = 'full', className = '' }: LogoProps) {
+  if (variant === 'icon') {
+    return <img src={livelappMark} alt="Livelapp" className={className} />;
+  }
+
   return (
-    <img 
-      src={variant === 'full' ? livellappLogo : livellappIcon} 
-      alt="LIVEL APP"
-      className={className}
-    />
+    <span className={`inline-flex items-center gap-2 ${className}`}>
+      <img src={livelappMark} alt="Livelapp" className="h-full w-auto aspect-square rounded-md" />
+      <span className="text-lg font-bold tracking-tight leading-none">Livelapp</span>
+    </span>
   );
 }
 

@@ -43,8 +43,13 @@ export type ProtocolParams = {
     id: string;
     exercise_id?: string;
     name: string;
-    reps: number;
+    mode?: 'reps' | 'seconds';
+    reps: number | null;
+    duration_seconds?: number | null;
     weight: number | null;
+    load_mode?: 'bodyweight' | 'kg' | 'band' | 'other';
+    band_color?: string | null;
+    other_text?: string | null;
     notes?: string;
   }> | null;
   // EMOM / TABATA (mode è condiviso ma con valori diversi a runtime)
@@ -65,8 +70,13 @@ export type ProtocolParams = {
     exercise_name: string;
     sets: Array<{
       set_number: number;
-      reps: number;
+      mode?: 'reps' | 'seconds';
+      reps: number | null;
+      duration_seconds?: number | null;
       weight: number | null;
+      load_mode?: 'bodyweight' | 'kg' | 'band' | 'other';
+      band_color?: string | null;
+      other_text?: string | null;
       rest_seconds: number;
     }>;
   }> | null;
@@ -94,7 +104,13 @@ export type ProtocolParams = {
       id: string;
       exercise_id?: string;
       name: string;
-      reps: number;
+      mode?: 'reps' | 'seconds';
+      reps: number | null;
+      duration_seconds?: number | null;
+      weight?: number | null;
+      load_mode?: 'bodyweight' | 'kg' | 'band' | 'other';
+      band_color?: string | null;
+      other_text?: string | null;
     }>;
   }> | null;
   // (rest_seconds, rounds, mode, note già presenti sopra — TABATA/HIIT/RXT/RUNNING_TOTAL li riusano)
@@ -739,6 +755,15 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
 };
 
 export const PROTOCOL_LIST: ProtocolDefinition[] = Object.values(PROTOCOL_REGISTRY);
+
+/** Set standard = pratica esercizio, non protocollo. */
+export const PROTOCOL_ONLY_LIST: ProtocolDefinition[] = PROTOCOL_LIST.filter(
+  (d) => d.type !== 'SET',
+);
+
+export function isProtocolType(type: string | null | undefined): type is Exclude<ProtocolType, 'SET'> {
+  return !!type && type !== 'SET' && type in PROTOCOL_REGISTRY;
+}
 
 export function getProtocolDef(type: ProtocolType): ProtocolDefinition {
   return PROTOCOL_REGISTRY[type] ?? PROTOCOL_REGISTRY.SET;

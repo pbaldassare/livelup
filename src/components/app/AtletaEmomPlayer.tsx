@@ -16,6 +16,8 @@ import {
   normalizeEmomParams,
   formatRoundDurationSeconds,
 } from '@/lib/protocols/emom';
+import { formatProtocolTargetLabel } from '@/lib/protocols/exerciseTarget';
+import { formatLoadLabel } from '@/lib/loadPrescription';
 
 interface AtletaEmomPlayerProps {
   exerciseName: string;
@@ -34,9 +36,6 @@ function formatClock(seconds: number): string {
   return `${m.toString().padStart(2, '0')}:${r.toString().padStart(2, '0')}`;
 }
 
-function formatReps(reps: number): string {
-  return reps === 1 ? '1 ripetizione' : `${reps} ripetizioni`;
-}
 
 export function AtletaEmomPlayer({
   exerciseName,
@@ -182,7 +181,9 @@ export function AtletaEmomPlayer({
                 </span>
                 <span className="text-app-muted-foreground">
                   {' '}
-                  {formatReps(ex.reps)}
+                  {formatProtocolTargetLabel(ex)}
+                  {' · '}
+                  {formatLoadLabel(ex)}
                 </span>
               </span>
             </li>

@@ -7,6 +7,11 @@ import { ChevronDown, ChevronUp, Dumbbell, AlertTriangle, Timer, Star } from 'lu
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import {
+  formatSetsTargetSummary,
+  resolveSetsData,
+} from '@/lib/setsData';
+import { formatLoadLabel, getLoadMode } from '@/lib/loadPrescription';
 
 function formatDuration(seconds: number | null | undefined): string | null {
   if (seconds == null || seconds < 0) return null;
@@ -35,6 +40,9 @@ type WorkoutExercise = {
   prescribed_reps_min: number | null;
   prescribed_reps_max: number | null;
   prescribed_weight: number | null;
+  prescribed_duration_seconds?: number | null;
+  rest_seconds?: number | null;
+  sets_data?: unknown;
   exercises: { name: string } | null;
 };
 
@@ -71,9 +79,33 @@ function repsLabel(min: number | null, max: number | null): string {
 }
 
 function prescribedSummary(ex: WorkoutExercise): string {
-  const reps = repsLabel(ex.prescribed_reps_min, ex.prescribed_reps_max);
-  const base = `${ex.prescribed_sets}×${reps}`;
-  return ex.prescribed_weight != null ? `${base} @ ${ex.prescribed_weight} kg` : base;
+  const resolved = resolveSetsData(ex.sets_data, {
+    sets: ex.prescribed_sets,
+    reps_min: ex.prescribed_reps_min,
+    reps_max: ex.prescribed_reps_max,
+    rest_seconds: ex.rest_seconds,
+    prescribed_duration_seconds: ex.prescribed_duration_seconds,
+  });
+  const target = formatSetsTargetSummary(resolved);
+  const base =
+    target !== '—'
+      ? target.includes('×')
+        ? target
+        : `${ex.prescribed_sets}×${target}`
+      : `${ex.prescribed_sets}×${repsLabel(ex.prescribed_reps_min, ex.prescribed_reps_max)}`;
+  const firstLoad = resolved[0];
+  const loadLabel = firstLoad
+    ? formatLoadLabel(
+        getLoadMode(firstLoad) === 'bodyweight' &&
+          typeof ex.prescribed_weight === 'number' &&
+          ex.prescribed_weight > 0
+          ? { load_mode: 'kg', weight: ex.prescribed_weight }
+          : firstLoad,
+      )
+    : ex.prescribed_weight != null
+      ? `${ex.prescribed_weight} kg`
+      : null;
+  return loadLabel && loadLabel !== 'Corpo libero' ? `${base} · ${loadLabel}` : `${base} · Corpo libero`;
 }
 
 // ---- per-set delta row ----
@@ -89,26 +121,52 @@ function SetRow({
   const ko = !log.is_completed;
   const isAtleta = variant === 'atleta';
 
-  const prescribedReps = repsLabel(ex.prescribed_reps_min, ex.prescribed_reps_max);
+  const resolved = resolveSetsData(ex.sets_data, {
+    sets: ex.prescribed_sets,
+    reps_min: ex.prescribed_reps_min,
+    reps_max: ex.prescribed_reps_max,
+    rest_seconds: ex.rest_seconds,
+    prescribed_duration_seconds: ex.prescribed_duration_seconds,
+  });
+  const setTarget = resolved[log.set_number - 1];
+  const prescribedTarget =
+    setTarget != null
+      ? formatSetsTargetSummary([setTarget])
+      : repsLabel(ex.prescribed_reps_min, ex.prescribed_reps_max);
+  const loadLabel = setTarget
+    ? formatLoadLabel(
+        getLoadMode(setTarget) === 'bodyweight' &&
+          typeof ex.prescribed_weight === 'number' &&
+          ex.prescribed_weight > 0
+          ? { load_mode: 'kg', weight: ex.prescribed_weight }
+          : setTarget,
+      )
+    : ex.prescribed_weight != null
+      ? `${ex.prescribed_weight} kg`
+      : 'Corpo libero';
+
   const hasPrescribed =
-    ex.prescribed_reps_min != null ||
-    ex.prescribed_reps_max != null ||
-    ex.prescribed_weight != null;
+    (prescribedTarget !== '–' && prescribedTarget !== '—') || Boolean(loadLabel);
 
   const prescribedStr = [
-    prescribedReps !== '–' ? `${prescribedReps} reps` : null,
-    ex.prescribed_weight != null ? `@ ${ex.prescribed_weight} kg` : null,
+    prescribedTarget !== '–' && prescribedTarget !== '—'
+      ? prescribedTarget.endsWith('s')
+        ? prescribedTarget
+        : `${prescribedTarget} reps`
+      : null,
+    loadLabel ? `· ${loadLabel}` : null,
   ]
     .filter(Boolean)
     .join(' ');
 
   const executedStr =
     [
-      log.reps_completed != null ? `${log.reps_completed} reps` : null,
-      log.weight_used != null ? `@ ${log.weight_used} kg` : null,
-      log.duration_seconds != null && log.reps_completed == null
+      log.duration_seconds != null && (log.reps_completed == null || log.reps_completed === 0)
         ? `${log.duration_seconds}s`
-        : null,
+        : log.reps_completed != null
+          ? `${log.reps_completed} reps`
+          : null,
+      log.weight_used != null ? `@ ${log.weight_used} kg` : null,
     ]
       .filter(Boolean)
       .join(' ') || '–';
@@ -397,6 +455,7 @@ export function WorkoutHistoryList({
           workout_exercises (
             id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
+            prescribed_duration_seconds, rest_seconds, sets_data,
             exercises:exercise_id (name)
           )`,
         )

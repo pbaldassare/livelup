@@ -2,7 +2,7 @@
 // AMRAP EDITOR — Flat exercise list with global timer
 // - 2 parametri globali in alto: duration_seconds, exercises_count
 // - exercises_count è una scorciatoia: invariante exercises.length === exercises_count
-// - Lista piatta: ExerciseCombobox + Reps + Kg
+// - Lista piatta: ExerciseCombobox + Target (Reps|Sec) + Carico
 // - Nessuna scrittura automatica: ogni edit chiama onChange esplicitamente
 // =====================================================
 
@@ -22,6 +22,8 @@ import {
   type ProtocolExerciseOption,
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
+import { ProtocolTargetField } from '@/components/pt/protocols/ProtocolTargetField';
+import { LoadField } from '@/components/pt/LoadField';
 
 export type AmrapExerciseOption = ProtocolExerciseOption;
 
@@ -141,41 +143,18 @@ export function AmrapEditor({
                 }
               />
             </div>
-            <div className="col-span-6 md:col-span-2 space-y-0.5">
-              <Label className="text-[10px] text-muted-foreground">Reps</Label>
-              <Input
-                type="number"
-                min={1}
-                value={ex.reps}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  updateExercise(eIdx, {
-                    reps: Number.isFinite(n) && n > 0 ? Math.floor(n) : 1,
-                  });
-                }}
-                className="h-8"
+            <div className="col-span-6 md:col-span-2">
+              <ProtocolTargetField
+                value={ex}
+                label="Target"
+                onChange={(next) => updateExercise(eIdx, next)}
               />
             </div>
-            <div className="col-span-5 md:col-span-3 space-y-0.5">
-              <Label className="text-[10px] text-muted-foreground">Kg</Label>
-              <Input
-                type="number"
-                min={0}
-                step={0.5}
-                value={ex.weight ?? ''}
-                placeholder="—"
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === '') {
-                    updateExercise(eIdx, { weight: null });
-                    return;
-                  }
-                  const n = Number(raw);
-                  updateExercise(eIdx, {
-                    weight: Number.isFinite(n) && n >= 0 ? n : null,
-                  });
-                }}
-                className="h-8"
+            <div className="col-span-5 md:col-span-3">
+              <LoadField
+                compact
+                value={ex}
+                onChange={(load) => updateExercise(eIdx, load)}
               />
             </div>
             <div className="col-span-1 flex justify-end">

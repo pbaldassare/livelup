@@ -34,6 +34,12 @@ import { resolveRampingUnit } from '@/lib/protocols/registry';
 import { logExerciseSet } from '@/lib/api/workouts';
 import type { ProtocolConfig, SetData, WorkoutRowUpdate } from '@/types/database';
 import {
+  formatSetTarget,
+  getSetTargetMode,
+  resolveSetsData,
+  type SetItem,
+} from '@/lib/setsData';
+import {
   allowsSoftContinue,
   normalizeTemplateKind,
   requiresFullCompletion,
@@ -224,8 +230,28 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-const isTimedExercise = (ex?: GWExercise) =>
-  !!ex && (ex.prescribed_duration_seconds ?? 0) > 0;
+function resolveExerciseSets(ex?: GWExercise | null): SetItem[] {
+  if (!ex) return [];
+  return resolveSetsData(ex.sets_data, {
+    sets: ex.prescribed_sets,
+    reps_min: ex.prescribed_reps_min,
+    reps_max: ex.prescribed_reps_max,
+    rest_seconds: ex.rest_seconds,
+    prescribed_duration_seconds: ex.prescribed_duration_seconds,
+  });
+}
+
+function getSetPrescription(ex: GWExercise | undefined, setNumber: number): SetItem | null {
+  const sets = resolveExerciseSets(ex);
+  return sets[setNumber - 1] ?? null;
+}
+
+/** Per-set: true se il target della serie è in secondi. */
+function isTimedSet(ex: GWExercise | undefined, setNumber: number): boolean {
+  const set = getSetPrescription(ex, setNumber);
+  if (set) return getSetTargetMode(set) === 'seconds';
+  return !!ex && (ex.prescribed_duration_seconds ?? 0) > 0;
+}
 
 export function GuidedWorkoutFlow({
   workoutId,
@@ -245,16 +271,20 @@ export function GuidedWorkoutFlow({
     templateKind === 'propedeutica' ? 'Continua comunque' : 'Salta esercizio';
 
   const initialExercise = exercises[initialExerciseIndex];
+  const initialSetData = getSetPrescription(initialExercise, initialSet);
   const [state, dispatch] = useReducer(reducer, {
     flow: 'ready',
     exerciseIndex: initialExerciseIndex,
     setNumber: initialSet,
-    reps: parseInitialReps(initialExercise),
-    duration: Number(initialExercise?.prescribed_duration_seconds || 0),
-    weight: Number(initialExercise?.prescribed_weight || 0),
+    reps: parseInitialReps(initialExercise, initialSet),
+    duration: parseInitialDuration(initialExercise, initialSet),
+    weight:
+      typeof initialSetData?.weight === 'number' && initialSetData.weight > 0
+        ? initialSetData.weight
+        : Number(initialExercise?.prescribed_weight || 0),
     rpe: 7,
-    restSeconds: initialExercise?.rest_seconds || 60,
-    restTotal: initialExercise?.rest_seconds || 60,
+    restSeconds: initialSetData?.rest_seconds || initialExercise?.rest_seconds || 60,
+    restTotal: initialSetData?.rest_seconds || initialExercise?.rest_seconds || 60,
     restStartedAt: null,
     extraSets: {},
     skipped: {},
@@ -321,12 +351,19 @@ export function GuidedWorkoutFlow({
     }
   }, [state.flow, workoutId, queryClient]);
 
-  // Re-sync inputs when exercise changes
+  // Re-sync inputs when exercise or set changes
   useEffect(() => {
-    dispatch({ type: 'SET_REPS', v: parseInitialReps(currentExercise) });
-    dispatch({ type: 'SET_DURATION', v: Number(currentExercise?.prescribed_duration_seconds || 0) });
-    dispatch({ type: 'SET_WEIGHT', v: Number(currentExercise?.prescribed_weight || 0) });
-  }, [state.exerciseIndex, currentExercise]);
+    const setData = getSetPrescription(currentExercise, state.setNumber);
+    dispatch({ type: 'SET_REPS', v: parseInitialReps(currentExercise, state.setNumber) });
+    dispatch({ type: 'SET_DURATION', v: parseInitialDuration(currentExercise, state.setNumber) });
+    dispatch({
+      type: 'SET_WEIGHT',
+      v:
+        typeof setData?.weight === 'number' && setData.weight > 0
+          ? setData.weight
+          : Number(currentExercise?.prescribed_weight || 0),
+    });
+  }, [state.exerciseIndex, state.setNumber, currentExercise]);
 
   // Auto-clear transition messages
   useEffect(() => {
@@ -464,10 +501,15 @@ export function GuidedWorkoutFlow({
 
   const handleCompleteSet = async () => {
     if (!currentExercise) return;
+    const timedSet = isTimedSet(currentExercise, state.setNumber);
+    const setData = getSetPrescription(currentExercise, state.setNumber);
 
     if (fullCompletion) {
-      if (isTimedExercise(currentExercise)) {
-        const target = Number(currentExercise.prescribed_duration_seconds || 0);
+      if (timedSet) {
+        const target =
+          typeof setData?.duration_seconds === 'number' && setData.duration_seconds > 0
+            ? setData.duration_seconds
+            : Number(currentExercise.prescribed_duration_seconds || 0);
         if (target > 0 && state.duration < target) {
           toast.error(`Scheda progressiva: serve almeno ${target}s (prescritti)`);
           return;
@@ -484,12 +526,12 @@ export function GuidedWorkoutFlow({
     }
 
     try {
-      const restPlanned = currentExercise.rest_seconds || 60;
+      const restPlanned = setData?.rest_seconds || currentExercise.rest_seconds || 60;
       await saveSet.mutateAsync({
         workoutExerciseId: currentExercise.id,
         setNumber: state.setNumber,
-        reps: isTimedExercise(currentExercise) ? 0 : state.reps,
-        durationSeconds: isTimedExercise(currentExercise) ? state.duration : 0,
+        reps: timedSet ? 0 : state.reps,
+        durationSeconds: timedSet ? state.duration : 0,
         weight: state.weight,
         restPlanned,
         rpe: state.rpe,
@@ -557,7 +599,13 @@ export function GuidedWorkoutFlow({
     );
   }
 
-  const repsLabel = formatRepsLabel(currentExercise);
+  const currentSetData = getSetPrescription(currentExercise, state.setNumber);
+  const currentTimedSet = isTimedSet(currentExercise, state.setNumber);
+  const targetLabel = currentSetData
+    ? formatSetTarget(currentSetData)
+    : currentTimedSet
+      ? `${currentExercise.prescribed_duration_seconds}s`
+      : formatRepsLabel(currentExercise);
 
   const nextExercise = findNextExercise(exercises, state.exerciseIndex, state.skipped);
   const isLastSetOfCurrent = state.setNumber >= totalSetsForCurrent;
@@ -848,21 +896,22 @@ export function GuidedWorkoutFlow({
               )}
 
               <div className="grid grid-cols-3 gap-3 w-full max-w-xs mb-6">
-                <Stat
-                  label="Target"
-                  value={isTimedExercise(currentExercise) ? `${currentExercise.prescribed_duration_seconds}s` : repsLabel}
-                />
+                <Stat label="Target" value={targetLabel} />
                 <Stat
                   label={currentExercise.protocol_type === 'RAMPING' ? resolveRampingUnit(currentExercise.protocol_params) : 'Peso'}
                   value={
-                    currentExercise.prescribed_weight
-                      ? `${currentExercise.prescribed_weight}`
+                    (typeof currentSetData?.weight === 'number' && currentSetData.weight > 0
+                      ? currentSetData.weight
+                      : currentExercise.prescribed_weight)
+                      ? `${typeof currentSetData?.weight === 'number' && currentSetData.weight > 0
+                          ? currentSetData.weight
+                          : currentExercise.prescribed_weight}`
                       : '—'
                   }
                 />
                 <Stat
                   label="Recupero"
-                  value={`${currentExercise.rest_seconds || 60}s`}
+                  value={`${currentSetData?.rest_seconds || currentExercise.rest_seconds || 60}s`}
                 />
               </div>
 
@@ -896,25 +945,30 @@ export function GuidedWorkoutFlow({
               />
               <p className="text-sm text-app-muted-foreground mb-8 text-center mt-2">
                 Serie {state.setNumber} • inserisci i risultati
-                {fullCompletion && !isTimedExercise(currentExercise) && (
+                {fullCompletion && !currentTimedSet && (
                   <span className="block text-xs text-app-accent mt-1">
                     Progressiva: minimo{' '}
                     {getPrescribedRepsForSet(currentExercise, state.setNumber) ?? '—'} reps
                   </span>
                 )}
+                {fullCompletion && currentTimedSet && (
+                  <span className="block text-xs text-app-accent mt-1">
+                    Progressiva: minimo {targetLabel}
+                  </span>
+                )}
               </p>
 
               <div className="w-full max-w-xs space-y-5 mb-8">
-                {isTimedExercise(currentExercise) ? (
+                {currentTimedSet ? (
                   <NumberRow
-                    label="Tempo (s)"
+                    label="Secondi completati"
                     value={state.duration}
                     step={5}
                     onChange={(v) => dispatch({ type: 'SET_DURATION', v })}
                   />
                 ) : (
                   <NumberRow
-                    label="Reps"
+                    label="Reps completate"
                     value={state.reps}
                     step={1}
                     onChange={(v) => dispatch({ type: 'SET_REPS', v })}
@@ -1039,16 +1093,36 @@ function SoftContinueBar({
 // Helpers
 // =====================================================
 
-function parseInitialReps(ex?: GWExercise): number {
+function parseInitialReps(ex?: GWExercise, setNumber = 1): number {
   if (!ex) return 0;
+  const set = getSetPrescription(ex, setNumber);
+  if (set && getSetTargetMode(set) === 'reps' && typeof set.reps === 'number' && set.reps > 0) {
+    return set.reps;
+  }
   if (ex.prescribed_reps_min) return ex.prescribed_reps_min;
   return 10;
 }
 
+function parseInitialDuration(ex?: GWExercise, setNumber = 1): number {
+  if (!ex) return 0;
+  const set = getSetPrescription(ex, setNumber);
+  if (
+    set &&
+    getSetTargetMode(set) === 'seconds' &&
+    typeof set.duration_seconds === 'number' &&
+    set.duration_seconds > 0
+  ) {
+    return set.duration_seconds;
+  }
+  return Number(ex.prescribed_duration_seconds || 0);
+}
+
 /** Reps minime prescritte per la serie (sets_data o reps_min). null = nessun vincolo numerico. */
 function getPrescribedRepsForSet(ex: GWExercise, setNumber: number): number | null {
-  const fromSets = ex.sets_data?.[setNumber - 1]?.reps;
-  if (typeof fromSets === 'number' && fromSets > 0) return fromSets;
+  const set = getSetPrescription(ex, setNumber);
+  if (set && getSetTargetMode(set) === 'reps' && typeof set.reps === 'number' && set.reps > 0) {
+    return set.reps;
+  }
   if (typeof ex.prescribed_reps_min === 'number' && ex.prescribed_reps_min > 0) {
     return ex.prescribed_reps_min;
   }
@@ -1117,6 +1191,11 @@ function RpeSelector({ value, onChange }: { value: number; onChange: (v: number)
 }
 
 function formatRepsLabel(ex: GWExercise): string {
+  const sets = resolveExerciseSets(ex);
+  if (sets.length > 0) {
+    const first = formatSetTarget(sets[0]);
+    if (first !== '—') return first;
+  }
   if (ex.prescribed_reps_min && ex.prescribed_reps_max) {
     return `${ex.prescribed_reps_min}-${ex.prescribed_reps_max}`;
   }

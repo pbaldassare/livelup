@@ -67,6 +67,6 @@ export async function registerServiceWorker(): Promise<void> {
   try {
     await navigator.serviceWorker.register(SW_URL, { scope: '/' });
   } catch (err) {
-    console.error('[LIVEL APP] SW registration failed:', err);
+    console.error('[Livelapp] SW registration failed:', err);
   }
 }

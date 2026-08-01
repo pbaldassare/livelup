@@ -54,10 +54,30 @@ export type PTAtletaConnection = Database['public']['Tables']['pt_atleta_connect
 /** Protocol configuration stored in `protocol_params` JSON columns. */
 export type ProtocolConfig = ProtocolParams;
 
+/** Target mode for a single set in `sets_data` (missing ⇒ reps). */
+export type SetTargetMode = 'reps' | 'seconds';
+
+/** Modalità carico per set / esercizio protocollo. */
+export type LoadMode = 'bodyweight' | 'kg' | 'band' | 'other';
+
 /** Per-set prescription stored in `sets_data` JSON columns. */
 export interface SetData {
+  /** Missing / undefined ⇒ 'reps' (backward compatible). */
+  mode?: SetTargetMode;
   reps: number | null;
+  /** Used when mode === 'seconds'. */
+  duration_seconds?: number | null;
+  /**
+   * Kg quando load_mode === 'kg'.
+   * Legacy: solo weight > 0 ⇒ interpretato come kg.
+   */
   weight: number | null;
+  /** Default: bodyweight se assente e weight null/0. */
+  load_mode?: LoadMode;
+  /** Colore elastico quando load_mode === 'band'. */
+  band_color?: string | null;
+  /** Testo libero quando load_mode === 'other'. */
+  other_text?: string | null;
   rest_seconds: number | null;
 }
 

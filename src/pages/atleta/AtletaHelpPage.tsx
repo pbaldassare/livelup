@@ -49,7 +49,7 @@ const faqCategories = [
       },
       {
         q: 'Come installo l\'app sul mio telefono?',
-        a: 'LIVEL APP è una Progressive Web App (PWA). Su iPhone, apri Safari, tocca l\'icona di condivisione e seleziona "Aggiungi a Home". Su Android, il browser ti proporrà automaticamente l\'installazione.'
+        a: 'Livelapp è una Progressive Web App (PWA). Su iPhone, apri Safari, tocca l\'icona di condivisione e seleziona "Aggiungi a Home". Su Android, il browser ti proporrà automaticamente l\'installazione.'
       },
     ]
   },

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ArrowLeft, Plus, Edit, Trash2, GripVertical, Loader2, Play } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, Loader2, Play } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CourseBuilderProps {
@@ -126,8 +126,7 @@ export function CourseBuilder({ courseId, onBack }: CourseBuilderProps) {
             <Card key={session.id}>
               <CardContent className="flex items-center gap-4 py-4">
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <GripVertical className="h-4 w-4" />
-                  <span className="font-bold text-lg w-8">{index + 1}</span>
+                  <span className="font-bold text-lg w-8 tabular-nums">{index + 1}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium">{session.title}</h3>

@@ -40,7 +40,7 @@ npx vitest run       # oppure: bunx vitest run
 
 ## 1. PANORAMICA PROGETTO
 
-- **Nome:** LIVELLAPP
+- **Nome:** Livelapp (display name UI; identificatori interni/legacy possono ancora usare "LIVELLAPP")
 - **Scopo:** piattaforma fitness italiana modulare che sostituisce CRM, builder schede, chat, calendario, pagamenti e gamification con un unico sistema integrato per Personal Trainer e Atleti.
 - **Ruoli** (rigidi, non mescolabili):
   - **Admin** — solo web (`/admin`) — gestisce piattaforma, PT, cataloghi, corsi, pagamenti
@@ -382,7 +382,7 @@ Testimonianze video PT, highlights atleta, badge verificato; catalogo discipline
 
 ## 13. DESIGN SYSTEM
 
-- **Brand:** LIVELLAPP — logo rosso gradiente su nero
+- **Brand:** Livelapp — monogramma "LA" rosso+bianco su nero
 - **PWA atleta:** dark theme + accent lime `#D4FF00`
 - **Dashboard PT web:** teal `#0d4f4f`
 - **Admin:** default shadcn/ui

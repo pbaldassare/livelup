@@ -195,7 +195,7 @@ export async function updateGroup(
 
 export async function createGroup(_userId: string, input: CreateGroupInput) {
   if (!input.policyAccepted) {
-    throw new Error('Devi accettare le policy di LivelApp per creare un gruppo');
+    throw new Error('Devi accettare le policy di Livelapp per creare un gruppo');
   }
   if (!input.name.trim()) throw new Error('Il nome del gruppo è obbligatorio');
   if (input.disciplineIds.length === 0) {

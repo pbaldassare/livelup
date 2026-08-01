@@ -6,7 +6,7 @@
 
 ## 1. PROJECT OVERVIEW
 
-- **Name**: LIVELLAPP
+- **Name**: Livelapp (UI display name; legacy/internal identifiers may still use "LIVELLAPP")
 - **Purpose**: Modular Italian fitness platform that replaces external tools (CRM, workout builder, chat, calendar, payments, gamification) with a single integrated system for Personal Trainers and Athletes.
 - **Roles** (rigid, non-mixable):
   - **Admin** — web only (`/admin`) — manages platform, PTs, catalogs, courses, payments
@@ -504,7 +504,7 @@ bunx vitest run  # tests
 
 ## 14. DESIGN SYSTEM
 
-- **Brand**: LIVELLAPP — **red gradient on black** logo
+- **Brand**: Livelapp — **red + white "LA" monogram on black** logo
 - **Athlete PWA**: strict **dark theme** + lime accent `#D4FF00`
 - **PT web dashboard**: **teal** `#0d4f4f`
 - **Admin**: shadcn/ui defaults

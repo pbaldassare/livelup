@@ -92,7 +92,7 @@ export function AuthResetPasswordPage() {
           <div className="inline-block mb-4">
             <Logo variant="icon" className="h-16 w-16 mx-auto" />
           </div>
-          <h1 className="text-2xl font-bold">LIVEL APP</h1>
+          <h1 className="text-2xl font-bold">Livelapp</h1>
           <p className="text-muted-foreground">Reimposta la tua password</p>
         </div>
 

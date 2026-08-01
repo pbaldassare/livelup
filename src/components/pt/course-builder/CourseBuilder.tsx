@@ -26,6 +26,13 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { ImagePlus, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
+  DndPlaceholder,
+  dndDraggableClassName,
+  dndDroppableClassName,
+  getDraggingStyle,
+  portalWhileDragging,
+} from '@/lib/dnd/helloPangea';
+import {
   addStep,
   courseQueryKeys,
   createCourse,
@@ -36,6 +43,7 @@ import {
   type PtCourse,
 } from '@/lib/api/courses';
 import { CourseStepEditor } from './CourseStepEditor';
+import { cn } from '@/lib/utils';
 
 const DIFFICULTY_OPTIONS: { value: CourseDifficulty; label: string }[] = [
   { value: 'beginner', label: 'Principiante' },
@@ -405,30 +413,44 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
                 ) : (
                   <DragDropContext onDragEnd={onDragEnd}>
                     <Droppable droppableId="course-steps">
-                      {(provided) => (
+                      {(provided, dropSnapshot) => (
                         <div
                           ref={provided.innerRef}
                           {...provided.droppableProps}
-                          className="space-y-3"
+                          className={dndDroppableClassName(dropSnapshot.isDraggingOver, 'space-y-3')}
                         >
                           {steps.map((step, index) => (
                             <Draggable key={step.id} draggableId={step.id} index={index}>
-                              {(dragProvided, snapshot) => (
-                                <div
-                                  ref={dragProvided.innerRef}
-                                  {...dragProvided.draggableProps}
-                                  className={snapshot.isDragging ? 'opacity-90' : undefined}
-                                >
-                                  <CourseStepEditor
-                                    courseId={activeCourseId}
-                                    step={step}
-                                    dragHandleProps={dragProvided.dragHandleProps || undefined}
-                                  />
-                                </div>
-                              )}
+                              {(dragProvided, snapshot) =>
+                                portalWhileDragging(
+                                  snapshot,
+                                  <div
+                                    ref={dragProvided.innerRef}
+                                    {...dragProvided.draggableProps}
+                                    style={getDraggingStyle(
+                                      dragProvided.draggableProps.style,
+                                      snapshot,
+                                    )}
+                                    className={cn(
+                                      dndDraggableClassName(snapshot, 'rounded-lg'),
+                                      snapshot.isDragging && 'opacity-95',
+                                    )}
+                                  >
+                                    <CourseStepEditor
+                                      courseId={activeCourseId}
+                                      step={step}
+                                      dragHandleProps={dragProvided.dragHandleProps || undefined}
+                                      isDragging={snapshot.isDragging}
+                                    />
+                                  </div>,
+                                )
+                              }
                             </Draggable>
                           ))}
-                          {provided.placeholder}
+                          <DndPlaceholder
+                            placeholder={provided.placeholder}
+                            isDraggingOver={dropSnapshot.isDraggingOver}
+                          />
                         </div>
                       )}
                     </Droppable>

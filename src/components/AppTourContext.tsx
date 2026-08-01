@@ -65,7 +65,7 @@ export const useTour = () => {
 /* ═══════════════ ATLETA TOUR ═══════════════ */
 export const ATLETA_TOUR_STEPS: TourStep[] = [
   // Home (/app)
-  { selector: "atleta-greeting", title: "Benvenuto su LIVEL APP! 🎉", description: "Questa è la tua home. Qui trovi workout, progressi, statistiche settimanali e il tuo PT a portata di tap.", page: "/app" },
+  { selector: "atleta-greeting", title: "Benvenuto su Livelapp! 🎉", description: "Questa è la tua home. Qui trovi workout, progressi, statistiche settimanali e il tuo PT a portata di tap.", page: "/app" },
   { selector: "atleta-week-calendar", title: "Calendario settimanale 📅", description: "Tieni traccia della tua settimana di allenamenti. I giorni completati sono evidenziati per motivarti!", page: "/app", action: { type: "scroll", target: "atleta-week-calendar" } },
   { selector: "atleta-today-workout", title: "Workout di oggi 💪", description: "Qui trovi la scheda di allenamento assegnata dal tuo PT. Tap per aprirla e iniziare ad allenarti!", page: "/app", action: { type: "scroll", target: "atleta-today-workout" } },
   { selector: "atleta-weekly-stats", title: "Statistiche settimanali 📊", description: "Monitora i tuoi progressi: allenamenti completati, streak e obiettivi raggiunti.", page: "/app", action: { type: "scroll", target: "atleta-weekly-stats" } },
@@ -91,13 +91,13 @@ export const ATLETA_TOUR_STEPS: TourStep[] = [
   { selector: "profile-page", title: "Il tuo profilo 👤", description: "Modifica i tuoi dati, foto, gestisci notifiche e abbonamento. Da qui puoi anche riavviare questo tour!", page: "/app/profile", action: { type: "navigate", target: "/app/profile", delay: 500 } },
 
   // Finale
-  { selector: "atleta-greeting", title: "Sei pronto! 🎊", description: "Ora conosci tutte le funzionalità di LIVEL APP. Inizia collegandoti a un PT o esplorando i professionisti disponibili. Buon allenamento! 💪", page: "/app", action: { type: "navigate", target: "/app", delay: 400 } },
+  { selector: "atleta-greeting", title: "Sei pronto! 🎊", description: "Ora conosci tutte le funzionalità di Livelapp. Inizia collegandoti a un PT o esplorando i professionisti disponibili. Buon allenamento! 💪", page: "/app", action: { type: "navigate", target: "/app", delay: 400 } },
 ];
 
 /* ═══════════════ PT TOUR ═══════════════ */
 export const PT_TOUR_STEPS: TourStep[] = [
   // Home (/pt/app)
-  { selector: "pt-greeting", title: "Benvenuto su LIVEL APP! 🎉", description: "Questa è la tua dashboard PT. Qui monitori atleti, schede, messaggi e calendario in un colpo d'occhio.", page: "/pt/app" },
+  { selector: "pt-greeting", title: "Benvenuto su Livelapp! 🎉", description: "Questa è la tua dashboard PT. Qui monitori atleti, schede, messaggi e calendario in un colpo d'occhio.", page: "/pt/app" },
   { selector: "pt-stats-section", title: "Le tue statistiche 📊", description: "Panoramica rapida: atleti attivi, schede assegnate, messaggi non letti e eventi in programma.", page: "/pt/app", action: { type: "scroll", target: "pt-stats-section" } },
   { selector: "pt-connection-requests", title: "Richieste di collegamento 🔗", description: "Qui vedi le richieste di collegamento dagli atleti. Accetta o rifiuta con un tap.", page: "/pt/app", action: { type: "scroll", target: "pt-connection-requests" } },
   { selector: "pt-today-events", title: "Eventi di oggi 📅", description: "Gli appuntamenti e sessioni di allenamento programmate per oggi.", page: "/pt/app", action: { type: "scroll", target: "pt-today-events" } },

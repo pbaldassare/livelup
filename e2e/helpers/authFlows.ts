@@ -108,13 +108,13 @@ export async function loginWithRetry(
 }
 
 /**
- * Il primo accesso di un utente mostra un dialog "Benvenuto su LIVEL APP!"
+ * Il primo accesso di un utente mostra un dialog "Benvenuto su Livelapp!"
  * (tour guidato) che blocca ogni click sottostante finché non viene chiuso.
  * Lo dismissiamo sempre selezionando "Non mostrare più" così il flag viene
  * persistito lato DB e non si ripresenta nelle sessioni/contesti successivi.
  */
 export async function dismissWelcomeTourIfPresent(page: Page): Promise<boolean> {
-  const heading = page.getByText('Benvenuto su LIVEL APP!');
+  const heading = page.getByText('Benvenuto su Livelapp!');
   const present = await waitVisible(heading, 2500);
   if (!present) return false;
 

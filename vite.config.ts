@@ -23,11 +23,11 @@ export default defineConfig(({ mode }) => ({
       // La registrazione avviene solo da src/lib/pwa/registerSW.ts (guardata
       // per dev/iframe/preview/?sw=off): il plugin non deve iniettarne una sua.
       injectRegister: null,
-      includeAssets: ["livellapp-icon.svg", "favicon.ico", "apple-touch-icon.png", "offline.html", "push-sw.js"],
+      includeAssets: ["livellapp-icon.svg", "livelapp-icon.png", "favicon.ico", "apple-touch-icon.png", "offline.html", "push-sw.js"],
 
       manifest: {
-        name: "LIVEL APP - Piattaforma Fitness",
-        short_name: "LIVEL",
+        name: "Livelapp - Piattaforma Fitness",
+        short_name: "Livelapp",
         description: "La piattaforma enterprise per Personal Trainer e Atleti",
         theme_color: "#E73235",
         background_color: "#0a0a0a",
@@ -42,9 +42,9 @@ export default defineConfig(({ mode }) => ({
         categories: ["fitness", "health", "sports"],
         icons: [
           {
-            src: "/livellapp-icon.svg",
+            src: "/livelapp-icon.png",
             sizes: "any",
-            type: "image/svg+xml",
+            type: "image/png",
             purpose: "any",
           },
           {

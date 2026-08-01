@@ -8,14 +8,12 @@
 
 import { Timer } from 'lucide-react';
 import { normalizeEmomParams, formatRoundDurationSeconds } from '@/lib/protocols/emom';
+import { formatProtocolTargetLabel } from '@/lib/protocols/exerciseTarget';
+import { formatLoadLabel } from '@/lib/loadPrescription';
 
 interface AtletaEmomSummaryProps {
   params: Record<string, unknown> | null | undefined;
   fallbackName?: string;
-}
-
-function formatReps(reps: number): string {
-  return reps === 1 ? '1 ripetizione' : `${reps} ripetizioni`;
 }
 
 export function AtletaEmomSummary({ params, fallbackName }: AtletaEmomSummaryProps) {
@@ -57,7 +55,9 @@ export function AtletaEmomSummary({ params, fallbackName }: AtletaEmomSummaryPro
                       </span>
                       <span className="text-app-muted-foreground">
                         {' '}
-                        {formatReps(ex.reps)}
+                        {formatProtocolTargetLabel(ex)}
+                        {' · '}
+                        {formatLoadLabel(ex)}
                       </span>
                     </span>
                   </li>

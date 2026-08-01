@@ -193,7 +193,7 @@ export function AtletaAppHome() {
                 refUserId={isConnected ? connection?.pt_user_id : undefined}
                 title="Invita un amico"
                 subtitle="Condividi il link e invita un amico"
-                shareText="Allenati con me su LIVEL APP: scarica l'app e inizia il tuo percorso fitness!"
+                shareText="Allenati con me su Livelapp: scarica l'app e inizia il tuo percorso fitness!"
               />
             )}
 

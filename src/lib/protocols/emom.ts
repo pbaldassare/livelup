@@ -6,7 +6,7 @@
 //     rounds: number,
 //     round_duration: number,   // SECONDI
 //     blocks_count: number,     // sempre === blocks.length
-//     blocks: [{ id, label?, exercises: [{ id, exercise_id?, name, reps }] }]
+//     blocks: [{ id, label?, exercises: [{ id, exercise_id?, name, mode?, reps, duration_seconds? }] }]
 //   }
 //
 // `normalizeEmomParams` è una pura trasformazione in memoria:
@@ -14,12 +14,22 @@
 // Serve solo per rendering e compat con EMOM legacy.
 // =====================================================
 
+import { normalizeProtocolTarget } from '@/lib/protocols/exerciseTarget';
+import {
+  defaultLoadFields,
+  normalizeLoad,
+  type LoadFields,
+} from '@/lib/loadPrescription';
+import type { SetTargetMode } from '@/types/database';
+
 export type EmomBlockExercise = {
   id: string;
   exercise_id?: string;
   name: string;
-  reps: number;
-};
+  mode?: SetTargetMode;
+  reps: number | null;
+  duration_seconds?: number | null;
+} & LoadFields;
 
 export type EmomBlock = {
   id: string;
@@ -44,11 +54,23 @@ function uid(prefix = 'id'): string {
 }
 
 export function makeEmomExercise(partial?: Partial<EmomBlockExercise>): EmomBlockExercise {
+  const target = normalizeProtocolTarget(partial as Record<string, unknown> | undefined);
+  const load = normalizeLoad((partial ?? {}) as Record<string, unknown>);
   return {
     id: uid('ex'),
     name: '',
-    reps: 10,
+    ...defaultLoadFields(),
     ...partial,
+    mode: partial?.mode ?? target.mode,
+    reps: partial?.reps !== undefined ? partial.reps : target.reps,
+    duration_seconds:
+      partial?.duration_seconds !== undefined
+        ? partial.duration_seconds
+        : target.duration_seconds,
+    load_mode: load.load_mode,
+    weight: load.weight,
+    band_color: load.band_color,
+    other_text: load.other_text,
   };
 }
 
@@ -112,23 +134,19 @@ export function normalizeEmomParams(
         label: typeof blk.label === 'string' ? blk.label : undefined,
         exercises: (exs.length > 0 ? exs : [{}]).map((e) => {
           const ex = (e ?? {}) as Record<string, unknown>;
-          // Reps: priorità a `reps`; fallback su vecchio `value` (se measure!=='time').
-          let reps = 10;
-          if (typeof ex.reps === 'number' && ex.reps > 0) {
-            reps = Math.floor(ex.reps);
-          } else if (
-            typeof ex.value === 'number' &&
-            ex.value > 0 &&
-            ex.measure !== 'time'
-          ) {
-            reps = Math.floor(ex.value);
-          }
+          const target = normalizeProtocolTarget(ex, {
+            reps: legacyReps ?? 10,
+          });
+          const load = normalizeLoad(ex);
           return {
             id: typeof ex.id === 'string' ? ex.id : uid('ex'),
             exercise_id:
               typeof ex.exercise_id === 'string' ? ex.exercise_id : undefined,
             name: typeof ex.name === 'string' ? ex.name : '',
-            reps,
+            mode: target.mode,
+            reps: target.reps,
+            duration_seconds: target.duration_seconds,
+            ...load,
           };
         }),
       };
@@ -140,11 +158,12 @@ export function normalizeEmomParams(
         id: uid('blk'),
         label: undefined,
         exercises: [
-          {
-            id: uid('ex'),
+          makeEmomExercise({
             name: fallbackName ?? '',
+            mode: 'reps',
             reps: legacyReps ?? 10,
-          },
+            duration_seconds: null,
+          }),
         ],
       },
     ];

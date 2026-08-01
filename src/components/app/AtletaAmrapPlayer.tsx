@@ -13,6 +13,8 @@ import {
   formatAmrapDurationSeconds,
   normalizeAmrapParams,
 } from '@/lib/protocols/amrap';
+import { formatProtocolTarget } from '@/lib/protocols/exerciseTarget';
+import { formatLoadLabel } from '@/lib/loadPrescription';
 
 interface AtletaAmrapPlayerProps {
   exerciseName: string;
@@ -161,14 +163,19 @@ export function AtletaAmrapPlayer({
               </span>
               <span className="flex-1">
                 {ex.name?.trim() || exerciseName || 'Esercizio'}
-                <span className="text-app-muted-foreground font-normal"> · {ex.reps} reps</span>
+                <span className="text-app-muted-foreground font-normal">
+                  {' '}
+                  · {formatProtocolTarget(ex)}
+                  {' · '}
+                  {formatLoadLabel(ex)}
+                </span>
               </span>
             </li>
           ))}
         </ul>
-        {currentExercise?.weight != null && currentExercise.weight > 0 && (
+        {currentExercise && (
           <p className="text-xs text-app-muted-foreground mt-2">
-            Peso suggerito: {currentExercise.weight} kg
+            Carico: {formatLoadLabel(currentExercise)}
           </p>
         )}
       </div>

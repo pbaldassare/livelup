@@ -1,10 +1,18 @@
 import type { NextExerciseInfo } from '@/components/app/NextExercisePreview';
+import {
+  formatSetsTargetSummary,
+  resolveSetsData,
+  type SetItem,
+} from '@/lib/setsData';
 
 export interface WorkoutExerciseLike {
   id: string;
   prescribed_sets?: number | null;
   prescribed_reps_min?: number | null;
   prescribed_reps_max?: number | null;
+  prescribed_duration_seconds?: number | null;
+  rest_seconds?: number | null;
+  sets_data?: unknown;
   protocol_type?: string | null;
   exercises?: {
     name: string;
@@ -17,7 +25,35 @@ export function exerciseDisplayName(ex?: WorkoutExerciseLike | null): string {
   return ex?.exercises?.name ?? 'Esercizio';
 }
 
+function resolveLikeSets(ex: WorkoutExerciseLike): SetItem[] {
+  return resolveSetsData(ex.sets_data, {
+    sets: ex.prescribed_sets,
+    reps_min: ex.prescribed_reps_min,
+    reps_max: ex.prescribed_reps_max,
+    rest_seconds: ex.rest_seconds,
+    prescribed_duration_seconds: ex.prescribed_duration_seconds,
+  });
+}
+
 export function formatRepsLabel(ex: WorkoutExerciseLike): string {
+  const sets = resolveLikeSets(ex);
+  if (sets.length > 0) {
+    const summary = formatSetsTargetSummary(sets);
+    if (summary !== '—') {
+      // Per preview: solo il target tipico (senza "3×" se già nel campo sets)
+      if (summary.includes('×')) {
+        const after = summary.split('×')[1];
+        return after || summary;
+      }
+      if (summary.includes(' / ')) {
+        return summary;
+      }
+      return summary;
+    }
+  }
+  if ((ex.prescribed_duration_seconds ?? 0) > 0 && !ex.prescribed_reps_min && !ex.prescribed_reps_max) {
+    return `${ex.prescribed_duration_seconds}s`;
+  }
   if (ex.prescribed_reps_min && ex.prescribed_reps_max) {
     return `${ex.prescribed_reps_min}-${ex.prescribed_reps_max}`;
   }

@@ -11,11 +11,11 @@ import { GroupDisciplinePicker } from './GroupDisciplinePicker';
 import type { GroupFormInput, GroupVisibility } from '@/types/groups';
 import { ImagePlus, Loader2, Trash2 } from 'lucide-react';
 
-const GROUP_POLICY_TEXT = `Creando un gruppo su LivelApp accetti di:
+const GROUP_POLICY_TEXT = `Creando un gruppo su Livelapp accetti di:
 • rispettare le regole della community e non pubblicare contenuti offensivi;
 • moderare le conversazioni e segnalare abusi alla piattaforma;
 • non usare il gruppo per spam, truffe o attività illegali;
-• consentire a LivelApp di sospendere o rimuovere gruppi che violano le policy.`;
+• consentire a Livelapp di sospendere o rimuovere gruppi che violano le policy.`;
 
 export interface GroupFormInitialValues {
   name?: string;
@@ -277,7 +277,7 @@ export function GroupForm({
               onCheckedChange={(c) => setPolicyAccepted(c === true)}
             />
             <Label htmlFor="policy" className="text-sm cursor-pointer leading-tight">
-              Accetto le policy di LivelApp per la creazione e gestione del gruppo *
+              Accetto le policy di Livelapp per la creazione e gestione del gruppo *
             </Label>
           </div>
         </div>

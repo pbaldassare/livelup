@@ -40,7 +40,7 @@ if (new URLSearchParams(window.location.search).has('reset')) {
   try {
     createRoot(root).render(<App />);
   } catch (err) {
-    console.error('[LIVEL APP] Bootstrap error:', err);
+    console.error('[Livelapp] Bootstrap error:', err);
     // Show minimal fallback UI
     root.innerHTML = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;padding:2rem;font-family:system-ui,sans-serif;text-align:center;background:#0a0a0a;color:#fff">

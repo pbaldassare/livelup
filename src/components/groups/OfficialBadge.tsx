@@ -16,7 +16,7 @@ export function OfficialBadge({ className }: OfficialBadgeProps) {
       variant="outline"
     >
       <ShieldCheck className="h-3 w-3" />
-      Ufficiale LivelApp
+      Ufficiale Livelapp
     </Badge>
   );
 }

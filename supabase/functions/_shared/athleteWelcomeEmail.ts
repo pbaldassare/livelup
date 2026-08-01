@@ -21,16 +21,16 @@ function buildWelcomeEmailHtml(payload: WelcomeEmailPayload, loginUrl: string): 
 <html lang="it">
 <head><meta charset="utf-8"></head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
-  <h1 style="color: #0d4f4f;">Benvenuto su LIVELLAPP</h1>
+  <h1 style="color: #0d4f4f;">Benvenuto su Livelapp</h1>
   <p>Ciao ${fullName || 'Atleta'},</p>
-  <p><strong>${payload.ptName}</strong> ha creato il tuo account atleta su LIVELLAPP.</p>
+  <p><strong>${payload.ptName}</strong> ha creato il tuo account atleta su Livelapp.</p>
   <p>Accedi con queste credenziali temporanee:</p>
   <ul>
     <li><strong>Email:</strong> ${payload.to}</li>
     <li><strong>Password temporanea:</strong> ${payload.temporaryPassword}</li>
   </ul>
   <p style="color: #b45309; font-weight: bold;">Per la tua sicurezza, cambia la password subito dopo il primo accesso.</p>
-  <p><a href="${loginUrl}" style="display:inline-block;padding:12px 24px;background:#0d4f4f;color:#fff;text-decoration:none;border-radius:6px;">Accedi a LIVELLAPP</a></p>
+  <p><a href="${loginUrl}" style="display:inline-block;padding:12px 24px;background:#0d4f4f;color:#fff;text-decoration:none;border-radius:6px;">Accedi a Livelapp</a></p>
   <p style="font-size: 12px; color: #666;">Se non ti aspettavi questa email, contatta il tuo Personal Trainer.</p>
 </body>
 </html>
@@ -42,7 +42,7 @@ export async function sendAthleteWelcomeEmail(
 ): Promise<WelcomeEmailResult> {
   const apiKey = Deno.env.get('RESEND_API_KEY')
   const from =
-    Deno.env.get('RESEND_FROM_EMAIL') || 'LIVELLAPP <noreply@livelapp.it>'
+    Deno.env.get('RESEND_FROM_EMAIL') || 'Livelapp <noreply@livelapp.it>'
   const siteUrl =
     Deno.env.get('SITE_URL') ||
     Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovable.app') ||
@@ -66,7 +66,7 @@ export async function sendAthleteWelcomeEmail(
       body: JSON.stringify({
         from,
         to: [payload.to],
-        subject: 'Benvenuto su LIVELLAPP — credenziali di accesso',
+        subject: 'Benvenuto su Livelapp — credenziali di accesso',
         html: buildWelcomeEmailHtml(payload, loginUrl),
       }),
     })

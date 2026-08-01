@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 import { normalizeSupersetParams } from '@/lib/protocols/superset';
+import { formatProtocolTargetLabel } from '@/lib/protocols/exerciseTarget';
+import { formatLoadLabel } from '@/lib/loadPrescription';
 
 type Phase = 'work' | 'rest_between_exercises' | 'rest_between_supersets';
 
@@ -159,13 +161,15 @@ export function AtletaSupersetPlayer({
           <div className="w-full max-w-md rounded-2xl border border-app-border/70 bg-app-card/60 p-6 mb-8 text-center">
             <p className="text-xl font-bold text-app-foreground mb-3">{displayName}</p>
             <p className="text-3xl font-black text-app-accent tabular-nums">
-              {currentCell?.reps ?? params.exercises[exerciseIndex]?.reps ?? 10} reps
+              {formatProtocolTargetLabel(
+                currentCell ?? params.exercises[exerciseIndex] ?? { mode: 'reps', reps: 10 },
+              )}
             </p>
-            {(currentCell?.weight ?? params.exercises[exerciseIndex]?.weight) != null && (
-              <p className="text-sm text-app-muted-foreground mt-2">
-                {currentCell?.weight ?? params.exercises[exerciseIndex]?.weight} kg
-              </p>
-            )}
+            <p className="text-sm text-app-muted-foreground mt-2">
+              {formatLoadLabel(
+                currentCell ?? params.exercises[exerciseIndex] ?? {},
+              )}
+            </p>
           </div>
 
           <div className="w-full max-w-md flex flex-col gap-3">

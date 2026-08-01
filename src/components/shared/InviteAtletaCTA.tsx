@@ -22,7 +22,7 @@ interface InviteAtletaCTAProps {
 }
 
 const DEFAULT_SHARE_TEXT =
-  "Allenati con me su LIVEL APP: scarica l'app e inizia il tuo percorso fitness!";
+  "Allenati con me su Livelapp: scarica l'app e inizia il tuo percorso fitness!";
 
 export function InviteAtletaCTA({
   refUserId,
@@ -40,7 +40,7 @@ export function InviteAtletaCTA({
     try {
       const link = buildInviteLink({ refUserId });
       const result = await shareInviteLink(link, {
-        title: 'Invita un atleta su LIVEL APP',
+        title: 'Invita un atleta su Livelapp',
         text: shareText,
       });
       if (result === 'copied' || result === 'shared') {

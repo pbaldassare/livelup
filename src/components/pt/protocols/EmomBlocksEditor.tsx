@@ -2,7 +2,7 @@
 // EMOM BLOCKS EDITOR (v2)
 // - 3 parametri globali in alto: rounds, round_duration, blocks_count.
 // - blocks_count è la fonte di verità: sincronizzato con blocks.length.
-// - Ogni blocco contiene esercizi con SOLO: dropdown esercizio + reps.
+// - Ogni blocco contiene esercizi con: dropdown esercizio + target (Reps|Sec).
 // - Il dropdown viene popolato da `exerciseOptions` (tutti gli esercizi del workout).
 // - Nessuna scrittura automatica: ogni edit chiama onChange esplicitamente.
 // =====================================================
@@ -26,6 +26,8 @@ import {
   type ProtocolExerciseOption,
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
+import { ProtocolTargetField } from '@/components/pt/protocols/ProtocolTargetField';
+import { LoadField } from '@/components/pt/LoadField';
 
 export type EmomExerciseOption = ProtocolExerciseOption;
 
@@ -206,7 +208,7 @@ export function EmomBlocksEditor({
                     key={ex.id}
                     className="grid grid-cols-12 gap-1.5 items-end rounded-md border border-dashed bg-muted/20 p-1.5"
                   >
-                    <div className="col-span-12 md:col-span-8 space-y-0.5">
+                    <div className="col-span-12 md:col-span-5 space-y-0.5">
                       <Label className="text-[10px] text-muted-foreground">Esercizio</Label>
                       <ProtocolExerciseCombobox
                         value={ex.name}
@@ -222,22 +224,21 @@ export function EmomBlocksEditor({
                         }
                       />
                     </div>
-                    <div className="col-span-9 md:col-span-3 space-y-0.5">
-                      <Label className="text-[10px] text-muted-foreground">Ripetizioni</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={ex.reps}
-                        onChange={(e) => {
-                          const n = Number(e.target.value);
-                          updateExercise(bIdx, eIdx, {
-                            reps: Number.isFinite(n) && n > 0 ? Math.floor(n) : 1,
-                          });
-                        }}
-                        className="h-8"
+                    <div className="col-span-5 md:col-span-2">
+                      <ProtocolTargetField
+                        value={ex}
+                        label="Target"
+                        onChange={(next) => updateExercise(bIdx, eIdx, next)}
                       />
                     </div>
-                    <div className="col-span-3 md:col-span-1 flex justify-end">
+                    <div className="col-span-5 md:col-span-4">
+                      <LoadField
+                        compact
+                        value={ex}
+                        onChange={(load) => updateExercise(bIdx, eIdx, load)}
+                      />
+                    </div>
+                    <div className="col-span-2 md:col-span-1 flex justify-end">
                       <Button
                         type="button"
                         variant="ghost"

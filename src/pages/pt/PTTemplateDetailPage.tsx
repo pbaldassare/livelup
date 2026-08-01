@@ -42,6 +42,7 @@ import {
   normalizeTemplateRole,
   TEMPLATE_ROLE_LABEL,
 } from '@/lib/pt/templateRoles';
+import { ExportSheetPdfButton } from '@/components/shared/ExportSheetPdfButton';
 
 // =====================================================
 // PT TEMPLATE DETAIL PAGE
@@ -145,10 +146,13 @@ export function PTTemplateDetailPage() {
           { label: template.title },
         ]}
         actions={
-          <Button variant="outline" size="sm" onClick={() => navigate(routes.templates)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Indietro
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportSheetPdfButton mode="template" templateId={template.id} />
+            <Button variant="outline" size="sm" onClick={() => navigate(routes.templates)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Indietro
+            </Button>
+          </div>
         }
       />
       )}
@@ -325,7 +329,7 @@ export function PTTemplateDetailPage() {
           <CardHeader className="py-3 px-4">
             <CardTitle className="text-base">Esercizi e protocolli</CardTitle>
             <CardDescription className="text-xs">
-              Aggiungi esercizi in ordine e imposta protocollo (Set, EMOM, AMRAP, Superset, HIIT…).
+              Aggiungi esercizi (set standard) o protocolli (EMOM, AMRAP, Superset, HIIT…) come blocchi nella sequenza. Trascina per riordinare.
             </CardDescription>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-0">
@@ -344,6 +348,15 @@ export function PTTemplateDetailPage() {
         showBack
         backTo={routes.templates}
         flush
+        actions={
+          <ExportSheetPdfButton
+            mode="template"
+            templateId={template.id}
+            iconOnly
+            variant="ghost"
+            className="text-app-foreground hover:text-app-accent"
+          />
+        }
       >
         {pageBody}
       </PTAppPageShell>

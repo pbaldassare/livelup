@@ -295,7 +295,7 @@ serve(async (req) => {
     await supabaseAdmin.from('notifications').insert({
       user_id: newUserId,
       type: 'welcome',
-      title: 'Benvenuto su LIVELLAPP',
+      title: 'Benvenuto su Livelapp',
       body: `${ptName} ti ha aggiunto come atleta. Controlla la tua email per le credenziali di accesso e cambia subito la password.`,
       action_url: '/app',
       data: { pt_user_id: ptUserId, connection_id: connection.id },

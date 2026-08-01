@@ -6,9 +6,9 @@
 //     exercises_count, supersets_count,
 //     rest_between_supersets,
 //     rest_between_exercises_enabled, rest_between_exercises,
-//     exercises: [{ id, exercise_id?, name, reps, weight, notes }],
+//     exercises: [{ id, exercise_id?, name, mode?, reps, duration_seconds?, weight, notes }],
 //     set_data: [{ exercise_id?, exercise_name,
-//                  sets: [{ set_number, reps, weight, rest_seconds }] }]
+//                  sets: [{ set_number, mode?, reps, duration_seconds?, weight, rest_seconds }] }]
 //   }
 //
 // Invarianti garantiti da normalize + syncExercisesCount + syncSetData:
@@ -21,21 +21,34 @@
 //   set_data[r].sets[c] = valori dell'esercizio r durante il superset (c+1).
 // =====================================================
 
+import {
+  normalizeProtocolTarget,
+  type ProtocolExerciseTarget,
+} from '@/lib/protocols/exerciseTarget';
+import {
+  defaultLoadFields,
+  normalizeLoad,
+  type LoadFields,
+} from '@/lib/loadPrescription';
+import type { SetTargetMode } from '@/types/database';
+
 export type SupersetExercise = {
   id: string;
   exercise_id?: string;
   name: string;
-  reps: number;
-  weight: number | null;
+  mode?: SetTargetMode;
+  reps: number | null;
+  duration_seconds?: number | null;
   notes: string;
-};
+} & LoadFields;
 
 export type SupersetSetCell = {
   set_number: number;
-  reps: number;
-  weight: number | null;
+  mode?: SetTargetMode;
+  reps: number | null;
+  duration_seconds?: number | null;
   rest_seconds: number;
-};
+} & LoadFields;
 
 export type SupersetSetRow = {
   exercise_id?: string;
@@ -66,13 +79,24 @@ function uid(prefix = 'id'): string {
 export function makeSupersetExercise(
   partial?: Partial<SupersetExercise>,
 ): SupersetExercise {
+  const target = normalizeProtocolTarget(partial as ProtocolExerciseTarget | undefined);
+  const load = normalizeLoad((partial ?? {}) as Record<string, unknown>);
   return {
     id: uid('ss_ex'),
     name: '',
-    reps: DEFAULT_REPS,
-    weight: null,
     notes: '',
+    ...defaultLoadFields(),
     ...partial,
+    mode: partial?.mode ?? target.mode,
+    reps: partial?.reps !== undefined ? partial.reps : target.reps,
+    duration_seconds:
+      partial?.duration_seconds !== undefined
+        ? partial.duration_seconds
+        : target.duration_seconds,
+    load_mode: load.load_mode,
+    weight: load.weight,
+    band_color: load.band_color,
+    other_text: load.other_text,
   };
 }
 
@@ -96,10 +120,17 @@ function makeCell(
   exercise: SupersetExercise | undefined,
   restDefault: number,
 ): SupersetSetCell {
+  const target = normalizeProtocolTarget(exercise as ProtocolExerciseTarget | undefined);
+  const load = normalizeLoad((exercise ?? {}) as Record<string, unknown>);
   return {
     set_number: index + 1,
-    reps: exercise?.reps ?? DEFAULT_REPS,
-    weight: exercise?.weight ?? null,
+    mode: exercise?.mode ?? target.mode,
+    reps: exercise?.reps !== undefined ? exercise.reps : target.reps,
+    duration_seconds:
+      exercise?.duration_seconds !== undefined
+        ? exercise.duration_seconds
+        : target.duration_seconds,
+    ...load,
     rest_seconds: Math.max(0, Math.floor(restDefault)),
   };
 }
@@ -190,21 +221,24 @@ export function normalizeSupersetParams(
   if (hasNewSchema) {
     exercises = (r.exercises as unknown[])
       .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
-      .map((e) => ({
-        id:
-          typeof e.id === 'string' && (e.id as string).length > 0
-            ? (e.id as string)
-            : uid('ss_ex'),
-        exercise_id:
-          typeof e.exercise_id === 'string' ? (e.exercise_id as string) : undefined,
-        name: typeof e.name === 'string' ? (e.name as string) : '',
-        reps: posInt(e.reps, DEFAULT_REPS),
-        weight:
-          typeof e.weight === 'number' && Number.isFinite(e.weight)
-            ? (e.weight as number)
-            : null,
-        notes: typeof e.notes === 'string' ? (e.notes as string) : '',
-      }));
+      .map((e) => {
+        const target = normalizeProtocolTarget(e);
+        const load = normalizeLoad(e);
+        return {
+          id:
+            typeof e.id === 'string' && (e.id as string).length > 0
+              ? (e.id as string)
+              : uid('ss_ex'),
+          exercise_id:
+            typeof e.exercise_id === 'string' ? (e.exercise_id as string) : undefined,
+          name: typeof e.name === 'string' ? (e.name as string) : '',
+          mode: target.mode,
+          reps: target.reps,
+          duration_seconds: target.duration_seconds,
+          ...load,
+          notes: typeof e.notes === 'string' ? (e.notes as string) : '',
+        };
+      });
     if (exercises.length === 0) {
       exercises = [makeSupersetExercise()];
     }
@@ -239,15 +273,18 @@ export function normalizeSupersetParams(
           typeof row.exercise_name === 'string' ? (row.exercise_name as string) : '',
         sets: sets
           .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object')
-          .map((c, idx) => ({
-            set_number: posInt(c.set_number, idx + 1),
-            reps: posInt(c.reps, DEFAULT_REPS),
-            weight:
-              typeof c.weight === 'number' && Number.isFinite(c.weight)
-                ? (c.weight as number)
-                : null,
-            rest_seconds: nonNegInt(c.rest_seconds, rest_between_supersets),
-          })),
+          .map((c, idx) => {
+            const target = normalizeProtocolTarget(c);
+            const load = normalizeLoad(c);
+            return {
+              set_number: posInt(c.set_number, idx + 1),
+              mode: target.mode,
+              reps: target.reps,
+              duration_seconds: target.duration_seconds,
+              ...load,
+              rest_seconds: nonNegInt(c.rest_seconds, rest_between_supersets),
+            };
+          }),
       };
     });
 

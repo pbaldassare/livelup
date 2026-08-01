@@ -127,7 +127,7 @@ export function LandingPage() {
             <h2 className="text-3xl font-bold mb-4">Tutto in un'unica piattaforma</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Smetti di saltare tra decine di app e strumenti. 
-              LIVEL APP centralizza tutto ciò di cui hai bisogno.
+              Livelapp centralizza tutto ciò di cui hai bisogno.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -247,7 +247,7 @@ export function LandingPage() {
                 Pronto a rivoluzionare il tuo business?
               </h2>
               <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-                Unisciti a centinaia di Personal Trainer che hanno già scelto LIVEL APP 
+                Unisciti a centinaia di Personal Trainer che hanno già scelto Livelapp 
                 per gestire i loro atleti in modo professionale.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -297,7 +297,7 @@ export function LandingPage() {
 
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-white text-lg">Installa LIVEL APP</h3>
+                <h3 className="font-bold text-white text-lg">Installa Livelapp</h3>
                 <p className="text-sm text-white/80 mt-0.5">
                   Accesso rapido dalla home del tuo telefono
                 </p>

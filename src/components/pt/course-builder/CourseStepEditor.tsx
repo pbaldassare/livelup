@@ -18,12 +18,14 @@ import {
   type PtCourseStepExercise,
 } from '@/lib/api/courses';
 import { StepExercisePicker } from './StepExercisePicker';
+import { dndDragHandleClassName } from '@/lib/dnd/helloPangea';
 import { cn } from '@/lib/utils';
 
 interface CourseStepEditorProps {
   courseId: string;
   step: PtCourseStep;
   dragHandleProps?: HTMLAttributes<HTMLElement> | null;
+  isDragging?: boolean;
   className?: string;
 }
 
@@ -31,6 +33,7 @@ export function CourseStepEditor({
   courseId,
   step,
   dragHandleProps,
+  isDragging = false,
   className,
 }: CourseStepEditorProps) {
   const queryClient = useQueryClient();
@@ -100,15 +103,22 @@ export function CourseStepEditor({
   const exercises = step.pt_course_step_exercises || [];
 
   return (
-    <div className={cn('rounded-lg border border-border bg-card p-4 space-y-4', className)}>
+    <div
+      className={cn(
+        'rounded-lg border border-border bg-card p-4 space-y-4',
+        isDragging && '!transition-none shadow-none',
+        className,
+      )}
+    >
       <div className="flex items-start gap-2">
         <button
           type="button"
-          className="mt-1 p-1 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing"
+          className={cn(dndDragHandleClassName, 'mt-0.5')}
           aria-label="Trascina per riordinare"
+          title="Trascina per riordinare"
           {...dragHandleProps}
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className="h-5 w-5" />
         </button>
         <div className="flex-1 space-y-3 min-w-0">
           <div className="flex items-start justify-between gap-2">

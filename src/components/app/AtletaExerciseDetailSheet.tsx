@@ -15,7 +15,12 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { resolveSetsData } from '@/lib/setsData';
+import {
+  formatSetTarget,
+  getSetTargetMode,
+  resolveSetsData,
+} from '@/lib/setsData';
+import { formatLoadLabel, getLoadMode } from '@/lib/loadPrescription';
 import { AtletaEmomSummary } from '@/components/app/AtletaEmomSummary';
 
 // =====================================================
@@ -84,7 +89,7 @@ function formatDuration(secs: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-// Build sets array — compatible with future per-set protocols
+// Build sets array — compatible with per-set reps/seconds targets
 function buildSets(ex: SheetExercise) {
   const resolved = resolveSetsData(ex.sets_data, {
     sets: ex.prescribed_sets,
@@ -94,12 +99,25 @@ function buildSets(ex: SheetExercise) {
     prescribed_duration_seconds: ex.prescribed_duration_seconds,
   });
 
-  return resolved.map((set, i) => ({
-    n: i + 1,
-    reps: set.reps !== null ? String(set.reps) : null,
-    weight: set.weight ?? ex.prescribed_weight ?? null,
-    rest: set.rest_seconds ?? null,
-  }));
+  return resolved.map((set, i) => {
+    const mode = getSetTargetMode(set);
+    const loadSource =
+      getLoadMode(set) === 'bodyweight' &&
+      typeof ex.prescribed_weight === 'number' &&
+      ex.prescribed_weight > 0
+        ? { load_mode: 'kg' as const, weight: ex.prescribed_weight }
+        : set;
+    return {
+      n: i + 1,
+      mode,
+      target: formatSetTarget(set),
+      reps: mode === 'reps' && set.reps != null ? String(set.reps) : null,
+      durationSeconds: mode === 'seconds' ? set.duration_seconds ?? null : null,
+      weight: set.weight ?? ex.prescribed_weight ?? null,
+      loadLabel: formatLoadLabel(loadSource),
+      rest: set.rest_seconds ?? null,
+    };
+  });
 }
 
 export function AtletaExerciseDetailSheet({
@@ -126,12 +144,20 @@ export function AtletaExerciseDetailSheet({
   const sets = buildSets(exercise);
   const muscleGroups = ex.muscle_groups || [];
 
-  const isDuration =
-    !!exercise.prescribed_duration_seconds && exercise.prescribed_duration_seconds > 0;
   const isSetProtocol = !exercise.protocol_type || exercise.protocol_type === 'SET';
-  const repsLabel = exercise.prescribed_reps_max
-    ? `×${exercise.prescribed_reps_min ?? exercise.prescribed_reps_max}-${exercise.prescribed_reps_max}`
-    : `×${exercise.prescribed_reps_min ?? 0}`;
+  const allSeconds =
+    sets.length > 0 && sets.every((s) => s.mode === 'seconds');
+  const isDuration =
+    allSeconds ||
+    (!!exercise.prescribed_duration_seconds &&
+      exercise.prescribed_duration_seconds > 0 &&
+      sets.every((s) => s.mode !== 'reps' || s.reps == null));
+  const mixedTargets = sets.some((s) => s.mode === 'seconds') && sets.some((s) => s.mode === 'reps');
+  const repsLabel = mixedTargets
+    ? sets.map((s) => s.target).join(' / ')
+    : exercise.prescribed_reps_max
+      ? `×${exercise.prescribed_reps_min ?? exercise.prescribed_reps_max}-${exercise.prescribed_reps_max}`
+      : `×${exercise.prescribed_reps_min ?? 0}`;
 
   const handleMark = async () => {
     setMarking(true);
@@ -227,14 +253,22 @@ export function AtletaExerciseDetailSheet({
                   )}
                 </div>
 
-                {/* Duration OR Reps (mai entrambi) */}
+                {/* Target: durata / reps / misto per set */}
                 <div className="flex items-center gap-3 rounded-2xl border border-app-border/70 bg-app-card/55 p-4 text-app-foreground">
-                  {isDuration ? (
+                  {mixedTargets ? (
+                    <>
+                      <Repeat className="h-5 w-5 shrink-0 text-app-accent" />
+                      <span className="text-sm font-medium text-app-muted-foreground">Target</span>
+                      <span className="ml-auto text-xl font-black tabular-nums">{repsLabel}</span>
+                    </>
+                  ) : isDuration ? (
                     <>
                       <Clock className="h-5 w-5 shrink-0 text-app-accent" />
                       <span className="text-sm font-medium text-app-muted-foreground">Durata</span>
                       <span className="ml-auto text-xl font-black tabular-nums">
-                        {formatDuration(exercise.prescribed_duration_seconds!)}
+                        {sets[0]?.durationSeconds != null
+                          ? formatDuration(sets[0].durationSeconds)
+                          : formatDuration(exercise.prescribed_duration_seconds!)}
                       </span>
                     </>
                   ) : (
@@ -312,8 +346,8 @@ export function AtletaExerciseDetailSheet({
                   </div>
                 )}
 
-                {/* Set verticali */}
-                {isSetProtocol && !isDuration && sets.length > 0 && (
+                {/* Set verticali (anche misti reps/seconds) */}
+                {isSetProtocol && sets.length > 0 && (
                   <div className="space-y-3">
                     <h3 className="text-base font-bold text-app-foreground">Set</h3>
                     <div className="space-y-3">
@@ -336,22 +370,18 @@ export function AtletaExerciseDetailSheet({
                               )}
                             </div>
                             <div className="grid gap-2 text-sm text-app-muted-foreground">
-                              {s.reps !== null && (
-                                <div className="flex items-center justify-between gap-3">
-                                  <span>Reps</span>
-                                  <span className="font-bold text-app-foreground">
-                                    {s.reps}
-                                  </span>
-                                </div>
-                              )}
-                              {s.weight !== null && s.weight > 0 && (
-                                <div className="flex items-center justify-between gap-3">
-                                  <span>Kg</span>
-                                  <span className="font-bold text-app-foreground">
-                                    {s.weight}
-                                  </span>
-                                </div>
-                              )}
+                              <div className="flex items-center justify-between gap-3">
+                                <span>{s.mode === 'seconds' ? 'Secondi' : 'Reps'}</span>
+                                <span className="font-bold text-app-foreground">
+                                  {s.target}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <span>Carico</span>
+                                <span className="font-bold text-app-foreground">
+                                  {s.loadLabel}
+                                </span>
+                              </div>
                               {s.rest !== null && s.rest > 0 && (
                                 <div className="flex items-center justify-between gap-3">
                                   <span>Recupero</span>

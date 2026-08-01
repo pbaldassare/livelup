@@ -5,7 +5,7 @@
 //   {
 //     duration_seconds: number,    // timer globale
 //     exercises_count: number,     // sempre === exercises.length
-//     exercises: [{ id, exercise_id?, name, reps, weight }]
+//     exercises: [{ id, exercise_id?, name, mode?, reps, duration_seconds?, weight }]
 //   }
 //
 // `normalizeAmrapParams` è una pura trasformazione in memoria:
@@ -14,13 +14,25 @@
 // (duration_minutes / reps / note).
 // =====================================================
 
+import {
+  normalizeProtocolTarget,
+  type ProtocolExerciseTarget,
+} from '@/lib/protocols/exerciseTarget';
+import {
+  defaultLoadFields,
+  normalizeLoad,
+  type LoadFields,
+} from '@/lib/loadPrescription';
+import type { SetTargetMode } from '@/types/database';
+
 export type AmrapExercise = {
   id: string;
   exercise_id?: string;
   name: string;
-  reps: number;
-  weight: number | null;
-};
+  mode?: SetTargetMode;
+  reps: number | null;
+  duration_seconds?: number | null;
+} & LoadFields;
 
 export type AmrapParams = {
   duration_seconds: number;
@@ -37,12 +49,23 @@ function uid(prefix = 'id'): string {
 }
 
 export function makeAmrapExercise(partial?: Partial<AmrapExercise>): AmrapExercise {
+  const target = normalizeProtocolTarget(partial as ProtocolExerciseTarget | undefined);
+  const load = normalizeLoad((partial ?? {}) as Record<string, unknown>);
   return {
     id: uid('amrap_ex'),
     name: '',
-    reps: 10,
-    weight: null,
+    ...defaultLoadFields(),
     ...partial,
+    mode: partial?.mode ?? target.mode,
+    reps: partial?.reps !== undefined ? partial.reps : target.reps,
+    duration_seconds:
+      partial?.duration_seconds !== undefined
+        ? partial.duration_seconds
+        : target.duration_seconds,
+    load_mode: load.load_mode,
+    weight: load.weight,
+    band_color: load.band_color,
+    other_text: load.other_text,
   };
 }
 
@@ -87,25 +110,32 @@ export function normalizeAmrapParams(raw: Record<string, unknown> | null | undef
   let exercises: AmrapExercise[] = rawList
     .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
     .map((e) => {
-      const reps = typeof e.reps === 'number' && Number.isFinite(e.reps) && e.reps > 0
-        ? Math.floor(e.reps as number)
-        : 10;
-      const weight =
-        typeof e.weight === 'number' && Number.isFinite(e.weight) ? (e.weight as number) : null;
+      const target = normalizeProtocolTarget(e);
+      const load = normalizeLoad(e);
       const name = typeof e.name === 'string' ? (e.name as string) : '';
       const exercise_id =
         typeof e.exercise_id === 'string' ? (e.exercise_id as string) : undefined;
-      const id = typeof e.id === 'string' && (e.id as string).length > 0
-        ? (e.id as string)
-        : uid('amrap_ex');
-      return { id, exercise_id, name, reps, weight };
+      const id =
+        typeof e.id === 'string' && (e.id as string).length > 0
+          ? (e.id as string)
+          : uid('amrap_ex');
+      return {
+        id,
+        exercise_id,
+        name,
+        mode: target.mode,
+        reps: target.reps,
+        duration_seconds: target.duration_seconds,
+        ...load,
+      };
     });
 
   if (exercises.length === 0) {
-    const legacyReps = typeof r.reps === 'number' && Number.isFinite(r.reps) && (r.reps as number) > 0
-      ? Math.floor(r.reps as number)
-      : 10;
-    exercises = [makeAmrapExercise({ reps: legacyReps })];
+    const legacyReps =
+      typeof r.reps === 'number' && Number.isFinite(r.reps) && (r.reps as number) > 0
+        ? Math.floor(r.reps as number)
+        : 10;
+    exercises = [makeAmrapExercise({ mode: 'reps', reps: legacyReps, duration_seconds: null })];
   }
 
   // exercises_count: applica syncExercisesCount se valore esplicito,

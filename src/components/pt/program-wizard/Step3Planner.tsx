@@ -31,6 +31,14 @@ import {
   Draggable,
   type DropResult,
 } from '@hello-pangea/dnd';
+import {
+  DndPlaceholder,
+  dndDragHandleClassName,
+  dndDraggableClassName,
+  dndDroppableClassName,
+  getDraggingStyle,
+  portalWhileDragging,
+} from '@/lib/dnd/helloPangea';
 import { cn } from '@/lib/utils';
 import { describeRotation } from '@/lib/api/programs';
 import type { WizardData } from './types';
@@ -235,11 +243,11 @@ export function Step3Planner({ data, onChange }: Props) {
             ) : (
               <DragDropContext onDragEnd={onDragEnd}>
                 <Droppable droppableId="schedules">
-                  {(provided) => (
+                  {(provided, dropSnapshot) => (
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className="space-y-2"
+                      className={dndDroppableClassName(dropSnapshot.isDraggingOver, 'space-y-2')}
                     >
                       {data.schedules.map((sch, idx) => (
                         <Draggable
@@ -247,58 +255,64 @@ export function Step3Planner({ data, onChange }: Props) {
                           draggableId={`${idx}-${sch.template_id}`}
                           index={idx}
                         >
-                          {(prov, snap) => (
-                            <Card
-                              ref={prov.innerRef}
-                              {...prov.draggableProps}
-                              className={cn(
-                                'p-3 transition-shadow',
-                                snap.isDragging && 'shadow-lg ring-2 ring-primary/30',
-                              )}
-                            >
-                              <div className="flex items-center gap-2">
-                                <div
-                                  {...prov.dragHandleProps}
-                                  className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-                                >
-                                  <GripVertical className="h-4 w-4" />
+                          {(prov, snap) =>
+                            portalWhileDragging(
+                              snap,
+                              <Card
+                                ref={prov.innerRef}
+                                {...prov.draggableProps}
+                                style={getDraggingStyle(prov.draggableProps.style, snap)}
+                                className={dndDraggableClassName(snap, 'p-3')}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    {...prov.dragHandleProps}
+                                    className={dndDragHandleClassName}
+                                    aria-label="Trascina per riordinare"
+                                    title="Trascina per riordinare"
+                                  >
+                                    <GripVertical className="h-5 w-5" />
+                                  </div>
+                                  <Badge
+                                    variant="secondary"
+                                    className="h-7 w-7 rounded-full flex items-center justify-center p-0 font-bold"
+                                  >
+                                    {String.fromCharCode(65 + idx)}
+                                  </Badge>
+                                  <Select
+                                    value={sch.template_id}
+                                    onValueChange={(v) => updateSchedule(idx, v)}
+                                  >
+                                    <SelectTrigger className="h-9 flex-1">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {templates.map((t) => (
+                                        <SelectItem key={t.id} value={t.id}>
+                                          {t.title}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-destructive"
+                                    onClick={() => removeSchedule(idx)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </div>
-                                <Badge
-                                  variant="secondary"
-                                  className="h-7 w-7 rounded-full flex items-center justify-center p-0 font-bold"
-                                >
-                                  {String.fromCharCode(65 + idx)}
-                                </Badge>
-                                <Select
-                                  value={sch.template_id}
-                                  onValueChange={(v) => updateSchedule(idx, v)}
-                                >
-                                  <SelectTrigger className="h-9 flex-1">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {templates.map((t) => (
-                                      <SelectItem key={t.id} value={t.id}>
-                                        {t.title}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-destructive"
-                                  onClick={() => removeSchedule(idx)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </Card>
-                          )}
+                              </Card>,
+                            )
+                          }
                         </Draggable>
                       ))}
-                      {provided.placeholder}
+                      <DndPlaceholder
+                        placeholder={provided.placeholder}
+                        isDraggingOver={dropSnapshot.isDraggingOver}
+                      />
                     </div>
                   )}
                 </Droppable>
