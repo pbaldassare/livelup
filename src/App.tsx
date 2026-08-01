@@ -31,7 +31,7 @@ import {
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/auth/AuthPage";
-import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
+import AuthResetPasswordPage from "./pages/auth/AuthResetPasswordPage";
 
 // Public pages
 import PTDiscoveryPage from "./pages/public/PTDiscoveryPage";
@@ -192,7 +192,7 @@ const App = () => {
               {/* ============================================= */}
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
-              <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/auth/reset-password" element={<AuthResetPasswordPage />} />
               <Route path="/install" element={<InstallPage />} />
               {/* Dev: anteprima localhost app atleta (cornice mobile) */}
               <Route path="/utente" element={<UtenteAppPreviewPage />} />
