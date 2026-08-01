@@ -101,12 +101,12 @@ export function InstallPage() {
       <main className="container mx-auto px-4 py-8 max-w-lg">
         {/* Hero */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-gradient-primary shadow-glow mb-6">
-            <Logo variant="icon" className="w-16 h-16" />
+          <div className="inline-flex items-center justify-center mb-6">
+            <Logo variant="icon" className="w-24 h-24" />
           </div>
           
           <h1 className="text-2xl font-bold text-foreground mb-2">
-            Installa Livelapp
+            Installa LIVELLAPP
           </h1>
           <p className="text-muted-foreground">
             Aggiungi l'app alla tua schermata Home per un accesso rapido e un'esperienza migliore

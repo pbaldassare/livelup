@@ -23,12 +23,12 @@ export default defineConfig(({ mode }) => ({
       // La registrazione avviene solo da src/lib/pwa/registerSW.ts (guardata
       // per dev/iframe/preview/?sw=off): il plugin non deve iniettarne una sua.
       injectRegister: null,
-      includeAssets: ["livellapp-icon.svg", "livelapp-icon.png", "favicon.ico", "apple-touch-icon.png", "offline.html", "push-sw.js"],
+      includeAssets: ["livellapp-icon.svg", "livelapp-icon.png", "favicon.ico", "apple-touch-icon.png", "og-image.png", "offline.html", "push-sw.js"],
 
       manifest: {
-        name: "Livelapp - Piattaforma Fitness",
-        short_name: "Livelapp",
-        description: "La piattaforma enterprise per Personal Trainer e Atleti",
+        name: "LIVELLAPP - Fitness per PT e Atleti",
+        short_name: "LIVELLAPP",
+        description: "Schede, allenamenti, chat e progressi. La piattaforma italiana per Personal Trainer e Atleti",
         theme_color: "#E73235",
         background_color: "#0a0a0a",
         display: "standalone",

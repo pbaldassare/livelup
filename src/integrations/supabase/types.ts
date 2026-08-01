@@ -4108,6 +4108,23 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_pt_chat_group: {
+        Args: { _athlete_ids: string[]; _name: string }
+        Returns: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          name: string
+          pt_user_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pt_chat_groups"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       find_atleta_by_email_for_pt: { Args: { _email: string }; Returns: Json }
       get_admin_stats: {
         Args: never
