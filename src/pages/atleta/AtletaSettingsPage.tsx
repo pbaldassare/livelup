@@ -28,8 +28,8 @@ import {
   AlertTriangle,
   HelpCircle
 } from 'lucide-react';
-import { useTour } from '@/components/AppTourContext';
-import { safeRemove } from '@/lib/safeStorage';
+import { useTour, clearTourDismissedLocally } from '@/components/AppTourContext';
+
 import { ThemePreferencePicker } from '@/components/settings/ThemePreferencePicker';
 import { Palette } from 'lucide-react';
 
@@ -204,8 +204,8 @@ export function AtletaSettingsPage() {
           <div className="bg-app-card rounded-xl overflow-hidden">
             <button
               onClick={async () => {
-                safeRemove('livellapp_tour_done');
-                safeRemove('livellapp_tour_dismissed');
+                clearTourDismissedLocally();
+
                 if (user?.id) {
                   const { data } = await supabase
                     .from('profiles')
