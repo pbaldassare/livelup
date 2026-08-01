@@ -27,6 +27,8 @@ export function AtletaChatPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<'coach' | 'gruppi'>('coach');
 
   // Fetch chats list — parte dalle CONNESSIONI ATTIVE PT, non dai messaggi
   // Così il coach è sempre visibile anche senza messaggi.
