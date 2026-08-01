@@ -1,26 +1,73 @@
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
-import { safeSet } from "@/lib/safeStorage";
+import { safeSet, safeGet, safeRemove } from "@/lib/safeStorage";
 import { supabase } from "@/integrations/supabase/client";
 
-async function persistTourDismissed() {
-  safeSet("livellapp_tour_done", "1");
+export const TOUR_DONE_KEY = "livellapp_tour_done";
+export const TOUR_DISMISSED_KEY = "livellapp_tour_dismissed";
+
+export function isTourDismissedLocally(): boolean {
+  return safeGet(TOUR_DONE_KEY) === "1" || safeGet(TOUR_DISMISSED_KEY) === "1";
+}
+
+export function clearTourDismissedLocally() {
+  safeRemove(TOUR_DONE_KEY);
+  safeRemove(TOUR_DISMISSED_KEY);
+}
+
+function markTourDismissedLocally() {
+  safeSet(TOUR_DONE_KEY, "1");
+  safeSet(TOUR_DISMISSED_KEY, "1");
+}
+
+export async function persistTourDismissed(userId?: string) {
+  markTourDismissedLocally();
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user?.id) return;
+    let uid = userId;
+    if (!uid) {
+      const { data: { user } } = await supabase.auth.getUser();
+      uid = user?.id;
+    }
+    if (!uid) return;
     const { data } = await supabase
       .from("profiles")
       .select("notification_preferences")
-      .eq("user_id", user.id)
+      .eq("user_id", uid)
       .maybeSingle();
     const current = (data?.notification_preferences as Record<string, unknown> | null) ?? {};
     await supabase
       .from("profiles")
       .update({ notification_preferences: { ...current, tour_dismissed: true } })
-      .eq("user_id", user.id);
+      .eq("user_id", uid);
   } catch (e) {
     console.warn("[AppTour] failed to persist tour_dismissed", e);
   }
 }
+
+export async function isTourDismissed(userId?: string): Promise<boolean> {
+  if (isTourDismissedLocally()) return true;
+  try {
+    let uid = userId;
+    if (!uid) {
+      const { data: { user } } = await supabase.auth.getUser();
+      uid = user?.id;
+    }
+    if (!uid) return false;
+    const { data } = await supabase
+      .from("profiles")
+      .select("notification_preferences")
+      .eq("user_id", uid)
+      .maybeSingle();
+    const prefs = (data?.notification_preferences as Record<string, unknown> | null) ?? {};
+    if (prefs.tour_dismissed === true) {
+      markTourDismissedLocally();
+      return true;
+    }
+  } catch (e) {
+    console.warn("[AppTour] failed to read tour_dismissed", e);
+  }
+  return false;
+}
+
 
 export type TourActionType = "navigate" | "scroll" | "wait";
 
