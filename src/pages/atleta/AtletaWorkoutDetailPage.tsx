@@ -145,7 +145,10 @@ export function AtletaWorkoutDetailPage() {
   const [confirmMarkOpen, setConfirmMarkOpen] = useState(false);
   const [pendingMarkExercise, setPendingMarkExercise] = useState<WorkoutExercise | null>(null);
 
+  const { isCoachingPaused, ptName } = useAtletaStatus();
+
   // Fetch workout with exercises + blocks
+
   const { data: workout, isLoading, isError, error } = useQuery({
     queryKey: ['workout-detail', workoutId],
     queryFn: async () => {
