@@ -2711,6 +2711,38 @@ export type Database = {
           },
         ]
       }
+      pt_favorite_protocols: {
+        Row: {
+          created_at: string
+          id: string
+          protocol_id: string
+          pt_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          protocol_id: string
+          pt_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          protocol_id?: string
+          pt_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pt_favorite_protocols_protocol_id_fkey"
+            columns: ["protocol_id"]
+            isOneToOne: false
+            referencedRelation: "pt_protocols"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pt_google_calendar_connections: {
         Row: {
           access_token: string | null
@@ -2974,6 +3006,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pt_protocols: {
+        Row: {
+          config: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_public: boolean
+          name: string
+          notes: string | null
+          protocol_type: Database["public"]["Enums"]["protocol_type"]
+          pt_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          name: string
+          notes?: string | null
+          protocol_type?: Database["public"]["Enums"]["protocol_type"]
+          pt_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          name?: string
+          notes?: string | null
+          protocol_type?: Database["public"]["Enums"]["protocol_type"]
+          pt_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       pt_reviews: {
         Row: {
@@ -3289,6 +3360,7 @@ export type Database = {
           created_at: string
           id: string
           info_note: string | null
+          library_protocol_id: string | null
           name: string | null
           order_index: number
           params: Json
@@ -3300,6 +3372,7 @@ export type Database = {
           created_at?: string
           id?: string
           info_note?: string | null
+          library_protocol_id?: string | null
           name?: string | null
           order_index?: number
           params?: Json
@@ -3311,6 +3384,7 @@ export type Database = {
           created_at?: string
           id?: string
           info_note?: string | null
+          library_protocol_id?: string | null
           name?: string | null
           order_index?: number
           params?: Json
@@ -3319,6 +3393,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "template_blocks_library_protocol_id_fkey"
+            columns: ["library_protocol_id"]
+            isOneToOne: false
+            referencedRelation: "pt_protocols"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "template_blocks_template_id_fkey"
             columns: ["template_id"]
@@ -3334,9 +3415,11 @@ export type Database = {
           created_at: string
           exercise_id: string
           id: string
+          library_protocol_id: string | null
           notes: string | null
           order_index: number
           prescribed_duration_seconds: number | null
+          protocol_name: string | null
           protocol_params: Json
           protocol_type: string
           reps_max: number | null
@@ -3352,9 +3435,11 @@ export type Database = {
           created_at?: string
           exercise_id: string
           id?: string
+          library_protocol_id?: string | null
           notes?: string | null
           order_index?: number
           prescribed_duration_seconds?: number | null
+          protocol_name?: string | null
           protocol_params?: Json
           protocol_type?: string
           reps_max?: number | null
@@ -3370,9 +3455,11 @@ export type Database = {
           created_at?: string
           exercise_id?: string
           id?: string
+          library_protocol_id?: string | null
           notes?: string | null
           order_index?: number
           prescribed_duration_seconds?: number | null
+          protocol_name?: string | null
           protocol_params?: Json
           protocol_type?: string
           reps_max?: number | null
@@ -3396,6 +3483,13 @@ export type Database = {
             columns: ["exercise_id"]
             isOneToOne: false
             referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_exercises_library_protocol_id_fkey"
+            columns: ["library_protocol_id"]
+            isOneToOne: false
+            referencedRelation: "pt_protocols"
             referencedColumns: ["id"]
           },
           {
@@ -3474,6 +3568,7 @@ export type Database = {
           created_at: string
           id: string
           info_note: string | null
+          library_protocol_id: string | null
           name: string | null
           order_index: number
           params: Json
@@ -3486,6 +3581,7 @@ export type Database = {
           created_at?: string
           id?: string
           info_note?: string | null
+          library_protocol_id?: string | null
           name?: string | null
           order_index?: number
           params?: Json
@@ -3498,6 +3594,7 @@ export type Database = {
           created_at?: string
           id?: string
           info_note?: string | null
+          library_protocol_id?: string | null
           name?: string | null
           order_index?: number
           params?: Json
@@ -3507,6 +3604,13 @@ export type Database = {
           workout_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workout_blocks_library_protocol_id_fkey"
+            columns: ["library_protocol_id"]
+            isOneToOne: false
+            referencedRelation: "pt_protocols"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workout_blocks_workout_id_fkey"
             columns: ["workout_id"]
@@ -3522,6 +3626,7 @@ export type Database = {
           created_at: string
           exercise_id: string
           id: string
+          library_protocol_id: string | null
           notes: string | null
           order_index: number
           phase: string
@@ -3530,6 +3635,7 @@ export type Database = {
           prescribed_reps_min: number | null
           prescribed_sets: number
           prescribed_weight: number | null
+          protocol_name: string | null
           protocol_params: Json
           protocol_type: string
           rest_seconds: number | null
@@ -3541,6 +3647,7 @@ export type Database = {
           created_at?: string
           exercise_id: string
           id?: string
+          library_protocol_id?: string | null
           notes?: string | null
           order_index?: number
           phase?: string
@@ -3549,6 +3656,7 @@ export type Database = {
           prescribed_reps_min?: number | null
           prescribed_sets?: number
           prescribed_weight?: number | null
+          protocol_name?: string | null
           protocol_params?: Json
           protocol_type?: string
           rest_seconds?: number | null
@@ -3560,6 +3668,7 @@ export type Database = {
           created_at?: string
           exercise_id?: string
           id?: string
+          library_protocol_id?: string | null
           notes?: string | null
           order_index?: number
           phase?: string
@@ -3568,6 +3677,7 @@ export type Database = {
           prescribed_reps_min?: number | null
           prescribed_sets?: number
           prescribed_weight?: number | null
+          protocol_name?: string | null
           protocol_params?: Json
           protocol_type?: string
           rest_seconds?: number | null
@@ -3587,6 +3697,13 @@ export type Database = {
             columns: ["exercise_id"]
             isOneToOne: false
             referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_exercises_library_protocol_id_fkey"
+            columns: ["library_protocol_id"]
+            isOneToOne: false
+            referencedRelation: "pt_protocols"
             referencedColumns: ["id"]
           },
           {
@@ -4184,7 +4301,19 @@ export type Database = {
       payment_method: "stripe" | "paypal" | "bank_transfer" | "cash"
       payment_status: "pending" | "completed" | "failed" | "refunded"
       program_assignment_status: "active" | "completed" | "cancelled" | "paused"
-      protocol_type: "SET" | "TOP_SET_BACKOFF" | "RAMPING" | "EMOM" | "AMRAP"
+      protocol_type:
+        | "SET"
+        | "TOP_SET_BACKOFF"
+        | "RAMPING"
+        | "EMOM"
+        | "AMRAP"
+        | "SUPERSET"
+        | "LADDER"
+        | "DEAD_LADDER"
+        | "TABATA"
+        | "HIIT"
+        | "RXT"
+        | "RUNNING_TOTAL"
       pt_level: "junior" | "senior" | "elite"
       pt_status:
         | "registrato"
@@ -4375,7 +4504,20 @@ export const Constants = {
       payment_method: ["stripe", "paypal", "bank_transfer", "cash"],
       payment_status: ["pending", "completed", "failed", "refunded"],
       program_assignment_status: ["active", "completed", "cancelled", "paused"],
-      protocol_type: ["SET", "TOP_SET_BACKOFF", "RAMPING", "EMOM", "AMRAP"],
+      protocol_type: [
+        "SET",
+        "TOP_SET_BACKOFF",
+        "RAMPING",
+        "EMOM",
+        "AMRAP",
+        "SUPERSET",
+        "LADDER",
+        "DEAD_LADDER",
+        "TABATA",
+        "HIIT",
+        "RXT",
+        "RUNNING_TOTAL",
+      ],
       pt_level: ["junior", "senior", "elite"],
       pt_status: [
         "registrato",
