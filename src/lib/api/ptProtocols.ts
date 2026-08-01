@@ -253,7 +253,9 @@ export async function updatePtProtocol(
   if (patch.config !== undefined) {
     row.config = {
       ...patch.config,
-      protocol_name: patch.name?.trim() || patch.config.protocol_name,
+      protocol_name:
+        patch.name?.trim() ||
+        (patch.config as { protocol_name?: string }).protocol_name,
     };
   }
   const { error } = await db.from('pt_protocols').update(row).eq('id', protocolId).eq('is_public', false);

@@ -66,7 +66,7 @@ async function loadSingleTemplate(
         .eq('template_id', templateId)
         .order('order_index');
       if (legacy.error) throw legacy.error;
-      exerciseRows = legacy.data || [];
+      exerciseRows = (legacy.data || []) as unknown as typeof exerciseRows;
     } else {
       throw exRes.error;
     }
