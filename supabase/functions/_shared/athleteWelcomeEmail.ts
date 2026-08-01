@@ -42,7 +42,7 @@ export async function sendAthleteWelcomeEmail(
 ): Promise<WelcomeEmailResult> {
   const apiKey = Deno.env.get('RESEND_API_KEY')
   const from =
-    Deno.env.get('RESEND_FROM_EMAIL') || 'LIVELLAPP <noreply@livelapp.iaconnect.it>'
+    Deno.env.get('RESEND_FROM_EMAIL') || 'LIVELLAPP <noreply@livelapp.it>'
   const siteUrl =
     Deno.env.get('SITE_URL') ||
     Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovable.app') ||
