@@ -71,12 +71,24 @@ export function useAtletaStatus(): UseAtletaStatusReturn {
 
       // Priorità: active > pending. Recuperiamo tutte le righe non terminate
       // e scegliamo manualmente per evitare ambiguità.
-      const { data: rows, error } = await supabase
+      let { data: rows, error } = await supabase
         .from('pt_atleta_connections')
-        .select('id, pt_user_id, status, accepted_at, requested_by')
+        .select('id, pt_user_id, status, accepted_at, requested_by, is_pt_active' as '*')
         .eq('atleta_user_id', user.id)
         .in('status', ['active', 'pending'])
         .order('created_at', { ascending: false });
+
+      // Fallback se la colonna is_pt_active non è (ancora) disponibile
+      if (error && (error.message || '').includes('is_pt_active')) {
+        const fallback = await supabase
+          .from('pt_atleta_connections')
+          .select('id, pt_user_id, status, accepted_at, requested_by')
+          .eq('atleta_user_id', user.id)
+          .in('status', ['active', 'pending'])
+          .order('created_at', { ascending: false });
+        rows = fallback.data as typeof rows;
+        error = fallback.error;
+      }
 
       const data =
         rows?.find((r) => r.status === 'active') ||
