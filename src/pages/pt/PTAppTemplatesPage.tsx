@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
+import { normalizeTemplateRole } from '@/lib/pt/templateRoles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -70,6 +71,7 @@ interface WorkoutTemplate {
   difficulty_level: string;
   category: string | null;
   estimated_duration: number | null;
+  template_role: string | null;
   created_at: string;
 }
 
@@ -136,11 +138,13 @@ export function PTAppTemplatesPage() {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('workout_templates')
-        .select('id, title, description, difficulty_level, category, estimated_duration, created_at')
+        .select('id, title, description, difficulty_level, category, estimated_duration, template_role, created_at')
         .eq('pt_user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as WorkoutTemplate[];
+      return ((data ?? []) as WorkoutTemplate[]).filter(
+        (t) => normalizeTemplateRole(t.template_role) === 'main'
+      );
     },
     enabled: !!user?.id,
   });
@@ -174,6 +178,7 @@ export function PTAppTemplatesPage() {
             | 'nessuno',
           muscle_groups: newTemplate.muscle_groups,
           is_public: false,
+          template_role: 'main' as any,
         })
         .select()
         .single();
