@@ -178,6 +178,7 @@ export function PTAppTemplatesPage() {
             | 'nessuno',
           muscle_groups: newTemplate.muscle_groups,
           is_public: false,
+          template_role: 'main' as any,
         })
         .select()
         .single();
