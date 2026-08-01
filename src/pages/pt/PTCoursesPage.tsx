@@ -298,6 +298,7 @@ export default function PTCoursesPage() {
       )}
 
       <CourseBuilder
+        key={editingId ?? 'create'}
         open={builderOpen}
         onOpenChange={(open) => {
           setBuilderOpen(open);

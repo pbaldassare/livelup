@@ -16,6 +16,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -23,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-import { ImagePlus, Loader2, Plus, X } from 'lucide-react';
+import { ImagePlus, Loader2, Plus, Video, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndPlaceholder,
@@ -40,6 +46,7 @@ import {
   reorderSteps,
   updateCourse,
   type CourseDifficulty,
+  type CourseStepType,
   type PtCourse,
 } from '@/lib/api/courses';
 import { CourseStepEditor } from './CourseStepEditor';
@@ -50,6 +57,12 @@ const DIFFICULTY_OPTIONS: { value: CourseDifficulty; label: string }[] = [
   { value: 'intermediate', label: 'Intermedio' },
   { value: 'advanced', label: 'Avanzato' },
 ];
+
+function isLikelyImageUrl(url: string): boolean {
+  if (/\.(mp4|mov|webm|m3u8)(\?|$)/i.test(url)) return false;
+  if (url.includes('/exercise-videos/')) return false;
+  return true;
+}
 
 interface CourseBuilderProps {
   open: boolean;
@@ -62,7 +75,6 @@ interface CourseBuilderProps {
 export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseBuilderProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const isEdit = !!courseId;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -72,40 +84,50 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
   const [requiresSequential, setRequiresSequential] = useState(false);
   const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState('0');
+  const [coverImageBroken, setCoverImageBroken] = useState(false);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(courseId);
 
-  const { data: course, isLoading: loadingCourse } = useQuery({
+  const { data: loadedCourse, isLoading: loadingCourse } = useQuery({
     queryKey: courseQueryKeys.detail(activeCourseId || ''),
     queryFn: () => getCourseWithSteps(activeCourseId!),
     enabled: open && !!activeCourseId,
   });
 
+  const course =
+    activeCourseId && loadedCourse?.id === activeCourseId ? loadedCourse : undefined;
+
+  const resetCreateForm = () => {
+    setTitle('');
+    setDescription('');
+    setCoverImageUrl(null);
+    setCoverImageBroken(false);
+    setTargetExercise('');
+    setDifficulty('beginner');
+    setRequiresSequential(false);
+    setIsFree(true);
+    setPrice('0');
+  };
+
   useEffect(() => {
     if (!open) return;
     setActiveCourseId(courseId);
     if (!courseId) {
-      setTitle('');
-      setDescription('');
-      setCoverImageUrl(null);
-      setTargetExercise('');
-      setDifficulty('beginner');
-      setRequiresSequential(false);
-      setIsFree(true);
-      setPrice('0');
+      resetCreateForm();
     }
   }, [open, courseId]);
 
   useEffect(() => {
-    if (!course) return;
+    if (!open || !activeCourseId || !course || course.id !== activeCourseId) return;
     setTitle(course.title || '');
     setDescription(course.description || '');
     setCoverImageUrl(course.cover_image_url);
+    setCoverImageBroken(false);
     setTargetExercise(course.target_exercise || '');
     setDifficulty((course.difficulty_level as CourseDifficulty) || 'beginner');
     setRequiresSequential(!!course.requires_sequential_steps);
     setIsFree(course.is_free !== false);
     setPrice(String(course.price ?? 0));
-  }, [course]);
+  }, [open, activeCourseId, course]);
 
   const invalidateList = () => {
     if (user?.id) {
@@ -162,21 +184,22 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
   });
 
   const addStepMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (stepType: CourseStepType = 'exercises') => {
       if (!activeCourseId) throw new Error('Salva prima i dati del corso');
       const n = (course?.pt_course_steps?.length || 0) + 1;
       return addStep({
         courseId: activeCourseId,
-        title: `Step ${n}`,
+        title: stepType === 'video' ? `Video ${n}` : `Step ${n}`,
+        step_type: stepType,
         completion_threshold: 100,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, stepType) => {
       if (activeCourseId) {
         queryClient.invalidateQueries({ queryKey: courseQueryKeys.detail(activeCourseId) });
       }
       invalidateList();
-      toast.success('Step aggiunto');
+      toast.success(stepType === 'video' ? 'Step video aggiunto' : 'Step aggiunto');
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -226,18 +249,23 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
 
   const saving = createMutation.isPending || updateMetaMutation.isPending;
   const steps = course?.pt_course_steps || [];
+  const isCreating = !courseId && !activeCourseId;
+  const showCoverPreview =
+    !!coverImageUrl && isLikelyImageUrl(coverImageUrl) && !coverImageBroken;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle>{isEdit || activeCourseId ? 'Modifica corso' : 'Nuovo corso'}</DialogTitle>
+          <DialogTitle>{isCreating ? 'Crea corso' : 'Modifica corso'}</DialogTitle>
           <DialogDescription>
-            Definisci titolo, obiettivo e step con esercizi. Pubblica quando è pronto.
+            {isCreating
+              ? 'Compila i dati del corso, poi aggiungi step con esercizi o video.'
+              : 'Aggiorna titolo, obiettivo e step del percorso. Pubblica quando è pronto.'}
           </DialogDescription>
         </DialogHeader>
 
-        {isEdit && loadingCourse && !course ? (
+        {!!activeCourseId && loadingCourse && !course ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -246,19 +274,26 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Copertina</Label>
-                {coverImageUrl ? (
+                <p className="text-xs text-muted-foreground">
+                  Immagine in evidenza del corso (opzionale, JPG/PNG/WebP)
+                </p>
+                {showCoverPreview ? (
                   <div className="relative group rounded-lg overflow-hidden border border-border">
                     <img
-                      src={coverImageUrl}
+                      src={coverImageUrl!}
                       alt="Copertina corso"
                       className="w-full h-36 object-cover"
+                      onError={() => setCoverImageBroken(true)}
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       {user?.id && (
                         <ImageUpload
                           bucket="cover-images"
                           filePath={`${user.id}/pt-courses/${Date.now()}.{ext}`}
-                          onUploadComplete={(url) => setCoverImageUrl(url)}
+                          onUploadComplete={(url) => {
+                            setCoverImageBroken(false);
+                            setCoverImageUrl(url);
+                          }}
                           variant="inline"
                         >
                           <Button type="button" size="sm" variant="secondary">
@@ -271,7 +306,10 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
                         type="button"
                         size="sm"
                         variant="destructive"
-                        onClick={() => setCoverImageUrl(null)}
+                        onClick={() => {
+                          setCoverImageUrl(null);
+                          setCoverImageBroken(false);
+                        }}
                       >
                         <X className="h-4 w-4 mr-1" />
                         Rimuovi
@@ -282,9 +320,13 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
                   <ImageUpload
                     bucket="cover-images"
                     filePath={`${user.id}/pt-courses/${Date.now()}.{ext}`}
-                    onUploadComplete={(url) => setCoverImageUrl(url)}
+                    onUploadComplete={(url) => {
+                      setCoverImageBroken(false);
+                      setCoverImageUrl(url);
+                    }}
                     variant="gallery"
-                    className="h-28"
+                    uploadLabel="Carica copertina"
+                    className="h-36 w-full"
                   />
                 ) : null}
               </div>
@@ -390,20 +432,32 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
                       Trascina per riordinare · {steps.length} step
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => addStepMutation.mutate()}
-                    disabled={addStepMutation.isPending}
-                  >
-                    {addStepMutation.isPending ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                    ) : (
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                    )}
-                    Aggiungi step
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={addStepMutation.isPending}
+                      >
+                        {addStepMutation.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        ) : (
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                        )}
+                        Aggiungi step
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => addStepMutation.mutate('exercises')}>
+                        Step esercizi
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => addStepMutation.mutate('video')}>
+                        <Video className="h-3.5 w-3.5 mr-2" />
+                        Step video
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {steps.length === 0 ? (
@@ -465,7 +519,7 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Chiudi
           </Button>
-          {!(isEdit && loadingCourse && !course) && (
+          {!(!!activeCourseId && loadingCourse && !course) && (
             <Button type="button" onClick={handleSaveMeta} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {activeCourseId ? 'Salva dati corso' : 'Crea corso'}

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Check, ChevronDown, Dumbbell, Lock, Loader2 } from 'lucide-react';
+import { Check, ChevronDown, Clock, Dumbbell, Lock, Loader2, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CourseProgressBar } from '@/components/app/CourseProgressBar';
+import { VideoEmbed } from '@/components/common/VideoEmbed';
 import { cn } from '@/lib/utils';
 import type { PtCourseStep, PtCourseStepExercise, PtCourseStepProgress } from '@/lib/api/courses';
 import { toast } from 'sonner';
@@ -27,6 +28,7 @@ export function CourseStepCard({
   const isLocked = status === 'locked';
   const isCompleted = status === 'completed';
   const progressPct = progress?.progress_pct ?? 0;
+  const isVideoStep = (step.step_type || 'exercises') === 'video';
   const exercises = [...(step.pt_course_step_exercises || [])].sort(
     (a, b) => a.order_index - b.order_index,
   );
@@ -55,17 +57,34 @@ export function CourseStepCard({
                 !isCompleted && !isLocked && 'bg-app-accent/20 text-app-accent',
               )}
             >
-              {isLocked ? <Lock className="h-4 w-4" /> : isCompleted ? <Check className="h-5 w-5" /> : stepNumber}
+              {isLocked ? (
+                <Lock className="h-4 w-4" />
+              ) : isCompleted ? (
+                <Check className="h-5 w-5" />
+              ) : isVideoStep ? (
+                <Video className="h-4 w-4" />
+              ) : (
+                stepNumber
+              )}
             </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-xs text-app-muted-foreground">Step {stepNumber}</p>
+                  <p className="text-xs text-app-muted-foreground">
+                    Step {stepNumber}
+                    {isVideoStep ? ' · Video' : null}
+                  </p>
                   <h3 className="font-semibold text-app-foreground truncate">{step.title}</h3>
                   {step.description ? (
                     <p className="text-sm text-app-muted-foreground line-clamp-2 mt-0.5">
                       {step.description}
+                    </p>
+                  ) : null}
+                  {isVideoStep && step.video_duration_minutes ? (
+                    <p className="text-xs text-app-muted-foreground mt-1 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      ~{step.video_duration_minutes} min
                     </p>
                   ) : null}
                 </div>
@@ -87,42 +106,72 @@ export function CourseStepCard({
 
         <CollapsibleContent>
           <div className="px-4 pb-4 space-y-3 border-t border-app-border pt-3">
-            {exercises.length === 0 ? (
-              <p className="text-sm text-app-muted-foreground">Nessun esercizio in questo step.</p>
-            ) : (
-              <ul className="space-y-2">
-                {exercises.map((ex) => (
-                  <ExerciseRow key={ex.id} exercise={ex} />
-                ))}
-              </ul>
-            )}
+            {isVideoStep ? (
+              <>
+                {step.video_url ? (
+                  <VideoEmbed url={step.video_url} title={step.title} className="rounded-xl" />
+                ) : (
+                  <p className="text-sm text-app-muted-foreground">
+                    Video non ancora disponibile per questo step.
+                  </p>
+                )}
 
-            <div className="flex flex-col sm:flex-row gap-2 pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1 border-app-border text-app-foreground"
-                onClick={() => toast.info('Prossimamente')}
-              >
-                <Dumbbell className="h-4 w-4 mr-2" />
-                WORKOUT
-              </Button>
-              {!isCompleted && (
-                <Button
-                  type="button"
-                  className="flex-1 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
-                  disabled={isLocked || isCompleting || !onComplete}
-                  onClick={() => onComplete?.()}
-                >
-                  {isCompleting ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Check className="h-4 w-4 mr-2" />
+                {!isCompleted && (
+                  <Button
+                    type="button"
+                    className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+                    disabled={isLocked || isCompleting || !onComplete || !step.video_url}
+                    onClick={() => onComplete?.()}
+                  >
+                    {isCompleting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    Ho visto il video
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                {exercises.length === 0 ? (
+                  <p className="text-sm text-app-muted-foreground">Nessun esercizio in questo step.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {exercises.map((ex) => (
+                      <ExerciseRow key={ex.id} exercise={ex} />
+                    ))}
+                  </ul>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 border-app-border text-app-foreground"
+                    onClick={() => toast.info('Prossimamente')}
+                  >
+                    <Dumbbell className="h-4 w-4 mr-2" />
+                    WORKOUT
+                  </Button>
+                  {!isCompleted && (
+                    <Button
+                      type="button"
+                      className="flex-1 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+                      disabled={isLocked || isCompleting || !onComplete}
+                      onClick={() => onComplete?.()}
+                    >
+                      {isCompleting ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4 mr-2" />
+                      )}
+                      Segna come completato
+                    </Button>
                   )}
-                  Segna come completato
-                </Button>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </CollapsibleContent>
       </div>

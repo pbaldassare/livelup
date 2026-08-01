@@ -11,6 +11,7 @@ const db = () => supabase as any;
 
 export type CourseStatus = 'draft' | 'published' | 'archived';
 export type CourseDifficulty = 'beginner' | 'intermediate' | 'advanced';
+export type CourseStepType = 'exercises' | 'video';
 
 export interface PtCourse {
   id: string;
@@ -56,6 +57,9 @@ export interface PtCourseStep {
   course_id: string;
   title: string;
   description: string | null;
+  step_type: CourseStepType;
+  video_url: string | null;
+  video_duration_minutes: number | null;
   completion_threshold: number;
   order_index: number;
   created_at?: string;
@@ -152,6 +156,9 @@ export type AddStepInput = {
   courseId: string;
   title: string;
   description?: string | null;
+  step_type?: CourseStepType;
+  video_url?: string | null;
+  video_duration_minutes?: number | null;
   completion_threshold?: number;
   order_index?: number;
 };
@@ -159,6 +166,9 @@ export type AddStepInput = {
 export type UpdateStepInput = {
   title?: string;
   description?: string | null;
+  step_type?: CourseStepType;
+  video_url?: string | null;
+  video_duration_minutes?: number | null;
   completion_threshold?: number;
   order_index?: number;
 };
@@ -231,6 +241,9 @@ export async function getCourseWithSteps(courseId: string): Promise<PtCourseWith
   const steps = ((data.pt_course_steps || []) as PtCourseStep[])
     .map((step) => ({
       ...step,
+      step_type: (step.step_type as CourseStepType) || 'exercises',
+      video_url: step.video_url ?? null,
+      video_duration_minutes: step.video_duration_minutes ?? null,
       pt_course_step_exercises: [...(step.pt_course_step_exercises || [])].sort(
         (a, b) => a.order_index - b.order_index,
       ),
@@ -342,6 +355,7 @@ export async function addStep(input: AddStepInput): Promise<PtCourseStep> {
     orderIndex = existing?.[0] ? (existing[0].order_index as number) + 1 : 0;
   }
 
+  const stepType = input.step_type ?? 'exercises';
   const threshold = Math.min(100, Math.max(0, input.completion_threshold ?? 100));
 
   const { data, error } = await db()
@@ -350,6 +364,12 @@ export async function addStep(input: AddStepInput): Promise<PtCourseStep> {
       course_id: input.courseId,
       title,
       description: input.description?.trim() || null,
+      step_type: stepType,
+      video_url: stepType === 'video' ? input.video_url?.trim() || null : null,
+      video_duration_minutes:
+        stepType === 'video' && input.video_duration_minutes != null
+          ? Math.max(1, Math.round(input.video_duration_minutes))
+          : null,
       completion_threshold: threshold,
       order_index: orderIndex,
     })
@@ -357,7 +377,15 @@ export async function addStep(input: AddStepInput): Promise<PtCourseStep> {
     .single();
 
   if (error) throw new Error('Errore creazione step: ' + error.message);
-  return data as PtCourseStep;
+  return {
+    ...(data as PtCourseStep),
+    step_type: stepType,
+    video_url: stepType === 'video' ? input.video_url?.trim() || null : null,
+    video_duration_minutes:
+      stepType === 'video' && input.video_duration_minutes != null
+        ? Math.max(1, Math.round(input.video_duration_minutes))
+        : null,
+  };
 }
 
 export async function updateStep(stepId: string, input: UpdateStepInput): Promise<PtCourseStep> {
@@ -368,6 +396,20 @@ export async function updateStep(stepId: string, input: UpdateStepInput): Promis
     payload.title = title;
   }
   if (input.description !== undefined) payload.description = input.description?.trim() || null;
+  if (input.step_type !== undefined) {
+    payload.step_type = input.step_type;
+    if (input.step_type === 'exercises') {
+      payload.video_url = null;
+      payload.video_duration_minutes = null;
+    }
+  }
+  if (input.video_url !== undefined) payload.video_url = input.video_url?.trim() || null;
+  if (input.video_duration_minutes !== undefined) {
+    payload.video_duration_minutes =
+      input.video_duration_minutes == null
+        ? null
+        : Math.max(1, Math.round(input.video_duration_minutes));
+  }
   if (input.completion_threshold !== undefined) {
     payload.completion_threshold = Math.min(100, Math.max(0, input.completion_threshold));
   }

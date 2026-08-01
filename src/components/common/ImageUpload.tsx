@@ -13,6 +13,7 @@ interface ImageUploadProps {
   variant?: 'avatar' | 'cover' | 'gallery' | 'inline';
   className?: string;
   disabled?: boolean;
+  uploadLabel?: string;
   children?: React.ReactNode;
 }
 
@@ -25,6 +26,7 @@ export function ImageUpload({
   variant = 'avatar',
   className,
   disabled = false,
+  uploadLabel,
   children,
 }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -195,7 +197,7 @@ export function ImageUpload({
           ) : (
             <>
               <ImagePlus className="h-8 w-8 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Aggiungi</span>
+              <span className="text-xs text-muted-foreground">{uploadLabel || 'Aggiungi'}</span>
             </>
           )}
         </button>
