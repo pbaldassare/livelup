@@ -311,7 +311,14 @@ export function PTAppAthletesPage() {
             ))
           ) : filteredConnections.length > 0 ? (
             filteredConnections.map((conn) => (
-              <AthleteCard key={conn.id} connection={conn} type="pending" />
+              <AthleteCard
+                key={conn.id}
+                connection={conn}
+                type="pending"
+                processing={processingId === conn.id}
+                onAccept={() => handleAccept(conn.id)}
+                onReject={() => handleReject(conn.id)}
+              />
             ))
           ) : (
             <EmptyState type="pending" />
