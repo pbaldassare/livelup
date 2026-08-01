@@ -38,6 +38,7 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
     ptInitials,
     ptAvatarUrl,
     isConnected,
+    isCoachingPaused,
     hasPendingRequest,
     pendingInvitationFromPT,
     isLoading,
@@ -258,7 +259,9 @@ export function CoachCard({ variant = 'default' }: CoachCardProps) {
               Il tuo Coach
             </p>
             <p className="text-base font-bold text-white truncate">{displayName}</p>
-            <p className="text-xs text-white/40 truncate">Collegato</p>
+            <p className="text-xs text-white/40 truncate">
+              {isCoachingPaused ? 'Collaborazione in pausa — chat disponibile' : 'Collegato'}
+            </p>
           </div>
           <Button
             size="sm"

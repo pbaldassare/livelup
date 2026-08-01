@@ -73,7 +73,7 @@ export function AtletaProgressPage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && canAccessWorkouts,
   });
 
   // Fetch workout logs for volume tracking
