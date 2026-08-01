@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { getPTConnectionsWithPtActive } from '@/lib/api/connections';
+import { getPTConnectionsWithPtActive, acceptConnection, rejectConnection } from '@/lib/api/connections';
 import { AthleteSubscriptionsTab } from '@/components/pt/AthleteSubscriptionsTab';
 import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
@@ -31,6 +32,8 @@ import {
   Clock,
   UserPlus,
   UserRoundPlus,
+  Check,
+  X,
   Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -39,13 +42,20 @@ import { cn } from '@/lib/utils';
 // PT APP ATHLETES PAGE - Lista atleti (Mobile)
 // =====================================================
 
+const VALID_TABS = ['active', 'pending', 'subscriptions'] as const;
+
 export function PTAppAthletesPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState('active');
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<string>(
+    tabParam && (VALID_TABS as readonly string[]).includes(tabParam) ? tabParam : 'active',
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
   const [addAthleteTab, setAddAthleteTab] = useState<'link' | 'create'>('link');
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const modalityFilter = searchParams.get('modality');
   const activeModality: TrainingModality | 'all' = isTrainingModality(modalityFilter)
@@ -59,6 +69,15 @@ export function PTAppAthletesPage() {
     setSearchParams(next, { replace: true });
   };
 
+  // Tab -> URL
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const next = new URLSearchParams(searchParams);
+    if (value === 'active') next.delete('tab');
+    else next.set('tab', value);
+    setSearchParams(next, { replace: true });
+  };
+
   useEffect(() => {
     if (searchParams.get('invite') !== '1') return;
     setAddAthleteTab('link');
@@ -69,11 +88,66 @@ export function PTAppAthletesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al mount con ?invite=1
   }, []);
 
+  // URL -> tab
   useEffect(() => {
-    if (isTrainingModality(searchParams.get('modality'))) {
+    const t = searchParams.get('tab');
+    if (t && (VALID_TABS as readonly string[]).includes(t) && t !== activeTab) {
+      setActiveTab(t);
+      return;
+    }
+    if (!t && isTrainingModality(searchParams.get('modality'))) {
       setActiveTab('active');
     }
   }, [searchParams]);
+
+  // Conteggio richieste in attesa (badge)
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ['pt-pending-count', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { count } = await supabase
+        .from('pt_atleta_connections')
+        .select('id', { count: 'exact', head: true })
+        .eq('pt_user_id', user.id)
+        .eq('status', 'pending');
+      return count ?? 0;
+    },
+    enabled: !!user?.id,
+  });
+
+  const refreshAfterConnectionChange = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['pt-connections'] }),
+      queryClient.invalidateQueries({ queryKey: ['pt-pending-count'] }),
+      queryClient.invalidateQueries({ queryKey: ['pt-home-data'] }),
+    ]);
+  };
+
+  const handleAccept = async (connectionId: string) => {
+    setProcessingId(connectionId);
+    try {
+      await acceptConnection(connectionId);
+      toast.success('Richiesta accettata');
+      await refreshAfterConnectionChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Errore durante l\'accettazione');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleReject = async (connectionId: string) => {
+    setProcessingId(connectionId);
+    try {
+      await rejectConnection(connectionId);
+      toast.success('Richiesta rifiutata');
+      await refreshAfterConnectionChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Errore durante il rifiuto');
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   // Fetch connections
   const { data: connections, isLoading } = useQuery({
@@ -201,10 +275,17 @@ export function PTAppAthletesPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="p-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="p-4">
         <TabsList className="w-full">
           <TabsTrigger value="active" className="flex-1">Attivi</TabsTrigger>
-          <TabsTrigger value="pending" className="flex-1">Richieste</TabsTrigger>
+          <TabsTrigger value="pending" className="flex-1 gap-1">
+            Richieste
+            {pendingCount > 0 && (
+              <Badge variant="destructive" className="h-5 min-w-5 px-1 text-[10px]">
+                {pendingCount}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="subscriptions" className="flex-1 gap-1">
             <Package className="h-3 w-3" />
             Abbonamenti
@@ -232,7 +313,14 @@ export function PTAppAthletesPage() {
             ))
           ) : filteredConnections.length > 0 ? (
             filteredConnections.map((conn) => (
-              <AthleteCard key={conn.id} connection={conn} type="pending" />
+              <AthleteCard
+                key={conn.id}
+                connection={conn}
+                type="pending"
+                processing={processingId === conn.id}
+                onAccept={() => handleAccept(conn.id)}
+                onReject={() => handleReject(conn.id)}
+              />
             ))
           ) : (
             <EmptyState type="pending" />
@@ -253,7 +341,19 @@ export function PTAppAthletesPage() {
   );
 }
 
-function AthleteCard({ connection, type }: { connection: any; type: 'active' | 'pending' }) {
+function AthleteCard({
+  connection,
+  type,
+  processing = false,
+  onAccept,
+  onReject,
+}: {
+  connection: any;
+  type: 'active' | 'pending';
+  processing?: boolean;
+  onAccept?: () => void;
+  onReject?: () => void;
+}) {
   const p = connection.profiles;
   const name = getAthleteDisplayName(p?.first_name, p?.last_name, p?.email);
   const initials = getAthleteInitials(p?.first_name, p?.last_name, p?.email);
@@ -320,6 +420,38 @@ function AthleteCard({ connection, type }: { connection: any; type: 'active' | '
                   <Dumbbell className="h-4 w-4 mr-1" />
                   Schede
                 </Link>
+              </Button>
+            </div>
+          )}
+
+          {type === 'pending' && (onAccept || onReject) && (
+            <div className="flex gap-2 mt-3">
+              <Button
+                size="sm"
+                className="flex-1"
+                disabled={processing}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAccept?.();
+                }}
+              >
+                <Check className="h-4 w-4 mr-1" />
+                Accetta
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1"
+                disabled={processing}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onReject?.();
+                }}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Rifiuta
               </Button>
             </div>
           )}

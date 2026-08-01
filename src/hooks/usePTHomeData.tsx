@@ -313,7 +313,7 @@ export function usePTHomeData() {
               ? '1 richiesta di connessione'
               : `${ptActionPending.length} richieste di connessione`,
           description: 'Atleti in attesa di approvazione',
-          action_url: '/pt/app/athletes',
+          action_url: '/pt/app/athletes?tab=pending',
         });
       }
 
