@@ -33,7 +33,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft,
-  Settings2,
+  X,
   Play,
   Clock,
   Dumbbell,
@@ -49,6 +49,7 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
+
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -144,6 +145,10 @@ export function AtletaWorkoutDetailPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [confirmMarkOpen, setConfirmMarkOpen] = useState(false);
   const [pendingMarkExercise, setPendingMarkExercise] = useState<WorkoutExercise | null>(null);
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  /** After intentional exit, stay on detail (don't auto-reenter guided flow). */
+  const [skipAutoStart, setSkipAutoStart] = useState(false);
+
 
   const { isCoachingPaused, ptName } = useAtletaStatus();
 
@@ -295,11 +300,12 @@ export function AtletaWorkoutDetailPage() {
 
   // Auto-avvia il flow se l'allenamento è già in corso (es. da Home "Continua")
   useEffect(() => {
-    if (!workout || isLoading || isWorkoutStarted || !logsFetched) return;
+    if (!workout || isLoading || isWorkoutStarted || !logsFetched || skipAutoStart) return;
     if (workout.status === 'in_corso' || workout.status === 'in_sospeso') {
       setIsWorkoutStarted(true);
     }
-  }, [workout, isLoading, isWorkoutStarted, logsFetched]);
+  }, [workout, isLoading, isWorkoutStarted, logsFetched, skipAutoStart]);
+
 
   // Fetch PT profile for coach avatar
   const { data: ptProfile } = useQuery({
@@ -533,6 +539,7 @@ export function AtletaWorkoutDetailPage() {
     setCurrentSet(firstIncomplete);
 
     if (!isWorkoutStarted) {
+      setSkipAutoStart(false);
       setIsWorkoutStarted(true);
       if (workoutId && workout?.status !== 'in_corso') {
         await supabase
@@ -543,10 +550,30 @@ export function AtletaWorkoutDetailPage() {
         queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
       }
     }
+
     setSheetOpen(false);
   };
 
+  // ===== Exit guided workout (pause, don't complete) =====
+  const handleConfirmExitWorkout = async () => {
+    setExitDialogOpen(false);
+    setSkipAutoStart(true);
+    setIsWorkoutStarted(false);
+    // Sospende senza completare: i log già salvati restano e si può riprendere
+    if (workoutId && workout?.status === 'in_corso') {
+      await supabase
+        .from('workouts')
+        .update({ status: 'in_sospeso' as any })
+        .eq('id', workoutId)
+        .eq('status', 'in_corso');
+      queryClient.invalidateQueries({ queryKey: ['workout-detail', workoutId] });
+      queryClient.invalidateQueries({ queryKey: ['workout-logs', workoutId] });
+      queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+    }
+  };
+
   // ===== Mark exercise as completed (logs only missing sets) =====
+
   const performMarkAllCompleted = async (ex: WorkoutExercise) => {
     const completedForEx = completedSets[ex.id] || [];
     const missing = Array.from({ length: ex.prescribed_sets }, (_, i) => i + 1).filter(
@@ -1133,6 +1160,7 @@ export function AtletaWorkoutDetailPage() {
             />
             <Button
               onClick={async () => {
+                setSkipAutoStart(false);
                 setIsWorkoutStarted(true);
                 // Marca workout come "in_corso" per la Home action-first
                 if (workoutId && workout?.status !== 'in_corso') {
@@ -1144,6 +1172,7 @@ export function AtletaWorkoutDetailPage() {
                   queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
                 }
               }}
+
               className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
             >
               <Play className="h-5 w-5 mr-2" />
@@ -1288,25 +1317,28 @@ export function AtletaWorkoutDetailPage() {
     >
       <div className="sticky top-0 z-50 bg-app-background/95 backdrop-blur">
         <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-app-foreground tabular-nums">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-lg font-bold text-app-foreground tabular-nums shrink-0">
               {formatTime(elapsedTime)}
             </span>
-            <span className="text-app-muted-foreground">•</span>
-            <span className="text-app-muted-foreground text-sm">
+            <span className="text-app-muted-foreground shrink-0">•</span>
+            <span className="text-app-muted-foreground text-sm truncate">
               {workout.title}
             </span>
           </div>
           <Button
             variant="ghost"
-            size="icon"
-            onClick={() => navigate('/app/workout')}
-            className="text-app-foreground hover:bg-app-muted"
+            size="sm"
+            onClick={() => setExitDialogOpen(true)}
+            className="shrink-0 gap-1.5 text-app-foreground hover:bg-app-muted"
+            aria-label="Esci dall'allenamento"
           >
-            <Settings2 className="h-5 w-5" />
+            <X className="h-5 w-5" />
+            <span className="text-sm font-medium">Esci</span>
           </Button>
         </div>
       </div>
+
 
       <div className="flex-1">
         <PhasedGuidedWorkout
@@ -1317,7 +1349,38 @@ export function AtletaWorkoutDetailPage() {
           templateKind={templateKind}
         />
       </div>
+
+      {/* Exit workout confirmation dialog */}
+      <AlertDialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
+        <AlertDialogContent className="bg-app-card border-app-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-app-foreground">
+              Uscire dall'allenamento?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-app-muted-foreground">
+              {hasCompletedLogs
+                ? "I progressi già registrati restano salvati. Potrai riprendere quando vuoi."
+                : "La sessione verrà sospesa. Potrai riprendere l'allenamento in seguito."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setExitDialogOpen(false)}
+              className="bg-app-muted text-app-foreground border-app-border"
+            >
+              Annulla
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmExitWorkout}
+              className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+            >
+              Esci
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
+
   );
 }
 
