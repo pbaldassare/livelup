@@ -10,6 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppHeader } from '@/components/app/AppHeader';
 import { CoachCard } from '@/components/app/CoachCard';
 import { InviteAtletaCTA } from '@/components/shared/InviteAtletaCTA';
+import { countUnreadMessages } from '@/lib/api/messages';
+import { getAthleteChatGroups } from '@/lib/api/chatGroups';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -133,6 +135,25 @@ export function AtletaAppHome() {
     enabled: !!focusWorkout?.workout.id && focusWorkout.mode === 'resume',
   });
 
+  // Messaggi non letti (chat 1:1 + gruppi)
+  const { data: unreadMessages = 0 } = useQuery({
+    queryKey: ['atleta-unread-messages', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const [direct, groups] = await Promise.all([
+        countUnreadMessages(user.id).catch(() => 0),
+        getAthleteChatGroups(user.id).catch(() => []),
+      ]);
+      const groupUnread = (groups || []).reduce(
+        (sum, g) => sum + (g.unread_count || 0),
+        0,
+      );
+      return (direct || 0) + groupUnread;
+    },
+    enabled: !!user?.id,
+    refetchInterval: 30000,
+  });
+
   const avatarInitials = profile
     ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`.toUpperCase()
     : 'U';
@@ -151,11 +172,12 @@ export function AtletaAppHome() {
       <AppHeader
         avatarUrl={profile?.avatar_url || undefined}
         avatarInitials={avatarInitials}
-        showNotifications
-        notificationCount={0}
+        showMessages
+        messageCount={unreadMessages}
         onAvatarPress={() => navigate('/app/profile')}
-        onNotificationPress={() => navigate('/app/notifications')}
+        onMessagePress={() => navigate('/app/chat')}
       />
+
 
       <main className="px-4 pt-6 space-y-6">
         {statusLoading ? (

@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { useTour, TourRole } from "./AppTourContext";
+import { useTour, TourRole, isTourDismissed, persistTourDismissed } from "./AppTourContext";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Map } from "lucide-react";
-import { safeSet } from "@/lib/safeStorage";
 
 const AppTourPrompt = () => {
   const { startTour } = useTour();
@@ -21,50 +19,36 @@ const AppTourPrompt = () => {
     checkedRef.current = user.id;
 
     let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
     (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("notification_preferences")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (cancelled) return;
-      const prefs = (data?.notification_preferences as Record<string, unknown> | null) ?? {};
-      if (prefs.tour_dismissed === true) return;
-      const t = setTimeout(() => setOpen(true), 1200);
-      return () => clearTimeout(t);
+      const dismissed = await isTourDismissed(user.id);
+      if (cancelled || dismissed) return;
+      timeout = setTimeout(() => setOpen(true), 1200);
     })();
 
     return () => {
       cancelled = true;
+      if (timeout) clearTimeout(timeout);
     };
   }, [role, user?.id]);
 
-  const persistDismissed = async () => {
-    safeSet("livellapp_tour_done", "1");
-    if (!user?.id) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("notification_preferences")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const current = (data?.notification_preferences as Record<string, unknown> | null) ?? {};
-    const next = { ...current, tour_dismissed: true };
-    await supabase
-      .from("profiles")
-      .update({ notification_preferences: next })
-      .eq("user_id", user.id);
-  };
-
   const handleStart = () => {
     setOpen(false);
-    if (dontShow) void persistDismissed();
+    if (dontShow) void persistTourDismissed(user?.id);
     startTour((role as TourRole) ?? "atleta");
   };
 
   const handleSkip = () => {
     setOpen(false);
-    if (dontShow) void persistDismissed();
+    if (dontShow) void persistTourDismissed(user?.id);
   };
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next && dontShow) void persistTourDismissed(user?.id);
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
