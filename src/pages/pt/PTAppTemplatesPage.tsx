@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
+import { normalizeTemplateRole } from '@/lib/pt/templateRoles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
