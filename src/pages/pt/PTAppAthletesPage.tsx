@@ -32,6 +32,8 @@ import {
   Clock,
   UserPlus,
   UserRoundPlus,
+  Check,
+  X,
   Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
