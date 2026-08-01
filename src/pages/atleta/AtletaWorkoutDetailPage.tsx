@@ -33,7 +33,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft,
-  Settings2,
+  X,
   Play,
   Clock,
   Dumbbell,
@@ -49,6 +49,7 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
+
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
