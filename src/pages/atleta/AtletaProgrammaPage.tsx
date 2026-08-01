@@ -5,6 +5,8 @@ import { AtletaCalendarView } from '@/components/app/AtletaCalendarView';
 import { AtletaWorkoutList } from '@/components/app/AtletaWorkoutList';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useAtletaStatus } from '@/hooks/useAtletaStatus';
+import { PtCoachingPausedCard } from '@/components/app/PtCoachingPausedCard';
 
 // =====================================================
 // ATLETA PROGRAMMA PAGE
@@ -14,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 export function AtletaProgrammaPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isCoachingPaused, ptName } = useAtletaStatus();
 
   const { data: nextAppointment } = useQuery({
     queryKey: ['atleta-next-appointment', user?.id],
@@ -65,12 +68,20 @@ export function AtletaProgrammaPage() {
           <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
         </button>
       </div>
-      <AtletaCalendarView />
+      {isCoachingPaused ? (
+        <div className="px-4 py-4">
+          <PtCoachingPausedCard ptName={ptName} />
+        </div>
+      ) : (
+        <>
+          <AtletaCalendarView />
 
-      {/* Lista allenamenti Programma / Completati (come pagina Allenamenti) */}
-      <div className="px-4 pt-0 pb-4">
-        <AtletaWorkoutList />
-      </div>
+          {/* Lista allenamenti Programma / Completati (come pagina Allenamenti) */}
+          <div className="px-4 pt-0 pb-4">
+            <AtletaWorkoutList />
+          </div>
+        </>
+      )}
     </div>
   );
 }

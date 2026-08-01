@@ -38,10 +38,18 @@ export function AthletePtActiveToggle({
   const mutation = useMutation({
     mutationFn: (next: boolean) => setAthletePtActive(connectionId, next),
     onSuccess: (_data, next) => {
-      toast.success(next ? 'Atleta impostato come attivo' : 'Atleta impostato come disattivo');
+      toast.success(
+        next
+          ? 'Collaborazione riattivata: l\u2019atleta rivede schede e storico'
+          : 'Collaborazione in pausa: l\u2019atleta vede solo la chat',
+      );
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-detail', atletaUserId, ptUserId] });
       queryClient.invalidateQueries({ queryKey: ['pt-home-data', ptUserId] });
       queryClient.invalidateQueries({ queryKey: ['pt-connections', ptUserId] });
+      queryClient.invalidateQueries({ queryKey: ['pt-connections'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-home-data'] });
+      queryClient.invalidateQueries({ queryKey: ['atleta-connection'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-active-column-available'] });
     },
     onError: (e: Error) => {
       if (e instanceof PtActiveMigrationRequiredError) {

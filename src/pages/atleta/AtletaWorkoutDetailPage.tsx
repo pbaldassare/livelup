@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
+import { useAtletaStatus } from '@/hooks/useAtletaStatus';
+import { PtCoachingPausedCard } from '@/components/app/PtCoachingPausedCard';
 import { supabase } from '@/integrations/supabase/client';
 import { completeWorkout } from '@/lib/api/workouts';
 import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
@@ -143,7 +145,10 @@ export function AtletaWorkoutDetailPage() {
   const [confirmMarkOpen, setConfirmMarkOpen] = useState(false);
   const [pendingMarkExercise, setPendingMarkExercise] = useState<WorkoutExercise | null>(null);
 
+  const { isCoachingPaused, ptName } = useAtletaStatus();
+
   // Fetch workout with exercises + blocks
+
   const { data: workout, isLoading, isError, error } = useQuery({
     queryKey: ['workout-detail', workoutId],
     queryFn: async () => {
@@ -614,6 +619,14 @@ export function AtletaWorkoutDetailPage() {
       isCompleted: exerciseCompletedSets.includes(i + 1),
     }));
   }, [currentExercise, completedSets]);
+
+  if (isCoachingPaused) {
+    return (
+      <div className="min-h-screen bg-app-background p-4 pt-10">
+        <PtCoachingPausedCard ptName={ptName} />
+      </div>
+    );
+  }
 
   // Loading state
   if (isLoading) {

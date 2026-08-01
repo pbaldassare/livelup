@@ -23,6 +23,8 @@ import {
 } from 'recharts';
 import { ProgressPhotos } from '@/components/app/ProgressPhotos';
 import { WorkoutHistoryList } from '@/components/shared/WorkoutHistoryList';
+import { useAtletaStatus } from '@/hooks/useAtletaStatus';
+import { PtCoachingPausedCard } from '@/components/app/PtCoachingPausedCard';
 
 // =====================================================
 // ATLETA PROGRESS PAGE - With real recharts graphs
@@ -32,6 +34,7 @@ export function AtletaProgressPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isCoachingPaused, ptName, canAccessWorkouts } = useAtletaStatus();
   const [activeTab, setActiveTab] = useState('calendar');
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -59,7 +62,7 @@ export function AtletaProgressPage() {
 
   // Fetch workouts for calendar + volume stats
   const { data: workouts } = useQuery({
-    queryKey: ['atleta-workouts-calendar', user?.id],
+    queryKey: ['atleta-workouts-calendar', user?.id, canAccessWorkouts],
     queryFn: async () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
@@ -70,7 +73,7 @@ export function AtletaProgressPage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && canAccessWorkouts,
   });
 
   // Fetch workout logs for volume tracking
@@ -403,8 +406,10 @@ export function AtletaProgressPage() {
               Prescritto vs eseguito per ogni serie completata
             </p>
           </div>
-          {user?.id && (
-            <WorkoutHistoryList atletaUserId={user.id} variant="atleta" />
+          {isCoachingPaused ? (
+            <PtCoachingPausedCard ptName={ptName} />
+          ) : (
+            user?.id && <WorkoutHistoryList atletaUserId={user.id} variant="atleta" />
           )}
         </TabsContent>
       </Tabs>

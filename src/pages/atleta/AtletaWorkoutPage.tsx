@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { AtletaWorkoutList } from '@/components/app/AtletaWorkoutList';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
+import { PtCoachingPausedCard } from '@/components/app/PtCoachingPausedCard';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Lock,
@@ -20,7 +21,7 @@ import {
 
 export function AtletaWorkoutPage() {
   const { user } = useAuth();
-  const { ptName, canAccessWorkouts } = useAtletaStatus();
+  const { ptName, canAccessWorkouts, isCoachingPaused } = useAtletaStatus();
 
   // Solo l'allenamento di oggi serve qui per l'highlight in cima
   const { data: todayWorkout } = useQuery({
@@ -53,6 +54,17 @@ export function AtletaWorkoutPage() {
     },
     enabled: !!user?.id && canAccessWorkouts,
   });
+
+  if (isCoachingPaused) {
+    return (
+      <div className="p-4 space-y-6 bg-app-background min-h-screen">
+        <div className="pt-2">
+          <h1 className="text-2xl font-bold text-app-foreground">I miei allenamenti</h1>
+        </div>
+        <PtCoachingPausedCard ptName={ptName} />
+      </div>
+    );
+  }
 
   // Feature locked state
   if (!canAccessWorkouts) {
