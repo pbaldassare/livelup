@@ -6,7 +6,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { ChatList } from '@/components/app/ChatList';
 import { ChatMessages } from '@/components/app/ChatMessages';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Users } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Users, Search, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from '@/lib/api/messages';
 import { uploadChatAttachment } from '@/lib/api/chatAttachments';
@@ -260,8 +263,7 @@ export function AtletaChatPage() {
         queryClient.invalidateQueries({ queryKey: ['atleta-chats'] });
       });
     }
-
-  }, [currentChat?.id, user?.id]);
+  }, [currentChat?.id, user?.id, queryClient]);
 
   // Subscribe to new messages
   useEffect(() => {
@@ -296,57 +298,134 @@ export function AtletaChatPage() {
     );
   }
 
-  // Show chat list
+  // Show chat list (hub Messaggi)
+  const coachList = (chats || []).filter((c) =>
+    c.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+  const groupList = (chatGroups || []).filter((g) =>
+    g.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+  const coachUnread = (chats || []).reduce((s, c) => s + (c.unreadCount || 0), 0);
+  const groupUnread = (chatGroups || []).reduce((s, g) => s + (g.unread_count || 0), 0);
+
   return (
-    <div className="h-full min-h-0 flex flex-col bg-app-background">
-      {chatGroups && chatGroups.length > 0 && (
-        <div className="border-b border-app-border shrink-0">
-          <p className="px-4 pt-4 pb-1 text-xs font-semibold text-app-muted-foreground uppercase tracking-wide">
-            Gruppi
-          </p>
-          <div className="divide-y divide-app-border">
-            {chatGroups.map((g) => (
-              <Link
-                key={g.id}
-                to={`/app/chat/group/${g.id}`}
-                className="flex items-center gap-3 p-4 hover:bg-app-muted/50 transition-colors"
-              >
-                <Avatar className="h-12 w-12">
-                  <AvatarFallback className="bg-app-muted text-app-foreground">
-                    <Users className="h-5 w-5" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className={cn('font-semibold text-app-foreground truncate', g.unread_count > 0 && 'font-bold')}>
-                      {g.name}
-                    </h3>
-                    {g.unread_count > 0 && (
-                      <span className="h-5 w-5 bg-app-accent text-app-accent-foreground text-xs font-bold rounded-full flex items-center justify-center shrink-0">
-                        {g.unread_count > 9 ? '9+' : g.unread_count}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-app-muted-foreground truncate">
-                    {g.last_message?.content ||
-                      (g.last_message?.attachment_type ? 'Allegato' : `${g.members_count} membri`)}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
+    <div className="h-full min-h-0 flex flex-col bg-app-background text-app-foreground">
+      <div className="px-4 pt-5 pb-3 shrink-0">
+        <h1 className="text-2xl font-bold text-app-foreground">Messaggi</h1>
+        <div className="relative mt-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-app-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cerca conversazioni o gruppi"
+            className="pl-9 bg-app-card border-app-border text-app-foreground placeholder:text-app-muted-foreground"
+          />
         </div>
-      )}
-      <div className="flex-1 min-h-0">
-        <ChatList
-          chats={chats || []}
-          isLoading={chatsLoading}
-          basePath="/app/chat"
-          showTabs={true}
-        />
       </div>
+
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as 'coach' | 'gruppi')}
+        className="flex-1 min-h-0 flex flex-col"
+      >
+        <div className="px-4 shrink-0">
+          <TabsList className="w-full bg-app-card border border-app-border">
+            <TabsTrigger value="coach" className="flex-1 gap-2 data-[state=active]:bg-app-accent data-[state=active]:text-app-accent-foreground">
+              Coach
+              {coachUnread > 0 && (
+                <span className="h-5 min-w-5 px-1 rounded-full bg-app-accent text-app-accent-foreground text-[10px] font-bold flex items-center justify-center data-[state=active]:bg-black/20">
+                  {coachUnread > 9 ? '9+' : coachUnread}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="gruppi" className="flex-1 gap-2 data-[state=active]:bg-app-accent data-[state=active]:text-app-accent-foreground">
+              Gruppi
+              {groupUnread > 0 && (
+                <span className="h-5 min-w-5 px-1 rounded-full bg-app-accent text-app-accent-foreground text-[10px] font-bold flex items-center justify-center">
+                  {groupUnread > 9 ? '9+' : groupUnread}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="coach" className="flex-1 min-h-0 mt-3">
+          {!chatsLoading && coachList.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <MessageCircle className="h-10 w-10 mx-auto text-app-muted-foreground mb-3" />
+              <p className="font-semibold text-app-foreground">Nessuna conversazione</p>
+              <p className="text-sm text-app-muted-foreground mt-1">
+                Collegati a un professionista per iniziare a chattare.
+              </p>
+              <Button
+                onClick={() => navigate('/app/discover')}
+                className="mt-4 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+              >
+                Scopri professionisti
+              </Button>
+            </div>
+          ) : (
+            <ChatList
+              chats={coachList}
+              isLoading={chatsLoading}
+              basePath="/app/chat"
+              showTabs={false}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="gruppi" className="flex-1 min-h-0 mt-3 overflow-y-auto">
+          {groupList.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <Users className="h-10 w-10 mx-auto text-app-muted-foreground mb-3" />
+              <p className="font-semibold text-app-foreground">Nessun gruppo</p>
+              <p className="text-sm text-app-muted-foreground mt-1">
+                Il tuo coach non ti ha ancora aggiunto a un gruppo.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-app-border">
+              {groupList.map((g) => (
+                <Link
+                  key={g.id}
+                  to={`/app/chat/group/${g.id}`}
+                  className="flex items-center gap-3 p-4 hover:bg-app-muted/50 transition-colors"
+                >
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback className="bg-app-muted text-app-accent">
+                      <Users className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3
+                        className={cn(
+                          'font-semibold text-app-foreground truncate',
+                          g.unread_count > 0 && 'font-bold',
+                        )}
+                      >
+                        {g.name}
+                      </h3>
+                      {g.unread_count > 0 && (
+                        <span className="h-5 w-5 bg-app-accent text-app-accent-foreground text-xs font-bold rounded-full flex items-center justify-center shrink-0">
+                          {g.unread_count > 9 ? '9+' : g.unread_count}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-app-muted-foreground truncate">
+                      {g.last_message?.content ||
+                        (g.last_message?.attachment_type ? 'Allegato' : `${g.members_count} membri`)}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
 export default AtletaChatPage;
+
