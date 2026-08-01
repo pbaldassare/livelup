@@ -1349,7 +1349,38 @@ export function AtletaWorkoutDetailPage() {
           templateKind={templateKind}
         />
       </div>
+
+      {/* Exit workout confirmation dialog */}
+      <AlertDialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
+        <AlertDialogContent className="bg-app-card border-app-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-app-foreground">
+              Uscire dall'allenamento?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-app-muted-foreground">
+              {hasCompletedLogs
+                ? "I progressi già registrati restano salvati. Potrai riprendere quando vuoi."
+                : "La sessione verrà sospesa. Potrai riprendere l'allenamento in seguito."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setExitDialogOpen(false)}
+              className="bg-app-muted text-app-foreground border-app-border"
+            >
+              Annulla
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmExitWorkout}
+              className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+            >
+              Esci
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
+
   );
 }
 
