@@ -209,11 +209,11 @@ export function AuthPage() {
         }
       }
       toast.success('Registrazione completata', {
-        description: 'Controlla la tua email per confermare la registrazione.',
+        description: 'Puoi accedere subito.',
       });
-      setSignupEmailSent(true);
       setPassword('');
       setConfirmPassword('');
+
     }
   };
 
