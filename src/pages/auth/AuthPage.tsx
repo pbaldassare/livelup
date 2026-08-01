@@ -302,6 +302,16 @@ export function AuthPage() {
                     <p className="text-sm text-destructive">{errors.password}</p>
                   )}
                 </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={isResetting}
+                    className="text-sm text-primary hover:underline disabled:opacity-50"
+                  >
+                    {isResetting ? 'Invio in corso...' : 'Password dimenticata?'}
+                  </button>
+                </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Accedi
