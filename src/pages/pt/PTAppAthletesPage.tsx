@@ -339,7 +339,19 @@ export function PTAppAthletesPage() {
   );
 }
 
-function AthleteCard({ connection, type }: { connection: any; type: 'active' | 'pending' }) {
+function AthleteCard({
+  connection,
+  type,
+  processing = false,
+  onAccept,
+  onReject,
+}: {
+  connection: any;
+  type: 'active' | 'pending';
+  processing?: boolean;
+  onAccept?: () => void;
+  onReject?: () => void;
+}) {
   const p = connection.profiles;
   const name = getAthleteDisplayName(p?.first_name, p?.last_name, p?.email);
   const initials = getAthleteInitials(p?.first_name, p?.last_name, p?.email);
