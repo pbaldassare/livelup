@@ -402,7 +402,64 @@ function AthleteCard({
   const p = connection.profiles;
   const name = getAthleteDisplayName(p?.first_name, p?.last_name, p?.email);
   const initials = getAthleteInitials(p?.first_name, p?.last_name, p?.email);
+  const email = p?.email?.trim() || null;
   const isPtActive = connection.is_pt_active !== false;
+
+  // Card richieste: nessuna navigazione chevron, azioni dirette sulla card
+  if (type === 'pending') {
+    return (
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-12 w-12">
+              <AvatarImage src={p?.avatar_url || undefined} />
+              <AvatarFallback>{initials || 'A'}</AvatarFallback>
+            </Avatar>
+
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold truncate">{name}</h3>
+              {email && email !== name && (
+                <p className="text-xs text-muted-foreground truncate">{email}</p>
+              )}
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <Badge variant="secondary" className="text-xs">
+                  <Clock className="h-3 w-3 mr-1" />
+                  In attesa
+                </Badge>
+                {connection.atleta_profiles?.fitness_level && (
+                  <Badge variant="outline" className="text-xs capitalize">
+                    {connection.atleta_profiles.fitness_level}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-3">
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={processing}
+              onClick={() => onAccept?.(name)}
+            >
+              <Check className="h-4 w-4 mr-1" />
+              Accetta
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+              disabled={processing}
+              onClick={() => onReject?.(name)}
+            >
+              <X className="h-4 w-4 mr-1" />
+              Rifiuta
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Link to={`/pt/app/athlete/${connection.atleta_user_id}`}>
@@ -410,101 +467,58 @@ function AthleteCard({
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12">
-              <AvatarImage src={connection.profiles?.avatar_url || undefined} />
+              <AvatarImage src={p?.avatar_url || undefined} />
               <AvatarFallback>{initials || 'A'}</AvatarFallback>
             </Avatar>
-            
+
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold truncate">{name}</h3>
                 <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
               </div>
-              
+
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {type === 'active' && (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'text-xs',
-                      isPtActive
-                        ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                        : 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-                    )}
-                  >
-                    {isPtActive ? 'Attivo' : 'Disattivo'}
-                  </Badge>
-                )}
-                {type === 'active' && (
-                  <TrainingModalityBadge modality={connection.training_modality} />
-                )}
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-xs',
+                    isPtActive
+                      ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                      : 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+                  )}
+                >
+                  {isPtActive ? 'Attivo' : 'Disattivo'}
+                </Badge>
+                <TrainingModalityBadge modality={connection.training_modality} />
                 {connection.atleta_profiles?.fitness_level && (
                   <Badge variant="outline" className="text-xs capitalize">
                     {connection.atleta_profiles.fitness_level}
                   </Badge>
                 )}
-                {type === 'pending' && (
-                  <Badge variant="secondary" className="text-xs">
-                    <Clock className="h-3 w-3 mr-1" />
-                    In attesa
-                  </Badge>
-                )}
               </div>
             </div>
           </div>
-          
-          {type === 'active' && (
-            <div className="flex gap-2 mt-3">
-              <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link to={`/pt/app/chat/${connection.atleta_user_id}`} onClick={(e) => e.stopPropagation()}>
-                  <MessageSquare className="h-4 w-4 mr-1" />
-                  Chat
-                </Link>
-              </Button>
-              <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link to={`/pt/app/athlete/${connection.atleta_user_id}/workouts`} onClick={(e) => e.stopPropagation()}>
-                  <Dumbbell className="h-4 w-4 mr-1" />
-                  Schede
-                </Link>
-              </Button>
-            </div>
-          )}
 
-          {type === 'pending' && (onAccept || onReject) && (
-            <div className="flex gap-2 mt-3">
-              <Button
-                size="sm"
-                className="flex-1"
-                disabled={processing}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onAccept?.();
-                }}
-              >
-                <Check className="h-4 w-4 mr-1" />
-                Accetta
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1"
-                disabled={processing}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onReject?.();
-                }}
-              >
-                <X className="h-4 w-4 mr-1" />
-                Rifiuta
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-2 mt-3">
+            <Button variant="outline" size="sm" className="flex-1" asChild>
+              <Link to={`/pt/app/chat/${connection.atleta_user_id}`} onClick={(e) => e.stopPropagation()}>
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Chat
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1" asChild>
+              <Link to={`/pt/app/athlete/${connection.atleta_user_id}/workouts`} onClick={(e) => e.stopPropagation()}>
+                <Dumbbell className="h-4 w-4 mr-1" />
+                Schede
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </Link>
   );
 }
+
 
 function EmptyState({
   type,
