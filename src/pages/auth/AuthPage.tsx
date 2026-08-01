@@ -42,6 +42,7 @@ export function AuthPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const didRedirectRef = useRef(false);
   const loginSafetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -53,6 +54,35 @@ export function AuthPage() {
   };
 
   useEffect(() => () => clearLoginSafetyTimeout(), []);
+
+  // Conferma email completata (redirect da link email)
+  const confirmedShownRef = useRef(false);
+  useEffect(() => {
+    if (searchParams.get('confirmed') === '1' && !confirmedShownRef.current) {
+      confirmedShownRef.current = true;
+      toast.success('Email confermata', { description: 'Ora puoi accedere al tuo account.' });
+    }
+  }, [searchParams]);
+
+  const handleForgotPassword = async () => {
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) {
+      setErrors((prev) => ({ ...prev, email: 'Inserisci la tua email per recuperare la password' }));
+      return;
+    }
+    setIsResetting(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+    setIsResetting(false);
+    if (error) {
+      toast.error('Impossibile inviare l\'email', { description: error.message });
+      return;
+    }
+    toast.success('Email inviata', {
+      description: 'Controlla la casella di posta per reimpostare la password.',
+    });
+  };
 
   // Redirect if already authenticated, handle referral connection
   useEffect(() => {
@@ -271,6 +301,16 @@ export function AuthPage() {
                   {errors.password && (
                     <p className="text-sm text-destructive">{errors.password}</p>
                   )}
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={isResetting}
+                    className="text-sm text-primary hover:underline disabled:opacity-50"
+                  >
+                    {isResetting ? 'Invio in corso...' : 'Password dimenticata?'}
+                  </button>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
