@@ -1317,25 +1317,28 @@ export function AtletaWorkoutDetailPage() {
     >
       <div className="sticky top-0 z-50 bg-app-background/95 backdrop-blur">
         <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-app-foreground tabular-nums">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-lg font-bold text-app-foreground tabular-nums shrink-0">
               {formatTime(elapsedTime)}
             </span>
-            <span className="text-app-muted-foreground">•</span>
-            <span className="text-app-muted-foreground text-sm">
+            <span className="text-app-muted-foreground shrink-0">•</span>
+            <span className="text-app-muted-foreground text-sm truncate">
               {workout.title}
             </span>
           </div>
           <Button
             variant="ghost"
-            size="icon"
-            onClick={() => navigate('/app/workout')}
-            className="text-app-foreground hover:bg-app-muted"
+            size="sm"
+            onClick={() => setExitDialogOpen(true)}
+            className="shrink-0 gap-1.5 text-app-foreground hover:bg-app-muted"
+            aria-label="Esci dall'allenamento"
           >
-            <Settings2 className="h-5 w-5" />
+            <X className="h-5 w-5" />
+            <span className="text-sm font-medium">Esci</span>
           </Button>
         </div>
       </div>
+
 
       <div className="flex-1">
         <PhasedGuidedWorkout
