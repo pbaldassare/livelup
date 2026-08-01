@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -9,16 +10,27 @@ import {
   CreditCard,
   Download,
   Dumbbell,
+  Layers,
   MessageSquare,
   Smartphone,
+  Sparkles,
+  Timer,
   TrendingUp,
   Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { PWAUpdatePrompt } from '@/components/pwa/PWAUpdatePrompt';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeBlogPost, BLOG_POST_TYPE_LABELS, type BlogPost } from '@/types/database';
+import { resolveBlogCoverUrl } from '@/lib/blogCover';
 import { cn } from '@/lib/utils';
 
 import ptDashboard from '@/assets/marketing/pt-athletes-dashboard.png';
@@ -27,39 +39,53 @@ import atletaPlayer from '@/assets/marketing/atleta-workout-player.png';
 
 // =====================================================
 // LANDING — design da Google Stitch (MCP)
-// project: projects/8950936584627667537
 // =====================================================
 
 const features = [
   {
     icon: Users,
     title: 'Gestione Atleti',
-    description: 'Database completo, profili dettagliati e storico attività in tempo reale.',
+    description: 'Collegamenti, richieste, stato attivo/pausa e scheda atleta completa.',
   },
   {
     icon: Dumbbell,
-    title: 'Programmi',
-    description: 'Crea allenamenti personalizzati con protocolli, set e libreria esercizi.',
+    title: 'Schede e programmi',
+    description: 'Template, assegnazioni multi-settimana, riscaldamento e defaticamento.',
+  },
+  {
+    icon: Layers,
+    title: 'Protocolli',
+    description: 'EMOM, AMRAP, Superset, Tabata, HIIT, Top Set, Ladder e altro.',
+  },
+  {
+    icon: Timer,
+    title: 'Player allenamento',
+    description: 'Set-by-set, recupero, RPE, uscita con ripresa e PDF scheda.',
+  },
+  {
+    icon: MessageSquare,
+    title: 'Chat e gruppi',
+    description: 'Messaggi 1:1, gruppi atleti e hub messaggi anche lato atleta.',
   },
   {
     icon: Calendar,
     title: 'Calendario',
-    description: 'Sincronizza sessioni e workout. Niente più appuntamenti persi.',
-  },
-  {
-    icon: MessageSquare,
-    title: 'Chat',
-    description: 'Comunicazione diretta e protetta: addio WhatsApp di lavoro.',
+    description: 'Appuntamenti, eventi e sincronizzazione agenda PT.',
   },
   {
     icon: TrendingUp,
     title: 'Progressi',
-    description: 'Analisi di performance, volume e andamento nel tempo.',
+    description: 'Storico allenamenti, foto progresso e feedback per il PT.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Archivio esercizi',
+    description: 'Libreria globale, esercizi personali e preferiti del PT.',
   },
   {
     icon: CreditCard,
-    title: 'Pagamenti',
-    description: 'Abbonamenti e incassi senza burocrazia.',
+    title: 'Pacchetti e pagamenti',
+    description: 'Abbonamenti atleta e tracciamento sessioni (pagamenti live in arrivo).',
   },
 ];
 
@@ -79,6 +105,7 @@ function excerptFromHtml(html: string, max = 120): string {
 export function LandingPage() {
   const { isInstallable, isInstalled, isIOS, install } = useInstallPrompt();
   const showInstallButton = (isInstallable || isIOS) && !isInstalled;
+  const [ctaOpen, setCtaOpen] = useState(false);
 
   const { data: blogPosts = [] } = useQuery({
     queryKey: ['public-landing-blog'],
@@ -122,11 +149,13 @@ export function LandingPage() {
                 calendario e chat in un&apos;unica piattaforma.
               </p>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Button size="lg" className="rounded-xl h-12 px-8" asChild>
-                  <Link to="/auth?mode=signup">
-                    Inizia gratis
-                    <ChevronRight className="ml-1 h-4 w-4" />
-                  </Link>
+                <Button
+                  size="lg"
+                  className="rounded-xl h-12 px-8"
+                  onClick={() => setCtaOpen(true)}
+                >
+                  Inizia gratis
+                  <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
                 <Button size="lg" variant="outline" className="rounded-xl h-12 px-8" asChild>
                   <Link to="/pts">Trova un Professionista</Link>
@@ -240,8 +269,8 @@ export function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Button className="mt-8 rounded-xl" asChild>
-                <Link to="/auth?mode=signup">Registrati come PT</Link>
+              <Button className="mt-8 rounded-xl" onClick={() => setCtaOpen(true)}>
+                Registrati come PT
               </Button>
             </motion.div>
           </div>
@@ -274,9 +303,9 @@ export function LandingPage() {
               </div>
               <Button
                 className="mt-8 rounded-xl bg-[hsl(75_100%_50%)] text-[hsl(222_33%_12%)] hover:bg-[hsl(75_100%_45%)]"
-                asChild
+                onClick={() => setCtaOpen(true)}
               >
-                <Link to="/auth?mode=signup">Registrati come Atleta</Link>
+                Registrati come Atleta
               </Button>
             </motion.div>
             <motion.div
@@ -335,27 +364,24 @@ export function LandingPage() {
                     to={post.slug ? `/blog/${post.slug}` : `/blog/${post.id}`}
                     className="group block"
                   >
-                    <div className="mb-4 aspect-[16/10] overflow-hidden rounded-2xl bg-muted">
-                      {post.cover_image_url ? (
-                        <img
-                          src={post.cover_image_url}
-                          alt=""
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center bg-primary/5 text-primary/40">
-                          <Dumbbell className="h-10 w-10" />
-                        </div>
-                      )}
+                    <div className="relative mb-4 aspect-[16/10] overflow-hidden rounded-2xl bg-muted">
+                      <img
+                        src={resolveBlogCoverUrl(post.cover_image_url, post.id)}
+                        alt=""
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                      <div className="absolute inset-x-0 bottom-0 p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-white/80">
+                          {BLOG_POST_TYPE_LABELS[post.post_type]}
+                        </p>
+                        <h3 className="mt-1 font-[Space_Grotesk,system-ui,sans-serif] text-lg font-semibold leading-snug text-white md:text-xl">
+                          {post.title}
+                        </h3>
+                      </div>
                     </div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                      {BLOG_POST_TYPE_LABELS[post.post_type]}
-                    </p>
-                    <h3 className="mt-2 font-[Space_Grotesk,system-ui,sans-serif] text-xl font-semibold leading-snug transition-colors group-hover:text-primary">
-                      {post.title}
-                    </h3>
-                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
                       {excerptFromHtml(post.content)}
                     </p>
                   </Link>
@@ -386,11 +412,11 @@ export function LandingPage() {
               Pronto a rivoluzionare il tuo business?
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Unisciti ai Personal Trainer che gestiscono atleti, schede e pagamenti con Livelapp.
+              Unisciti ai Personal Trainer che gestiscono atleti, schede e chat con Livelapp.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Button size="lg" className="rounded-xl" asChild>
-                <Link to="/auth?mode=signup">Inizia gratuitamente</Link>
+              <Button size="lg" className="rounded-xl" onClick={() => setCtaOpen(true)}>
+                Inizia gratuitamente
               </Button>
               <Button size="lg" variant="outline" className="rounded-xl" asChild>
                 <Link to="/contact">Contattaci</Link>
@@ -399,6 +425,39 @@ export function LandingPage() {
           </motion.div>
         </div>
       </section>
+
+      <Dialog open={ctaOpen} onOpenChange={setCtaOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-[Space_Grotesk,system-ui,sans-serif] text-2xl">
+              Inizia con Livelapp
+            </DialogTitle>
+            <DialogDescription>
+              Scegli come vuoi usare la piattaforma. I prezzi saranno in base al numero di atleti
+              del PT — ancora da definire.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 pt-2">
+            <Button size="lg" className="rounded-xl h-12 justify-between" asChild>
+              <Link to="/auth?mode=signup" onClick={() => setCtaOpen(false)}>
+                Sono un Personal Trainer
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="rounded-xl h-12 justify-between" asChild>
+              <Link to="/auth?mode=signup" onClick={() => setCtaOpen(false)}>
+                Sono un Atleta
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="ghost" className="rounded-xl" asChild>
+              <Link to="/pts" onClick={() => setCtaOpen(false)}>
+                Trova un Professionista
+              </Link>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {showInstallButton && (
         <div className="fixed bottom-0 left-0 right-0 z-50 p-4 md:hidden">

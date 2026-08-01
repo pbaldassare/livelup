@@ -38,6 +38,16 @@ import PTDiscoveryPage from "./pages/public/PTDiscoveryPage";
 import PTProfilePage from "./pages/public/PTProfilePage";
 import BlogPostPage from "./pages/public/BlogPostPage";
 import BlogIndexPage from "./pages/public/BlogIndexPage";
+import {
+  AboutPage,
+  ContactPage,
+  CookiesPage,
+  FaqPage,
+  HelpPage,
+  PricingPage,
+  PrivacyPage,
+  TermsPage,
+} from "./pages/public/PublicInfoPage";
 import InstallPage from "./pages/public/InstallPage";
 import UtenteAppPreviewPage from "./pages/dev/UtenteAppPreviewPage";
 
@@ -203,6 +213,15 @@ const App = () => {
               <Route path="/pts/:userId" element={<PTProfilePage />} />
               <Route path="/blog" element={<BlogIndexPage />} />
               <Route path="/blog/:slug" element={<BlogPostPage />} />
+              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/chi-siamo" element={<Navigate to="/about" replace />} />
+              <Route path="/help" element={<HelpPage />} />
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/faq" element={<FaqPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/cookies" element={<CookiesPage />} />
 
               {/* ============================================= */}
               {/* ADMIN ROUTES - Solo ruolo admin              */}

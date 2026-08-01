@@ -5,6 +5,8 @@ import { PageLoader } from '@/components/common/PageLoader';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PublicLayout } from '@/components/layouts/PublicLayout';
+import { resolveBlogCoverUrl } from '@/lib/blogCover';
 import { ArrowLeft, Calendar, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -99,76 +101,86 @@ export function BlogPostPage() {
 
   if (!post) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6">
-        <h1 className="text-2xl font-bold mb-2">Contenuto non trovato</h1>
-        <Link to="/">
-          <Button variant="link">Torna alla home</Button>
-        </Link>
-      </div>
+      <PublicLayout>
+        <div className="flex flex-col items-center justify-center px-6 py-24">
+          <h1 className="mb-2 text-2xl font-bold">Contenuto non trovato</h1>
+          <Link to="/blog">
+            <Button variant="link">Torna al blog</Button>
+          </Link>
+        </div>
+      </PublicLayout>
     );
   }
 
   const authorName = post.author?.name || BLOG_AUTHOR_KIND_LABELS[post.author_kind] || 'Personal Trainer';
   const isQA = post.post_type === 'qa';
+  const cover = resolveBlogCoverUrl(post.cover_image_url, post.id);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-          <ArrowLeft className="h-4 w-4" />
-          Torna indietro
-        </Link>
-
-        {post.cover_image_url && (
-          <div className="aspect-video rounded-xl overflow-hidden mb-6">
-            <img src={post.cover_image_url} alt={post.title} className="w-full h-full object-cover" />
+    <PublicLayout>
+      <div className="relative">
+        <div className="relative aspect-[21/9] min-h-[240px] w-full overflow-hidden md:aspect-[2.6/1]">
+          <img src={cover} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-black/30" />
+          <div className="absolute inset-x-0 bottom-0">
+            <div className="mx-auto max-w-3xl px-4 pb-8 pt-16 md:pb-10">
+              <Link
+                to="/blog"
+                className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Torna al blog
+              </Link>
+              <Badge variant="secondary" className="mb-3">
+                {BLOG_POST_TYPE_LABELS[post.post_type] ?? 'Articolo'}
+              </Badge>
+              <h1 className="font-[Space_Grotesk,system-ui,sans-serif] text-3xl font-bold md:text-5xl">
+                {isQA ? `D: ${post.title}` : post.title}
+              </h1>
+            </div>
           </div>
-        )}
-
-        <div className="flex items-center gap-2 mb-3">
-          <Badge variant="secondary">{BLOG_POST_TYPE_LABELS[post.post_type] ?? 'Articolo'}</Badge>
         </div>
 
-        <h1 className="text-3xl font-bold mb-4">{isQA ? `D: ${post.title}` : post.title}</h1>
-
-        <div className="flex items-center gap-4 mb-6 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={post.author?.avatar_url || undefined} />
-              <AvatarFallback>
-                <User className="h-4 w-4" />
-              </AvatarFallback>
-            </Avatar>
-            <span>
-              {authorName}
-              <span className="text-xs text-muted-foreground/80">
-                {' '}
-                · {BLOG_AUTHOR_KIND_LABELS[post.author_kind] ?? 'Professionista'}
+        <div className="mx-auto max-w-3xl px-4 py-8">
+          <div className="mb-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={post.author?.avatar_url || undefined} />
+                <AvatarFallback>
+                  <User className="h-4 w-4" />
+                </AvatarFallback>
+              </Avatar>
+              <span>
+                {authorName}
+                <span className="text-xs text-muted-foreground/80">
+                  {' '}
+                  · {BLOG_AUTHOR_KIND_LABELS[post.author_kind] ?? 'Professionista'}
+                </span>
               </span>
-            </span>
+            </div>
+            {post.published_at && (
+              <div className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                {format(new Date(post.published_at), 'dd MMMM yyyy', { locale: it })}
+              </div>
+            )}
           </div>
-          {post.published_at && (
-            <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              {format(new Date(post.published_at), 'dd MMMM yyyy', { locale: it })}
+
+          {post.tags && post.tags.length > 0 && (
+            <div className="mb-6 flex flex-wrap gap-1.5">
+              {post.tags.map((tag: string) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
             </div>
           )}
+
+          {isQA && <p className="mb-2 text-sm font-semibold text-muted-foreground">Risposta</p>}
+          <div className="prose prose-lg max-w-none whitespace-pre-wrap">{post.content}</div>
         </div>
-
-        {post.tags && post.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-6">
-            {post.tags.map((tag: string) => (
-              <Badge key={tag} variant="secondary">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        {isQA && <p className="text-sm font-semibold text-muted-foreground mb-2">Risposta</p>}
-        <div className="prose prose-lg max-w-none whitespace-pre-wrap">{post.content}</div>
       </div>
-    </div>
+    </PublicLayout>
   );
 }
 

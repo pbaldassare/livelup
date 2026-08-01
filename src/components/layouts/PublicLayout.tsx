@@ -117,7 +117,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           </div>
           <div className="mt-8 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              © 2024 Livelapp. Tutti i diritti riservati.
+              © {new Date().getFullYear()} Livelapp. Tutti i diritti riservati.
             </p>
           </div>
         </div>
