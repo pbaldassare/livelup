@@ -300,11 +300,12 @@ export function AtletaWorkoutDetailPage() {
 
   // Auto-avvia il flow se l'allenamento è già in corso (es. da Home "Continua")
   useEffect(() => {
-    if (!workout || isLoading || isWorkoutStarted || !logsFetched) return;
+    if (!workout || isLoading || isWorkoutStarted || !logsFetched || skipAutoStart) return;
     if (workout.status === 'in_corso' || workout.status === 'in_sospeso') {
       setIsWorkoutStarted(true);
     }
-  }, [workout, isLoading, isWorkoutStarted, logsFetched]);
+  }, [workout, isLoading, isWorkoutStarted, logsFetched, skipAutoStart]);
+
 
   // Fetch PT profile for coach avatar
   const { data: ptProfile } = useQuery({
