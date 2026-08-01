@@ -1141,6 +1141,7 @@ export function AtletaWorkoutDetailPage() {
             />
             <Button
               onClick={async () => {
+                setSkipAutoStart(false);
                 setIsWorkoutStarted(true);
                 // Marca workout come "in_corso" per la Home action-first
                 if (workoutId && workout?.status !== 'in_corso') {
@@ -1152,6 +1153,7 @@ export function AtletaWorkoutDetailPage() {
                   queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
                 }
               }}
+
               className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
             >
               <Play className="h-5 w-5 mr-2" />
