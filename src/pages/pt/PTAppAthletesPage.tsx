@@ -356,6 +356,31 @@ export function PTAppAthletesPage() {
         onOpenChange={setAddAthleteOpen}
         defaultTab={addAthleteTab}
       />
+
+      <AlertDialog
+        open={!!rejectTarget}
+        onOpenChange={(open) => {
+          if (!open) setRejectTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rifiutare questa richiesta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La richiesta scomparirà e non verrà più mostrata. L'atleta non sarà collegato al tuo profilo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleConfirmReject}
+            >
+              Rifiuta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -370,9 +395,10 @@ function AthleteCard({
   connection: any;
   type: 'active' | 'pending';
   processing?: boolean;
-  onAccept?: () => void;
-  onReject?: () => void;
+  onAccept?: (name: string) => void;
+  onReject?: (name: string) => void;
 }) {
+
   const p = connection.profiles;
   const name = getAthleteDisplayName(p?.first_name, p?.last_name, p?.email);
   const initials = getAthleteInitials(p?.first_name, p?.last_name, p?.email);
