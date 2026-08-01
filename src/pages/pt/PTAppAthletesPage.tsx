@@ -39,13 +39,20 @@ import { cn } from '@/lib/utils';
 // PT APP ATHLETES PAGE - Lista atleti (Mobile)
 // =====================================================
 
+const VALID_TABS = ['active', 'pending', 'subscriptions'] as const;
+
 export function PTAppAthletesPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState('active');
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<string>(
+    tabParam && (VALID_TABS as readonly string[]).includes(tabParam) ? tabParam : 'active',
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
   const [addAthleteTab, setAddAthleteTab] = useState<'link' | 'create'>('link');
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const modalityFilter = searchParams.get('modality');
   const activeModality: TrainingModality | 'all' = isTrainingModality(modalityFilter)
@@ -59,6 +66,15 @@ export function PTAppAthletesPage() {
     setSearchParams(next, { replace: true });
   };
 
+  // Tab -> URL
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const next = new URLSearchParams(searchParams);
+    if (value === 'active') next.delete('tab');
+    else next.set('tab', value);
+    setSearchParams(next, { replace: true });
+  };
+
   useEffect(() => {
     if (searchParams.get('invite') !== '1') return;
     setAddAthleteTab('link');
@@ -69,11 +85,66 @@ export function PTAppAthletesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al mount con ?invite=1
   }, []);
 
+  // URL -> tab
   useEffect(() => {
-    if (isTrainingModality(searchParams.get('modality'))) {
+    const t = searchParams.get('tab');
+    if (t && (VALID_TABS as readonly string[]).includes(t) && t !== activeTab) {
+      setActiveTab(t);
+      return;
+    }
+    if (!t && isTrainingModality(searchParams.get('modality'))) {
       setActiveTab('active');
     }
   }, [searchParams]);
+
+  // Conteggio richieste in attesa (badge)
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ['pt-pending-count', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { count } = await supabase
+        .from('pt_atleta_connections')
+        .select('id', { count: 'exact', head: true })
+        .eq('pt_user_id', user.id)
+        .eq('status', 'pending');
+      return count ?? 0;
+    },
+    enabled: !!user?.id,
+  });
+
+  const refreshAfterConnectionChange = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['pt-connections'] }),
+      queryClient.invalidateQueries({ queryKey: ['pt-pending-count'] }),
+      queryClient.invalidateQueries({ queryKey: ['pt-home-data'] }),
+    ]);
+  };
+
+  const handleAccept = async (connectionId: string) => {
+    setProcessingId(connectionId);
+    try {
+      await acceptConnection(connectionId);
+      toast.success('Richiesta accettata');
+      await refreshAfterConnectionChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Errore durante l\'accettazione');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleReject = async (connectionId: string) => {
+    setProcessingId(connectionId);
+    try {
+      await rejectConnection(connectionId);
+      toast.success('Richiesta rifiutata');
+      await refreshAfterConnectionChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Errore durante il rifiuto');
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   // Fetch connections
   const { data: connections, isLoading } = useQuery({
