@@ -539,6 +539,7 @@ export function AtletaWorkoutDetailPage() {
     setCurrentSet(firstIncomplete);
 
     if (!isWorkoutStarted) {
+      setSkipAutoStart(false);
       setIsWorkoutStarted(true);
       if (workoutId && workout?.status !== 'in_corso') {
         await supabase
@@ -549,6 +550,7 @@ export function AtletaWorkoutDetailPage() {
         queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
       }
     }
+
     setSheetOpen(false);
   };
 
