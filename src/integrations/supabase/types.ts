@@ -2006,6 +2006,7 @@ export type Database = {
           atleta_user_id: string
           created_at: string
           id: string
+          is_pt_active: boolean
           pt_user_id: string
           requested_at: string
           requested_by: string | null
@@ -2019,6 +2020,7 @@ export type Database = {
           atleta_user_id: string
           created_at?: string
           id?: string
+          is_pt_active?: boolean
           pt_user_id: string
           requested_at?: string
           requested_by?: string | null
@@ -2032,6 +2034,7 @@ export type Database = {
           atleta_user_id?: string
           created_at?: string
           id?: string
+          is_pt_active?: boolean
           pt_user_id?: string
           requested_at?: string
           requested_by?: string | null
