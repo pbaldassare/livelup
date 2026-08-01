@@ -109,6 +109,16 @@ export function PTAppAthletesPage() {
     if (!t && isTrainingModality(searchParams.get('modality'))) {
       setActiveTab('active');
     }
+  // URL -> tab
+  useEffect(() => {
+    const t = normalizeTab(searchParams.get('tab'));
+    if (t && t !== activeTab) {
+      setActiveTab(t);
+      return;
+    }
+    if (!t && isTrainingModality(searchParams.get('modality'))) {
+      setActiveTab('active');
+    }
   }, [searchParams]);
 
   // Conteggio richieste in attesa (badge)
@@ -131,14 +141,16 @@ export function PTAppAthletesPage() {
       queryClient.invalidateQueries({ queryKey: ['pt-connections'] }),
       queryClient.invalidateQueries({ queryKey: ['pt-pending-count'] }),
       queryClient.invalidateQueries({ queryKey: ['pt-home-data'] }),
+      queryClient.invalidateQueries({ queryKey: ['pt-pending-requests'] }),
+      queryClient.invalidateQueries({ queryKey: ['pt-athletes'] }),
     ]);
   };
 
-  const handleAccept = async (connectionId: string) => {
+  const handleAccept = async (connectionId: string, name: string) => {
     setProcessingId(connectionId);
     try {
       await acceptConnection(connectionId);
-      toast.success('Richiesta accettata');
+      toast.success(`${name} è ora collegato al tuo profilo`);
       await refreshAfterConnectionChange();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Errore durante l\'accettazione');
@@ -147,11 +159,14 @@ export function PTAppAthletesPage() {
     }
   };
 
-  const handleReject = async (connectionId: string) => {
-    setProcessingId(connectionId);
+  const handleConfirmReject = async () => {
+    if (!rejectTarget) return;
+    const { id } = rejectTarget;
+    setRejectTarget(null);
+    setProcessingId(id);
     try {
-      await rejectConnection(connectionId);
-      toast.success('Richiesta rifiutata');
+      await rejectConnection(id);
+      toast.info('Richiesta rifiutata');
       await refreshAfterConnectionChange();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Errore durante il rifiuto');
@@ -159,6 +174,7 @@ export function PTAppAthletesPage() {
       setProcessingId(null);
     }
   };
+
 
   // Fetch connections
   const { data: connections, isLoading } = useQuery({
