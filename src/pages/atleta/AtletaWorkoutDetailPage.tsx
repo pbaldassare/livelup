@@ -145,6 +145,10 @@ export function AtletaWorkoutDetailPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [confirmMarkOpen, setConfirmMarkOpen] = useState(false);
   const [pendingMarkExercise, setPendingMarkExercise] = useState<WorkoutExercise | null>(null);
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  /** After intentional exit, stay on detail (don't auto-reenter guided flow). */
+  const [skipAutoStart, setSkipAutoStart] = useState(false);
+
 
   const { isCoachingPaused, ptName } = useAtletaStatus();
 
