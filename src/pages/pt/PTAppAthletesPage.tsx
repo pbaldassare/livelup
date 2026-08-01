@@ -100,16 +100,7 @@ export function PTAppAthletesPage() {
   }, []);
 
   // URL -> tab
-  useEffect(() => {
-    const t = searchParams.get('tab');
-    if (t && (VALID_TABS as readonly string[]).includes(t) && t !== activeTab) {
-      setActiveTab(t);
-      return;
-    }
-    if (!t && isTrainingModality(searchParams.get('modality'))) {
-      setActiveTab('active');
-    }
-  // URL -> tab
+
   useEffect(() => {
     const t = normalizeTab(searchParams.get('tab'));
     if (t && t !== activeTab) {
