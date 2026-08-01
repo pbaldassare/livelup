@@ -554,7 +554,26 @@ export function AtletaWorkoutDetailPage() {
     setSheetOpen(false);
   };
 
+  // ===== Exit guided workout (pause, don't complete) =====
+  const handleConfirmExitWorkout = async () => {
+    setExitDialogOpen(false);
+    setSkipAutoStart(true);
+    setIsWorkoutStarted(false);
+    // Sospende senza completare: i log già salvati restano e si può riprendere
+    if (workoutId && workout?.status === 'in_corso') {
+      await supabase
+        .from('workouts')
+        .update({ status: 'in_sospeso' as any })
+        .eq('id', workoutId)
+        .eq('status', 'in_corso');
+      queryClient.invalidateQueries({ queryKey: ['workout-detail', workoutId] });
+      queryClient.invalidateQueries({ queryKey: ['workout-logs', workoutId] });
+      queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+    }
+  };
+
   // ===== Mark exercise as completed (logs only missing sets) =====
+
   const performMarkAllCompleted = async (ex: WorkoutExercise) => {
     const completedForEx = completedSets[ex.id] || [];
     const missing = Array.from({ length: ex.prescribed_sets }, (_, i) => i + 1).filter(
