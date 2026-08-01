@@ -245,6 +245,7 @@ export function AtletaChatPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', currentChat?.id] });
       queryClient.invalidateQueries({ queryKey: ['atleta-chats'] });
+      queryClient.invalidateQueries({ queryKey: ['atleta-unread-messages'] });
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -254,8 +255,12 @@ export function AtletaChatPage() {
   // Mark messages as read
   useEffect(() => {
     if (currentChat?.id && user?.id) {
-      markMessagesAsRead(currentChat.id, user.id);
+      markMessagesAsRead(currentChat.id, user.id).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['atleta-unread-messages'] });
+        queryClient.invalidateQueries({ queryKey: ['atleta-chats'] });
+      });
     }
+
   }, [currentChat?.id, user?.id]);
 
   // Subscribe to new messages
