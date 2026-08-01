@@ -44,18 +44,29 @@ import { cn } from '@/lib/utils';
 
 const VALID_TABS = ['active', 'pending', 'subscriptions'] as const;
 
+// Normalizza alias italiani/legacy dei tab (?tab=richieste)
+function normalizeTab(value: string | null): string | null {
+  if (!value) return null;
+  const v = value.toLowerCase();
+  if (v === 'richieste' || v === 'pending') return 'pending';
+  if (v === 'attivi' || v === 'active') return 'active';
+  if (v === 'abbonamenti' || v === 'subscriptions') return 'subscriptions';
+  return null;
+}
+
 export function PTAppAthletesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<string>(
-    tabParam && (VALID_TABS as readonly string[]).includes(tabParam) ? tabParam : 'active',
+    normalizeTab(searchParams.get('tab')) ?? 'active',
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
   const [addAthleteTab, setAddAthleteTab] = useState<'link' | 'create'>('link');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string } | null>(null);
+
 
   const modalityFilter = searchParams.get('modality');
   const activeModality: TrainingModality | 'all' = isTrainingModality(modalityFilter)
