@@ -20,6 +20,7 @@ import {
 import { ListSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
+import { PtCoachingPausedCard } from '@/components/app/PtCoachingPausedCard';
 import { supabase } from '@/integrations/supabase/client';
 import { completeWorkout as completeWorkoutApi } from '@/lib/api/workouts';
 import { toast } from '@/hooks/use-toast';
@@ -171,7 +172,7 @@ export function AtletaEserciziPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { canAccessWorkouts, isLoading: statusLoading } = useAtletaStatus();
+  const { canAccessWorkouts, isCoachingPaused, ptName, isLoading: statusLoading } = useAtletaStatus();
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<'complete' | 'skip' | null>(
     null,
@@ -294,6 +295,15 @@ export function AtletaEserciziPage() {
       setActionLoading(null);
     }
   };
+
+  if (!statusLoading && isCoachingPaused) {
+    return (
+      <div className="p-4 space-y-6 bg-app-background min-h-screen">
+        <h1 className="text-2xl font-bold text-app-foreground pt-2">Esercizi</h1>
+        <PtCoachingPausedCard ptName={ptName} />
+      </div>
+    );
+  }
 
   // Locked
   if (!statusLoading && !canAccessWorkouts) {
