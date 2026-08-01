@@ -421,6 +421,38 @@ function AthleteCard({
               </Button>
             </div>
           )}
+
+          {type === 'pending' && (onAccept || onReject) && (
+            <div className="flex gap-2 mt-3">
+              <Button
+                size="sm"
+                className="flex-1"
+                disabled={processing}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAccept?.();
+                }}
+              >
+                <Check className="h-4 w-4 mr-1" />
+                Accetta
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1"
+                disabled={processing}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onReject?.();
+                }}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Rifiuta
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </Link>
