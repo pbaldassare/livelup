@@ -33,6 +33,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { supabase } from '@/integrations/supabase/client';
 
 // =====================================================
@@ -111,6 +112,7 @@ async function fetchWorkoutsInRange(
 export function AtletaCalendarView() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { canAccessWorkouts } = useAtletaStatus();
 
   const [view, setView] = useState<ViewMode>('day');
   const [selected, setSelected] = useState<Date>(() => {
@@ -149,7 +151,7 @@ export function AtletaCalendarView() {
       user?.id
         ? fetchWorkoutsInRange(user.id, range.from, range.to)
         : Promise.resolve([]),
-    enabled: !!user?.id,
+    enabled: !!user?.id && canAccessWorkouts,
   });
 
   const byDate = useMemo(() => {

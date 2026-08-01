@@ -18,6 +18,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -144,6 +151,7 @@ interface TemplateExerciseBuilderProps {
 
 export function TemplateExerciseBuilder({ templateId, blockId, onSave }: TemplateExerciseBuilderProps) {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
   const [protocolDialogOpen, setProtocolDialogOpen] = useState(false);
@@ -808,43 +816,87 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Popover open={searchOpen} onOpenChange={setSearchOpen}>
-            <PopoverTrigger asChild>
-              <Button size="default" variant="outline">
+          {isMobile ? (
+            <>
+              <Button size="default" variant="outline" onClick={() => setSearchOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Aggiungi esercizio
               </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className={exercisePickerPopoverClassName}
-              {...exercisePickerPopoverProps}
-            >
-              <ExerciseArchivePickerPanel
-                open={searchOpen}
-                workoutExerciseOptions={addExercisePickerOptions.workout}
-                favoriteExerciseOptions={addExercisePickerOptions.favorites}
-                mineExerciseOptions={addExercisePickerOptions.mine}
-                globalExerciseOptions={addExercisePickerOptions.global}
-                onSelect={(opt) => {
-                  if (opt.id) addExerciseMutation.mutate({ id: opt.id });
-                }}
-                emptyFallback={
-                  <div className="py-6 px-4 text-center space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      Nessun esercizio disponibile. Aggiungi preferiti o crea esercizi personali.
-                    </p>
-                    <Link
-                      to="/pt/exercises"
-                      onClick={() => setSearchOpen(false)}
-                      className="inline-block text-sm font-medium text-primary hover:underline"
-                    >
-                      Vai agli Esercizi →
-                    </Link>
+              <Drawer open={searchOpen} onOpenChange={setSearchOpen}>
+                <DrawerContent className="max-h-[90vh] outline-none">
+                  <DrawerHeader className="pb-2 text-left">
+                    <DrawerTitle>Aggiungi esercizio</DrawerTitle>
+                  </DrawerHeader>
+                  <div className="min-h-0 overflow-hidden px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                    <ExerciseArchivePickerPanel
+                      open={searchOpen}
+                      className="max-h-[min(65vh,480px)]"
+                      workoutExerciseOptions={addExercisePickerOptions.workout}
+                      favoriteExerciseOptions={addExercisePickerOptions.favorites}
+                      mineExerciseOptions={addExercisePickerOptions.mine}
+                      globalExerciseOptions={addExercisePickerOptions.global}
+                      onSelect={(opt) => {
+                        if (opt.id) addExerciseMutation.mutate({ id: opt.id });
+                        setSearchOpen(false);
+                      }}
+                      emptyFallback={
+                        <div className="py-6 px-4 text-center space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Nessun esercizio disponibile. Aggiungi preferiti o crea esercizi personali.
+                          </p>
+                          <Link
+                            to="/pt/exercises"
+                            onClick={() => setSearchOpen(false)}
+                            className="inline-block text-sm font-medium text-primary hover:underline"
+                          >
+                            Vai agli Esercizi →
+                          </Link>
+                        </div>
+                      }
+                    />
                   </div>
-                }
-              />
-            </PopoverContent>
-          </Popover>
+                </DrawerContent>
+              </Drawer>
+            </>
+          ) : (
+            <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button size="default" variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Aggiungi esercizio
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className={exercisePickerPopoverClassName}
+                {...exercisePickerPopoverProps}
+              >
+                <ExerciseArchivePickerPanel
+                  open={searchOpen}
+                  workoutExerciseOptions={addExercisePickerOptions.workout}
+                  favoriteExerciseOptions={addExercisePickerOptions.favorites}
+                  mineExerciseOptions={addExercisePickerOptions.mine}
+                  globalExerciseOptions={addExercisePickerOptions.global}
+                  onSelect={(opt) => {
+                    if (opt.id) addExerciseMutation.mutate({ id: opt.id });
+                  }}
+                  emptyFallback={
+                    <div className="py-6 px-4 text-center space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        Nessun esercizio disponibile. Aggiungi preferiti o crea esercizi personali.
+                      </p>
+                      <Link
+                        to="/pt/exercises"
+                        onClick={() => setSearchOpen(false)}
+                        className="inline-block text-sm font-medium text-primary hover:underline"
+                      >
+                        Vai agli Esercizi →
+                      </Link>
+                    </div>
+                  }
+                />
+              </PopoverContent>
+            </Popover>
+          )}
           <Button size="default" onClick={() => setProtocolDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Aggiungi protocollo
@@ -900,8 +952,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                             rowIsProtocol && 'border-primary/30 bg-primary/[0.02]',
                           )}
                         >
-                          <CardContent className="p-4">
-                            <div className="flex gap-3 sm:gap-4">
+                          <CardContent className="p-3 sm:p-4">
+                            <div className="flex gap-2 sm:gap-4">
                               {/* Drag Handle — solo da qui, target touch ~44px */}
                               <div
                                 {...provided.dragHandleProps}

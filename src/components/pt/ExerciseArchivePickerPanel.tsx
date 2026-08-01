@@ -98,6 +98,7 @@ export interface ExerciseArchivePickerProps {
   showFreeOption?: boolean;
   /** Contenuto quando l'archivio è completamente vuoto. */
   emptyFallback?: React.ReactNode;
+  className?: string;
 }
 
 export function ExerciseArchivePickerPanel({
@@ -111,6 +112,7 @@ export function ExerciseArchivePickerPanel({
   showFreeOption = false,
   emptyFallback,
   open,
+  className,
 }: ExerciseArchivePickerProps) {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<SourceTab | null>(null);
@@ -170,17 +172,20 @@ export function ExerciseArchivePickerPanel({
   return (
     <Command
       shouldFilter={false}
-      className="max-h-full overflow-hidden [&_[cmdk-item]]:py-1"
+      className={cn(
+        'max-h-full overflow-hidden [&_[cmdk-item]]:py-2.5 sm:[&_[cmdk-item]]:py-1',
+        className,
+      )}
     >
       {tabsWithItems.length > 0 && (
-        <div className="flex shrink-0 flex-wrap gap-1 border-b p-1">
+        <div className="flex shrink-0 flex-nowrap gap-1 overflow-x-auto border-b p-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {tabsWithItems.map((t) => (
             <button
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors',
+                'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:py-0.5',
                 activeTab === t.key
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/70',
@@ -246,7 +251,7 @@ export function ExerciseArchivePickerPanel({
 
 /** Stile condiviso per i popover del picker esercizi. */
 export const exercisePickerPopoverClassName =
-  'z-50 w-[min(100vw-2rem,320px)] max-h-[min(50vh,320px)] overflow-hidden border-2 border-border p-0 shadow-lg';
+  'z-50 w-[var(--radix-popover-trigger-width)] min-w-[min(100vw-1.5rem,280px)] max-w-[calc(100vw-1.5rem)] max-h-[min(70vh,420px)] overflow-hidden border-2 border-border p-0 shadow-lg';
 
 export const exercisePickerPopoverProps = {
   side: 'bottom' as const,

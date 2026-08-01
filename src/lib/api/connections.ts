@@ -276,8 +276,8 @@ export async function rejectConnection(connectionId: string) {
 // =====================================================
 
 export async function setAthletePtActive(connectionId: string, isPtActive: boolean) {
-  const { data, error } = await supabase
-    .from('pt_atleta_connections')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('pt_atleta_connections') as any)
     .update({
       is_pt_active: isPtActive,
       updated_at: new Date().toISOString(),

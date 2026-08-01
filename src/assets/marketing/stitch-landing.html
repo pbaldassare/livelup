@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="it"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Livelapp | Il tuo ecosistema fitness professionale</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Manrope:wght@400;500;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@100..900&family=Space+Grotesk:wght@100..900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#f9f9ff",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#6bd8cb",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#ffdada",
+                        "inverse-primary": "#ffb3b6",
+                        "secondary-fixed": "#89f5e7",
+                        "tertiary": "#3e6600",
+                        "on-primary-fixed-variant": "#920028",
+                        "on-secondary-fixed": "#00201d",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed": "#acf847",
+                        "on-primary-container": "#fffaf9",
+                        "surface-tint": "#be0037",
+                        "on-primary": "#ffffff",
+                        "surface": "#f9f9ff",
+                        "inverse-surface": "#293040",
+                        "secondary": "#006a61",
+                        "surface-container-low": "#f1f3ff",
+                        "background": "#f9f9ff",
+                        "on-secondary-container": "#006f66",
+                        "inverse-on-surface": "#edf0ff",
+                        "error": "#ba1a1a",
+                        "surface-container-highest": "#dce2f7",
+                        "on-secondary": "#ffffff",
+                        "surface-container-high": "#e1e8fd",
+                        "primary": "#b80035",
+                        "surface-variant": "#dce2f7",
+                        "surface-container": "#e9edff",
+                        "primary-fixed-dim": "#ffb3b6",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#f7ffe4",
+                        "tertiary-container": "#508100",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#d3daef",
+                        "tertiary-fixed-dim": "#91db2a",
+                        "primary-container": "#e11d48",
+                        "on-surface-variant": "#5c3f40",
+                        "on-surface": "#141b2b",
+                        "on-secondary-fixed-variant": "#005049",
+                        "outline-variant": "#e5bdbe",
+                        "on-tertiary-fixed": "#102000",
+                        "outline": "#906f70",
+                        "secondary-container": "#86f2e4",
+                        "on-tertiary-fixed-variant": "#304f00",
+                        "on-primary-fixed": "#40000c",
+                        "on-background": "#141b2b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "32px",
+                        "stack-sm": "8px",
+                        "section-gap": "120px",
+                        "container-max": "1280px",
+                        "stack-md": "16px",
+                        "stack-lg": "24px",
+                        "margin-desktop": "80px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Space Grotesk"],
+                        "body-md": ["Manrope"],
+                        "body-lg": ["Manrope"],
+                        "label-bold": ["Manrope"],
+                        "display-xl": ["Space Grotesk"],
+                        "headline-md": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["48px", { "lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "body-lg": ["20px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-bold": ["14px", { "lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "display-xl": ["72px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["32px", { "lineHeight": "1.3", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; background-color: #f9f9ff; color: #141b2b; }
+        .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .glass-nav { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .card-hover:hover { transform: translateY(-8px); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+    </style>
+</head>
+<body class="bg-surface">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 glass-nav border-b border-outline-variant/30 shadow-sm">
+<div class="flex justify-between items-center h-20 px-8 lg:px-20 max-w-container-max mx-auto">
+<div class="flex items-center gap-8">
+<img alt="Livelapp Logo" class="h-10 w-auto" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6zBd-hvUV0YGudSqp9p8iQcdt3lTTVsn5IuoiLHytXz-M687-bqN0iTOCi9zNThO6Puf3dqvURBEY5tOpzkNdyWZ2s6WYA3xWlj65z6mhwdQ58RCk4MfcLP2sAC8jWIqdo6JYMzmhXF8pjZgY8eHP_1UzgynzipqloaOuh3IkDiXyGLnhmXl9NHKwtQqdkshl7fjzw7kuksiZLTGRxnrx0kr8W5VUulvKJINFgHvbxtEYvOFx8Mzr-dXe4Z5r0xQQASYfrGaiiyo"/>
+<nav class="hidden md:flex gap-8">
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-label-bold text-label-bold" href="#">Trova un PT</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-bold text-label-bold" href="#">Chi siamo</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-bold text-label-bold" href="#">Prezzi</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-bold text-label-bold" href="#">Blog</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<a class="hidden sm:block text-on-surface font-label-bold text-label-bold px-4 py-2 hover:opacity-80" href="#">Accedi</a>
+<a class="bg-primary-container text-on-primary-container px-6 py-3 rounded-xl font-label-bold text-label-bold scale-105 active:scale-95 transition-transform duration-200" href="#">Inizia ora</a>
+</div>
+</div>
+</header>
+<main class="pt-20">
+<!-- Hero Section -->
+<section class="py-20 lg:py-32 px-8 lg:px-20 max-w-container-max mx-auto overflow-hidden">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<div class="flex flex-col gap-8">
+<h1 class="font-display-xl text-display-xl leading-none">
+                        Il tuo ecosistema che sostituisce <span class="text-primary-container">tutto il resto</span>
+</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-xl">
+                        Dimentica Excel, WhatsApp e i pagamenti dispersi. Livelapp è la piattaforma integrata per scalare il tuo business di coaching e offrire ai tuoi atleti un'esperienza premium.
+                    </p>
+<div class="flex flex-col sm:flex-row gap-4 mt-4">
+<button class="bg-primary-container text-on-primary-container px-8 py-4 rounded-xl font-label-bold text-label-bold hover:shadow-lg transition-shadow">Inizia gratis</button>
+<button class="border-2 border-outline text-on-surface px-8 py-4 rounded-xl font-label-bold text-label-bold hover:bg-surface-container-low transition-colors">Trova un Professionista</button>
+</div>
+<div class="flex items-center gap-4 mt-8 opacity-60">
+<span class="material-symbols-outlined text-primary">verified</span>
+<span class="font-label-bold text-label-bold uppercase tracking-widest text-on-surface-variant">Scelto dai migliori PT Italiani</span>
+</div>
+</div>
+<div class="relative">
+<div class="absolute -inset-4 bg-primary/5 rounded-[40px] blur-3xl -z-10"></div>
+<img class="rounded-xl shadow-2xl border border-outline-variant/20 w-full transform lg:scale-110 lg:translate-x-8" data-alt="A clean, professional high-fidelity digital dashboard mockup of the Livelapp fitness SaaS. The interface displays a comprehensive view for personal trainers, including active athlete lists with profile pictures, a daily workout schedule calendar, and graphical data visualizations showing client strength progress and weekly workout completion rates. The lighting is bright and modern, emphasizing the sophisticated white and primary red brand colors in a corporate studio setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyBaPtlIYgvrE66Z5xmTP39J0b24vtjL25kvkTQboSa_KYVNI_z4joBLOZG4H4l0omJsC0iI9qyLC_VlfvkmmBdwmCc0z0s_PGGfO9mf5GPm7cxzvG8-_JZxFcuAi6ye4fmFYhN-jgdz4iTNq0LmJbE7CS9mq8svvBJLA8FqeUAkrikmsFD39g6b5Qyjic33BODFfM5fUvMoowz3TjB92MZZlPozq5xwOcPz83uPhax9i1XXPX48LkRDDCuYu0Rfucmgl33cIvb2Y"/>
+</div>
+</div>
+</section>
+<!-- Feature Grid Section -->
+<section class="py-24 bg-surface-container-low">
+<div class="px-8 lg:px-20 max-w-container-max mx-auto">
+<div class="text-center mb-16">
+<h2 class="font-headline-lg text-headline-lg mb-4">Tutto in un'unica piattaforma</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Strumenti potenti progettati per la massima precisione e performance.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+<!-- Feature Cards -->
+<div class="bg-white p-8 rounded-[24px] shadow-sm border border-outline-variant/10 card-hover group">
+<div class="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined">groups</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-xl mb-3">Gestione Atleti</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Database completo, profili dettagliati e storico delle attività in tempo reale.</p>
+<div class="h-1 w-0 group-hover:w-full bg-primary mt-6 transition-all duration-300"></div>
+</div>
+<div class="bg-white p-8 rounded-[24px] shadow-sm border border-outline-variant/10 card-hover group">
+<div class="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined">fitness_center</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-xl mb-3">Programmi</h3>
+<h3 class="sr-only">Workout Builder</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Crea allenamenti personalizzati con una libreria video di oltre 1000 esercizi.</p>
+<div class="h-1 w-0 group-hover:w-full bg-primary mt-6 transition-all duration-300"></div>
+</div>
+<div class="bg-white p-8 rounded-[24px] shadow-sm border border-outline-variant/10 card-hover group">
+<div class="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined">calendar_month</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-xl mb-3">Calendario</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Sincronizza sessioni PT e workout. Niente più appuntamenti persi o sovrapposti.</p>
+<div class="h-1 w-0 group-hover:w-full bg-primary mt-6 transition-all duration-300"></div>
+</div>
+<div class="bg-white p-8 rounded-[24px] shadow-sm border border-outline-variant/10 card-hover group">
+<div class="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined">chat_bubble</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-xl mb-3">Chat</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Comunicazione diretta e protetta. Separa il lavoro dalla tua vita privata su WhatsApp.</p>
+<div class="h-1 w-0 group-hover:w-full bg-primary mt-6 transition-all duration-300"></div>
+</div>
+<div class="bg-white p-8 rounded-[24px] shadow-sm border border-outline-variant/10 card-hover group">
+<div class="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined">insights</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-xl mb-3">Progressi</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Analisi avanzata dei dati antropometrici e delle performance atletiche.</p>
+<div class="h-1 w-0 group-hover:w-full bg-primary mt-6 transition-all duration-300"></div>
+</div>
+<div class="bg-white p-8 rounded-[24px] shadow-sm border border-outline-variant/10 card-hover group">
+<div class="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-xl mb-3">Pagamenti</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Automazione fatture e pagamenti ricorrenti. Più tempo per allenare, meno burocrazia.</p>
+<div class="h-1 w-0 group-hover:w-full bg-primary mt-6 transition-all duration-300"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- PT Section -->
+<section class="py-24 px-8 lg:px-20 max-w-container-max mx-auto">
+<div class="flex flex-col lg:flex-row gap-16 items-center">
+<div class="w-full lg:w-1/2 order-2 lg:order-1">
+<img class="rounded-xl shadow-xl border border-outline-variant/20" data-alt="A clean and modern digital UI mockup showing a sophisticated workout template builder. On the left, an exercise library sidebar with video thumbnails of various exercises like squats and push-ups. On the right, a configurable workout template area where exercises are dragged and dropped, with customizable input fields for sets, reps, and rest time. The interface is light and airy with corporate blue and white tones, reflecting a professional high-performance SaaS aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBo5gYtPTwhlzcfZnyqeGoSaIp7EldcPy6uw76WDJK_j52wIoR95wFroQR9U6NBe9vqgyyBp3eJt3ra7hWDQQV9g5bWaV6n_STNN2v52nANXM00WLOzjTF0oIQOcFJYeKWtEsc5YT6P7P9a6beO4uO4tybbH5nGaREcNA48szUzib9gTJ3mhEJcdq1HZ5jOHlXnU-r_sBI-G2JvQ_4IiWQDY2YspIIeGDt0Fi40WQw5y5HM-aXvTO_HFUNTKzqcBun4OSSWFW23nB0"/>
+</div>
+<div class="w-full lg:w-1/2 order-1 lg:order-2 flex flex-col gap-6">
+<span class="text-primary font-label-bold text-label-bold uppercase tracking-widest">Per Personal Trainer</span>
+<h2 class="font-headline-lg text-headline-lg">L'unico assistente che non dorme mai.</h2>
+<ul class="flex flex-col gap-4 mt-4">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary">check_circle</span>
+<span class="font-body-md text-body-md">Creazione programmi 3 volte più veloce rispetto ai metodi tradizionali.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary">check_circle</span>
+<span class="font-body-md text-body-md">Gestione di oltre 50 atleti senza perdere il controllo della qualità.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary">check_circle</span>
+<span class="font-body-md text-body-md">Monitoraggio automatico della compliance agli allenamenti.</span>
+</li>
+</ul>
+<button class="bg-primary text-white px-8 py-4 rounded-xl font-label-bold text-label-bold mt-4 self-start hover:shadow-lg transition-all">Semplifica il tuo lavoro</button>
+</div>
+</div>
+</section>
+<!-- Athlete Section -->
+<section class="py-24 bg-inverse-surface text-white">
+<div class="px-8 lg:px-20 max-w-container-max mx-auto">
+<div class="flex flex-col lg:flex-row gap-16 items-center">
+<div class="w-full lg:w-1/2 flex flex-col gap-6">
+<span class="text-tertiary-fixed font-label-bold text-label-bold uppercase tracking-widest">Per Atleti</span>
+<h2 class="font-headline-lg text-headline-lg text-inverse-on-surface">L'allenamento al massimo livello.</h2>
+<p class="font-body-lg text-body-lg text-surface-variant opacity-80">
+                            Un'esperienza mobile fluida e immersiva. Segui i tuoi programmi, registra i tuoi record e comunica con il tuo coach, tutto con un solo tocco.
+                        </p>
+<div class="grid grid-cols-2 gap-4 mt-4">
+<div class="bg-surface/10 p-4 rounded-xl">
+<span class="block text-2xl font-bold text-tertiary-fixed">+12%</span>
+<span class="text-sm opacity-60">Aumento medio VO2 Max</span>
+</div>
+<div class="bg-surface/10 p-4 rounded-xl">
+<span class="block text-2xl font-bold text-tertiary-fixed">100%</span>
+<span class="text-sm opacity-60">Controllo dati</span>
+</div>
+</div>
+</div>
+<div class="w-full lg:w-1/2 flex justify-center">
+<div class="relative w-full max-w-[320px]">
+<div class="absolute inset-0 bg-primary/20 blur-3xl rounded-full opacity-50"></div>
+<img class="relative z-10 w-full rounded-[3rem] shadow-2xl border-[8px] border-surface-dim" data-alt="A premium close-up photo of a modern smartphone held against a dark, textured gym environment background. The screen displays a high-performance athlete training app in dark mode, featuring a neon green circular timer, a video of a professional athlete performing a barbell squat, and performance metrics like calories burned and average heart rate. The aesthetic is raw, energetic, and sophisticated, mirroring the agility of elite athletes." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxqoVCXoCKUpu5XkBPR1FRpZxrrSRsPi7NNXDeiVHpyv_JdnfbIDVZY70i9pV0CFcEpLnnT32ztC0o-KQcL-3Qus_9F0g1E-jM2sx02gtNN02Q5swdZTmqpRhWHUxOG-XUOmRL1W2dap1qOlqyqiCQAw_QyfB3r74aqhPH3VHNQW8ncNVkUsYWNEA9RlGnsHfSMbCS1n6G-6Bn827_m4EODwqhlGoXTTnSXoyl_LLuoS3zpXfvr9I9WsRtEhepDuGMSxEbckPf9p0"/>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Blog Section -->
+<section class="py-24 px-8 lg:px-20 max-w-container-max mx-auto">
+<div class="flex justify-between items-end mb-12">
+<div>
+<h2 class="font-headline-lg text-headline-lg">Ultime dal Blog</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">Consigli tecnici, interviste e aggiornamenti sul mondo del fitness.</p>
+</div>
+<a class="hidden md:flex items-center gap-2 text-primary font-label-bold text-label-bold hover:underline" href="#">Vedi tutto <span class="material-symbols-outlined">arrow_forward</span></a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Blog Cards -->
+<div class="group cursor-pointer">
+<div class="relative h-64 mb-6 overflow-hidden rounded-xl">
+<div class="absolute inset-0 bg-cover bg-center group-hover:scale-110 transition-transform duration-500" data-alt="A high-quality lifestyle photograph showing a professional personal trainer guiding a female athlete through a dynamic stretching routine in a bright, modern light-filled training studio. The image uses a clean, white-space foundational aesthetic, emphasizing the professional and focused environment of high-end athletic training. The color palette is neutral with soft shadows." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCuXNV2Np6xHsgEXKSko0rK2yDsq2VlAY4UdCLWwpPwQ3l8L5VGkGXX_C7vJI7wmejgMS8szvTp2r1AXCM458I_lxWHdYinZSEk8yKl4zFBbvajt99vrtQE2CtmjhAkf7Dv0VrnkWG8IQdpVnxrqdjUHrrd6nVmPXAWQ2G45YiEBnR2VMWZ5xsRFy_LfcT7mgxf7HBReYt-0Y_qtWaxchapVPIGNOW8UXKgcNYxidD59hqkQJXaa3BnSlhiV93J6MEyPObAEAwNnIw')"></div>
+</div>
+<span class="text-primary font-label-bold text-label-bold text-xs uppercase tracking-tighter">Business & Growth</span>
+<h3 class="font-headline-md text-2xl mt-3 leading-tight group-hover:text-primary transition-colors">Come scalare il tuo business di coaching online nel 2024</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-3 line-clamp-2">Scopri le strategie utilizzate dai top trainer per gestire oltre 50 atleti mantenendo un servizio premium.</p>
+</div>
+<div class="group cursor-pointer">
+<div class="relative h-64 mb-6 overflow-hidden rounded-xl">
+<div class="absolute inset-0 bg-cover bg-center group-hover:scale-110 transition-transform duration-500" data-alt="A crisp, technical close-up of a high-end fitness tracking smartwatch displaying complex heart rate variability data on its screen. The background is a minimalist gym interior with high-quality gym equipment out of focus. The lighting is precise, showcasing a professional athletic performance aesthetic with clean lines and a modern blue-gray neutral palette." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDHTblsaiD004ZdiDNCtBBR3w9wrbli6rfIezPc1Gx9PUT3VU7V2YPUDQBFt1ZyESzuBbHTSUaJww8RJ7TC59AEV-nXwAswTzAXrztYAPmfKSQXJ1-Tnor2aT11SKPfuQevoXAw4JFsTl2z_KC_ihqj4rghGw6zQcbqBAfHV6VhnpiwrNnBk9VxX114u9JaaIPYiHyw8vzb1t8laq4cWxnY7bhpK25m2fyGq_YUJSks1S9BZqvLZ41kH1gpim92C90OAnal-ZK3iRY')"></div>
+</div>
+<span class="text-primary font-label-bold text-label-bold text-xs uppercase tracking-tighter">Performance Atletica</span>
+<h3 class="font-headline-md text-2xl mt-3 leading-tight group-hover:text-primary transition-colors">L'importanza del monitoraggio del recupero (HRV)</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-3 line-clamp-2">Perché i tuoi atleti non migliorano? La risposta potrebbe trovarsi nel modo in cui monitori il loro riposo.</p>
+</div>
+<div class="group cursor-pointer">
+<div class="relative h-64 mb-6 overflow-hidden rounded-xl">
+<div class="absolute inset-0 bg-cover bg-center group-hover:scale-110 transition-transform duration-500" data-alt="A striking minimalist digital art piece featuring glowing, generative geometric shapes that represent muscle fibers and neural connections, suspended in a vast, pristine gallery space. High-key white lighting creates a bright, modern aesthetic with intense accents of primary red, symbolizing the raw energy and precision of athletic training." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAZJWdB-7ui7Xyl7t9cGXIc3OsHvJf0BubyZXt9z5tag4m3EVK2bO_ld1_OFtocBFbxPZuLvLYlSPyY-2-kHIumYJpQNOblDRbikHTyDxCFNCO3rvBseGttKEAFrbnQqbVs_w3VWpHlUQPXzWL2TzaY8UvHv3ePDHOM63cLU-PWd8UBSVF0car83BM1EzsOkQPiRGO1hXcJXZx7AORZC9gS39PpaeXvqkvwW7SzPfYZi7KKL-WvNP1wbERU2LOXxBJuHxQR1INCPCk')"></div>
+</div>
+<span class="text-primary font-label-bold text-label-bold text-xs uppercase tracking-tighter">Tech & AI</span>
+<h3 class="font-headline-md text-2xl mt-3 leading-tight group-hover:text-primary transition-colors">Il futuro del coaching: IA e personalizzazione di massa</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-3 line-clamp-2">Come l'intelligenza artificiale sta cambiando il modo in cui i personal trainer creano i programmi.</p>
+</div>
+</div>
+</section>
+<!-- Final CTA Section -->
+<section class="py-24 px-8">
+<div class="max-w-container-max mx-auto bg-primary-container rounded-[40px] p-12 lg:p-24 text-center text-white relative overflow-hidden">
+<div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+<div class="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full -ml-32 -mb-32 blur-3xl"></div>
+<div class="relative z-10 flex flex-col items-center gap-8">
+<h2 class="font-display-xl text-4xl lg:text-5xl max-w-3xl">Pronto a rivoluzionare il tuo business?</h2>
+<p class="font-body-lg text-lg opacity-90 max-w-xl">Unisciti a centinaia di professionisti che hanno già scelto Livelapp per trasformare la loro passione in un business scalabile.</p>
+<div class="flex flex-col sm:flex-row gap-4">
+<button class="bg-white text-primary px-10 py-5 rounded-xl font-label-bold text-label-bold text-lg hover:scale-105 transition-transform">Inizia gratuitamente</button>
+<button class="border border-white/30 text-white px-10 py-5 rounded-xl font-label-bold text-label-bold text-lg hover:bg-white/10 transition-colors">Parla con un esperto</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container dark:bg-inverse-surface border-t border-outline-variant/20 w-full py-16">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-8 px-8 lg:px-20 max-w-container-max mx-auto">
+<div class="flex flex-col gap-6">
+<img alt="Livelapp Logo" class="h-8 w-auto self-start" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6zBd-hvUV0YGudSqp9p8iQcdt3lTTVsn5IuoiLHytXz-M687-bqN0iTOCi9zNThO6Puf3dqvURBEY5tOpzkNdyWZ2s6WYA3xWlj65z6mhwdQ58RCk4MfcLP2sAC8jWIqdo6JYMzmhXF8pjZgY8eHP_1UzgynzipqloaOuh3IkDiXyGLnhmXl9NHKwtQqdkshl7fjzw7kuksiZLTGRxnrx0kr8W5VUulvKJINFgHvbxtEYvOFx8Mzr-dXe4Z5r0xQQASYfrGaiiyo"/>
+<p class="font-body-md text-body-md text-on-surface-variant">L'ecosistema definitivo per Personal Trainer e Atleti d'elite che cercano prestazioni senza compromessi.</p>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-label-bold text-label-bold uppercase text-primary">Prodotto</h4>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Funzionalità</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Prezzi</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Trova un PT</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-label-bold text-label-bold uppercase text-primary">Azienda</h4>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Chi siamo</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Blog</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Contatti</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Lavora con noi</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-label-bold text-label-bold uppercase text-primary">Legale</h4>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Termini di Servizio</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Cookies</a>
+</div>
+</div>
+<div class="mt-16 pt-8 border-t border-outline-variant/10 px-8 lg:px-20 max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center gap-4 opacity-60">
+<span class="font-body-md text-body-md text-on-surface-variant">© 2024 Livelapp. Tutti i diritti riservati.</span>
+<div class="flex gap-6">
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors">public</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors">chat</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors">link</span>
+</div>
+</div>
+</footer>
+<script>
+        // Smooth reveal on scroll interaction
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('opacity-100', 'translate-y-0');
+                    entry.target.classList.remove('opacity-0', 'translate-y-10');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('section').forEach(section => {
+            section.classList.add('transition-all', 'duration-700', 'ease-out', 'opacity-0', 'translate-y-10');
+            observer.observe(section);
+        });
+    </script>
+</body></html>

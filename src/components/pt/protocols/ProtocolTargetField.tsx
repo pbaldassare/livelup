@@ -46,11 +46,11 @@ export function ProtocolTargetField({
         <Label className="text-[10px] text-muted-foreground">{label}</Label>
       )}
       <div className="flex flex-col gap-1">
-        <div className="flex rounded border border-border overflow-hidden h-6">
+        <div className="flex rounded border border-border overflow-hidden h-8 sm:h-6">
           <button
             type="button"
             className={cn(
-              'flex-1 text-[10px] font-medium transition-colors',
+              'flex-1 text-xs sm:text-[10px] font-medium transition-colors',
               mode === 'reps'
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-background text-muted-foreground hover:bg-muted',
@@ -62,7 +62,7 @@ export function ProtocolTargetField({
           <button
             type="button"
             className={cn(
-              'flex-1 text-[10px] font-medium transition-colors border-l border-border',
+              'flex-1 text-xs sm:text-[10px] font-medium transition-colors border-l border-border',
               mode === 'seconds'
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-background text-muted-foreground hover:bg-muted',
@@ -76,6 +76,7 @@ export function ProtocolTargetField({
           id={id}
           type="number"
           min={1}
+          inputMode="numeric"
           value={
             mode === 'seconds' ? (value.duration_seconds ?? '') : (value.reps ?? '')
           }
@@ -87,7 +88,7 @@ export function ProtocolTargetField({
               onChange({ mode: 'reps', reps: n, duration_seconds: null });
             }
           }}
-          className={cn('h-8', inputClassName)}
+          className={cn('h-9 sm:h-8', inputClassName)}
           aria-label={mode === 'seconds' ? 'Secondi' : 'Reps'}
         />
       </div>

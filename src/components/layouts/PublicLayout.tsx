@@ -39,6 +39,9 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Prezzi
             </Link>
+            <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Blog
+            </Link>
           </nav>
 
           {/* Auth buttons */}
@@ -83,7 +86,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               <h4 className="font-medium mb-3">Piattaforma</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/pts" className="hover:text-foreground transition-colors">Trova un PT</Link></li>
-                <li><Link to="/features" className="hover:text-foreground transition-colors">Funzionalità</Link></li>
+                <li><Link to="/blog" className="hover:text-foreground transition-colors">Blog</Link></li>
                 <li><Link to="/pricing" className="hover:text-foreground transition-colors">Prezzi</Link></li>
                 {showInstallOption && (
                   <li>

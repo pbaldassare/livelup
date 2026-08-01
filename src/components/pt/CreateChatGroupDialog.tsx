@@ -11,9 +11,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MultiSelectSearch } from '@/components/common/MultiSelectSearch';
+import { AthleteCheckboxPicker } from '@/components/pt/AthleteCheckboxPicker';
 import { createChatGroup } from '@/lib/api/chatGroups';
-import { getAthleteDisplayName } from '@/lib/athleteName';
 import { Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -52,11 +51,6 @@ export function CreateChatGroupDialog({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const options = athletes.map((a) => ({
-    id: a.atleta_user_id,
-    name: getAthleteDisplayName(a.profile?.first_name, a.profile?.last_name, a.profile?.email),
-  }));
-
   const resetForm = () => {
     setName('');
     setSelectedIds([]);
@@ -78,7 +72,8 @@ export function CreateChatGroupDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const submitDisabled = !name.trim() || selectedIds.length === 0 || createMutation.isPending;
+  const submitDisabled =
+    !ptUserId || !name.trim() || selectedIds.length === 0 || createMutation.isPending;
 
   return (
     <Dialog
@@ -115,20 +110,17 @@ export function CreateChatGroupDialog({
           <div className="space-y-2">
             <Label>
               Atleti <span className="text-destructive">*</span>
+              {selectedIds.length > 0 && (
+                <span className="ml-1 font-normal text-muted-foreground">
+                  ({selectedIds.length} selezionati)
+                </span>
+              )}
             </Label>
-            {options.length === 0 ? (
-              <p className="text-sm text-muted-foreground border border-dashed rounded-md p-3 text-center">
-                Nessun atleta collegato
-              </p>
-            ) : (
-              <MultiSelectSearch
-                options={options}
-                selected={selectedIds}
-                onChange={setSelectedIds}
-                placeholder="Seleziona atleti..."
-                emptyText="Nessun atleta trovato"
-              />
-            )}
+            <AthleteCheckboxPicker
+              athletes={athletes}
+              selected={selectedIds}
+              onChange={setSelectedIds}
+            />
           </div>
         </div>
 

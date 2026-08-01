@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MultiSelectSearch } from '@/components/common/MultiSelectSearch';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { AthleteCheckboxPicker } from '@/components/pt/AthleteCheckboxPicker';
 import {
   addChatGroupMembers,
   deleteChatGroup,
@@ -79,12 +79,7 @@ export function ManageChatGroupSheet({
   });
 
   const memberIds = new Set(members.map((m) => m.atleta_user_id));
-  const addableOptions = connectedAthletes
-    .filter((a) => !memberIds.has(a.atleta_user_id))
-    .map((a) => ({
-      id: a.atleta_user_id,
-      name: getAthleteDisplayName(a.profile?.first_name, a.profile?.last_name, a.profile?.email),
-    }));
+  const addableAthletes = connectedAthletes.filter((a) => !memberIds.has(a.atleta_user_id));
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['chat-group-members', groupId] });
@@ -196,18 +191,25 @@ export function ManageChatGroupSheet({
             </div>
 
             <div className="space-y-2">
-              <Label>Aggiungi atleti</Label>
-              {addableOptions.length === 0 ? (
+              <Label>
+                Aggiungi atleti
+                {addSelection.length > 0 && (
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    ({addSelection.length} selezionati)
+                  </span>
+                )}
+              </Label>
+              {addableAthletes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Tutti gli atleti collegati sono già nel gruppo.
                 </p>
               ) : (
                 <>
-                  <MultiSelectSearch
-                    options={addableOptions}
+                  <AthleteCheckboxPicker
+                    athletes={addableAthletes}
                     selected={addSelection}
                     onChange={setAddSelection}
-                    placeholder="Seleziona atleti da aggiungere..."
+                    emptyText="Nessun atleta da aggiungere"
                   />
                   <Button
                     size="sm"

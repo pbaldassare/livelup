@@ -22,12 +22,10 @@ import {
   formatRoundDurationSeconds,
 } from '@/lib/protocols/emom';
 import {
-  ProtocolExerciseCombobox,
   type ProtocolExerciseOption,
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
-import { ProtocolTargetField } from '@/components/pt/protocols/ProtocolTargetField';
-import { LoadField } from '@/components/pt/LoadField';
+import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
 
 export type EmomExerciseOption = ProtocolExerciseOption;
 
@@ -114,7 +112,7 @@ export function EmomBlocksEditor({
   const durationLabel = formatRoundDurationSeconds(value.round_duration);
 
   return (
-    <div className="rounded-md border bg-muted/20 p-2.5 space-y-3">
+    <div className="rounded-md border bg-muted/20 p-2 sm:p-2.5 space-y-3 -mx-0.5 sm:mx-0">
       <p className="text-xs font-medium text-muted-foreground">Configurazione EMOM</p>
 
       {/* Parametri globali */}
@@ -178,22 +176,22 @@ export function EmomBlocksEditor({
         {value.blocks.map((block, bIdx) => {
           const defaultLabel = autoBlockLabel(bIdx);
           return (
-            <div key={block.id} className="rounded-md border bg-background p-2 space-y-2">
+            <div key={block.id} className="rounded-md border bg-background p-2 sm:p-2.5 space-y-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-foreground/80 shrink-0 w-16">
+                <span className="text-xs font-bold text-foreground/80 shrink-0">
                   {defaultLabel}
                 </span>
                 <Input
                   placeholder="Etichetta opzionale"
                   value={block.label ?? ''}
                   onChange={(e) => updateBlock(bIdx, { label: e.target.value || undefined })}
-                  className="h-8 flex-1"
+                  className="h-9 flex-1 min-w-0"
                 />
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
                   disabled={value.blocks.length <= 1}
                   onClick={() => removeBlock(bIdx)}
                   aria-label="Elimina blocco"
@@ -202,56 +200,28 @@ export function EmomBlocksEditor({
                 </Button>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {block.exercises.map((ex, eIdx) => (
-                  <div
+                  <ProtocolExerciseRow
                     key={ex.id}
-                    className="grid grid-cols-12 gap-1.5 items-end rounded-md border border-dashed bg-muted/20 p-1.5"
-                  >
-                    <div className="col-span-12 md:col-span-5 space-y-0.5">
-                      <Label className="text-[10px] text-muted-foreground">Esercizio</Label>
-                      <ProtocolExerciseCombobox
-                        value={ex.name}
-                        workoutExerciseOptions={workoutOpts}
-                        favoriteExerciseOptions={favoriteExerciseOptions}
-                        mineExerciseOptions={mineExerciseOptions}
-                        globalExerciseOptions={globalExerciseOptions}
-                        onChange={(opt) =>
-                          updateExercise(bIdx, eIdx, {
-                            name: opt.name,
-                            exercise_id: opt.id,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="col-span-5 md:col-span-2">
-                      <ProtocolTargetField
-                        value={ex}
-                        label="Target"
-                        onChange={(next) => updateExercise(bIdx, eIdx, next)}
-                      />
-                    </div>
-                    <div className="col-span-5 md:col-span-4">
-                      <LoadField
-                        compact
-                        value={ex}
-                        onChange={(load) => updateExercise(bIdx, eIdx, load)}
-                      />
-                    </div>
-                    <div className="col-span-2 md:col-span-1 flex justify-end">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        disabled={block.exercises.length <= 1}
-                        onClick={() => removeExercise(bIdx, eIdx)}
-                        aria-label="Elimina esercizio"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
+                    exerciseName={ex.name}
+                    workoutExerciseOptions={workoutOpts}
+                    favoriteExerciseOptions={favoriteExerciseOptions}
+                    mineExerciseOptions={mineExerciseOptions}
+                    globalExerciseOptions={globalExerciseOptions}
+                    onExerciseChange={(opt) =>
+                      updateExercise(bIdx, eIdx, {
+                        name: opt.name,
+                        exercise_id: opt.id,
+                      })
+                    }
+                    target={ex}
+                    onTargetChange={(next) => updateExercise(bIdx, eIdx, next)}
+                    load={ex}
+                    onLoadChange={(load) => updateExercise(bIdx, eIdx, load)}
+                    canRemove={block.exercises.length > 1}
+                    onRemove={() => removeExercise(bIdx, eIdx)}
+                  />
                 ))}
               </div>
 
@@ -259,7 +229,7 @@ export function EmomBlocksEditor({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8"
+                className="h-9 w-full sm:w-auto"
                 onClick={() => addExercise(bIdx)}
               >
                 <Plus className="h-3.5 w-3.5 mr-1" />
@@ -270,7 +240,7 @@ export function EmomBlocksEditor({
         })}
       </div>
 
-      <Button type="button" variant="secondary" size="sm" className="h-8" onClick={addBlock}>
+      <Button type="button" variant="secondary" size="sm" className="h-9 w-full sm:w-auto" onClick={addBlock}>
         <Plus className="h-3.5 w-3.5 mr-1" />
         Aggiungi blocco
       </Button>

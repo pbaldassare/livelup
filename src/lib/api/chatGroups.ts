@@ -24,7 +24,29 @@ export async function createChatGroup(
   const trimmed = name.trim();
   if (!trimmed) throw new Error('Il nome del gruppo è obbligatorio');
   if (athleteIds.length === 0) throw new Error('Seleziona almeno un atleta');
+  if (!ptUserId) throw new Error('Sessione non valida');
 
+  // Preferisci RPC atomica (gruppo + membri in una sola transazione)
+  // Cast finché types.ts non espone create_pt_chat_group
+  const { data: rpcGroup, error: rpcError } = await db().rpc('create_pt_chat_group', {
+    _name: trimmed,
+    _athlete_ids: athleteIds,
+  });
+
+  if (!rpcError && rpcGroup) {
+    return rpcGroup as ChatGroupRow;
+  }
+
+  const rpcMissing =
+    rpcError?.code === 'PGRST202' ||
+    rpcError?.message?.includes('create_pt_chat_group') ||
+    rpcError?.message?.includes('Could not find the function');
+
+  if (!rpcMissing && rpcError) {
+    throw new Error(rpcError.message || 'Errore creazione gruppo');
+  }
+
+  // Fallback client-side se la RPC non è ancora deployata
   const { data: group, error } = await db()
     .from('pt_chat_groups')
     .insert({ pt_user_id: ptUserId, name: trimmed })
@@ -40,7 +62,9 @@ export async function createChatGroup(
 
   const { error: membersError } = await db().from('pt_chat_group_members').insert(memberRows);
   if (membersError) {
-    throw new Error('Gruppo creato ma errore aggiunta membri: ' + membersError.message);
+    // Best-effort cleanup: evita gruppi orfani senza membri
+    await db().from('pt_chat_groups').delete().eq('id', group.id);
+    throw new Error('Errore aggiunta membri: ' + membersError.message);
   }
 
   return group as ChatGroupRow;

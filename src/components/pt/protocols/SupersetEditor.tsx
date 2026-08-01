@@ -28,10 +28,10 @@ import {
   syncSetData,
 } from '@/lib/protocols/superset';
 import {
-  ProtocolExerciseCombobox,
   type ProtocolExerciseOption,
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
+import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
 import { ProtocolTargetField } from '@/components/pt/protocols/ProtocolTargetField';
 import { LoadField } from '@/components/pt/LoadField';
 import { getProtocolTargetMode } from '@/lib/protocols/exerciseTarget';
@@ -291,62 +291,37 @@ export function SupersetEditor({
             key={ex.id}
             className="rounded-md border border-dashed bg-background p-1.5 space-y-1.5"
           >
-            <div className="flex flex-col md:flex-row md:items-end gap-1.5">
-              <div className="flex-1 min-w-0 space-y-0.5">
-                <Label className="text-[10px] text-muted-foreground">Esercizio</Label>
-                <ProtocolExerciseCombobox
-                  value={ex.name}
-                  workoutExerciseOptions={workoutOpts}
-                  favoriteExerciseOptions={favoriteExerciseOptions}
-                  mineExerciseOptions={mineExerciseOptions}
-                  globalExerciseOptions={globalExerciseOptions}
-                  onChange={(opt) =>
-                    updateExercise(eIdx, { name: opt.name, exercise_id: opt.id })
-                  }
+            <ProtocolExerciseRow
+              className="border-0 bg-transparent p-0"
+              exerciseName={ex.name}
+              workoutExerciseOptions={workoutOpts}
+              favoriteExerciseOptions={favoriteExerciseOptions}
+              mineExerciseOptions={mineExerciseOptions}
+              globalExerciseOptions={globalExerciseOptions}
+              onExerciseChange={(opt) =>
+                updateExercise(eIdx, { name: opt.name, exercise_id: opt.id })
+              }
+              target={ex}
+              onTargetChange={(next) => updateExercise(eIdx, next)}
+              load={ex}
+              onLoadChange={(load) => updateExercise(eIdx, load)}
+              canRemove={value.exercises.length > 1}
+              onRemove={() => removeExercise(eIdx)}
+            >
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground">Note</Label>
+                <Input
+                  type="text"
+                  value={ex.notes}
+                  placeholder="Es. fermo 1s al petto"
+                  onChange={(e) => updateExercise(eIdx, { notes: e.target.value })}
+                  className="h-9"
                 />
               </div>
-              <div className="flex items-end gap-1.5">
-                <div className="w-24">
-                  <ProtocolTargetField
-                    value={ex}
-                    label="Target"
-                    onChange={(next) => updateExercise(eIdx, next)}
-                  />
-                </div>
-                <div className="w-36">
-                  <LoadField
-                    compact
-                    value={ex}
-                    onChange={(load) => updateExercise(eIdx, load)}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
-                  disabled={value.exercises.length <= 1}
-                  onClick={() => removeExercise(eIdx)}
-                  aria-label="Elimina esercizio"
-                  title="Elimina esercizio"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-[10px] text-muted-foreground">Note</Label>
-              <Input
-                type="text"
-                value={ex.notes}
-                placeholder="Es. fermo 1s al petto"
-                onChange={(e) => updateExercise(eIdx, { notes: e.target.value })}
-                className="h-8"
-              />
-            </div>
+            </ProtocolExerciseRow>
           </div>
         ))}
-        <Button type="button" variant="outline" size="sm" className="h-8" onClick={addExercise}>
+        <Button type="button" variant="outline" size="sm" className="h-9 w-full sm:w-auto" onClick={addExercise}>
           <Plus className="h-3.5 w-3.5 mr-1" />
           Aggiungi esercizio
         </Button>

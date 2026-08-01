@@ -37,6 +37,7 @@ import AuthResetPasswordPage from "./pages/auth/AuthResetPasswordPage";
 import PTDiscoveryPage from "./pages/public/PTDiscoveryPage";
 import PTProfilePage from "./pages/public/PTProfilePage";
 import BlogPostPage from "./pages/public/BlogPostPage";
+import BlogIndexPage from "./pages/public/BlogIndexPage";
 import InstallPage from "./pages/public/InstallPage";
 import UtenteAppPreviewPage from "./pages/dev/UtenteAppPreviewPage";
 
@@ -200,6 +201,7 @@ const App = () => {
               {/* Public PT Discovery page */}
               <Route path="/pts" element={<PTDiscoveryPage />} />
               <Route path="/pts/:userId" element={<PTProfilePage />} />
+              <Route path="/blog" element={<BlogIndexPage />} />
               <Route path="/blog/:slug" element={<BlogPostPage />} />
 
               {/* ============================================= */}

@@ -6,7 +6,7 @@
 // - Nessuna scrittura automatica: ogni edit chiama onChange esplicitamente
 // =====================================================
 
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,12 +18,10 @@ import {
   formatAmrapDurationSeconds,
 } from '@/lib/protocols/amrap';
 import {
-  ProtocolExerciseCombobox,
   type ProtocolExerciseOption,
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
-import { ProtocolTargetField } from '@/components/pt/protocols/ProtocolTargetField';
-import { LoadField } from '@/components/pt/LoadField';
+import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
 
 export type AmrapExerciseOption = ProtocolExerciseOption;
 
@@ -124,57 +122,30 @@ export function AmrapEditor({
       </div>
 
       {/* Lista esercizi */}
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {value.exercises.map((ex, eIdx) => (
-          <div
+          <ProtocolExerciseRow
             key={ex.id}
-            className="grid grid-cols-12 gap-1.5 items-end rounded-md border border-dashed bg-background p-1.5"
-          >
-            <div className="col-span-12 md:col-span-6 space-y-0.5">
-              <Label className="text-[10px] text-muted-foreground">Esercizio</Label>
-              <ProtocolExerciseCombobox
-                value={ex.name}
-                workoutExerciseOptions={workoutOpts}
-                favoriteExerciseOptions={favoriteExerciseOptions}
-                mineExerciseOptions={mineExerciseOptions}
-                globalExerciseOptions={globalExerciseOptions}
-                onChange={(opt) =>
-                  updateExercise(eIdx, { name: opt.name, exercise_id: opt.id })
-                }
-              />
-            </div>
-            <div className="col-span-6 md:col-span-2">
-              <ProtocolTargetField
-                value={ex}
-                label="Target"
-                onChange={(next) => updateExercise(eIdx, next)}
-              />
-            </div>
-            <div className="col-span-5 md:col-span-3">
-              <LoadField
-                compact
-                value={ex}
-                onChange={(load) => updateExercise(eIdx, load)}
-              />
-            </div>
-            <div className="col-span-1 flex justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                disabled={value.exercises.length <= 1}
-                onClick={() => removeExercise(eIdx)}
-                aria-label="Elimina esercizio"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
+            className="bg-background"
+            exerciseName={ex.name}
+            workoutExerciseOptions={workoutOpts}
+            favoriteExerciseOptions={favoriteExerciseOptions}
+            mineExerciseOptions={mineExerciseOptions}
+            globalExerciseOptions={globalExerciseOptions}
+            onExerciseChange={(opt) =>
+              updateExercise(eIdx, { name: opt.name, exercise_id: opt.id })
+            }
+            target={ex}
+            onTargetChange={(next) => updateExercise(eIdx, next)}
+            load={ex}
+            onLoadChange={(load) => updateExercise(eIdx, load)}
+            canRemove={value.exercises.length > 1}
+            onRemove={() => removeExercise(eIdx)}
+          />
         ))}
       </div>
 
-      <Button type="button" variant="outline" size="sm" className="h-8" onClick={addExercise}>
+      <Button type="button" variant="outline" size="sm" className="h-9 w-full sm:w-auto" onClick={addExercise}>
         <Plus className="h-3.5 w-3.5 mr-1" />
         Aggiungi esercizio
       </Button>
