@@ -336,8 +336,9 @@ export function PTAppAthletesPage() {
                 connection={conn}
                 type="pending"
                 processing={processingId === conn.id}
-                onAccept={() => handleAccept(conn.id)}
-                onReject={() => handleReject(conn.id)}
+                onAccept={(name) => handleAccept(conn.id, name)}
+                onReject={(name) => setRejectTarget({ id: conn.id, name })}
+
               />
             ))
           ) : (
