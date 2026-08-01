@@ -4,6 +4,7 @@ import { Progress } from '@/components/ui/progress';
 import { DashboardSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
+import { PtCoachingPausedCard } from '@/components/app/PtCoachingPausedCard';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AppHeader } from '@/components/app/AppHeader';
@@ -45,6 +46,8 @@ export function AtletaAppHome() {
     isLoading: statusLoading,
     isConnected,
     hasPendingRequest,
+    canAccessWorkouts,
+    isCoachingPaused,
   } = useAtletaStatus();
 
   // Profilo
@@ -105,7 +108,7 @@ export function AtletaAppHome() {
 
       return null;
     },
-    enabled: !!user?.id && isConnected,
+    enabled: !!user?.id && isConnected && canAccessWorkouts,
   });
 
   // Logs per calcolare progresso del workout in resume
@@ -165,7 +168,9 @@ export function AtletaAppHome() {
             {!isConnected && !hasPendingRequest ? (
               // ───────────────── NON COLLEGATO ─────────────────
               <NoConnectionState onDiscover={() => navigate('/app/discover')} />
-            ) : hasPendingRequest ? null : workoutLoading ? (
+            ) : hasPendingRequest ? null : isCoachingPaused ? (
+              <PtCoachingPausedCard ptName={ptName} />
+            ) : workoutLoading ? (
               <FocusSkeleton />
             ) : focusWorkout ? (
               // ───────── ALLENAMENTO IN CORSO / DI OGGI ─────────
