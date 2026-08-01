@@ -273,10 +273,17 @@ export function PTAppAthletesPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="p-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="p-4">
         <TabsList className="w-full">
           <TabsTrigger value="active" className="flex-1">Attivi</TabsTrigger>
-          <TabsTrigger value="pending" className="flex-1">Richieste</TabsTrigger>
+          <TabsTrigger value="pending" className="flex-1 gap-1">
+            Richieste
+            {pendingCount > 0 && (
+              <Badge variant="destructive" className="h-5 min-w-5 px-1 text-[10px]">
+                {pendingCount}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="subscriptions" className="flex-1 gap-1">
             <Package className="h-3 w-3" />
             Abbonamenti
