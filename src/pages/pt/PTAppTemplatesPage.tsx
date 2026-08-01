@@ -71,6 +71,7 @@ interface WorkoutTemplate {
   difficulty_level: string;
   category: string | null;
   estimated_duration: number | null;
+  template_role: string | null;
   created_at: string;
 }
 
@@ -137,11 +138,13 @@ export function PTAppTemplatesPage() {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('workout_templates')
-        .select('id, title, description, difficulty_level, category, estimated_duration, created_at')
+        .select('id, title, description, difficulty_level, category, estimated_duration, template_role, created_at')
         .eq('pt_user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as WorkoutTemplate[];
+      return ((data ?? []) as WorkoutTemplate[]).filter(
+        (t) => normalizeTemplateRole(t.template_role) === 'main'
+      );
     },
     enabled: !!user?.id,
   });
