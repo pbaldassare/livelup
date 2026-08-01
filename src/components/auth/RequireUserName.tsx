@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, UserCircle2 } from 'lucide-react';
+import { Loader2, UserCircle2, AlertCircle } from 'lucide-react';
 
 // =====================================================
 // REQUIRE USER NAME — Gate first_name/last_name
@@ -45,6 +45,7 @@ export function RequireUserName({ children }: Props) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -60,32 +61,46 @@ export function RequireUserName({ children }: Props) {
   const needsName = isMissing(profile?.first_name) || isMissing(profile?.last_name);
   if (!needsName) return <>{children}</>;
 
+  const canSubmit = !isMissing(firstName) && !isMissing(lastName) && !saving;
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (isMissing(firstName) || isMissing(lastName)) {
-      toast.error('Inserisci nome e cognome');
+      setFormError('Inserisci nome e cognome (almeno 2 caratteri ciascuno).');
       return;
     }
     setSaving(true);
     try {
-      // upsert (riga profilo potrebbe non esistere ancora)
-      const { error } = await supabase
-        .from('profiles')
-        .upsert(
-          {
-            user_id: user.id,
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-            email: user.email ?? null,
-          },
-          { onConflict: 'user_id' },
-        );
-      if (error) throw error;
+      const payload = {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        email: user.email ?? null,
+      };
 
-      toast.success('Profilo aggiornato');
+      // 1) prova update sulla riga esistente
+      const { data: updated, error: updateError } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('user_id', user.id)
+        .select('user_id');
+      if (updateError) throw updateError;
+
+      // 2) se nessuna riga aggiornata, la riga profilo non esiste ancora → insert
+      if (!updated || updated.length === 0) {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({ user_id: user.id, ...payload });
+        if (insertError) throw insertError;
+      }
+
       await queryClient.invalidateQueries({ queryKey: ['profile-name-check', user.id] });
+      await queryClient.fetchQuery({ queryKey: ['profile-name-check', user.id] });
+      toast.success('Profilo aggiornato');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Errore salvataggio');
+      const message = err instanceof Error ? err.message : 'Errore salvataggio';
+      setFormError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -100,7 +115,7 @@ export function RequireUserName({ children }: Props) {
           </div>
           <h2 className="text-xl font-bold text-app-foreground">Completa il profilo</h2>
           <p className="mt-1 text-sm text-app-muted-foreground">
-            Inserisci nome e cognome per continuare
+            Digita nome e cognome (minimo 2 caratteri) per continuare
           </p>
         </div>
 
@@ -112,8 +127,11 @@ export function RequireUserName({ children }: Props) {
             <Input
               id="first_name"
               value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Mario"
+              onChange={(e) => {
+                setFirstName(e.target.value);
+                setFormError(null);
+              }}
+              placeholder="Il tuo nome"
               maxLength={50}
               required
               autoFocus
@@ -127,17 +145,31 @@ export function RequireUserName({ children }: Props) {
             <Input
               id="last_name"
               value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Rossi"
+              onChange={(e) => {
+                setLastName(e.target.value);
+                setFormError(null);
+              }}
+              placeholder="Il tuo cognome"
               maxLength={50}
               required
               className="mt-1 bg-app-muted border-app-border text-app-foreground"
             />
           </div>
+
+          {formError && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
           <Button
             type="submit"
-            disabled={saving || isMissing(firstName) || isMissing(lastName)}
-            className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 font-semibold"
+            disabled={!canSubmit}
+            className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {saving ? (
               <>
@@ -148,6 +180,12 @@ export function RequireUserName({ children }: Props) {
               'Continua'
             )}
           </Button>
+
+          {!canSubmit && !saving && (
+            <p className="text-center text-xs text-app-muted-foreground">
+              Compila entrambi i campi (minimo 2 caratteri) per attivare il pulsante.
+            </p>
+          )}
         </form>
       </div>
     </div>
