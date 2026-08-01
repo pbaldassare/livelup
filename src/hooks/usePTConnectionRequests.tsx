@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import { getAthleteDisplayName } from '@/lib/athleteName';
+import { acceptConnection, rejectConnection } from '@/lib/api/connections';
 
 // =====================================================
 // HOOK: PT Connection Requests Management
@@ -83,16 +85,8 @@ export function usePTConnectionRequests() {
   // Accept request mutation
   const acceptMutation = useMutation({
     mutationFn: async (request: ConnectionRequest) => {
-      // Update connection status
-      const { error } = await supabase
-        .from('pt_atleta_connections')
-        .update({
-          status: 'active',
-          accepted_at: new Date().toISOString(),
-        })
-        .eq('id', request.id);
-
-      if (error) throw error;
+      // Attiva la connessione (logica centralizzata)
+      await acceptConnection(request.id);
 
       // Get PT name for notification
       const { data: ptProfile } = await supabase
@@ -118,14 +112,19 @@ export function usePTConnectionRequests() {
       return request;
     },
     onSuccess: (request) => {
-      const name = request.profiles
-        ? `${request.profiles.first_name || ''} ${request.profiles.last_name || ''}`.trim()
-        : 'Atleta';
+      const name = getAthleteDisplayName(
+        request.profiles?.first_name,
+        request.profiles?.last_name,
+        request.profiles?.email,
+      );
       
       toast.success(`Connessione con ${name} attivata!`);
       
       queryClient.invalidateQueries({ queryKey: ['pt-pending-requests'] });
       queryClient.invalidateQueries({ queryKey: ['pt-athletes'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-connections'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-pending-count'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-home-data'] });
       queryClient.invalidateQueries({ queryKey: ['pt-stats'] });
     },
     onError: () => {
@@ -136,12 +135,7 @@ export function usePTConnectionRequests() {
   // Reject request mutation
   const rejectMutation = useMutation({
     mutationFn: async (request: ConnectionRequest) => {
-      const { error } = await supabase
-        .from('pt_atleta_connections')
-        .update({ status: 'rifiutato' })
-        .eq('id', request.id);
-
-      if (error) throw error;
+      await rejectConnection(request.id);
 
       // Create notification for athlete
       await supabase.from('notifications').insert({
@@ -158,6 +152,10 @@ export function usePTConnectionRequests() {
     onSuccess: () => {
       toast.info('Richiesta rifiutata');
       queryClient.invalidateQueries({ queryKey: ['pt-pending-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-athletes'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-connections'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-pending-count'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-home-data'] });
     },
     onError: () => {
       toast.error('Errore durante il rifiuto');

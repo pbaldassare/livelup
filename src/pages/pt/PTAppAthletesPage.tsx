@@ -10,6 +10,17 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { getPTConnectionsWithPtActive, acceptConnection, rejectConnection } from '@/lib/api/connections';
@@ -44,18 +55,29 @@ import { cn } from '@/lib/utils';
 
 const VALID_TABS = ['active', 'pending', 'subscriptions'] as const;
 
+// Normalizza alias italiani/legacy dei tab (?tab=richieste)
+function normalizeTab(value: string | null): string | null {
+  if (!value) return null;
+  const v = value.toLowerCase();
+  if (v === 'richieste' || v === 'pending') return 'pending';
+  if (v === 'attivi' || v === 'active') return 'active';
+  if (v === 'abbonamenti' || v === 'subscriptions') return 'subscriptions';
+  return null;
+}
+
 export function PTAppAthletesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<string>(
-    tabParam && (VALID_TABS as readonly string[]).includes(tabParam) ? tabParam : 'active',
+    normalizeTab(searchParams.get('tab')) ?? 'active',
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
   const [addAthleteTab, setAddAthleteTab] = useState<'link' | 'create'>('link');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string } | null>(null);
+
 
   const modalityFilter = searchParams.get('modality');
   const activeModality: TrainingModality | 'all' = isTrainingModality(modalityFilter)
@@ -89,9 +111,10 @@ export function PTAppAthletesPage() {
   }, []);
 
   // URL -> tab
+
   useEffect(() => {
-    const t = searchParams.get('tab');
-    if (t && (VALID_TABS as readonly string[]).includes(t) && t !== activeTab) {
+    const t = normalizeTab(searchParams.get('tab'));
+    if (t && t !== activeTab) {
       setActiveTab(t);
       return;
     }
@@ -120,14 +143,16 @@ export function PTAppAthletesPage() {
       queryClient.invalidateQueries({ queryKey: ['pt-connections'] }),
       queryClient.invalidateQueries({ queryKey: ['pt-pending-count'] }),
       queryClient.invalidateQueries({ queryKey: ['pt-home-data'] }),
+      queryClient.invalidateQueries({ queryKey: ['pt-pending-requests'] }),
+      queryClient.invalidateQueries({ queryKey: ['pt-athletes'] }),
     ]);
   };
 
-  const handleAccept = async (connectionId: string) => {
+  const handleAccept = async (connectionId: string, name: string) => {
     setProcessingId(connectionId);
     try {
       await acceptConnection(connectionId);
-      toast.success('Richiesta accettata');
+      toast.success(`${name} è ora collegato al tuo profilo`);
       await refreshAfterConnectionChange();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Errore durante l\'accettazione');
@@ -136,11 +161,14 @@ export function PTAppAthletesPage() {
     }
   };
 
-  const handleReject = async (connectionId: string) => {
-    setProcessingId(connectionId);
+  const handleConfirmReject = async () => {
+    if (!rejectTarget) return;
+    const { id } = rejectTarget;
+    setRejectTarget(null);
+    setProcessingId(id);
     try {
-      await rejectConnection(connectionId);
-      toast.success('Richiesta rifiutata');
+      await rejectConnection(id);
+      toast.info('Richiesta rifiutata');
       await refreshAfterConnectionChange();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Errore durante il rifiuto');
@@ -148,6 +176,7 @@ export function PTAppAthletesPage() {
       setProcessingId(null);
     }
   };
+
 
   // Fetch connections
   const { data: connections, isLoading } = useQuery({
@@ -318,8 +347,9 @@ export function PTAppAthletesPage() {
                 connection={conn}
                 type="pending"
                 processing={processingId === conn.id}
-                onAccept={() => handleAccept(conn.id)}
-                onReject={() => handleReject(conn.id)}
+                onAccept={(name) => handleAccept(conn.id, name)}
+                onReject={(name) => setRejectTarget({ id: conn.id, name })}
+
               />
             ))
           ) : (
@@ -337,6 +367,31 @@ export function PTAppAthletesPage() {
         onOpenChange={setAddAthleteOpen}
         defaultTab={addAthleteTab}
       />
+
+      <AlertDialog
+        open={!!rejectTarget}
+        onOpenChange={(open) => {
+          if (!open) setRejectTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rifiutare questa richiesta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La richiesta scomparirà e non verrà più mostrata. L'atleta non sarà collegato al tuo profilo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleConfirmReject}
+            >
+              Rifiuta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -351,13 +406,71 @@ function AthleteCard({
   connection: any;
   type: 'active' | 'pending';
   processing?: boolean;
-  onAccept?: () => void;
-  onReject?: () => void;
+  onAccept?: (name: string) => void;
+  onReject?: (name: string) => void;
 }) {
+
   const p = connection.profiles;
   const name = getAthleteDisplayName(p?.first_name, p?.last_name, p?.email);
   const initials = getAthleteInitials(p?.first_name, p?.last_name, p?.email);
+  const email = p?.email?.trim() || null;
   const isPtActive = connection.is_pt_active !== false;
+
+  // Card richieste: nessuna navigazione chevron, azioni dirette sulla card
+  if (type === 'pending') {
+    return (
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-12 w-12">
+              <AvatarImage src={p?.avatar_url || undefined} />
+              <AvatarFallback>{initials || 'A'}</AvatarFallback>
+            </Avatar>
+
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold truncate">{name}</h3>
+              {email && email !== name && (
+                <p className="text-xs text-muted-foreground truncate">{email}</p>
+              )}
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <Badge variant="secondary" className="text-xs">
+                  <Clock className="h-3 w-3 mr-1" />
+                  In attesa
+                </Badge>
+                {connection.atleta_profiles?.fitness_level && (
+                  <Badge variant="outline" className="text-xs capitalize">
+                    {connection.atleta_profiles.fitness_level}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-3">
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={processing}
+              onClick={() => onAccept?.(name)}
+            >
+              <Check className="h-4 w-4 mr-1" />
+              Accetta
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+              disabled={processing}
+              onClick={() => onReject?.(name)}
+            >
+              <X className="h-4 w-4 mr-1" />
+              Rifiuta
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Link to={`/pt/app/athlete/${connection.atleta_user_id}`}>
@@ -365,101 +478,58 @@ function AthleteCard({
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12">
-              <AvatarImage src={connection.profiles?.avatar_url || undefined} />
+              <AvatarImage src={p?.avatar_url || undefined} />
               <AvatarFallback>{initials || 'A'}</AvatarFallback>
             </Avatar>
-            
+
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold truncate">{name}</h3>
                 <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
               </div>
-              
+
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {type === 'active' && (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'text-xs',
-                      isPtActive
-                        ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                        : 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-                    )}
-                  >
-                    {isPtActive ? 'Attivo' : 'Disattivo'}
-                  </Badge>
-                )}
-                {type === 'active' && (
-                  <TrainingModalityBadge modality={connection.training_modality} />
-                )}
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-xs',
+                    isPtActive
+                      ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                      : 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+                  )}
+                >
+                  {isPtActive ? 'Attivo' : 'Disattivo'}
+                </Badge>
+                <TrainingModalityBadge modality={connection.training_modality} />
                 {connection.atleta_profiles?.fitness_level && (
                   <Badge variant="outline" className="text-xs capitalize">
                     {connection.atleta_profiles.fitness_level}
                   </Badge>
                 )}
-                {type === 'pending' && (
-                  <Badge variant="secondary" className="text-xs">
-                    <Clock className="h-3 w-3 mr-1" />
-                    In attesa
-                  </Badge>
-                )}
               </div>
             </div>
           </div>
-          
-          {type === 'active' && (
-            <div className="flex gap-2 mt-3">
-              <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link to={`/pt/app/chat/${connection.atleta_user_id}`} onClick={(e) => e.stopPropagation()}>
-                  <MessageSquare className="h-4 w-4 mr-1" />
-                  Chat
-                </Link>
-              </Button>
-              <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link to={`/pt/app/athlete/${connection.atleta_user_id}/workouts`} onClick={(e) => e.stopPropagation()}>
-                  <Dumbbell className="h-4 w-4 mr-1" />
-                  Schede
-                </Link>
-              </Button>
-            </div>
-          )}
 
-          {type === 'pending' && (onAccept || onReject) && (
-            <div className="flex gap-2 mt-3">
-              <Button
-                size="sm"
-                className="flex-1"
-                disabled={processing}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onAccept?.();
-                }}
-              >
-                <Check className="h-4 w-4 mr-1" />
-                Accetta
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1"
-                disabled={processing}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onReject?.();
-                }}
-              >
-                <X className="h-4 w-4 mr-1" />
-                Rifiuta
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-2 mt-3">
+            <Button variant="outline" size="sm" className="flex-1" asChild>
+              <Link to={`/pt/app/chat/${connection.atleta_user_id}`} onClick={(e) => e.stopPropagation()}>
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Chat
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1" asChild>
+              <Link to={`/pt/app/athlete/${connection.atleta_user_id}/workouts`} onClick={(e) => e.stopPropagation()}>
+                <Dumbbell className="h-4 w-4 mr-1" />
+                Schede
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </Link>
   );
 }
+
 
 function EmptyState({
   type,
