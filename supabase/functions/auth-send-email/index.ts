@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
         redirect_to?: string
         email_action_type?: string
         site_url?: string
-􀀀      }
+}
     }
 
     const email = payload.user?.email
