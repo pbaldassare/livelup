@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { getPTConnectionsWithPtActive } from '@/lib/api/connections';
+import { getPTConnectionsWithPtActive, acceptConnection, rejectConnection } from '@/lib/api/connections';
 import { AthleteSubscriptionsTab } from '@/components/pt/AthleteSubscriptionsTab';
 import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
