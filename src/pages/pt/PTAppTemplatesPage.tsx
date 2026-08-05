@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 import { AssignWorkoutDialog } from '@/components/pt/AssignWorkoutDialog';
+import { WarmupCooldownTab } from '@/components/pt/WarmupCooldownTab';
 import { normalizeTemplateRole } from '@/lib/pt/templateRoles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,7 @@ import { MultiSelectSearch } from '@/components/common/MultiSelectSearch';
 import {
   ChevronRight,
   FileText,
+  Flame,
   Library,
   MoreVertical,
   Plus,
@@ -93,7 +95,7 @@ function HubTile({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex flex-col items-start gap-2 p-4 rounded-2xl border text-left active:scale-[0.98] transition-transform',
+        'flex flex-col items-start gap-1.5 p-3 rounded-2xl border text-left active:scale-[0.98] transition-transform min-h-[6.5rem]',
         accent
           ? 'border-app-accent/40 bg-app-accent/10'
           : 'border-app-border bg-app-card'
@@ -101,15 +103,15 @@ function HubTile({
     >
       <div
         className={cn(
-          'h-10 w-10 rounded-xl flex items-center justify-center shrink-0',
+          'h-9 w-9 rounded-xl flex items-center justify-center shrink-0',
           accent ? 'bg-app-accent/20' : 'bg-app-muted'
         )}
       >
-        <Icon className={cn('h-5 w-5', accent ? 'text-app-accent' : 'text-app-foreground')} />
+        <Icon className={cn('h-4 w-4', accent ? 'text-app-accent' : 'text-app-foreground')} />
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-app-foreground leading-tight">{title}</p>
-        <p className="text-xs text-app-muted-foreground mt-0.5">{subtitle}</p>
+        <p className="text-[12px] font-semibold text-app-foreground leading-snug">{title}</p>
+        <p className="text-[10px] text-app-muted-foreground mt-0.5 leading-snug">{subtitle}</p>
       </div>
     </button>
   );
@@ -122,6 +124,7 @@ export function PTAppTemplatesPage() {
   const { routes } = usePTRoutes(true);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [hubView, setHubView] = useState<'schede' | 'routines'>('schede');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -231,14 +234,17 @@ export function PTAppTemplatesPage() {
       description="Componi schede e assegna ai tuoi atleti"
     >
       <div className="space-y-5" data-tour="pt-workouts-page">
-        {/* Hub azioni principali */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Hub azioni — 3 card */}
+        <div className="grid grid-cols-3 gap-2.5">
           <HubTile
             icon={FileText}
             title="Comporre schede"
             subtitle="Crea e modifica"
-            accent
-            onClick={() => setIsCreateOpen(true)}
+            accent={hubView === 'schede'}
+            onClick={() => {
+              setHubView('schede');
+              setIsCreateOpen(true);
+            }}
           />
           <HubTile
             icon={Library}
@@ -246,9 +252,18 @@ export function PTAppTemplatesPage() {
             subtitle="Cerca e modifica"
             onClick={() => navigate(routes.exercises)}
           />
+          <HubTile
+            icon={Flame}
+            title="Riscaldamento / Stretching"
+            subtitle="Crea e collega"
+            accent={hubView === 'routines'}
+            onClick={() => setHubView('routines')}
+          />
         </div>
 
-        {/* Lista schede */}
+        {hubView === 'routines' ? (
+          <WarmupCooldownTab embedded />
+        ) : (
         <section aria-labelledby="templates-list-title">
           <div className="flex items-center justify-between mb-2.5">
             <h2
@@ -395,6 +410,7 @@ export function PTAppTemplatesPage() {
             </div>
           )}
         </section>
+        )}
       </div>
 
       {/* Crea scheda */}

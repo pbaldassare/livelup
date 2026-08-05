@@ -258,7 +258,7 @@ export type WorkoutSessionSummary = {
 export async function computeWorkoutSessionSummaryFromLogs(
   workoutId: string,
 ): Promise<Pick<WorkoutSessionSummary, 'setsCompleted' | 'repsTotal' | 'volumeKg'>> {
-  // Solo fase main: riscaldamento/defaticamento sono extra fuori riepilogo
+  // Solo fase main: riscaldamento/stretching sono extra fuori riepilogo
   let exercises: Array<{ id: string; phase?: string | null }> | null = null;
   {
     const withPhase = await supabase

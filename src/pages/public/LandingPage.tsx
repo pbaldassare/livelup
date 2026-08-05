@@ -50,7 +50,7 @@ const features = [
   {
     icon: Dumbbell,
     title: 'Schede e programmi',
-    description: 'Template, assegnazioni multi-settimana, riscaldamento e defaticamento.',
+    description: 'Template, assegnazioni multi-settimana, riscaldamento e stretching.',
   },
   {
     icon: Layers,

@@ -77,7 +77,7 @@ export function TemplateRoutineLinks({
 
   return (
     <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
-      <p className="text-xs font-medium text-foreground">Riscaldamento e defaticamento</p>
+      <p className="text-xs font-medium text-foreground">Riscaldamento e stretching</p>
       <p className="text-[11px] text-muted-foreground leading-snug">
         Opzionali e saltabili dall&apos;atleta. Non contano nel riepilogo sessione.
       </p>
@@ -115,7 +115,7 @@ export function TemplateRoutineLinks({
             <SelectContent>
               {warmups.length === 0 ? (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  Nessun template — crealo nel tab Riscald./Defatic.
+                  Nessun template — crealo nel tab Riscald./Stretching.
                 </div>
               ) : (
                 warmups.map((r: any) => (
@@ -133,7 +133,7 @@ export function TemplateRoutineLinks({
         <div className="flex items-center justify-between gap-2">
           <Label className="text-xs flex items-center gap-1.5">
             <Snowflake className="h-3.5 w-3.5 text-sky-500" />
-            Includi defaticamento
+            Includi stretching
           </Label>
           <Switch
             checked={includeCooldown}
@@ -162,7 +162,7 @@ export function TemplateRoutineLinks({
             <SelectContent>
               {cooldowns.length === 0 ? (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  Nessun template — crealo nel tab Riscald./Defatic.
+                  Nessun template — crealo nel tab Riscald./Stretching.
                 </div>
               ) : (
                 cooldowns.map((r: any) => (

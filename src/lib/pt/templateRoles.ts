@@ -1,5 +1,6 @@
 // =====================================================
-// Ruolo template: scheda principale vs riscaldamento / defaticamento
+// Ruolo template: scheda principale vs riscaldamento / stretching
+// (DB: cooldown — UI label: Stretching)
 // =====================================================
 
 export const TEMPLATE_ROLES = ['main', 'warmup', 'cooldown'] as const;
@@ -13,13 +14,13 @@ export type WorkoutPhase = (typeof WORKOUT_PHASES)[number];
 export const TEMPLATE_ROLE_LABEL: Record<TemplateRole, string> = {
   main: 'Scheda',
   warmup: 'Riscaldamento',
-  cooldown: 'Defaticamento',
+  cooldown: 'Stretching',
 };
 
 export const WORKOUT_PHASE_LABEL: Record<WorkoutPhase, string> = {
   warmup: 'Riscaldamento',
   main: 'Allenamento',
-  cooldown: 'Defaticamento',
+  cooldown: 'Stretching',
 };
 
 export function isTemplateRole(value: unknown): value is TemplateRole {

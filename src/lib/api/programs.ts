@@ -471,7 +471,7 @@ async function generateRotationWorkouts(params: {
       continue;
     }
 
-    // Carica blocchi + esercizi (+ riscaldamento/defaticamento se collegati)
+    // Carica blocchi + esercizi (+ riscaldamento/stretching se collegati)
     const { blocks, exercises } = await loadTemplateWithRoutinesForWorkoutCreate(sch.template_id);
 
     const scheduledISO = new Date(date);

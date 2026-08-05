@@ -196,7 +196,7 @@ export function AssignWorkoutDialog({
 
       if (error) throw error;
 
-      // Solo schede principali (escludi template riscaldamento/defaticamento)
+      // Solo schede principali (escludi template riscaldamento/stretching)
       return (data || [])
         .filter((t: any) => !t.template_role || t.template_role === 'main')
         .map((t: any) => ({

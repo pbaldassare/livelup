@@ -1,7 +1,7 @@
 // =====================================================
 // Helper: legge blocchi + esercizi di un template e li converte
 // nel formato accettato da createWorkout (con blockTempId).
-// Supporta anche snapshot riscaldamento / defaticamento.
+// Supporta anche snapshot riscaldamento / stretching.
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';

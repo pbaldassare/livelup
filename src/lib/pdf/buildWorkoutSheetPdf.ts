@@ -79,7 +79,7 @@ function drawHeader(doc: jsPDF, dto: WorkoutSheetDto): number {
   if (dto.kindLabel) meta.push(`Tipologia: ${dto.kindLabel}`);
   if (dto.levelLabel) meta.push(`Livello: ${dto.levelLabel}`);
   if (dto.includeWarmup) meta.push('Riscaldamento collegato');
-  if (dto.includeCooldown) meta.push('Defaticamento collegato');
+  if (dto.includeCooldown) meta.push('Stretching collegato');
 
   if (meta.length) {
     const metaText = doc.splitTextToSize(meta.join('  ·  '), pageWidth - 28);

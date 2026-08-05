@@ -203,7 +203,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      // Solo schede principali (riscaldamento/defaticamento hanno tab dedicata)
+      // Solo schede principali (riscaldamento/stretching hanno tab dedicata)
       return (data as WorkoutTemplate[]).filter(
         (t: any) => !t.template_role || t.template_role === 'main',
       );
@@ -1026,7 +1026,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
               </TabsTrigger>
               <TabsTrigger value="routines" className="gap-2">
                 <Flame className="h-4 w-4" />
-                Riscald. / Defatic.
+                Riscald. / Stretching.
               </TabsTrigger>
               <TabsTrigger value="protocols" className="gap-2">
                 <Sliders className="h-4 w-4" />

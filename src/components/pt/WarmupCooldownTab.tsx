@@ -23,6 +23,7 @@ import { Flame, Snowflake, Plus, Trash2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import type { TemplateRole } from '@/lib/pt/templateRoles';
 import { TEMPLATE_ROLE_LABEL } from '@/lib/pt/templateRoles';
+import { cn } from '@/lib/utils';
 
 type RoutineRow = {
   id: string;
@@ -32,9 +33,15 @@ type RoutineRow = {
   exerciseCount: number;
 };
 
-export function WarmupCooldownTab() {
+interface WarmupCooldownTabProps {
+  /** true = token app (PWA PT) */
+  embedded?: boolean;
+  className?: string;
+}
+
+export function WarmupCooldownTab({ embedded = false, className }: WarmupCooldownTabProps) {
   const { user } = useAuth();
-  const { routes } = usePTRoutes();
+  const { routes } = usePTRoutes(embedded);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [subTab, setSubTab] = useState<'warmup' | 'cooldown'>('warmup');
@@ -97,7 +104,7 @@ export function WarmupCooldownTab() {
         template_id: data.id,
         order_index: 0,
         type: 'SET',
-        name: createRole === 'warmup' ? 'Riscaldamento' : 'Defaticamento',
+        name: TEMPLATE_ROLE_LABEL[createRole],
         params: { sets: 1, reps: 10, rest_seconds: 30 } as any,
       });
 
@@ -145,51 +152,83 @@ export function WarmupCooldownTab() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-        Crea template di <strong>riscaldamento</strong> e <strong>defaticamento</strong> con uno o
+    <div className={cn('space-y-4', className)}>
+      <div
+        className={cn(
+          'rounded-lg border p-4 text-sm',
+          embedded
+            ? 'border-app-border bg-app-muted/40 text-app-muted-foreground'
+            : 'bg-muted/30 text-muted-foreground',
+        )}
+      >
+        Crea template di <strong>riscaldamento</strong> e <strong>stretching</strong> con uno o
         più esercizi. Poi, sulla scheda principale, attivali con un flag per allegarli
         all&apos;allenamento. L&apos;atleta può saltarli; non contano nel riepilogo sessione.
       </div>
 
       <Tabs value={subTab} onValueChange={(v) => setSubTab(v as 'warmup' | 'cooldown')}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <TabsList>
+          <TabsList
+            className={cn(
+              embedded && 'bg-app-muted border border-app-border',
+            )}
+          >
             <TabsTrigger value="warmup" className="gap-2">
               <Flame className="h-4 w-4" />
               Riscaldamento
             </TabsTrigger>
             <TabsTrigger value="cooldown" className="gap-2">
               <Snowflake className="h-4 w-4" />
-              Defaticamento
+              Stretching
             </TabsTrigger>
           </TabsList>
           <Button
             size="sm"
             onClick={() => openCreate(subTab)}
-            className="gap-1.5"
+            className={cn(
+              'gap-1.5',
+              embedded && 'bg-app-accent text-app-accent-foreground hover:bg-app-accent/90',
+            )}
           >
             <Plus className="h-4 w-4" />
-            Nuovo {subTab === 'warmup' ? 'riscaldamento' : 'defaticamento'}
+            Nuovo {TEMPLATE_ROLE_LABEL[subTab].toLowerCase()}
           </Button>
         </div>
 
         {(['warmup', 'cooldown'] as const).map((role) => (
           <TabsContent key={role} value={role} className="mt-4 space-y-3">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Caricamento…</p>
+              <p
+                className={cn(
+                  'text-sm',
+                  embedded ? 'text-app-muted-foreground' : 'text-muted-foreground',
+                )}
+              >
+                Caricamento…
+              </p>
             ) : filtered.length === 0 && subTab === role ? (
-              <Card className="border-dashed">
+              <Card
+                className={cn(
+                  'border-dashed',
+                  embedded && 'border-app-border bg-app-card',
+                )}
+              >
                 <CardHeader>
-                  <CardTitle className="text-base">
+                  <CardTitle
+                    className={cn('text-base', embedded && 'text-app-foreground')}
+                  >
                     Nessun template di {TEMPLATE_ROLE_LABEL[role].toLowerCase()}
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className={embedded ? 'text-app-muted-foreground' : undefined}>
                     Creane uno e aggiungi gli esercizi. Potrai richiamarlo dalle schede.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button variant="outline" onClick={() => openCreate(role)} className="gap-1.5">
+                  <Button
+                    variant="outline"
+                    onClick={() => openCreate(role)}
+                    className={cn('gap-1.5', embedded && 'border-app-border')}
+                  >
                     <Plus className="h-4 w-4" />
                     Crea {TEMPLATE_ROLE_LABEL[role].toLowerCase()}
                   </Button>
@@ -200,19 +239,34 @@ export function WarmupCooldownTab() {
               filtered.map((r) => (
                 <Card
                   key={r.id}
-                  className="cursor-pointer transition-colors hover:border-primary/40"
+                  className={cn(
+                    'cursor-pointer transition-colors hover:border-primary/40',
+                    embedded && 'border-app-border bg-app-card hover:border-app-accent/40',
+                  )}
                   onClick={() => navigate(routes.template(r.id))}
                 >
                   <CardContent className="flex items-center justify-between gap-3 py-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium truncate">{r.title}</p>
+                        <p
+                          className={cn(
+                            'font-medium truncate',
+                            embedded && 'text-app-foreground',
+                          )}
+                        >
+                          {r.title}
+                        </p>
                         <Badge variant="secondary" className="shrink-0">
                           {r.exerciseCount} es.
                         </Badge>
                       </div>
                       {r.description && (
-                        <p className="text-sm text-muted-foreground truncate mt-0.5">
+                        <p
+                          className={cn(
+                            'text-sm truncate mt-0.5',
+                            embedded ? 'text-app-muted-foreground' : 'text-muted-foreground',
+                          )}
+                        >
                           {r.description}
                         </p>
                       )}
