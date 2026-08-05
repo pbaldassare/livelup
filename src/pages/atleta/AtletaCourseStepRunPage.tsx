@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle2, ChevronRight, Loader2, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ExerciseVideoPlayer } from '@/components/app/ExerciseVideoPlayer';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import {
@@ -264,6 +265,7 @@ export function AtletaCourseStepRunPage() {
 
   const name = current?.exercises?.name || 'Esercizio';
   const imageUrl = current?.exercises?.image_url;
+  const videoUrl = current?.exercises?.video_url;
   const isResting = restLeft != null && restLeft > 0;
   const nextName = nextExercise?.exercises?.name;
 
@@ -321,13 +323,16 @@ export function AtletaCourseStepRunPage() {
         </div>
       ) : (
         <div className="rounded-xl border border-app-border bg-app-card overflow-hidden">
-          {imageUrl ? (
-            <img src={imageUrl} alt="" className="w-full h-44 object-cover" />
-          ) : (
-            <div className="w-full h-32 bg-app-muted/50 flex items-center justify-center">
-              <span className="text-4xl font-bold text-app-accent/40">{exerciseIndex + 1}</span>
-            </div>
-          )}
+          <ExerciseVideoPlayer
+            key={`course-vid-${current?.id ?? exerciseIndex}`}
+            videoUrl={videoUrl}
+            imageUrl={imageUrl}
+            exerciseName={name}
+            setNumber={currentSet}
+            totalSets={setsTotal}
+            variant="compact"
+            showTitle={false}
+          />
 
           <div className="p-4 space-y-4">
             <div>

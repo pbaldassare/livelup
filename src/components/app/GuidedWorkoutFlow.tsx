@@ -11,7 +11,6 @@ import {
   Plus,
   Minus,
   Timer as TimerIcon,
-  Dumbbell,
   PartyPopper,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -29,6 +28,7 @@ import {
   PROTOCOL_TRANSITION_REST_SECONDS,
 } from '@/lib/workout/nextExercise';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
+import { ExerciseVideoPlayer } from '@/components/app/ExerciseVideoPlayer';
 import { WorkoutProgressBar } from '@/components/app/WorkoutProgressBar';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
 import { logExerciseSet } from '@/lib/api/workouts';
@@ -872,11 +872,20 @@ export function GuidedWorkoutFlow({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="absolute inset-0 flex flex-col items-center justify-center px-6 py-8 text-center"
+              className="absolute inset-0 flex flex-col overflow-y-auto"
             >
-              <div className="w-16 h-16 rounded-2xl bg-app-accent/10 flex items-center justify-center mb-4">
-                <Dumbbell className="h-8 w-8 text-app-accent" />
-              </div>
+              <ExerciseVideoPlayer
+                key={`vid-${currentExercise.id}`}
+                videoUrl={currentMeta.video_url}
+                imageUrl={currentMeta.image_url}
+                exerciseName={currentMeta.name}
+                setNumber={state.setNumber}
+                totalSets={totalSetsForCurrent}
+                variant="compact"
+                showTitle={false}
+                className="shrink-0 border-b border-app-border"
+              />
+              <div className="flex flex-1 flex-col items-center px-6 py-5 text-center">
               <ExerciseHeader
                 name={currentMeta.name}
                 protocolType={currentExercise.protocol_type ?? 'standard'}
@@ -927,6 +936,7 @@ export function GuidedWorkoutFlow({
                 <Play className="h-5 w-5 mr-2" />
                 Inizia serie
               </Button>
+              </div>
             </motion.div>
           )}
 
@@ -936,8 +946,20 @@ export function GuidedWorkoutFlow({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="absolute inset-0 flex flex-col items-center justify-center px-6 py-8"
+              className="absolute inset-0 flex flex-col overflow-y-auto"
             >
+              <ExerciseVideoPlayer
+                key={`vid-${currentExercise.id}`}
+                videoUrl={currentMeta.video_url}
+                imageUrl={currentMeta.image_url}
+                exerciseName={currentMeta.name}
+                setNumber={state.setNumber}
+                totalSets={totalSetsForCurrent}
+                variant="compact"
+                showTitle={false}
+                className="shrink-0 border-b border-app-border"
+              />
+              <div className="flex flex-1 flex-col items-center px-6 py-5">
               <ExerciseHeader
                 name={currentMeta.name}
                 protocolType={currentExercise.protocol_type ?? 'standard'}
@@ -947,7 +969,7 @@ export function GuidedWorkoutFlow({
                 align="center"
                 className="mb-2"
               />
-              <p className="text-sm text-app-muted-foreground mb-8 text-center mt-2">
+              <p className="text-sm text-app-muted-foreground mb-6 text-center mt-2">
                 Serie {state.setNumber} • inserisci i risultati
                 {fullCompletion && !currentTimedSet && (
                   <span className="block text-xs text-app-accent mt-1">
@@ -995,6 +1017,7 @@ export function GuidedWorkoutFlow({
                 <Check className="h-5 w-5 mr-2" />
                 {saveSet.isPending ? 'Salvataggio…' : 'Completa serie'}
               </Button>
+              </div>
             </motion.div>
           )}
 

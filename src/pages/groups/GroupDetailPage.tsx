@@ -9,17 +9,27 @@ import {
   leaveGroup,
   getGroupInviteUrl,
 } from '@/lib/api/groups';
-import { GroupChatPanel } from '@/components/groups/GroupChatPanel';
+import { GroupChannelPanel } from '@/components/groups/GroupChatPanel';
 import { GroupMembersPanel } from '@/components/groups/GroupMembersPanel';
+import { GroupAnnouncementsDialog } from '@/components/groups/GroupAnnouncementsDialog';
 import { OfficialBadge } from '@/components/groups/OfficialBadge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   ChevronLeft,
   MapPin,
   Users,
   MessageCircle,
+  Megaphone,
+  Shield,
   Link2,
   LogOut,
   UserPlus,
@@ -31,6 +41,16 @@ import { toast } from 'sonner';
 import { ListSkeleton } from '@/components/skeletons';
 import { formatGroupLocation } from '@/lib/groups/location';
 import { FollowStarButton } from '@/components/app/FollowStarButton';
+import { cn } from '@/lib/utils';
+
+type GroupDetailTab = 'chat-group' | 'chat-admin';
+
+function normalizeTab(raw: string | null, isAdmin: boolean): GroupDetailTab {
+  if (raw === 'chat-admin' || raw === 'admins') {
+    return isAdmin ? 'chat-admin' : 'chat-group';
+  }
+  return 'chat-group';
+}
 
 interface GroupDetailPageProps {
   basePath: string;
@@ -44,13 +64,35 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
   const queryClient = useQueryClient();
   const isAtletaSurface = basePath.startsWith('/app');
   const tabFromUrl = searchParams.get('tab');
-  const [tab, setTab] = useState(tabFromUrl === 'members' ? 'members' : 'chat');
+  const [tab, setTab] = useState<GroupDetailTab>(
+    normalizeTab(tabFromUrl, false),
+  );
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [announcementsOpen, setAnnouncementsOpen] = useState(false);
 
   useEffect(() => {
-    if (tabFromUrl === 'members' || tabFromUrl === 'chat') {
-      setTab(tabFromUrl);
+    if (!tabFromUrl) return;
+    if (tabFromUrl === 'members') {
+      setMembersOpen(true);
+      setTab('chat-group');
+      setSearchParams({}, { replace: true });
+      return;
     }
-  }, [tabFromUrl]);
+    if (tabFromUrl === 'announcements') {
+      setAnnouncementsOpen(true);
+      setTab('chat-group');
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    if (
+      tabFromUrl === 'chat-group' ||
+      tabFromUrl === 'chat-admin' ||
+      tabFromUrl === 'chat' ||
+      tabFromUrl === 'admins'
+    ) {
+      setTab(normalizeTab(tabFromUrl, true));
+    }
+  }, [tabFromUrl, setSearchParams]);
 
   const { data: group, isLoading } = useQuery({
     queryKey: ['group', groupId, user?.id],
@@ -108,11 +150,6 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
     toast.success('Link copiato negli appunti');
   };
 
-  const onTabChange = (value: string) => {
-    setTab(value);
-    setSearchParams(value === 'chat' ? {} : { tab: value }, { replace: true });
-  };
-
   if (isLoading) {
     return (
       <div className="p-4">
@@ -134,9 +171,26 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
   const location = formatGroupLocation(group);
   const publicMembersOnly = !canUseChat && canViewMembers;
 
-  // Non-members on public groups: default to members tab if chat unavailable
-  const effectiveTab =
-    !canUseChat && tab === 'chat' && canViewMembers ? 'members' : tab;
+  const onTabChange = (value: string) => {
+    const next = normalizeTab(value, isAdmin);
+    setTab(next);
+    setSearchParams(next === 'chat-group' ? {} : { tab: next }, { replace: true });
+  };
+
+  let effectiveTab: GroupDetailTab = normalizeTab(tab, isAdmin);
+  if (effectiveTab === 'chat-admin' && !isAdmin) {
+    effectiveTab = 'chat-group';
+  }
+
+  const tabCols = isAdmin ? 'grid-cols-2' : 'grid-cols-1';
+  const openMembers = () => {
+    if (!canViewMembers) return;
+    setMembersOpen(true);
+  };
+  const openAnnouncements = () => {
+    if (!canUseChat) return;
+    setAnnouncementsOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-app-background pb-24">
@@ -203,19 +257,11 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
             <p className="text-sm text-app-muted-foreground">{group.description}</p>
           )}
 
-          <button
-            type="button"
-            className="text-xs text-app-muted-foreground flex items-center gap-1 hover:text-app-accent transition-colors"
-            onClick={() => canViewMembers && onTabChange('members')}
-            disabled={!canViewMembers}
-          >
+          <p className="text-xs text-app-muted-foreground flex items-center gap-1">
             <Users className="h-3 w-3" />
             {group.members_count}{' '}
             {group.members_count === 1 ? 'membro' : 'membri'}
-            {canViewMembers && (
-              <span className="text-app-accent ml-1">· Vedi lista</span>
-            )}
-          </button>
+          </p>
 
           <div className="flex flex-wrap gap-2 pt-1">
             {!group.is_member && !group.is_coach_access && (
@@ -253,86 +299,75 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
                 Modifica
               </Button>
             )}
+            {canViewMembers && (
+              <Button variant="outline" onClick={openMembers}>
+                <Users className="h-4 w-4 mr-1" />
+                Membri
+              </Button>
+            )}
+            {canUseChat && (
+              <Button variant="outline" onClick={openAnnouncements}>
+                <Megaphone className="h-4 w-4 mr-1" />
+                Annunci
+              </Button>
+            )}
           </div>
         </div>
 
         {canUseChat ? (
           <Tabs value={effectiveTab} onValueChange={onTabChange}>
-            <TabsList className="w-full grid grid-cols-2 bg-app-muted border border-app-border p-1">
+            <TabsList
+              className={cn(
+                'w-full grid bg-app-muted border border-app-border p-1 h-auto',
+                tabCols,
+              )}
+            >
               <TabsTrigger
-                value="chat"
-                className="gap-1 data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
+                value="chat-group"
+                className="gap-1 flex-col sm:flex-row py-2 text-[10px] sm:text-xs data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
               >
-                <MessageCircle className="h-4 w-4" />
-                Chat
+                <MessageCircle className="h-4 w-4 shrink-0" />
+                <span className="leading-tight text-center">Chat Gruppo</span>
               </TabsTrigger>
-              <TabsTrigger
-                value="members"
-                className="gap-1 data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
-              >
-                <Users className="h-4 w-4" />
-                Membri
-              </TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger
+                  value="chat-admin"
+                  className="gap-1 flex-col sm:flex-row py-2 text-[10px] sm:text-xs data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
+                >
+                  <Shield className="h-4 w-4 shrink-0" />
+                  <span className="leading-tight text-center">Chat Admin</span>
+                </TabsTrigger>
+              )}
             </TabsList>
-            <TabsContent value="chat">
+
+            <TabsContent value="chat-group">
               {user?.id ? (
-                <GroupChatPanel
+                <GroupChannelPanel
                   groupId={group.id}
                   userId={user.id}
+                  channel="general"
                   myRole={group.my_role}
                 />
               ) : null}
             </TabsContent>
-            <TabsContent value="members">
-              {membersError ? (
-                <div className="py-6 text-center space-y-2">
-                  <p className="text-sm text-app-muted-foreground">
-                    Impossibile caricare i membri del gruppo.
-                  </p>
-                  <Button variant="outline" size="sm" onClick={() => refetchMembers()}>
-                    Riprova
-                  </Button>
-                </div>
-              ) : (
-                <GroupMembersPanel
-                  groupId={group.id}
-                  members={members}
-                  myRole={group.my_role}
-                  currentUserId={user?.id}
-                  isLoading={membersLoading}
-                />
-              )}
-            </TabsContent>
-          </Tabs>
-        ) : canViewMembers ? (
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-app-foreground flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Membri
-            </h2>
-            {membersError ? (
-              <div className="py-6 text-center space-y-2">
-                <p className="text-sm text-app-muted-foreground">
-                  Impossibile caricare i membri del gruppo.
-                </p>
-                <Button variant="outline" size="sm" onClick={() => refetchMembers()}>
-                  Riprova
-                </Button>
-              </div>
-            ) : (
-              <GroupMembersPanel
-                groupId={group.id}
-                members={members}
-                myRole={null}
-                currentUserId={user?.id}
-                publicView
-                isLoading={membersLoading}
-              />
+            {isAdmin && (
+              <TabsContent value="chat-admin">
+                {user?.id ? (
+                  <GroupChannelPanel
+                    groupId={group.id}
+                    userId={user.id}
+                    channel="admins"
+                    myRole={group.my_role}
+                  />
+                ) : null}
+              </TabsContent>
             )}
-          </div>
+          </Tabs>
         ) : (
           <p className="text-sm text-center text-app-muted-foreground py-6">
-            Unisciti al gruppo per accedere alla chat e ai membri
+            {canViewMembers
+              ? 'La chat è riservata agli iscritti. Puoi vedere i membri dal pulsante sopra.'
+              : 'Unisciti al gruppo per accedere alla chat e ai membri'}
           </p>
         )}
 
@@ -342,6 +377,47 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
           </p>
         )}
       </div>
+
+      <Dialog open={membersOpen} onOpenChange={setMembersOpen}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto bg-app-card border-app-border">
+          <DialogHeader>
+            <DialogTitle className="text-app-foreground">Membri del gruppo</DialogTitle>
+            <DialogDescription className="text-app-muted-foreground">
+              {group.members_count}{' '}
+              {group.members_count === 1 ? 'membro' : 'membri'}
+            </DialogDescription>
+          </DialogHeader>
+          {membersError ? (
+            <div className="py-4 text-center space-y-2">
+              <p className="text-sm text-app-muted-foreground">
+                Impossibile caricare i membri del gruppo.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => refetchMembers()}>
+                Riprova
+              </Button>
+            </div>
+          ) : (
+            <GroupMembersPanel
+              groupId={group.id}
+              members={members}
+              myRole={canUseChat ? group.my_role : null}
+              currentUserId={user?.id}
+              publicView={!canUseChat}
+              isLoading={membersLoading}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {user?.id && (
+        <GroupAnnouncementsDialog
+          open={announcementsOpen}
+          onOpenChange={setAnnouncementsOpen}
+          groupId={group.id}
+          userId={user.id}
+          myRole={group.my_role}
+        />
+      )}
     </div>
   );
 }

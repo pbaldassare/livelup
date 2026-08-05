@@ -21,6 +21,7 @@ import {
   resolveSetsData,
 } from '@/lib/setsData';
 import { formatLoadLabel, getLoadMode } from '@/lib/loadPrescription';
+import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 import { AtletaEmomSummary } from '@/components/app/AtletaEmomSummary';
 
 // =====================================================
@@ -137,10 +138,11 @@ export function AtletaExerciseDetailSheet({
   const ex = exercise.exercises;
   if (!ex) return null;
 
-  const youtubeId = ex.video_url ? getYouTubeVideoId(ex.video_url) : null;
-  const vimeoId = ex.video_url ? getVimeoVideoId(ex.video_url) : null;
-  const isUploadedVideo = ex.video_url ? isVideoFileUrl(ex.video_url) : false;
-  const hasVideo = !!ex.video_url;
+  const resolvedVideoUrl = resolveExerciseVideoUrl(ex.video_url);
+  const youtubeId = resolvedVideoUrl ? getYouTubeVideoId(resolvedVideoUrl) : null;
+  const vimeoId = resolvedVideoUrl ? getVimeoVideoId(resolvedVideoUrl) : null;
+  const isUploadedVideo = resolvedVideoUrl ? isVideoFileUrl(resolvedVideoUrl) : false;
+  const hasVideo = !!resolvedVideoUrl;
   const sets = buildSets(exercise);
   const muscleGroups = ex.muscle_groups || [];
 
@@ -237,8 +239,8 @@ export function AtletaExerciseDetailSheet({
                         </div>
                       </div>
                     </button>
-                  ) : isUploadedVideo && ex.video_url ? (
-                    <video src={ex.video_url} controls poster={ex.image_url || undefined} className="h-full w-full bg-black object-contain" />
+                  ) : isUploadedVideo && resolvedVideoUrl ? (
+                    <video src={resolvedVideoUrl} controls poster={ex.image_url || undefined} className="h-full w-full bg-black object-contain" />
                   ) : ex.image_url ? (
                     <img
                       src={ex.image_url}
@@ -437,11 +439,11 @@ export function AtletaExerciseDetailSheet({
                             className="h-full w-full"
                           />
                         ) : isUploadedVideo ? (
-                          <video src={ex.video_url} controls poster={ex.image_url || undefined} className="h-full w-full bg-black object-contain" />
+                          <video src={resolvedVideoUrl!} controls poster={ex.image_url || undefined} className="h-full w-full bg-black object-contain" />
                         ) : (
                           <div className="flex h-full items-center justify-center p-6 text-center">
                             <Button asChild className="rounded-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90">
-                              <a href={ex.video_url} target="_blank" rel="noopener noreferrer">
+                              <a href={resolvedVideoUrl!} target="_blank" rel="noopener noreferrer">
                                 <Play className="mr-2 h-4 w-4" fill="currentColor" />
                                 Apri video tutorial
                               </a>

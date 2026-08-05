@@ -1,43 +1,46 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 
 // =====================================================
-// EXERCISE VIDEO PLAYER - Fullscreen video with overlay
-// Design reference: Ladder_iOS_62.png
-// Supports: YouTube URLs, direct video URLs, and images
+// EXERCISE VIDEO PLAYER
+// Autoplay all'ingresso esercizio; pausa/riprendi manuale.
 // =====================================================
 
 interface ExerciseVideoPlayerProps {
-  videoUrl?: string;
-  imageUrl?: string;
+  videoUrl?: string | null;
+  imageUrl?: string | null;
   exerciseName: string;
-  setNumber: number;
-  totalSets: number;
+  setNumber?: number;
+  totalSets?: number;
   coachAvatar?: string;
   coachName?: string;
-  isPlaying?: boolean;
-  onTogglePlay?: () => void;
+  /** compact = fascia nel runner; hero = fullscreen stile Ladder */
+  variant?: 'compact' | 'hero';
+  className?: string;
+  /** Se false, non mostra titolo sopra il video (il parent lo gestisce). */
+  showTitle?: boolean;
+  /** Se true (default), usa il video globale quando manca video_url. */
+  useDefaultVideo?: boolean;
 }
 
-// Helper to extract YouTube video ID from various URL formats
 function getYouTubeVideoId(url: string): string | null {
   const match = url.match(
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&?\/\s]+)/
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&?\/\s]+)/,
   );
   return match ? match[1] : null;
 }
 
-// Get YouTube thumbnail URL
 function getYouTubeThumbnail(videoId: string): string {
-  return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-// Get YouTube embed URL
+/** Autoplay mute (richiesto dai browser) + loop. */
 function getYouTubeEmbedUrl(videoId: string): string {
-  return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1`;
+  return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&rel=0&playsinline=1`;
 }
 
 export function ExerciseVideoPlayer({
@@ -48,192 +51,213 @@ export function ExerciseVideoPlayer({
   totalSets,
   coachAvatar,
   coachName,
-  isPlaying = false,
-  onTogglePlay,
+  variant = 'compact',
+  className,
+  showTitle,
+  useDefaultVideo = true,
 }: ExerciseVideoPlayerProps) {
+  const resolvedUrl = resolveExerciseVideoUrl(videoUrl, { allowDefault: useDefaultVideo });
+  const youtubeId = resolvedUrl ? getYouTubeVideoId(resolvedUrl) : null;
+  const isCompact = variant === 'compact';
+  const titleVisible = showTitle ?? !isCompact;
+  const isDirectVideo = !!resolvedUrl && !youtubeId;
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isMuted, setIsMuted] = useState(true);
-  const [showVideo, setShowVideo] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
+  /** YouTube: iframe attivo (play) vs thumbnail ferma (pausa). */
+  const [ytActive, setYtActive] = useState(true);
+  /** Remount key per ri-autoplay dopo pausa. */
+  const [ytPlayKey, setYtPlayKey] = useState(0);
 
-  // Check if URL is YouTube
-  const youtubeId = videoUrl ? getYouTubeVideoId(videoUrl) : null;
-  
-  // Determine the thumbnail to show
-  const thumbnailUrl = youtubeId 
-    ? getYouTubeThumbnail(youtubeId)
-    : imageUrl;
+  // Nuovo esercizio → autoplay immediato
+  useEffect(() => {
+    setIsPlaying(true);
+    setYtActive(true);
+    setYtPlayKey((k) => k + 1);
+    setIsMuted(true);
+  }, [resolvedUrl, exerciseName]);
 
-  // Placeholder gradient background when no video
-  const placeholderBg = 'bg-gradient-to-b from-gray-800 to-gray-900';
-
-  const handlePlayClick = () => {
-    if (youtubeId) {
-      setShowVideo(true);
+  // File video nativo: sync play/pause
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !isDirectVideo) return;
+    if (isPlaying) {
+      void el.play().catch(() => setIsPlaying(false));
+    } else {
+      el.pause();
     }
-    onTogglePlay?.();
+  }, [isPlaying, isDirectVideo, resolvedUrl, ytPlayKey]);
+
+  const thumbnailUrl = youtubeId ? getYouTubeThumbnail(youtubeId) : imageUrl || undefined;
+
+  const pause = () => {
+    if (youtubeId) {
+      setYtActive(false);
+      setIsPlaying(false);
+      return;
+    }
+    setIsPlaying(false);
+  };
+
+  const resume = () => {
+    if (youtubeId) {
+      setYtActive(true);
+      setYtPlayKey((k) => k + 1);
+      setIsPlaying(true);
+      return;
+    }
+    setIsPlaying(true);
+  };
+
+  const togglePlayPause = () => {
+    if (isPlaying) pause();
+    else resume();
   };
 
   const openYouTube = () => {
-    if (videoUrl) {
-      window.open(videoUrl, '_blank');
-    }
+    if (resolvedUrl) window.open(resolvedUrl, '_blank', 'noopener,noreferrer');
   };
 
+  const hasMedia = !!(youtubeId || isDirectVideo || imageUrl);
+
   return (
-    <div className="relative w-full h-full min-h-[400px] overflow-hidden bg-black">
-      {/* Video/Image Background */}
-      {showVideo && youtubeId ? (
-        // YouTube embedded player
+    <div
+      className={cn(
+        'relative w-full overflow-hidden bg-black',
+        isCompact ? 'aspect-video max-h-[42vh] rounded-none' : 'h-full min-h-[400px]',
+        className,
+      )}
+    >
+      {youtubeId && ytActive ? (
         <iframe
+          key={ytPlayKey}
           src={getYouTubeEmbedUrl(youtubeId)}
-          className="absolute inset-0 w-full h-full"
+          className="absolute inset-0 h-full w-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           title={exerciseName}
         />
       ) : youtubeId && thumbnailUrl ? (
-        // YouTube thumbnail with play button overlay
         <div className="absolute inset-0">
           <img
             src={thumbnailUrl}
             alt={exerciseName}
-            className="absolute inset-0 w-full h-full object-cover"
-            onError={(e) => {
-              // Fallback to hqdefault if maxresdefault doesn't exist
-              const target = e.target as HTMLImageElement;
-              if (target.src.includes('maxresdefault')) {
-                target.src = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
-              }
-            }}
+            className="absolute inset-0 h-full w-full object-cover"
           />
-          {/* Play button overlay for YouTube */}
-          <div 
-            className="absolute inset-0 flex items-center justify-center cursor-pointer bg-black/20 hover:bg-black/30 transition-colors"
-            onClick={handlePlayClick}
+          {/* In pausa: tap per riprendere (niente autoplay bloccato) */}
+          <button
+            type="button"
+            className="absolute inset-0 flex items-center justify-center bg-black/35"
+            onClick={resume}
+            aria-label="Riprendi video"
           >
-            <div className="w-20 h-20 rounded-full bg-app-accent/90 flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
-              <Play className="h-10 w-10 text-white ml-1" fill="currentColor" />
+            <div
+              className={cn(
+                'rounded-full bg-app-accent/95 flex items-center justify-center shadow-lg',
+                isCompact ? 'h-12 w-12' : 'h-16 w-16',
+              )}
+            >
+              <Play
+                className={cn('text-app-accent-foreground ml-0.5', isCompact ? 'h-6 w-6' : 'h-8 w-8')}
+                fill="currentColor"
+              />
             </div>
-          </div>
+          </button>
         </div>
-      ) : videoUrl && !youtubeId ? (
-        // Direct video URL (non-YouTube)
+      ) : isDirectVideo ? (
         <video
-          src={videoUrl}
-          className="absolute inset-0 w-full h-full object-cover"
+          key={resolvedUrl}
+          ref={videoRef}
+          src={resolvedUrl!}
+          className="absolute inset-0 h-full w-full object-cover"
           autoPlay
           loop
           muted={isMuted}
           playsInline
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
         />
       ) : imageUrl ? (
-        // Static image
-        <img
-          src={imageUrl}
-          alt={exerciseName}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
+        <img src={imageUrl} alt={exerciseName} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        // Placeholder when no video/image
-        <div className={cn('absolute inset-0', placeholderBg)}>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-app-accent/20 flex items-center justify-center mx-auto mb-4">
-                <Play className="h-10 w-10 text-app-accent" />
-              </div>
-              <p className="text-app-muted-foreground">Video non disponibile</p>
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center">
+          <div className="text-center px-4">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-app-accent/20">
+              <Play className="h-6 w-6 text-app-accent" />
             </div>
+            <p className="text-sm text-white/70">Video non disponibile</p>
           </div>
         </div>
       )}
 
-      {/* Overlay gradient */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/20" />
 
-      {/* Set indicator top left */}
-      <div className="absolute top-4 left-4 z-10">
-        <p className="text-app-accent text-sm font-semibold">Set {setNumber} of {totalSets}</p>
-        <h2 className="text-2xl font-bold text-white mt-1">{exerciseName}</h2>
-      </div>
+      {titleVisible && (
+        <div className="absolute top-3 left-3 z-10 max-w-[80%]">
+          {typeof setNumber === 'number' && typeof totalSets === 'number' && (
+            <p className="text-xs font-semibold text-app-accent">
+              Serie {setNumber} di {totalSets}
+            </p>
+          )}
+          <h2 className={cn('font-bold text-white mt-0.5 truncate', isCompact ? 'text-lg' : 'text-2xl')}>
+            {exerciseName}
+          </h2>
+        </div>
+      )}
 
-      {/* Coach avatar bottom right */}
       {coachAvatar && (
-        <div className="absolute bottom-4 right-4 z-10">
-          <div className="relative">
-            <Avatar className="h-16 w-16 border-2 border-app-accent">
-              <AvatarImage src={coachAvatar} />
-              <AvatarFallback className="bg-app-muted text-app-foreground">
-                {coachName?.split(' ').map(n => n[0]).join('') || 'PT'}
-              </AvatarFallback>
-            </Avatar>
-            {/* Animated ring */}
-            <div className="absolute inset-0 border-2 border-app-accent rounded-full animate-ping opacity-50" />
-          </div>
+        <div className="absolute bottom-3 right-3 z-10">
+          <Avatar className="h-12 w-12 border-2 border-app-accent">
+            <AvatarImage src={coachAvatar} />
+            <AvatarFallback className="bg-app-muted text-app-foreground text-xs">
+              {coachName
+                ?.split(' ')
+                .map((n) => n[0])
+                .join('') || 'PT'}
+            </AvatarFallback>
+          </Avatar>
         </div>
       )}
 
-      {/* Controls */}
-      <div className="absolute bottom-4 left-4 flex items-center gap-2 z-10">
-        {youtubeId && !showVideo && (
+      {hasMedia && (youtubeId || isDirectVideo) && (
+        <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
-            onClick={handlePlayClick}
-            className="text-white hover:bg-white/20"
+            onClick={togglePlayPause}
+            className="h-9 w-9 text-white hover:bg-white/20"
+            aria-label={isPlaying ? 'Metti in pausa' : 'Riproduci'}
+            title={isPlaying ? 'Pausa' : 'Play'}
           >
-            <Play className="h-5 w-5" />
+            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </Button>
-        )}
 
-        {youtubeId && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={openYouTube}
-            className="text-white hover:bg-white/20"
-            title="Apri su YouTube"
-          >
-            <ExternalLink className="h-5 w-5" />
-          </Button>
-        )}
-
-        {videoUrl && !youtubeId && (
-          <>
+          {youtubeId && (
             <Button
               variant="ghost"
               size="icon"
-              onClick={onTogglePlay}
-              className="text-white hover:bg-white/20"
+              onClick={openYouTube}
+              className="h-9 w-9 text-white hover:bg-white/20"
+              title="Apri su YouTube"
             >
-              {isPlaying ? (
-                <Pause className="h-5 w-5" />
-              ) : (
-                <Play className="h-5 w-5" />
-              )}
+              <ExternalLink className="h-4 w-4" />
             </Button>
+          )}
 
+          {isDirectVideo && (
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsMuted(!isMuted)}
-              className="text-white hover:bg-white/20"
+              onClick={() => setIsMuted((m) => !m)}
+              className="h-9 w-9 text-white hover:bg-white/20"
+              aria-label={isMuted ? 'Attiva audio' : 'Disattiva audio'}
             >
-              {isMuted ? (
-                <VolumeX className="h-5 w-5" />
-              ) : (
-                <Volume2 className="h-5 w-5" />
-              )}
+              {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20"
-            >
-              <Maximize className="h-5 w-5" />
-            </Button>
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

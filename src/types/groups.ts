@@ -59,6 +59,38 @@ export interface GroupMessageRow {
   attachment_url: string | null;
   attachment_type: string | null;
   created_at: string;
+  /** Client enrich */
+  likes_count?: number;
+  liked_by_me?: boolean;
+}
+
+export interface GroupAnnouncementRow {
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  body: string;
+  cover_url: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  place_label: string | null;
+  address_line: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Client enrich */
+  rsvp_count?: number;
+  joined_by_me?: boolean;
+}
+
+export interface CreateGroupAnnouncementInput {
+  groupId: string;
+  title: string;
+  body?: string;
+  coverUrl?: string | null;
+  startsAt: string;
+  endsAt?: string | null;
+  placeLabel?: string | null;
+  addressLine?: string | null;
 }
 
 export interface GroupWithDetails extends GroupRow {

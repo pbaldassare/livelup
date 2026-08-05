@@ -4,7 +4,9 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type {
+  CreateGroupAnnouncementInput,
   CreateGroupInput,
+  GroupAnnouncementRow,
   GroupChannel,
   GroupMemberRole,
   GroupMessageRow,
@@ -14,6 +16,9 @@ import type {
   GroupWithDetails,
   UpdateGroupInput,
 } from '@/types/groups';
+
+export const GROUP_CHAT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+export const GROUP_CHAT_ATTACHMENTS_BUCKET = 'group-chat-attachments';
 
 // Client tipizzato manualmente fino a rigenerazione types.ts
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -619,6 +624,7 @@ export async function removeMember(groupId: string, userId: string) {
 export async function getGroupMessages(
   groupId: string,
   channel: GroupChannel,
+  userId?: string,
   limit = 50,
   before?: string,
 ) {
@@ -634,7 +640,35 @@ export async function getGroupMessages(
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return ((data || []) as GroupMessageRow[]).reverse();
+  const messages = ((data || []) as GroupMessageRow[]).reverse();
+  return enrichMessagesWithLikes(messages, userId);
+}
+
+async function enrichMessagesWithLikes(
+  messages: GroupMessageRow[],
+  userId?: string,
+): Promise<GroupMessageRow[]> {
+  if (messages.length === 0) return messages;
+  const ids = messages.map((m) => m.id);
+  const { data: likes, error } = await db()
+    .from('group_message_likes')
+    .select('message_id, user_id')
+    .in('message_id', ids);
+  if (error) {
+    // tabella non ancora migrata: restituisci senza like
+    return messages.map((m) => ({ ...m, likes_count: 0, liked_by_me: false }));
+  }
+  const counts = new Map<string, number>();
+  const mine = new Set<string>();
+  for (const row of likes || []) {
+    counts.set(row.message_id, (counts.get(row.message_id) || 0) + 1);
+    if (userId && row.user_id === userId) mine.add(row.message_id);
+  }
+  return messages.map((m) => ({
+    ...m,
+    likes_count: counts.get(m.id) || 0,
+    liked_by_me: mine.has(m.id),
+  }));
 }
 
 export async function sendGroupMessage(params: {
@@ -642,19 +676,80 @@ export async function sendGroupMessage(params: {
   senderUserId: string;
   channel: GroupChannel;
   content: string;
+  attachmentUrl?: string | null;
+  attachmentType?: string | null;
 }) {
+  const content = params.content.trim();
+  if (!content && !params.attachmentUrl) {
+    throw new Error('Messaggio vuoto');
+  }
   const { data, error } = await db()
     .from('group_messages')
     .insert({
       group_id: params.groupId,
       sender_user_id: params.senderUserId,
       channel: params.channel,
-      content: params.content,
+      content: content || (params.attachmentType?.startsWith('image/') ? '📷 Immagine' : params.attachmentType?.startsWith('video/') ? '🎬 Video' : '📎 Allegato'),
+      attachment_url: params.attachmentUrl ?? null,
+      attachment_type: params.attachmentType ?? null,
     })
     .select()
     .single();
   if (error) throw new Error(error.message);
-  return data as GroupMessageRow;
+  return { ...(data as GroupMessageRow), likes_count: 0, liked_by_me: false };
+}
+
+export async function uploadGroupChatAttachment(params: {
+  userId: string;
+  groupId: string;
+  file: File;
+}): Promise<{ publicUrl: string; mimeType: string }> {
+  if (params.file.size > GROUP_CHAT_ATTACHMENT_MAX_BYTES) {
+    throw new Error('File troppo grande (max 20 MB)');
+  }
+  const ext = params.file.name.split('.').pop()?.toLowerCase() || 'bin';
+  const path = `${params.userId}/${params.groupId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage
+    .from(GROUP_CHAT_ATTACHMENTS_BUCKET)
+    .upload(path, params.file, {
+      contentType: params.file.type || 'application/octet-stream',
+      upsert: false,
+    });
+  if (error) {
+    throw new Error(
+      backendNotReadyMessage(error.message || 'Errore upload allegato', 'Gli allegati'),
+    );
+  }
+  const { data } = supabase.storage.from(GROUP_CHAT_ATTACHMENTS_BUCKET).getPublicUrl(path);
+  return { publicUrl: data.publicUrl, mimeType: params.file.type || 'application/octet-stream' };
+}
+
+function backendNotReadyMessage(errorMessage: string, feature: string): string {
+  if (/schema cache|could not find|does not exist|PGRST205|PGRST202/i.test(errorMessage)) {
+    return `${feature} non ancora disponibile sul backend. Applica la migration e riprova.`;
+  }
+  return errorMessage;
+}
+
+export async function toggleGroupMessageLike(params: {
+  messageId: string;
+  userId: string;
+  currentlyLiked: boolean;
+}) {
+  if (params.currentlyLiked) {
+    const { error } = await db()
+      .from('group_message_likes')
+      .delete()
+      .eq('message_id', params.messageId)
+      .eq('user_id', params.userId);
+    if (error) throw new Error(backendNotReadyMessage(error.message, 'I like'));
+    return false;
+  }
+  const { error } = await db()
+    .from('group_message_likes')
+    .insert({ message_id: params.messageId, user_id: params.userId });
+  if (error) throw new Error(backendNotReadyMessage(error.message, 'I like'));
+  return true;
 }
 
 export function subscribeToGroupMessages(
@@ -675,7 +770,9 @@ export function subscribeToGroupMessages(
       },
       (payload) => {
         const msg = payload.new as GroupMessageRow;
-        if (msg.channel === channel) callback(msg);
+        if (msg.channel === channel) {
+          callback({ ...msg, likes_count: 0, liked_by_me: false });
+        }
       },
     )
     .subscribe();
@@ -683,6 +780,130 @@ export function subscribeToGroupMessages(
   return () => {
     supabase.removeChannel(sub);
   };
+}
+
+// =====================================================
+// ANNUNCI (mini-evento)
+// =====================================================
+
+export async function listGroupAnnouncements(
+  groupId: string,
+  userId?: string,
+): Promise<GroupAnnouncementRow[]> {
+  const { data, error } = await db()
+    .from('group_announcements')
+    .select('*')
+    .eq('group_id', groupId)
+    .order('starts_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  const rows = (data || []) as GroupAnnouncementRow[];
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.id);
+  const { data: rsvps } = await db()
+    .from('group_announcement_rsvps')
+    .select('announcement_id, user_id')
+    .in('announcement_id', ids);
+
+  const counts = new Map<string, number>();
+  const mine = new Set<string>();
+  for (const r of rsvps || []) {
+    counts.set(r.announcement_id, (counts.get(r.announcement_id) || 0) + 1);
+    if (userId && r.user_id === userId) mine.add(r.announcement_id);
+  }
+  return rows.map((r) => ({
+    ...r,
+    rsvp_count: counts.get(r.id) || 0,
+    joined_by_me: mine.has(r.id),
+  }));
+}
+
+export async function createGroupAnnouncement(
+  createdBy: string,
+  input: CreateGroupAnnouncementInput,
+): Promise<GroupAnnouncementRow> {
+  const title = input.title.trim();
+  if (!title) throw new Error('Titolo obbligatorio');
+  if (!input.startsAt) throw new Error('Data e ora obbligatorie');
+
+  const { data, error } = await db()
+    .from('group_announcements')
+    .insert({
+      group_id: input.groupId,
+      created_by: createdBy,
+      title,
+      body: (input.body || '').trim(),
+      cover_url: input.coverUrl ?? null,
+      starts_at: input.startsAt,
+      ends_at: input.endsAt ?? null,
+      place_label: input.placeLabel?.trim() || null,
+      address_line: input.addressLine?.trim() || null,
+    })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+
+  // Notifica in chat gruppo
+  try {
+    const when = new Date(input.startsAt);
+    const whenLabel = Number.isNaN(when.getTime())
+      ? ''
+      : when.toLocaleString('it-IT', {
+          day: '2-digit',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+    await sendGroupMessage({
+      groupId: input.groupId,
+      senderUserId: createdBy,
+      channel: 'general',
+      content: `📣 Nuovo annuncio: ${title}${whenLabel ? ` · ${whenLabel}` : ''}. Apri Annunci per partecipare.`,
+    });
+  } catch {
+    // non bloccare la creazione
+  }
+
+  return { ...(data as GroupAnnouncementRow), rsvp_count: 0, joined_by_me: false };
+}
+
+export async function toggleAnnouncementRsvp(params: {
+  announcementId: string;
+  userId: string;
+  currentlyJoined: boolean;
+}) {
+  if (params.currentlyJoined) {
+    const { error } = await db()
+      .from('group_announcement_rsvps')
+      .delete()
+      .eq('announcement_id', params.announcementId)
+      .eq('user_id', params.userId);
+    if (error) throw new Error(error.message);
+    return false;
+  }
+  const { error } = await db()
+    .from('group_announcement_rsvps')
+    .insert({ announcement_id: params.announcementId, user_id: params.userId });
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export async function uploadGroupAnnouncementCover(params: {
+  userId: string;
+  file: File;
+}): Promise<string> {
+  if (params.file.size > GROUP_CHAT_ATTACHMENT_MAX_BYTES) {
+    throw new Error('Immagine troppo grande (max 20 MB)');
+  }
+  const ext = params.file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `${params.userId}/announcements/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from('group-images').upload(path, params.file, {
+    contentType: params.file.type || 'image/jpeg',
+    upsert: false,
+  });
+  if (error) throw new Error(error.message || 'Errore upload locandina');
+  const { data } = supabase.storage.from('group-images').getPublicUrl(path);
+  return data.publicUrl;
 }
 
 // =====================================================
