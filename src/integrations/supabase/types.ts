@@ -1230,6 +1230,88 @@ export type Database = {
         }
         Relationships: []
       }
+      group_announcement_rsvps: {
+        Row: {
+          announcement_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          announcement_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          announcement_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_announcement_rsvps_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "group_announcements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_announcements: {
+        Row: {
+          address_line: string | null
+          body: string
+          cover_url: string | null
+          created_at: string
+          created_by: string
+          ends_at: string | null
+          group_id: string
+          id: string
+          place_label: string | null
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          address_line?: string | null
+          body?: string
+          cover_url?: string | null
+          created_at?: string
+          created_by: string
+          ends_at?: string | null
+          group_id: string
+          id?: string
+          place_label?: string | null
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          address_line?: string | null
+          body?: string
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string
+          ends_at?: string | null
+          group_id?: string
+          id?: string
+          place_label?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_announcements_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_disciplines: {
         Row: {
           group_id: string
@@ -1291,6 +1373,35 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_message_likes: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_message_likes_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "group_messages"
             referencedColumns: ["id"]
           },
         ]
@@ -4031,6 +4142,7 @@ export type Database = {
         Args: { _atleta_user_id: string; _pt_user_id: string }
         Returns: boolean
       }
+      athlete_redo_workout: { Args: { _workout_id: string }; Returns: string }
       atleta_reorder_workout_exercises: {
         Args: { _ordered_exercise_ids: string[]; _workout_id: string }
         Returns: undefined
