@@ -2006,6 +2006,7 @@ export type Database = {
           atleta_user_id: string
           created_at: string
           id: string
+          is_primary: boolean
           is_pt_active: boolean
           pt_user_id: string
           requested_at: string
@@ -2020,6 +2021,7 @@ export type Database = {
           atleta_user_id: string
           created_at?: string
           id?: string
+          is_primary?: boolean
           is_pt_active?: boolean
           pt_user_id: string
           requested_at?: string
@@ -2034,6 +2036,7 @@ export type Database = {
           atleta_user_id?: string
           created_at?: string
           id?: string
+          is_primary?: boolean
           is_pt_active?: boolean
           pt_user_id?: string
           requested_at?: string
@@ -4036,6 +4039,10 @@ export type Database = {
         Args: { _atleta_user_id: string }
         Returns: boolean
       }
+      can_atleta_connect_to_specific_pt: {
+        Args: { _atleta_user_id: string; _pt_user_id: string }
+        Returns: boolean
+      }
       can_atleta_review_pt: {
         Args: { _atleta_user_id: string; _pt_user_id: string }
         Returns: boolean
@@ -4060,6 +4067,13 @@ export type Database = {
       count_pt_active_athletes: {
         Args: { _pt_user_id: string }
         Returns: number
+      }
+      count_pt_course_enrollments: {
+        Args: { _course_ids: string[] }
+        Returns: {
+          course_id: string
+          enrolled_count: number
+        }[]
       }
       count_today_cheers: { Args: { _user_id: string }; Returns: number }
       count_unread_messages: { Args: { _user_id: string }; Returns: number }
@@ -4138,6 +4152,16 @@ export type Database = {
           suspended_pts: number
           total_athletes: number
           total_pts: number
+        }[]
+      }
+      get_atleta_active_pts: {
+        Args: { _atleta_user_id: string }
+        Returns: {
+          accepted_at: string
+          connection_id: string
+          is_primary: boolean
+          is_pt_active: boolean
+          pt_user_id: string
         }[]
       }
       get_atleta_current_pt: {
@@ -4277,6 +4301,14 @@ export type Database = {
           specializations: string[]
           user_id: string
         }[]
+      }
+      set_atleta_primary_pt: {
+        Args: { _pt_user_id: string }
+        Returns: undefined
+      }
+      start_course_step_workout: {
+        Args: { _enrollment_id: string; _step_id: string }
+        Returns: string
       }
       transfer_athletes_to_pt: {
         Args: {
