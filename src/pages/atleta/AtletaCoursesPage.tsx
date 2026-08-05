@@ -1,32 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { GraduationCap, Loader2, Target } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { GraduationCap, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CourseProgressBar } from '@/components/app/CourseProgressBar';
-import { FollowStarButton } from '@/components/app/FollowStarButton';
+import { CourseListCard } from '@/components/app/CourseListCard';
 import { useAuth } from '@/hooks/useAuth';
-import {
-  courseQueryKeys,
-  enrollInCourse,
-  listPublishedCoursesForAthlete,
-  type AtletaCourseCard,
-  type CourseDifficulty,
-} from '@/lib/api/courses';
+import { useAtletaStatus } from '@/hooks/useAtletaStatus';
+import { courseQueryKeys, enrollInCourse, listPublishedCoursesForAthlete } from '@/lib/api/courses';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
-const DIFFICULTY_LABELS: Record<CourseDifficulty, string> = {
-  beginner: 'Principiante',
-  intermediate: 'Intermedio',
-  advanced: 'Avanzato',
-};
-
-export function AtletaCoursesPage() {
+export function AtletaCoursesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
+  const { connection } = useAtletaStatus();
+  const connectedPtUserId = connection?.pt_user_id ?? null;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'discover' | 'mine'>('discover');
@@ -54,16 +40,24 @@ export function AtletaCoursesPage() {
 
   const discover = data?.discover || [];
   const enrolled = data?.enrolled || [];
+  const discoverFromMyPt = connectedPtUserId
+    ? discover.filter((c) => c.pt_user_id === connectedPtUserId)
+    : [];
+  const discoverOthers = connectedPtUserId
+    ? discover.filter((c) => c.pt_user_id !== connectedPtUserId)
+    : discover;
 
   return (
     <div className="space-y-4 pb-4">
-      <div className="flex items-center gap-3">
-        <GraduationCap className="h-6 w-6 text-app-accent" />
-        <div>
-          <h1 className="text-xl font-bold text-app-foreground">Corsi</h1>
-          <p className="text-sm text-app-muted-foreground">Scopri percorsi e segui i tuoi progressi</p>
+      {!embedded && (
+        <div className="flex items-center gap-3">
+          <GraduationCap className="h-6 w-6 text-app-accent" />
+          <div>
+            <h1 className="text-xl font-bold text-app-foreground">Corsi</h1>
+            <p className="text-sm text-app-muted-foreground">Scopri percorsi e segui i tuoi progressi</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'discover' | 'mine')}>
         <TabsList className="w-full bg-app-muted/50">
@@ -84,7 +78,7 @@ export function AtletaCoursesPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="discover" className="mt-4 space-y-3">
+        <TabsContent value="discover" className="mt-4 space-y-5">
           {isLoading ? (
             <LoadingState />
           ) : discover.length === 0 ? (
@@ -93,17 +87,47 @@ export function AtletaCoursesPage() {
               description="I corsi pubblicati dai Professionisti appariranno qui"
             />
           ) : (
-            discover.map((course, i) => (
-              <CourseListCard
-                key={course.id}
-                course={course}
-                index={i}
-                mode="discover"
-                enrolling={enrollingId === course.id}
-                onOpen={() => navigate(`/app/courses/${course.id}`)}
-                onEnroll={() => enrollMutation.mutate(course.id)}
-              />
-            ))
+            <>
+              {discoverFromMyPt.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-app-accent">
+                    Corsi del tuo PT
+                  </p>
+                  {discoverFromMyPt.map((course, i) => (
+                    <CourseListCard
+                      key={course.id}
+                      course={course}
+                      index={i}
+                      mode="discover"
+                      enrolling={enrollingId === course.id}
+                      isFromConnectedPt
+                      onOpen={() => navigate(`/app/courses/${course.id}`)}
+                      onEnroll={() => enrollMutation.mutate(course.id)}
+                    />
+                  ))}
+                </div>
+              )}
+              {discoverOthers.length > 0 && (
+                <div className="space-y-3">
+                  {discoverFromMyPt.length > 0 && (
+                    <p className="text-xs font-semibold uppercase tracking-wide text-app-muted-foreground">
+                      Altri corsi
+                    </p>
+                  )}
+                  {discoverOthers.map((course, i) => (
+                    <CourseListCard
+                      key={course.id}
+                      course={course}
+                      index={i}
+                      mode="discover"
+                      enrolling={enrollingId === course.id}
+                      onOpen={() => navigate(`/app/courses/${course.id}`)}
+                      onEnroll={() => enrollMutation.mutate(course.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -122,6 +146,7 @@ export function AtletaCoursesPage() {
                 course={course}
                 index={i}
                 mode="mine"
+                isFromConnectedPt={!!connectedPtUserId && course.pt_user_id === connectedPtUserId}
                 onOpen={() => navigate(`/app/courses/${course.id}`)}
               />
             ))
@@ -129,124 +154,6 @@ export function AtletaCoursesPage() {
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-function CourseListCard({
-  course,
-  index,
-  mode,
-  enrolling,
-  onOpen,
-  onEnroll,
-}: {
-  course: AtletaCourseCard;
-  index: number;
-  mode: 'discover' | 'mine';
-  enrolling?: boolean;
-  onOpen: () => void;
-  onEnroll?: () => void;
-}) {
-  const difficulty = course.difficulty_level
-    ? DIFFICULTY_LABELS[course.difficulty_level]
-    : null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
-      className="rounded-xl border border-app-border bg-app-card overflow-hidden"
-    >
-      <button type="button" onClick={onOpen} className="w-full text-left">
-        <div className="flex gap-3 p-3">
-          {course.cover_image_url ? (
-            <div className="h-20 w-20 rounded-lg overflow-hidden shrink-0">
-              <img
-                src={course.cover_image_url}
-                alt={course.title}
-                className="h-full w-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="h-20 w-20 rounded-lg bg-app-accent/10 flex items-center justify-center shrink-0">
-              <GraduationCap className="h-7 w-7 text-app-accent" />
-            </div>
-          )}
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="font-semibold text-app-foreground truncate">{course.title}</h3>
-              <FollowStarButton targetType="course" targetId={course.id} size="sm" className="shrink-0 -mt-1 -mr-1" />
-            </div>
-            {course.pt_name ? (
-              <p className="text-xs text-app-muted-foreground mt-0.5">con {course.pt_name}</p>
-            ) : null}
-            {course.target_exercise ? (
-              <p className="text-xs text-app-accent mt-1 flex items-center gap-1">
-                <Target className="h-3 w-3" />
-                <span className="truncate">{course.target_exercise}</span>
-              </p>
-            ) : null}
-            <div className="flex flex-wrap items-center gap-1.5 mt-2">
-              {difficulty ? (
-                <Badge variant="outline" className="text-[10px] border-app-border text-app-muted-foreground">
-                  {difficulty}
-                </Badge>
-              ) : null}
-              <Badge variant="outline" className="text-[10px] border-app-border text-app-muted-foreground">
-                {course.steps_count} step
-              </Badge>
-              <Badge
-                variant="outline"
-                className={cn(
-                  'text-[10px] border-app-border',
-                  course.is_free !== false
-                    ? 'text-app-accent border-app-accent/40'
-                    : 'text-app-muted-foreground',
-                )}
-              >
-                {course.is_free !== false
-                  ? 'Gratuito'
-                  : `€ ${Number(course.price || 0).toFixed(2)}`}
-              </Badge>
-            </div>
-          </div>
-
-          {mode === 'mine' ? (
-            <CourseProgressBar
-              value={course.enrollment?.progress_pct ?? 0}
-              size={52}
-              strokeWidth={5}
-              className="shrink-0 self-center"
-            />
-          ) : null}
-        </div>
-      </button>
-
-      {mode === 'discover' && onEnroll ? (
-        <div className="px-3 pb-3">
-          {course.is_free === false ? (
-            <p className="text-xs text-app-muted-foreground text-center mb-2">
-              Corso a pagamento — chiedi al Professionista di assegnartelo
-            </p>
-          ) : null}
-          <Button
-            className={cn(
-              'w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90',
-            )}
-            disabled={enrolling || course.is_free === false}
-            onClick={(e) => {
-              e.stopPropagation();
-              onEnroll();
-            }}
-          >
-            {enrolling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-            {course.is_free === false ? 'Solo su assegnazione' : 'Iscriviti'}
-          </Button>
-        </div>
-      ) : null}
-    </motion.div>
   );
 }
 

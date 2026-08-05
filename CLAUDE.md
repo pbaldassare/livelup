@@ -179,7 +179,7 @@ public/
 | `pt_profiles` | Info PT | `user_id`, `status`, `bio`, `pt_types`, `rating_avg`, `max_athletes` |
 | `atleta_profiles` | Info atleta | `user_id`, `status`, `goals`, `fitness_level` |
 | `professional_profiles` | Nutrizionisti, fisioterapisti | separato da PT |
-| `pt_atleta_connections` | 1 PT attivo per atleta (trigger) | `pt_user_id`, `atleta_user_id`, `status`, `requested_by` |
+| `pt_atleta_connections` | Multi-PT: più active per atleta + `is_primary` | `pt_user_id`, `atleta_user_id`, `status`, `requested_by`, `is_primary` |
 | `pt_packages`, `atleta_pt_subscriptions` | Pacchetti PT e abbonamenti atleta | decremento sessioni automatico |
 | `pt_reviews`, `pt_athlete_notes`, `pt_favorite_exercises` | Recensioni, note, preferiti | |
 
@@ -218,7 +218,7 @@ public/
 
 ### Trigger chiave
 
-`handle_new_user_role`, `enforce_single_pt_connection`, `update_atleta_status_on_connection`, `update_pt_rating`, `check_and_award_badges`, `decrement_subscription_session`, `create_message_notification`, `create_connection_notification`
+`handle_new_user_role`, `update_atleta_status_on_connection`, `set_atleta_primary_pt`, `get_atleta_active_pts`, `update_pt_rating`, `check_and_award_badges`, `decrement_subscription_session`, `create_message_notification`, `create_connection_notification`
 
 ---
 
@@ -297,7 +297,7 @@ atleta → app_atleta + sito pubblico
 
 1. **Richiesta** — una delle parti (`status='pending'`)
 2. **Accetta/Rifiuta** — controparte aggiorna status
-3. **Attivazione** — `status='active'`: termina altre connessioni attive (1 PT/atleta), `atleta_profiles.status='collegato'`, notifica
+3. **Attivazione** — `status='active'` (può coesistere con altri PT attivi); se nessun primary, diventa primary; `atleta_profiles.status='collegato'`, notifica
 
 ### Assegnazione e completamento workout
 
@@ -406,7 +406,7 @@ Testimonianze video PT, highlights atleta, badge verificato; catalogo discipline
 6. **Storage:** path `${user.id}/` per RLS.
 7. **Dopo modifiche workout** (`GuidedWorkoutFlow`, `SetTracker`, player protocolli, `workout_logs`, history PT): checklist qualità — anteprima prossimo esercizio, note atleta + badge, PT-on-behalf con `athleteUserId`, history ko/delta corretti.
 8. **RLS-first:** ogni nuova tabella `public.*` → GRANT + ENABLE RLS + almeno una policy.
-9. **Un PT per atleta** — rispetta trigger `enforce_single_pt_connection`.
+9. **Multi-PT** — un atleta può avere **più PT attivi** in parallelo (illimitati). Coach primario (`is_primary`) scelto dall'atleta. Non reintrodurre `enforce_single_pt_connection`. Disdetta: storico workout/corsi resta in sola lettura. Progress/foto visibili a tutti i PT collegati (`are_connected`).
 10. **Terminologia:** "Attività", "Calisthenics", "Professionista".
 11. **Routing:** Admin `/admin`, PT web `/pt`, PT PWA `/pt/app`, Atleta `/app` — non mescolare.
 12. **PT mobile:** `usePTSurface` redirect → `/pt/app/*`; override `?view=web`.

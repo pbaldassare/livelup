@@ -48,7 +48,7 @@ const STATUS_LABEL: Record<string, string> = {
   archived: 'Archiviato',
 };
 
-export default function PTCoursesPage() {
+export default function PTCoursesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -75,11 +75,28 @@ export default function PTCoursesPage() {
   const publishMutation = useMutation({
     mutationFn: ({ id, published }: { id: string; published: boolean }) =>
       publishCourse(id, published),
+    onMutate: async ({ id, published }) => {
+      if (!user?.id) return;
+      const key = courseQueryKeys.list(user.id);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<PtCourseListItem[]>(key);
+      queryClient.setQueryData<PtCourseListItem[]>(key, (old) =>
+        (old || []).map((c) =>
+          c.id === id ? { ...c, status: published ? 'published' : 'draft' } : c,
+        ),
+      );
+      return { previous, key };
+    },
     onSuccess: (_data, vars) => {
-      invalidate();
       toast.success(vars.published ? 'Corso pubblicato' : 'Corso riportato in bozza');
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error, _vars, ctx) => {
+      if (ctx?.previous && ctx.key) {
+        queryClient.setQueryData(ctx.key, ctx.previous);
+      }
+      toast.error(err.message);
+    },
+    onSettled: () => invalidate(),
   });
 
   const deleteMutation = useMutation({
@@ -103,17 +120,27 @@ export default function PTCoursesPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardPageHeader
-        title="Corsi"
-        subtitle="Crea percorsi step-by-step con esercizi per i tuoi atleti"
-        icon={<GraduationCap className="h-5 w-5" />}
-        actions={
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Crea nuovo corso
+      {!embedded && (
+        <DashboardPageHeader
+          title="Corsi"
+          subtitle="Crea percorsi step-by-step con esercizi per i tuoi atleti"
+          icon={<GraduationCap className="h-5 w-5" />}
+          actions={
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-2" />
+              Crea nuovo corso
+            </Button>
+          }
+        />
+      )}
+      {embedded && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Nuovo corso
           </Button>
-        }
-      />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16">
@@ -170,7 +197,14 @@ export default function PTCoursesPage() {
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <Badge variant={isPublished ? 'default' : 'secondary'}>
-                          {STATUS_LABEL[course.status] || course.status}
+                          {isPublished ? (
+                            <span className="inline-flex items-center gap-1">
+                              <Eye className="h-3 w-3" />
+                              Pubblicato
+                            </span>
+                          ) : (
+                            STATUS_LABEL[course.status] || course.status
+                          )}
                         </Badge>
                         <Badge variant="outline">
                           {course.is_free !== false
@@ -257,11 +291,11 @@ export default function PTCoursesPage() {
                       {course.enrolled_count} iscritti
                     </span>
                   </div>
-                  <div className="flex gap-2 pt-1">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 min-w-[6.5rem]"
                       onClick={() => openEdit(course)}
                     >
                       <Pencil className="h-3.5 w-3.5 mr-1" />
@@ -279,15 +313,31 @@ export default function PTCoursesPage() {
                     <Button
                       size="sm"
                       variant={isPublished ? 'secondary' : 'default'}
+                      className="flex-1 min-w-[7.5rem]"
                       onClick={() =>
                         publishMutation.mutate({
                           id: course.id,
                           published: !isPublished,
                         })
                       }
-                      disabled={publishMutation.isPending}
+                      disabled={publishMutation.isPending || course.status === 'archived'}
+                      title={
+                        isPublished
+                          ? 'Nascondi il corso agli atleti (torna in bozza)'
+                          : 'Rendi il corso visibile agli atleti'
+                      }
                     >
-                      {isPublished ? 'Bozza' : 'Pubblica'}
+                      {isPublished ? (
+                        <>
+                          <EyeOff className="h-3.5 w-3.5 mr-1" />
+                          Metti in bozza
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          Pubblica
+                        </>
+                      )}
                     </Button>
                   </div>
                 </CardContent>

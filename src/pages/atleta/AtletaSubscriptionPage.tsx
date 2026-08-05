@@ -29,8 +29,10 @@ import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
 // =====================================================
-// ATLETA SUBSCRIPTION PAGE - Abbonamento
-// Design: dark theme, lime accent
+// ATLETA SUBSCRIPTION PAGE - Abbonamento PIATTAFORMA
+// Tabella: `subscriptions` + `subscription_plans` (ruolo atleta)
+// Separato dai pacchetti PT (`atleta_pt_subscriptions` / `pt_packages`),
+// gestiti per-Professionista (vedi AtletaSubscriptionHistory).
 // =====================================================
 
 /** Pagamenti online non ancora attivi — nessun CTA fuorviante. */

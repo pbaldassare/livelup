@@ -200,20 +200,54 @@ export async function listPTCourses(ptUserId: string): Promise<PtCourseListItem[
     .from('pt_courses')
     .select(`
       *,
-      pt_course_steps(id),
-      pt_course_enrollments(id)
+      pt_course_steps(id)
     `)
     .eq('pt_user_id', ptUserId)
     .order('created_at', { ascending: false });
 
   if (error) throw new Error('Errore caricamento corsi: ' + error.message);
 
-  return ((data || []) as any[]).map((row) => ({
+  const rows = (data || []) as any[];
+  const courseIds = rows.map((row) => row.id as string).filter(Boolean);
+
+  // Conteggio iscritti: preferisci RPC SECURITY DEFINER (scoped al PT),
+  // fallback a SELECT diretto escludendo cancelled.
+  const enrolledByCourse = new Map<string, number>();
+  if (courseIds.length > 0) {
+    const { data: rpcCounts, error: rpcError } = await db().rpc(
+      'count_pt_course_enrollments',
+      { _course_ids: courseIds },
+    );
+
+    if (!rpcError && Array.isArray(rpcCounts)) {
+      for (const row of rpcCounts) {
+        enrolledByCourse.set(
+          row.course_id as string,
+          Number(row.enrolled_count) || 0,
+        );
+      }
+    } else {
+      const { data: enrollments, error: enrollError } = await db()
+        .from('pt_course_enrollments')
+        .select('course_id')
+        .in('course_id', courseIds)
+        .neq('status', 'cancelled');
+
+      if (enrollError) {
+        throw new Error('Errore caricamento iscritti: ' + enrollError.message);
+      }
+      for (const row of enrollments || []) {
+        const id = row.course_id as string;
+        enrolledByCourse.set(id, (enrolledByCourse.get(id) || 0) + 1);
+      }
+    }
+  }
+
+  return rows.map((row) => ({
     ...row,
     steps_count: Array.isArray(row.pt_course_steps) ? row.pt_course_steps.length : 0,
-    enrolled_count: Array.isArray(row.pt_course_enrollments) ? row.pt_course_enrollments.length : 0,
+    enrolled_count: enrolledByCourse.get(row.id) || 0,
     pt_course_steps: undefined,
-    pt_course_enrollments: undefined,
   })) as PtCourseListItem[];
 }
 
@@ -643,18 +677,24 @@ async function ensureEnrollmentWithStepProgress(params: {
 }): Promise<{ enrollment: PtCourseEnrollment; created: boolean }> {
   const { course, atletaUserId, assignedBy } = params;
 
-  const { data: existing } = await db()
+  const { data: existing, error: existingError } = await db()
     .from('pt_course_enrollments')
     .select('*')
     .eq('course_id', course.id)
     .eq('atleta_user_id', atletaUserId)
     .maybeSingle();
 
+  if (existingError) {
+    throw new Error('Errore iscrizione: ' + existingError.message);
+  }
+
   if (existing && existing.status !== 'cancelled') {
     return { enrollment: existing as PtCourseEnrollment, created: false };
   }
 
   let enrollment: PtCourseEnrollment;
+  let created = true;
+
   if (existing?.status === 'cancelled') {
     const { data, error } = await db()
       .from('pt_course_enrollments')
@@ -683,7 +723,23 @@ async function ensureEnrollmentWithStepProgress(params: {
       })
       .select()
       .single();
-    if (error) throw new Error('Errore iscrizione: ' + error.message);
+
+    if (error) {
+      // Race / unique (course_id, atleta_user_id): tratta come già iscritto
+      if (error.code === '23505') {
+        const { data: again, error: againError } = await db()
+          .from('pt_course_enrollments')
+          .select('*')
+          .eq('course_id', course.id)
+          .eq('atleta_user_id', atletaUserId)
+          .maybeSingle();
+        if (againError) throw new Error('Errore iscrizione: ' + againError.message);
+        if (again && again.status !== 'cancelled') {
+          return { enrollment: again as PtCourseEnrollment, created: false };
+        }
+      }
+      throw new Error('Errore iscrizione: ' + error.message);
+    }
     enrollment = data as PtCourseEnrollment;
   }
 
@@ -709,10 +765,13 @@ async function ensureEnrollmentWithStepProgress(params: {
       .from('pt_course_step_progress')
       .insert(progressRows);
 
-    if (progressError) throw new Error('Errore inizializzazione progresso: ' + progressError.message);
+    // Progress già presente (re-assign): non far fallire l'iscrizione
+    if (progressError && progressError.code !== '23505') {
+      throw new Error('Errore inizializzazione progresso: ' + progressError.message);
+    }
   }
 
-  return { enrollment, created: true };
+  return { enrollment, created };
 }
 
 export async function enrollInCourse(
@@ -751,6 +810,7 @@ export async function assignCourseToAthletes(
 
   let assigned = 0;
   let skipped = 0;
+  const newlyAssignedIds: string[] = [];
 
   for (const atletaUserId of uniqueIds) {
     const { created } = await ensureEnrollmentWithStepProgress({
@@ -758,8 +818,28 @@ export async function assignCourseToAthletes(
       atletaUserId,
       assignedBy: 'pt',
     });
-    if (created) assigned += 1;
-    else skipped += 1;
+    if (created) {
+      assigned += 1;
+      newlyAssignedIds.push(atletaUserId);
+    } else {
+      skipped += 1;
+    }
+  }
+
+  if (newlyAssignedIds.length > 0) {
+    const notifications = newlyAssignedIds.map((atletaUserId) => ({
+      user_id: atletaUserId,
+      type: 'course_assigned',
+      title: 'Nuovo corso disponibile!',
+      body: `Il tuo Coach ti ha assegnato il corso "${course.title}"`,
+      action_url: `/app/courses/${courseId}`,
+      data: { pt_user_id: course.pt_user_id, course_id: courseId },
+    }));
+    // Non bloccare l'assegnazione se l'insert delle notifiche fallisce
+    const { error: notifError } = await db().from('notifications').insert(notifications);
+    if (notifError) {
+      console.warn('Notifica assegnazione corso non inviata:', notifError.message);
+    }
   }
 
   return { assigned, skipped };
@@ -774,6 +854,41 @@ export async function listCourseEnrolledAthleteIds(courseId: string): Promise<st
 
   if (error) throw new Error('Errore caricamento iscritti: ' + error.message);
   return (data || []).map((row: { atleta_user_id: string }) => row.atleta_user_id);
+}
+
+/** True when the RPC is not yet applied on Lovable Cloud (PostgREST schema cache). */
+export function isMissingCourseStepWorkoutRpc(error: unknown): boolean {
+  const msg =
+    typeof error === 'string'
+      ? error
+      : error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: unknown }).message || '')
+        : '';
+  return /schema cache|Could not find the function|PGRST202|start_course_step_workout/i.test(msg);
+}
+
+/**
+ * Crea (o riprende) un workout dagli esercizi dello step via RPC.
+ * Se la funzione non esiste ancora sul backend, ritorna `null` così il client
+ * può usare il runner inline del corso.
+ */
+export async function startCourseStepWorkout(
+  enrollmentId: string,
+  stepId: string,
+): Promise<string | null> {
+  const { data, error } = await db().rpc('start_course_step_workout', {
+    _enrollment_id: enrollmentId,
+    _step_id: stepId,
+  });
+
+  if (error) {
+    if (isMissingCourseStepWorkoutRpc(error)) return null;
+    throw new Error(error.message || 'Errore avvio allenamento');
+  }
+  if (!data) {
+    throw new Error('Errore avvio allenamento');
+  }
+  return data as string;
 }
 
 export async function completeCourseStep(

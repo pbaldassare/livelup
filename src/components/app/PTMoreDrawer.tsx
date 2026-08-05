@@ -26,6 +26,7 @@ import {
   MapPin,
   Monitor,
   Combine,
+  GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,7 @@ const SECTIONS: Array<{ label: string; href: string; icon: typeof Calendar; grou
   { group: 'Lavoro', label: 'Calendario', href: '/pt/app/calendar', icon: Calendar },
   { group: 'Lavoro', label: 'Esercizi', href: '/pt/app/exercises', icon: Library },
   { group: 'Lavoro', label: 'Template', href: '/pt/app/templates', icon: ClipboardList },
+  { group: 'Lavoro', label: 'Corsi', href: '/pt/app/courses', icon: GraduationCap },
   { group: 'Lavoro', label: 'Assegna atleta', href: '/pt/app/athlete-transfer', icon: ArrowRightLeft },
   { group: 'Business', label: 'Coupons', href: '/pt/app/coupons', icon: Tag },
   { group: 'Business', label: 'Pagamenti', href: '/pt/app/payments', icon: CreditCard },

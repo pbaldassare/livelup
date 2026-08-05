@@ -150,7 +150,7 @@ export function AtletaWorkoutDetailPage() {
   const [skipAutoStart, setSkipAutoStart] = useState(false);
 
 
-  const { isCoachingPaused, ptName } = useAtletaStatus();
+  const { canTrainWithPt, isConnectedToPt, connections } = useAtletaStatus();
 
   // Fetch workout with exercises + blocks
 
@@ -298,13 +298,37 @@ export function AtletaWorkoutDetailPage() {
     }
   }, [existingLogs, workout?.workout_exercises]);
 
+  // Solo lettura se disdetta col PT di questa scheda (storico consultabile)
+  const isReadOnlyHistory =
+    !!workout?.pt_user_id && !isConnectedToPt(workout.pt_user_id);
+  const isPausedWithThisPt =
+    !!workout?.pt_user_id &&
+    isConnectedToPt(workout.pt_user_id) &&
+    !canTrainWithPt(workout.pt_user_id);
+  const coachOfWorkout = connections.find((c) => c.pt_user_id === workout?.pt_user_id);
+  const coachNameOfWorkout = coachOfWorkout
+    ? [coachOfWorkout.profiles?.first_name, coachOfWorkout.profiles?.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || null
+    : null;
+
   // Auto-avvia il flow se l'allenamento è già in corso (es. da Home "Continua")
   useEffect(() => {
     if (!workout || isLoading || isWorkoutStarted || !logsFetched || skipAutoStart) return;
+    if (isReadOnlyHistory || isPausedWithThisPt) return;
     if (workout.status === 'in_corso' || workout.status === 'in_sospeso') {
       setIsWorkoutStarted(true);
     }
-  }, [workout, isLoading, isWorkoutStarted, logsFetched, skipAutoStart]);
+  }, [
+    workout,
+    isLoading,
+    isWorkoutStarted,
+    logsFetched,
+    skipAutoStart,
+    isReadOnlyHistory,
+    isPausedWithThisPt,
+  ]);
 
 
   // Fetch PT profile for coach avatar
@@ -647,10 +671,10 @@ export function AtletaWorkoutDetailPage() {
     }));
   }, [currentExercise, completedSets]);
 
-  if (isCoachingPaused) {
+  if (isPausedWithThisPt) {
     return (
       <div className="min-h-screen bg-app-background p-4 pt-10">
-        <PtCoachingPausedCard ptName={ptName} />
+        <PtCoachingPausedCard ptName={coachNameOfWorkout} />
       </div>
     );
   }
@@ -831,8 +855,8 @@ export function AtletaWorkoutDetailPage() {
     );
   }
 
-  // Pre-workout screen
-  if (!isWorkoutStarted) {
+  // Pre-workout screen (anche sola lettura post-disdetta)
+  if (!isWorkoutStarted || isReadOnlyHistory) {
     const hasExistingLogs = existingLogs && existingLogs.length > 0;
     const isResumeStatus = workout.status === 'in_corso' || workout.status === 'in_sospeso';
     const startLabel = hasExistingLogs || isResumeStatus
@@ -946,7 +970,10 @@ export function AtletaWorkoutDetailPage() {
                 )}
               </div>
               <div className='flex items-center gap-2 shrink-0'>
-                {canAthleteReorder((workout as any).template_kind) && !hasExistingLogs && !isWorkoutStarted && (
+                {canAthleteReorder((workout as any).template_kind) &&
+                  !hasExistingLogs &&
+                  !isWorkoutStarted &&
+                  !isReadOnlyHistory && (
                   <Button
                     variant='outline'
                     size='sm'
@@ -1158,26 +1185,41 @@ export function AtletaWorkoutDetailPage() {
               size="default"
               className="w-full h-11 rounded-full border-app-border text-app-foreground"
             />
-            <Button
-              onClick={async () => {
-                setSkipAutoStart(false);
-                setIsWorkoutStarted(true);
-                // Marca workout come "in_corso" per la Home action-first
-                if (workoutId && workout?.status !== 'in_corso') {
-                  await supabase
-                    .from('workouts')
-                    .update({ status: 'in_corso' as any })
-                    .eq('id', workoutId)
-                    .in('status', ['attivo', 'in_sospeso']);
-                  queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
-                }
-              }}
-
-              className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
-            >
-              <Play className="h-5 w-5 mr-2" />
-              {startLabel}
-            </Button>
+            {isReadOnlyHistory ? (
+              <div className="rounded-xl border border-app-border bg-app-muted/40 p-4 text-center space-y-2">
+                <p className="text-sm font-semibold text-app-foreground">Solo lettura</p>
+                <p className="text-xs text-app-muted-foreground">
+                  La collaborazione con questo Professionista è terminata. Puoi consultare
+                  scheda e storico, ma non avviare o modificare l&apos;allenamento.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full border-app-border"
+                  onClick={() => navigate('/app/workout')}
+                >
+                  Torna agli allenamenti
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={async () => {
+                  setSkipAutoStart(false);
+                  setIsWorkoutStarted(true);
+                  if (workoutId && workout?.status !== 'in_corso') {
+                    await supabase
+                      .from('workouts')
+                      .update({ status: 'in_corso' as any })
+                      .eq('id', workoutId)
+                      .in('status', ['attivo', 'in_sospeso']);
+                    queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+                  }
+                }}
+                className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
+              >
+                <Play className="h-5 w-5 mr-2" />
+                {startLabel}
+              </Button>
+            )}
           </motion.div>
         </div>
 

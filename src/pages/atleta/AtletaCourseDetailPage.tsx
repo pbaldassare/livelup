@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, GraduationCap, Loader2, Target, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CourseProgressBar } from '@/components/app/CourseProgressBar';
 import { CourseStepCard } from '@/components/app/CourseStepCard';
 import { useAuth } from '@/hooks/useAuth';
+import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import {
   completeCourseStep,
   courseQueryKeys,
   enrollInCourse,
   getAthleteCourseDetail,
+  startCourseStepWorkout,
   type CourseDifficulty,
   type PtCourseStepProgress,
 } from '@/lib/api/courses';
@@ -26,14 +28,18 @@ const DIFFICULTY_LABELS: Record<CourseDifficulty, string> = {
 export function AtletaCourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
   const { user } = useAuth();
+  const { isConnectedToPt } = useAtletaStatus();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [completingStepId, setCompletingStepId] = useState<string | null>(null);
+  const [startingStepId, setStartingStepId] = useState<string | null>(null);
 
-  const { data: course, isLoading, error } = useQuery({
+  const { data: course, isLoading, error, isFetching } = useQuery({
     queryKey: courseQueryKeys.atletaDetail(user?.id || '', courseId || ''),
     queryFn: () => getAthleteCourseDetail(courseId!, user!.id),
     enabled: !!user?.id && !!courseId,
+    // Evita flash vuoto / "non trovato" dopo ritorno dal runner
+    placeholderData: keepPreviousData,
   });
 
   const enrollMutation = useMutation({
@@ -49,18 +55,41 @@ export function AtletaCourseDetailPage() {
   });
 
   const completeMutation = useMutation({
-    mutationFn: (stepId: string) =>
-      completeCourseStep(course!.enrollment!.id, stepId, user!.id),
+    mutationFn: (stepId: string) => {
+      const enrollmentId = course?.enrollment?.id;
+      if (!enrollmentId || !user?.id) {
+        throw new Error('Iscrizione non disponibile');
+      }
+      return completeCourseStep(enrollmentId, stepId, user.id);
+    },
     onMutate: (stepId) => setCompletingStepId(stepId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: courseQueryKeys.atletaDetail(user!.id, courseId!),
-      });
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.atletaList(user!.id) });
+    onSuccess: async () => {
       toast.success('Step completato!');
+      if (user?.id && courseId) {
+        await queryClient.invalidateQueries({
+          queryKey: courseQueryKeys.atletaDetail(user.id, courseId),
+        });
+        await queryClient.invalidateQueries({ queryKey: courseQueryKeys.atletaList(user.id) });
+      }
     },
     onError: (err: Error) => toast.error(err.message || 'Errore completamento'),
     onSettled: () => setCompletingStepId(null),
+  });
+
+  const startWorkoutMutation = useMutation({
+    mutationFn: (stepId: string) =>
+      startCourseStepWorkout(course!.enrollment!.id, stepId),
+    onMutate: (stepId) => setStartingStepId(stepId),
+    onSuccess: (workoutId, stepId) => {
+      // RPC disponibile → GuidedWorkoutFlow; altrimenti runner inline del corso
+      if (workoutId) {
+        navigate(`/app/workout/${workoutId}?fromCourse=${courseId}`);
+      } else {
+        navigate(`/app/courses/${courseId}/steps/${stepId}/run`);
+      }
+    },
+    onError: (err: Error) => toast.error(err.message || 'Errore avvio allenamento'),
+    onSettled: () => setStartingStepId(null),
   });
 
   const progressByStep = useMemo(() => {
@@ -78,7 +107,7 @@ export function AtletaCourseDetailPage() {
     return Math.round(rows.reduce((acc, r) => acc + (r.progress_pct || 0), 0) / rows.length);
   }, [course]);
 
-  if (isLoading) {
+  if ((isLoading || isFetching) && !course) {
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-app-muted-foreground" />
@@ -86,9 +115,20 @@ export function AtletaCourseDetailPage() {
     );
   }
 
-  if (error || !course) {
+  if (error && !course) {
     return (
-      <div className="space-y-4 py-8 text-center">
+      <div className="space-y-4 py-8 text-center px-4">
+        <p className="text-app-muted-foreground">Corso non trovato</p>
+        <Button variant="outline" onClick={() => navigate('/app/courses')}>
+          Torna ai corsi
+        </Button>
+      </div>
+    );
+  }
+
+  if (!course) {
+    return (
+      <div className="space-y-4 py-8 text-center px-4">
         <p className="text-app-muted-foreground">Corso non trovato</p>
         <Button variant="outline" onClick={() => navigate('/app/courses')}>
           Torna ai corsi
@@ -101,6 +141,9 @@ export function AtletaCourseDetailPage() {
     ? DIFFICULTY_LABELS[course.difficulty_level]
     : null;
   const enrolled = !!course.enrollment;
+  const steps = course.pt_course_steps ?? [];
+  // Post-disdetta: corso consultabile, niente avanzamento / avvio
+  const canInteractWithCourse = isConnectedToPt(course.pt_user_id);
 
   return (
     <div className="pb-8 -mx-4">
@@ -177,6 +220,15 @@ export function AtletaCourseDetailPage() {
           <p className="text-sm text-app-muted-foreground leading-relaxed">{course.description}</p>
         ) : null}
 
+        {enrolled && !canInteractWithCourse ? (
+          <div className="rounded-xl border border-app-border bg-app-muted/40 p-4 text-center space-y-1">
+            <p className="text-sm font-medium text-app-foreground">Solo lettura</p>
+            <p className="text-xs text-app-muted-foreground">
+              Collaborazione terminata: puoi rivedere il percorso, ma non avanzare gli step.
+            </p>
+          </div>
+        ) : null}
+
         {!enrolled ? (
           course.is_free === false ? (
             <div className="rounded-xl border border-app-border bg-app-card p-4 text-center space-y-1">
@@ -188,7 +240,7 @@ export function AtletaCourseDetailPage() {
           ) : (
             <Button
               className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
-              disabled={enrollMutation.isPending}
+              disabled={enrollMutation.isPending || !canInteractWithCourse}
               onClick={() => enrollMutation.mutate()}
             >
               {enrollMutation.isPending ? (
@@ -201,21 +253,23 @@ export function AtletaCourseDetailPage() {
 
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider">
-            Percorso ({course.pt_course_steps.length} step)
+            Percorso ({steps.length} step)
           </h2>
 
-          {course.pt_course_steps.length === 0 ? (
+          {steps.length === 0 ? (
             <p className="text-sm text-app-muted-foreground">Nessuno step disponibile.</p>
           ) : (
-            course.pt_course_steps.map((step, index) => {
+            steps.map((step, index) => {
               const progress = progressByStep.get(step.id);
+              const stepExercises = step.pt_course_step_exercises || [];
+              const isExerciseStep = (step.step_type || 'exercises') === 'exercises';
               // Preview without enrollment: all locked visually except expand disabled
               const effectiveProgress: PtCourseStepProgress | null = enrolled
                 ? progress || {
                     id: '',
-                    enrollment_id: course.enrollment!.id,
+                    enrollment_id: course.enrollment?.id || '',
                     step_id: step.id,
-                    atleta_user_id: user!.id,
+                    atleta_user_id: user?.id || '',
                     status: course.requires_sequential_steps && index > 0 ? 'locked' : 'in_progress',
                     progress_pct: 0,
                     completed_at: null,
@@ -237,9 +291,22 @@ export function AtletaCourseDetailPage() {
                   stepNumber={index + 1}
                   progress={effectiveProgress}
                   isCompleting={completingStepId === step.id}
+                  isStartingWorkout={startingStepId === step.id}
                   onComplete={
-                    enrolled && effectiveProgress.status !== 'locked' && effectiveProgress.status !== 'completed'
+                    enrolled &&
+                    canInteractWithCourse &&
+                    effectiveProgress.status !== 'locked' &&
+                    effectiveProgress.status !== 'completed'
                       ? () => completeMutation.mutate(step.id)
+                      : undefined
+                  }
+                  onStartWorkout={
+                    enrolled &&
+                    canInteractWithCourse &&
+                    isExerciseStep &&
+                    stepExercises.length > 0 &&
+                    effectiveProgress.status !== 'locked'
+                      ? () => startWorkoutMutation.mutate(step.id)
                       : undefined
                   }
                 />

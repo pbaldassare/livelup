@@ -225,7 +225,7 @@ public/
 ### Key triggers
 
 - `handle_new_user_role` — auto-create profile + role-specific profile on signup
-- `enforce_single_pt_connection` — terminates other active connections when one is activated
+- ~~`enforce_single_pt_connection`~~ removed — multi-PT via `20260805180000_multi_pt_connections.sql`
 - `update_atleta_status_on_connection` — keeps `atleta_profiles.status` in sync
 - `update_pt_rating` — recompute `rating_avg` on review insert/update
 - `update_chat_last_message`, `create_message_notification`, `create_connection_notification`
@@ -535,7 +535,7 @@ bunx vitest run  # tests
    - PT-on-behalf passes `athleteUserId`
    - History shows ko / delta correctly
 8. **RLS-first**: Every new `public.<table>` migration must include `GRANT` to `authenticated` (and `service_role`), `ENABLE ROW LEVEL SECURITY`, and at least one `CREATE POLICY`. No GRANTs → runtime "permission denied".
-9. **One PT per athlete** — `enforce_single_pt_connection` trigger handles it; don't bypass.
+9. **Multi-PT** — athlete may have multiple active PTs; `is_primary` chosen by athlete. Do not reintroduce `enforce_single_pt_connection`.
 10. **Terminology**: "Attività" (not Workout), "Calisthenics" (not Crossfit), "Professionista" (covers PT/nutritionist/physio).
 11. **Routing**: Admin → `/admin`, PT web → `/pt`, PT PWA → `/pt/app`, Athlete → `/app`. Never mix.
 12. **PT mobile**: `usePTSurface` auto-redirects `/pt/*` → `/pt/app/*` on narrow viewports or PWA standalone. `?view=web` overrides.

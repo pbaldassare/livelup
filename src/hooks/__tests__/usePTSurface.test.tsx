@@ -145,7 +145,7 @@ describe('mapPTWebToApp', () => {
     ['/pt/cerca-professionisti', '/pt/app/cerca-professionisti'],
     ['/pt/athlete-transfer', '/pt/app/athlete-transfer'],
     ['/pt/assistant', '/pt/app'],
-    ['/pt/courses', '/pt/app'],
+    ['/pt/courses', '/pt/app/courses'],
   ])('maps %s → %s', (input, expected) => {
     expect(mapPTWebToApp(input)).toBe(expected);
   });

@@ -115,6 +115,18 @@ export function AssignCourseDialog({ open, onOpenChange, course }: AssignCourseD
       return assignCourseToAthletes(course.id, [...selected]);
     },
     onSuccess: ({ assigned, skipped }) => {
+      if (user?.id && course?.id && assigned > 0) {
+        // Aggiorna subito il conteggio iscritti sulla card lista
+        queryClient.setQueryData(
+          courseQueryKeys.list(user.id),
+          (old: { id: string; enrolled_count?: number }[] | undefined) =>
+            (old || []).map((c) =>
+              c.id === course.id
+                ? { ...c, enrolled_count: (c.enrolled_count || 0) + assigned }
+                : c,
+            ),
+        );
+      }
       if (user?.id) {
         queryClient.invalidateQueries({ queryKey: courseQueryKeys.list(user.id) });
       }
@@ -141,8 +153,8 @@ export function AssignCourseDialog({ open, onOpenChange, course }: AssignCourseD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 p-0 overflow-hidden flex flex-col">
-        <DialogHeader className="px-6 pt-6 pb-3 border-b">
+      <DialogContent className="max-w-md w-[calc(100%-1.5rem)] sm:w-full max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-4 sm:px-6 pt-6 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Users className="h-5 w-5 text-primary" />
             Assegna corso
@@ -152,7 +164,7 @@ export function AssignCourseDialog({ open, onOpenChange, course }: AssignCourseD
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
           {course ? (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/30">
               <GraduationCap className="h-5 w-5 text-primary shrink-0" />
@@ -251,7 +263,7 @@ export function AssignCourseDialog({ open, onOpenChange, course }: AssignCourseD
           )}
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t">
+        <DialogFooter className="px-4 sm:px-6 py-4 border-t">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annulla
           </Button>

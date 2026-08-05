@@ -180,16 +180,29 @@ export async function requestConnection(params: {
 }) {
   const { ptUserId, atletaUserId, requestedBy, origin = 'ricerca' } = params;
 
-  // Verifica se atleta può connettersi (non ha già un PT attivo)
-  const { data: canConnect, error: checkError } = await supabase
-    .rpc('can_atleta_connect_to_pt', { _atleta_user_id: atletaUserId });
+  // Multi-PT: blocco solo se esiste già active/pending con QUESTO PT
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: canConnectSpecific, error: specificError } = await (supabase.rpc as any)(
+    'can_atleta_connect_to_specific_pt',
+    { _atleta_user_id: atletaUserId, _pt_user_id: ptUserId },
+  );
 
-  if (checkError) {
-    throw new Error('Errore durante la verifica: ' + checkError.message);
+  if (!specificError && canConnectSpecific === false) {
+    throw new Error('Esiste già una connessione o richiesta con questo Professionista.');
   }
 
-  if (!canConnect) {
-    throw new Error('L\'atleta ha già un Personal Trainer attivo. Deve prima terminare la connessione esistente.');
+  if (specificError) {
+    // Fallback se RPC multi-PT non ancora deployata: check client-side
+    const { data: existing } = await supabase
+      .from('pt_atleta_connections')
+      .select('id, status')
+      .eq('atleta_user_id', atletaUserId)
+      .eq('pt_user_id', ptUserId)
+      .in('status', ['active', 'pending'])
+      .maybeSingle();
+    if (existing) {
+      throw new Error('Esiste già una connessione o richiesta con questo Professionista.');
+    }
   }
 
   // Verifica se PT può accettare nuovi atleti
@@ -223,7 +236,19 @@ export async function requestConnection(params: {
     throw new Error('Errore durante la richiesta: ' + error.message);
   }
 
+  void origin; // reserved for analytics
   return data;
+}
+
+/** Atleta sceglie il coach primario tra le connessioni active. */
+export async function setPrimaryCoach(ptUserId: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('set_atleta_primary_pt', {
+    _pt_user_id: ptUserId,
+  });
+  if (error) {
+    throw new Error(error.message || 'Errore impostazione coach primario');
+  }
 }
 
 // =====================================================
@@ -333,6 +358,12 @@ export async function setAthleteTrainingModality(
 // TERMINA CONNESSIONE
 // =====================================================
 
+/**
+ * Termina SOLO la connessione PT–atleta.
+ * - Non tocca l'abbonamento piattaforma (`subscriptions` / `is_premium`).
+ * - Opzionale: chiude i pacchetti PT (`atleta_pt_subscriptions`) di QUEL PT
+ *   (rimangono in storico; workout/corsi restano consultabili in sola lettura).
+ */
 export async function terminateConnection(connectionId: string) {
   const { data, error } = await supabase
     .from('pt_atleta_connections')
@@ -342,11 +373,24 @@ export async function terminateConnection(connectionId: string) {
     })
     .eq('id', connectionId)
     .eq('status', 'active')
-    .select()
+    .select('id, pt_user_id, atleta_user_id')
     .single();
 
   if (error) {
     throw new Error('Errore durante la terminazione: ' + error.message);
+  }
+
+  // Pacchetto PT (separato dalla piattaforma): chiudi solo quelli di questo PT
+  if (data?.pt_user_id && data?.atleta_user_id) {
+    await supabase
+      .from('atleta_pt_subscriptions')
+      .update({
+        status: 'cancellato',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('pt_user_id', data.pt_user_id)
+      .eq('atleta_user_id', data.atleta_user_id)
+      .eq('status', 'attivo');
   }
 
   return data;

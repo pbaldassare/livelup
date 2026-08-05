@@ -255,7 +255,7 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-3xl max-h-[95vh] sm:max-h-[92vh] flex flex-col overflow-hidden p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{isCreating ? 'Crea corso' : 'Modifica corso'}</DialogTitle>
           <DialogDescription>
@@ -425,7 +425,7 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
 
             {activeCourseId && (
               <div className="space-y-3 border-t border-border pt-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h3 className="text-sm font-semibold">Step del corso</h3>
                     <p className="text-xs text-muted-foreground">

@@ -6,7 +6,6 @@ import { CourseProgressBar } from '@/components/app/CourseProgressBar';
 import { VideoEmbed } from '@/components/common/VideoEmbed';
 import { cn } from '@/lib/utils';
 import type { PtCourseStep, PtCourseStepExercise, PtCourseStepProgress } from '@/lib/api/courses';
-import { toast } from 'sonner';
 
 interface CourseStepCardProps {
   step: PtCourseStep;
@@ -14,6 +13,8 @@ interface CourseStepCardProps {
   progress?: PtCourseStepProgress | null;
   onComplete?: () => void;
   isCompleting?: boolean;
+  onStartWorkout?: () => void;
+  isStartingWorkout?: boolean;
 }
 
 export function CourseStepCard({
@@ -22,6 +23,8 @@ export function CourseStepCard({
   progress,
   onComplete,
   isCompleting,
+  onStartWorkout,
+  isStartingWorkout,
 }: CourseStepCardProps) {
   const [open, setOpen] = useState(false);
   const status = progress?.status ?? 'locked';
@@ -149,10 +152,20 @@ export function CourseStepCard({
                     type="button"
                     variant="outline"
                     className="flex-1 border-app-border text-app-foreground"
-                    onClick={() => toast.info('Prossimamente')}
+                    disabled={
+                      isLocked ||
+                      isStartingWorkout ||
+                      exercises.length === 0 ||
+                      !onStartWorkout
+                    }
+                    onClick={() => onStartWorkout?.()}
                   >
-                    <Dumbbell className="h-4 w-4 mr-2" />
-                    WORKOUT
+                    {isStartingWorkout ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Dumbbell className="h-4 w-4 mr-2" />
+                    )}
+                    Avvia corso
                   </Button>
                   {!isCompleted && (
                     <Button

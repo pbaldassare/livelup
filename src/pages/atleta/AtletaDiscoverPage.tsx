@@ -23,6 +23,7 @@ import { PublicEventCard } from '@/components/app/PublicEventCard';
 import { ProfessionalsSection } from '@/components/app/ProfessionalsSection';
 import { EventsSection } from '@/components/app/EventsSection';
 import { FollowStarButton } from '@/components/app/FollowStarButton';
+import { AtletaCoursesPage } from '@/pages/atleta/AtletaCoursesPage';
 import { 
   Search, 
   MapPin, 
@@ -42,6 +43,7 @@ import {
   Calendar,
   Briefcase,
   UsersRound,
+  GraduationCap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -293,10 +295,14 @@ interface PTSearchSectionProps {
   isConnected?: boolean;
   ptName?: string | null;
   /** user_id del PT attualmente collegato — niente stella "segui" su di lui (la connessione basta) */
-  connectedPtUserId?: string | null;
+  connectedPtUserIds?: string[];
 }
 
-function PTSearchSection({ isConnected = false, ptName, connectedPtUserId }: PTSearchSectionProps) {
+function PTSearchSection({
+  isConnected = false,
+  ptName,
+  connectedPtUserIds = [],
+}: PTSearchSectionProps) {
   // Location state
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -513,10 +519,12 @@ function PTSearchSection({ isConnected = false, ptName, connectedPtUserId }: PTS
             </div>
             <div>
               <h2 className="font-semibold text-app-foreground">
-                Sei già connesso{ptName ? ` a ${ptName}` : ' a un PT'}
+                Puoi collegarti a più Professionisti
               </h2>
               <p className="text-sm text-app-muted-foreground mt-1">
-                Esplora altri professionisti della community.
+                {ptName
+                  ? `Sei già collegato a ${ptName}. Puoi aggiungere altri coach in parallelo.`
+                  : 'Sei già collegato a uno o più coach. Puoi aggiungerne altri in parallelo.'}
               </p>
             </div>
           </div>
@@ -793,7 +801,7 @@ function PTSearchSection({ isConnected = false, ptName, connectedPtUserId }: PTS
                               )}
                             </h3>
                             <div className="flex items-center gap-1 shrink-0">
-                              {pt.user_id !== connectedPtUserId && (
+                              {!connectedPtUserIds.includes(pt.user_id) && (
                                 <FollowStarButton targetType="pt" targetId={pt.user_id} size="sm" />
                               )}
                               <ChevronRight className="h-5 w-5 text-app-muted-foreground" />
@@ -884,23 +892,24 @@ function PTSearchSection({ isConnected = false, ptName, connectedPtUserId }: PTS
 // =====================================================
 
 export function AtletaDiscoverPage() {
-  const { isConnected, ptName, connection } = useAtletaStatus();
+  const { isConnected, ptName, connections } = useAtletaStatus();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const initialCategory =
-    tabParam === 'events' || tabParam === 'professionals' || tabParam === 'pt'
-      ? tabParam
-      : 'pt';
-  const [activeCategory, setActiveCategory] = useState<'pt' | 'events' | 'professionals'>(initialCategory);
+  const isValidTab = (v: string | null): v is 'pt' | 'events' | 'courses' | 'professionals' =>
+    v === 'events' || v === 'professionals' || v === 'pt' || v === 'courses';
+  const initialCategory = isValidTab(tabParam) ? tabParam : 'pt';
+  const [activeCategory, setActiveCategory] = useState<'pt' | 'events' | 'courses' | 'professionals'>(
+    initialCategory,
+  );
 
   useEffect(() => {
-    if (tabParam === 'events' || tabParam === 'professionals' || tabParam === 'pt') {
+    if (isValidTab(tabParam)) {
       setActiveCategory(tabParam);
     }
   }, [tabParam]);
 
   const handleCategoryChange = (value: string) => {
-    const category = value as 'pt' | 'events' | 'professionals';
+    const category = value as 'pt' | 'events' | 'courses' | 'professionals';
     setActiveCategory(category);
     setSearchParams({ tab: category }, { replace: true });
   };
@@ -945,6 +954,13 @@ export function AtletaDiscoverPage() {
               Eventi
             </TabsTrigger>
             <TabsTrigger 
+              value="courses" 
+              className="flex-1 data-[state=active]:bg-app-accent data-[state=active]:text-app-accent-foreground gap-1.5"
+            >
+              <GraduationCap className="h-4 w-4" />
+              Corsi
+            </TabsTrigger>
+            <TabsTrigger 
               value="professionals" 
               className="flex-1 data-[state=active]:bg-app-accent data-[state=active]:text-app-accent-foreground gap-1.5"
             >
@@ -962,10 +978,11 @@ export function AtletaDiscoverPage() {
           <PTSearchSection
             isConnected={isConnected}
             ptName={ptName}
-            connectedPtUserId={connection?.pt_user_id ?? null}
+            connectedPtUserIds={connections.map((c) => c.pt_user_id)}
           />
         )}
         {activeCategory === 'events' && <EventsSection isConnected={isConnected} />}
+        {activeCategory === 'courses' && <AtletaCoursesPage embedded />}
         {activeCategory === 'professionals' && <ProfessionalsSection />}
       </div>
     </div>

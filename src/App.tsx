@@ -99,6 +99,7 @@ import PTAppChatGroupDetailPage from "./pages/pt/PTAppChatGroupDetailPage";
 import PTAppCalendarPage from "./pages/pt/PTAppCalendarPage";
 import PTAppProfilePage from "./pages/pt/PTAppProfilePage";
 import PTAppExercisesPage from "./pages/pt/PTAppExercisesPage";
+import PTAppCoursesPage from "./pages/pt/PTAppCoursesPage";
 import PTAppTemplatesPage from "./pages/pt/PTAppTemplatesPage";
 import PTAppCouponsPage from "./pages/pt/PTAppCouponsPage";
 import PTAppPaymentsPage from "./pages/pt/PTAppPaymentsPage";
@@ -127,6 +128,7 @@ import AtletaProfessionalProfilePage from "./pages/atleta/AtletaProfessionalProf
 import AtletaBookingPage from "./pages/atleta/AtletaBookingPage";
 import AtletaCoursesPage from "./pages/atleta/AtletaCoursesPage";
 import AtletaCourseDetailPage from "./pages/atleta/AtletaCourseDetailPage";
+import AtletaCourseStepRunPage from "./pages/atleta/AtletaCourseStepRunPage";
 import AtletaSchedaPage from "./pages/atleta/AtletaSchedaPage";
 import AtletaProgrammaPage from "./pages/atleta/AtletaProgrammaPage";
 import AtletaEserciziPage from "./pages/atleta/AtletaEserciziPage";
@@ -581,6 +583,13 @@ const App = () => {
                   </AppLayout>
                 </PTAppRoute>
               } />
+              <Route path="/pt/app/courses" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppCoursesPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
               <Route path="/pt/app/templates" element={
                 <PTAppRoute>
                   <AppLayout>
@@ -849,6 +858,13 @@ const App = () => {
                 <AtletaRoute>
                   <AppLayout>
                     <AtletaCourseDetailPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/courses/:courseId/steps/:stepId/run" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaCourseStepRunPage />
                   </AppLayout>
                 </AtletaRoute>
               } />

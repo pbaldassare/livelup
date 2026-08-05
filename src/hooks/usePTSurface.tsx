@@ -92,8 +92,7 @@ export function mapPTWebToApp(pathname: string): string {
   if (pathname.startsWith('/pt/athlete-transfer')) return '/pt/app/athlete-transfer';
   // Assistant is web-only for now — keep PT on a useful app surface
   if (pathname.startsWith('/pt/assistant')) return '/pt/app';
-  // Courses: dashboard-only for now (no athlete/PT app surface yet)
-  if (pathname.startsWith('/pt/courses')) return '/pt/app';
+  if (pathname.startsWith('/pt/courses')) return '/pt/app/courses';
   // Onboarding is shared — keep as is
   if (pathname.startsWith('/pt/onboarding')) return pathname;
   return '/pt/app';
