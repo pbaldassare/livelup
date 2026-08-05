@@ -159,7 +159,7 @@ function WorkoutActionsDialog({
           </Button>
           <Button variant="outline" className="justify-start" onClick={onDuplicate}>
             <Copy className="h-4 w-4 mr-2" />
-            Duplica
+            {workout.status === 'completato' ? 'Rifai allenamento' : 'Duplica'}
           </Button>
         </div>
       </DialogContent>

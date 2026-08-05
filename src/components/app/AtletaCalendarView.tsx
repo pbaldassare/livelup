@@ -355,7 +355,7 @@ function DayView({
         const isCompleted = w.status === 'completato';
         const isInProgress = w.status === 'in_corso';
         const ctaLabel = isCompleted
-          ? 'Rivedi'
+          ? 'Rifai'
           : isInProgress
             ? 'Continua'
             : 'Inizia';

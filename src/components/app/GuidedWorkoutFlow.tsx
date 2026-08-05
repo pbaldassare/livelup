@@ -344,7 +344,7 @@ export function GuidedWorkoutFlow({
         .from('workouts')
         .update({ status: 'in_corso' } satisfies Pick<WorkoutRowUpdate, 'status'>)
         .eq('id', workoutId)
-        .in('status', ['attivo', 'in_sospeso'])
+        .in('status', ['attivo', 'in_sospeso', 'scaduto'])
         .then(() => {
           queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
         });
@@ -584,12 +584,16 @@ export function GuidedWorkoutFlow({
     });
   };
 
-  // Completion of workout
+  // Completion of workout — fire once (onCompleted spesso è inline e cambia a ogni render)
+  const onCompletedRef = useRef(onCompleted);
+  onCompletedRef.current = onCompleted;
+  const finishNotifiedRef = useRef(false);
   useEffect(() => {
-    if (state.flow === 'finished') {
-      onCompleted();
+    if (state.flow === 'finished' && !finishNotifiedRef.current) {
+      finishNotifiedRef.current = true;
+      onCompletedRef.current();
     }
-  }, [state.flow, onCompleted]);
+  }, [state.flow]);
 
   if (!currentExercise) {
     return (

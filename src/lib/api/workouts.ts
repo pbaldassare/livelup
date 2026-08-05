@@ -311,6 +311,14 @@ export async function computeWorkoutSessionSummaryFromLogs(
   };
 }
 
+/** Stati da cui un allenamento può essere segnato completato. */
+export const COMPLETABLE_WORKOUT_STATUSES = [
+  'attivo',
+  'in_corso',
+  'in_sospeso',
+  'scaduto',
+] as const;
+
 export async function completeWorkout(
   workoutId: string,
   feedback?: {
@@ -326,6 +334,29 @@ export async function completeWorkout(
     volumeKg?: number;
   },
 ) {
+  const { data: existing, error: fetchErr } = await supabase
+    .from('workouts')
+    .select('id, status')
+    .eq('id', workoutId)
+    .maybeSingle();
+
+  if (fetchErr) {
+    throw new Error('Errore completamento workout: ' + fetchErr.message);
+  }
+  if (!existing) {
+    throw new Error('Allenamento non trovato');
+  }
+  // Idempotente: doppio tap / doppia callback non devono fallire
+  if (existing.status === 'completato') {
+    const { data: done, error: doneErr } = await supabase
+      .from('workouts')
+      .select('*')
+      .eq('id', workoutId)
+      .maybeSingle();
+    if (doneErr) throw new Error('Errore completamento workout: ' + doneErr.message);
+    return done!;
+  }
+
   const recompute = feedback?.recomputeFromLogs !== false;
   let setsCompleted = feedback?.setsCompleted ?? null;
   let repsTotal = feedback?.repsTotal ?? null;
@@ -358,12 +389,20 @@ export async function completeWorkout(
       volume_kg: volumeKg,
     } as any)
     .eq('id', workoutId)
-    .in('status', ['attivo', 'in_corso', 'in_sospeso'])
+    .in('status', [...COMPLETABLE_WORKOUT_STATUSES])
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw new Error('Errore completamento workout: ' + error.message);
+  }
+  if (!data) {
+    if (existing.status === 'saltato') {
+      throw new Error('Questa scheda è stata annullata e non può essere completata.');
+    }
+    throw new Error(
+      `Impossibile salvare l'allenamento (stato attuale: ${existing.status}). Ricarica la pagina e riprova.`,
+    );
   }
 
   return data;
@@ -634,6 +673,32 @@ async function copyWorkoutAssignmentToAthlete(
   }
 
   return workout;
+}
+
+/**
+ * Atleta: rifà una scheda completata creando una nuova assegnazione attiva
+ * (RPC SECURITY DEFINER — lo storico originale resta intatto).
+ */
+export async function redoCompletedWorkout(workoutId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('athlete_redo_workout' as any, {
+    _workout_id: workoutId,
+  });
+
+  if (error) {
+    const msg = error.message || '';
+    if (/schema cache|could not find|does not exist|PGRST202/i.test(msg)) {
+      throw new Error(
+        'Funzione "Rifai allenamento" non ancora disponibile sul backend. Applica la migration e riprova.',
+      );
+    }
+    throw new Error(msg || 'Impossibile rifare l\'allenamento');
+  }
+
+  if (!data || typeof data !== 'string') {
+    throw new Error('Impossibile creare la nuova scheda');
+  }
+
+  return data;
 }
 
 /** Duplica per lo stesso atleta → Programmate (status attivo). */

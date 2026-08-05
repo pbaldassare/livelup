@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -85,6 +85,13 @@ export function PTAthleteWorkoutRunner({
     onError: (e: Error) => toast.error(e?.message || 'Errore nel salvare la sessione'),
   });
 
+  const completeRequestedRef = useRef(false);
+  const handleWorkoutCompleted = useCallback(() => {
+    if (completeRequestedRef.current || completeWorkoutMutation.isPending) return;
+    completeRequestedRef.current = true;
+    completeWorkoutMutation.mutate();
+  }, [completeWorkoutMutation]);
+
   const [completedSets, setCompletedSets] = useState<Record<string, number[]>>({});
   const [startIdx, setStartIdx] = useState(0);
   const [startSet, setStartSet] = useState(1);
@@ -157,7 +164,7 @@ export function PTAthleteWorkoutRunner({
           initialCompletedSets={completedSets}
           ptOnBehalfMode
           templateKind={(workout as { template_kind?: string }).template_kind}
-          onCompleted={() => completeWorkoutMutation.mutate()}
+          onCompleted={handleWorkoutCompleted}
         />
       </div>
     </div>

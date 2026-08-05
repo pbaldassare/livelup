@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { PtCoachingPausedCard } from '@/components/app/PtCoachingPausedCard';
 import { supabase } from '@/integrations/supabase/client';
-import { completeWorkout } from '@/lib/api/workouts';
+import { completeWorkout, redoCompletedWorkout, reorderWorkoutFreeExercises } from '@/lib/api/workouts';
 import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
 import { isSummaryPhase } from '@/lib/pt/templateRoles';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
@@ -49,7 +49,7 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
-
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -58,7 +58,6 @@ import {
   resolveSetsData,
 } from '@/lib/setsData';
 import { toast } from 'sonner';
-import { reorderWorkoutFreeExercises } from '@/lib/api/workouts';
 import {
   TEMPLATE_KIND_BADGE_CLASS,
   TEMPLATE_KIND_DESCRIPTION,
@@ -150,7 +149,12 @@ export function AtletaWorkoutDetailPage() {
   const [skipAutoStart, setSkipAutoStart] = useState(false);
 
 
-  const { canTrainWithPt, isConnectedToPt, connections } = useAtletaStatus();
+  const {
+    canTrainWithPt,
+    isConnectedToPt,
+    connections,
+    isLoading: connectionsLoading,
+  } = useAtletaStatus();
 
   // Fetch workout with exercises + blocks
 
@@ -298,11 +302,15 @@ export function AtletaWorkoutDetailPage() {
     }
   }, [existingLogs, workout?.workout_exercises]);
 
-  // Solo lettura se disdetta col PT di questa scheda (storico consultabile)
+  // Solo lettura se disdetta col PT di questa scheda (storico consultabile).
+  // Non valutare finché le connessioni non sono caricate — evita false positivi.
   const isReadOnlyHistory =
-    !!workout?.pt_user_id && !isConnectedToPt(workout.pt_user_id);
+    !!workout?.pt_user_id &&
+    !connectionsLoading &&
+    !isConnectedToPt(workout.pt_user_id);
   const isPausedWithThisPt =
     !!workout?.pt_user_id &&
+    !connectionsLoading &&
     isConnectedToPt(workout.pt_user_id) &&
     !canTrainWithPt(workout.pt_user_id);
   const coachOfWorkout = connections.find((c) => c.pt_user_id === workout?.pt_user_id);
@@ -369,6 +377,22 @@ export function AtletaWorkoutDetailPage() {
     },
     onError: (error: any) => {
       toast.error(error.message);
+    },
+  });
+
+  const redoWorkoutMutation = useMutation({
+    mutationFn: async () => {
+      if (!workoutId) throw new Error('Workout ID mancante');
+      return redoCompletedWorkout(workoutId);
+    },
+    onSuccess: (newId) => {
+      toast.success('Nuova scheda pronta: puoi rifare l\'allenamento');
+      queryClient.invalidateQueries({ queryKey: ['atleta-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+      navigate(`/app/workout/${newId}`, { replace: true });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Impossibile rifare l\'allenamento');
     },
   });
 
@@ -536,6 +560,10 @@ export function AtletaWorkoutDetailPage() {
 
   // ===== Start exercise from sheet =====
   const handleStartFromSheet = async (ex: WorkoutExercise) => {
+    if (workout?.status === 'completato' || isReadOnlyHistory) {
+      toast.message('Questa scheda è già completata. Usa «Rifai allenamento» per una nuova sessione.');
+      return;
+    }
     const idx = exercises.findIndex((e: any) => e.id === ex.id);
     if (idx < 0) return;
 
@@ -570,7 +598,7 @@ export function AtletaWorkoutDetailPage() {
           .from('workouts')
           .update({ status: 'in_corso' as any })
           .eq('id', workoutId)
-          .in('status', ['attivo', 'in_sospeso']);
+          .in('status', ['attivo', 'in_sospeso', 'scaduto']);
         queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
       }
     }
@@ -639,6 +667,10 @@ export function AtletaWorkoutDetailPage() {
   };
 
   const handleMarkAllCompleted = async (ex: WorkoutExercise) => {
+    if (workout?.status === 'completato' || isReadOnlyHistory) {
+      toast.message('Questa scheda è già completata. Usa «Rifai allenamento» per una nuova sessione.');
+      return;
+    }
     if (requiresFullCompletion(templateKind)) {
       toast.error(
         'Scheda progressiva: completa le serie nel flusso allenamento con le reps prescritte',
@@ -858,10 +890,14 @@ export function AtletaWorkoutDetailPage() {
   // Pre-workout screen (anche sola lettura post-disdetta)
   if (!isWorkoutStarted || isReadOnlyHistory) {
     const hasExistingLogs = existingLogs && existingLogs.length > 0;
-    const isResumeStatus = workout.status === 'in_corso' || workout.status === 'in_sospeso';
-    const startLabel = hasExistingLogs || isResumeStatus
-      ? 'Continua allenamento'
-      : 'Inizia allenamento';
+    const isCompleted = workout.status === 'completato';
+    const isResumeStatus =
+      !isCompleted && (workout.status === 'in_corso' || workout.status === 'in_sospeso');
+    const startLabel = isCompleted
+      ? 'Rifai allenamento'
+      : hasExistingLogs || isResumeStatus
+        ? 'Continua allenamento'
+        : 'Inizia allenamento';
 
     if (totalExercises === 0) {
       return (
@@ -912,13 +948,19 @@ export function AtletaWorkoutDetailPage() {
                 <span>~{totalExercises * 5} min</span>
               </div>
             </div>
-            {hasExistingLogs && (
+            {isCompleted && (
+              <div className="inline-flex items-center gap-2 bg-app-muted text-app-muted-foreground px-3 py-1 rounded-full text-sm font-medium mt-2">
+                <CheckCircle2 className="h-3 w-3" />
+                Completato
+              </div>
+            )}
+            {!isCompleted && hasExistingLogs && (
               <div className="inline-flex items-center gap-2 bg-app-accent/10 text-app-accent px-3 py-1 rounded-full text-sm font-medium mt-2">
                 <Play className="h-3 w-3" />
                 Hai progressi salvati
               </div>
             )}
-            {isResumeStatus && !hasExistingLogs && (
+            {!isCompleted && isResumeStatus && !hasExistingLogs && (
               <div className="inline-flex items-center gap-2 bg-app-accent/10 text-app-accent px-3 py-1 rounded-full text-sm font-medium mt-2">
                 <Play className="h-3 w-3" />
                 Allenamento in corso
@@ -1200,6 +1242,15 @@ export function AtletaWorkoutDetailPage() {
                   Torna agli allenamenti
                 </Button>
               </div>
+            ) : isCompleted ? (
+              <Button
+                onClick={() => redoWorkoutMutation.mutate()}
+                disabled={redoWorkoutMutation.isPending || isPausedWithThisPt}
+                className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
+              >
+                <RotateCcw className="h-5 w-5 mr-2" />
+                {redoWorkoutMutation.isPending ? 'Preparazione…' : startLabel}
+              </Button>
             ) : (
               <Button
                 onClick={async () => {
@@ -1210,7 +1261,7 @@ export function AtletaWorkoutDetailPage() {
                       .from('workouts')
                       .update({ status: 'in_corso' as any })
                       .eq('id', workoutId)
-                      .in('status', ['attivo', 'in_sospeso']);
+                      .in('status', ['attivo', 'in_sospeso', 'scaduto']);
                     queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
                   }
                 }}
