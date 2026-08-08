@@ -3,6 +3,7 @@
 // L'unica differenza tra HIIT e TABATA in questo step è il `title`.
 // =====================================================
 
+import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +55,7 @@ export function TimedRoundsEditor({
   exerciseOptions,
   title = 'Intervalli a tempo',
 }: TimedRoundsEditorProps) {
+  const [autoOpenIndex, setAutoOpenIndex] = useState<number | null>(null);
   const workoutOpts = workoutExerciseOptions.length > 0 ? workoutExerciseOptions : (exerciseOptions ?? []);
   const updateExercise = (idx: number, patch: Partial<TimedRoundsExercise>) => {
     const exercises = value.exercises.map((e, i) => (i === idx ? { ...e, ...patch } : e));
@@ -63,6 +65,7 @@ export function TimedRoundsEditor({
   const addExercise = () => {
     const exercises = [...value.exercises, makeTimedRoundsExercise()];
     commit(value, { exercises }, onChange);
+    setAutoOpenIndex(exercises.length - 1);
   };
 
   const removeExercise = (idx: number) => {
@@ -171,6 +174,8 @@ export function TimedRoundsEditor({
                       exercise_id: opt.id,
                     })
                   }
+                  autoOpen={autoOpenIndex === eIdx}
+                  onAutoOpenConsumed={() => setAutoOpenIndex(null)}
                 />
               </div>
               <Button

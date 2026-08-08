@@ -5,6 +5,10 @@ import {
   PROTOCOL_ONLY_LIST,
   getProtocolDef,
 } from '@/lib/protocols/registry';
+import { normalizeAmrapParams } from '@/lib/protocols/amrap';
+import { normalizeEmomParams } from '@/lib/protocols/emom';
+import { normalizeSupersetParams } from '@/lib/protocols/superset';
+import { normalizeTimedRoundsParams } from '@/lib/protocols/timedRounds';
 
 /** Cast finché Lovable non rigenera types.ts */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -491,4 +495,42 @@ export function seedParamsWithHostExercise(
   }
 
   return params;
+}
+
+/**
+ * Default protocol_params with empty exercise slots (no nested exercise_id / name).
+ * Used when adding a standard protocol without a host picker — PT fills slots in-list.
+ * Does NOT set host_exercise_id (row FK uses a silent placeholder separately).
+ */
+export function seedEmptyProtocolParams(
+  type: Exclude<ProtocolType, 'SET'>,
+): ProtocolParams {
+  const base = getDefaultParamsForProtocol(type) as Record<string, unknown>;
+
+  if (type === 'EMOM') {
+    return normalizeEmomParams(base) as unknown as ProtocolParams;
+  }
+
+  if (type === 'AMRAP') {
+    // 2 empty slots — matches in-list editor UX ("Seleziona esercizio")
+    return normalizeAmrapParams({
+      ...base,
+      exercises_count: 2,
+      exercises: [],
+    }) as unknown as ProtocolParams;
+  }
+
+  if (type === 'SUPERSET') {
+    return normalizeSupersetParams(base) as unknown as ProtocolParams;
+  }
+
+  if (type === 'HIIT' || type === 'TABATA') {
+    return normalizeTimedRoundsParams({
+      ...base,
+      exercises_count: Math.max(2, Number(base.exercises_count) || 1),
+      exercises: [],
+    }) as unknown as ProtocolParams;
+  }
+
+  return base as ProtocolParams;
 }

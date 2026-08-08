@@ -81,21 +81,27 @@ import { normalizeAmrapParams } from '@/lib/protocols/amrap';
 import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
+import {
+  useExerciseCatalogs,
+  useAllPtCatalogItems,
+} from '@/hooks/useExerciseCatalogs';
 import { categorizeArchiveExercises, type ArchiveExerciseRow } from '@/lib/protocolExerciseArchive';
 import {
   ExerciseArchivePickerPanel,
   exercisePickerPopoverClassName,
   exercisePickerPopoverProps,
+  type CatalogPickerOption,
 } from '@/components/pt/ExerciseArchivePickerPanel';
 import { AddProtocolDialog, type AddProtocolResult } from '@/components/pt/AddProtocolDialog';
 import {
   seedParamsWithHostExercise,
+  seedEmptyProtocolParams,
+  resolveHostExerciseId,
   updatePtProtocol,
   saveSheetProtocolAsMine,
   getProtocolById,
 } from '@/lib/api/ptProtocols';
 import { useFavoriteProtocolIds } from '@/hooks/usePTFavoriteProtocols';
-import { Link } from 'react-router-dom';
 import {
   type ProtocolConfig,
   type SetData,
@@ -289,6 +295,30 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     });
   }, [archiveExerciseRows, allTemplateExerciseOptions, user?.id, favIds]);
 
+  const { data: exerciseCatalogs = [] } = useExerciseCatalogs();
+  const { data: allCatalogItems = [] } = useAllPtCatalogItems();
+
+  /** Cataloghi PT con esercizi risolti dai nomi archivio (per picker). */
+  const catalogPickerOptions = useMemo((): CatalogPickerOption[] => {
+    const nameById = new Map(
+      archiveExerciseRows.map((r) => [r.id, r.name] as const),
+    );
+    const byCatalog = new Map<string, { id: string; name: string }[]>();
+    for (const item of allCatalogItems) {
+      const name = nameById.get(item.exercise_id);
+      if (!name?.trim()) continue;
+      const list = byCatalog.get(item.catalog_id) ?? [];
+      list.push({ id: item.exercise_id, name });
+      byCatalog.set(item.catalog_id, list);
+    }
+    return exerciseCatalogs.map((c) => ({
+      id: c.id,
+      name: c.name,
+      emoji: c.emoji,
+      exercises: byCatalog.get(c.id) ?? [],
+    }));
+  }, [exerciseCatalogs, allCatalogItems, archiveExerciseRows]);
+
   const inBlockExerciseIds = useMemo(
     () => new Set(templateExercises.map((te) => te.exercise_id)),
     [templateExercises],
@@ -301,8 +331,26 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       favorites: protocolExerciseArchive.favoriteOptions.filter(notInBlock),
       mine: protocolExerciseArchive.mineOptions.filter(notInBlock),
       global: protocolExerciseArchive.globalOptions.filter(notInBlock),
+      catalogs: catalogPickerOptions.map((c) => ({
+        ...c,
+        exercises: c.exercises.filter(notInBlock),
+      })),
     };
-  }, [allTemplateExerciseOptions, protocolExerciseArchive, inBlockExerciseIds]);
+  }, [
+    allTemplateExerciseOptions,
+    protocolExerciseArchive,
+    inBlockExerciseIds,
+    catalogPickerOptions,
+  ]);
+
+  /** Cataloghi per editor protocolli: esclude esercizi già in tab Workout. */
+  const protocolCatalogOptions = useMemo(() => {
+    const workoutIds = new Set(allTemplateExerciseOptions.map((o) => o.id));
+    return catalogPickerOptions.map((c) => ({
+      ...c,
+      exercises: c.exercises.filter((e) => !workoutIds.has(e.id)),
+    }));
+  }, [catalogPickerOptions, allTemplateExerciseOptions]);
 
   // Add exercise mutation — default SET, 3 set generici
   const addExerciseMutation = useMutation({
@@ -374,34 +422,38 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       let protocolType: Exclude<ProtocolType, 'SET'>;
       let protocolName: string;
       let hostExerciseId: string;
-      let hostExerciseName: string;
       let libraryId: string | null = null;
       let params: ProtocolParams & { protocol_name?: string; host_exercise_id?: string };
 
       if (result.mode === 'mine') {
-        // Solo copie private del PT
+        // Solo copie private del PT (flusso temporaneamente nascosto in dialog)
         if (result.protocol.is_public) {
           throw new Error('Usa lo standard dalla tab Standard, non come protocollo personale');
+        }
+        if (!result.hostExerciseId) {
+          throw new Error('Seleziona un esercizio iniziale');
         }
         protocolType = result.protocol.type;
         protocolName = result.protocol.name;
         hostExerciseId = result.hostExerciseId;
-        hostExerciseName = result.hostExerciseName;
         libraryId = result.protocol.id;
         params = seedParamsWithHostExercise(
           protocolType,
           hostExerciseId,
-          hostExerciseName,
+          result.hostExerciseName,
           result.protocol.config as ProtocolParams,
         );
         params.protocol_name = protocolName;
-      } else {
-        // standard | new (personalizzazione)
+      } else if (result.hostExerciseId) {
+        // standard | new con host esplicito (legacy / personalizzazione)
         protocolType = result.type;
         protocolName = result.name;
         hostExerciseId = result.hostExerciseId;
-        hostExerciseName = result.hostExerciseName;
-        params = seedParamsWithHostExercise(protocolType, hostExerciseId, hostExerciseName);
+        params = seedParamsWithHostExercise(
+          protocolType,
+          hostExerciseId,
+          result.hostExerciseName || '',
+        );
         params.protocol_name = protocolName;
 
         if (result.saveAsMine) {
@@ -414,7 +466,20 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
           });
           libraryId = saved.id;
         }
-        // mode standard senza saveAsMine: nessuna riga libreria (solo in scheda)
+      } else {
+        // Flusso semplificato: standard senza host → slot vuoti + placeholder FK
+        protocolType = result.type;
+        protocolName = result.name;
+        const placeholder = allExerciseOptionsForProtocol[0];
+        if (!placeholder?.id) {
+          throw new Error('Aggiungi almeno un esercizio all\'archivio prima');
+        }
+        hostExerciseId = placeholder.id;
+        params = {
+          ...seedEmptyProtocolParams(protocolType),
+          protocol_name: protocolName,
+        };
+        // Nessuna riga libreria / preferiti in questo percorso
       }
 
       const insertRow: TemplateExerciseInsert & {
@@ -584,24 +649,34 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   const updateProtocolParamMutation = useMutation({
     mutationFn: async ({ id, params }: { id: string; params: ProtocolConfig }) => {
       const current = templateExercises.find((t) => t.id === id);
-      const merged = {
+      // Solo esercizi annidati contano come host reale (ignora placeholder FK sulla riga)
+      const resolvedFromNested = resolveHostExerciseId({
+        ...(params as Record<string, unknown>),
+        host_exercise_id: null,
+      });
+      const merged: Record<string, unknown> = {
         ...(params as any),
         protocol_name:
           (params as any)?.protocol_name ||
           current?.protocol_name ||
           (current?.protocol_params as any)?.protocol_name,
-        host_exercise_id:
-          (params as any)?.host_exercise_id ||
-          current?.exercise_id ||
-          (current?.protocol_params as any)?.host_exercise_id,
         library_protocol_id:
           (params as any)?.library_protocol_id ||
           current?.library_protocol_id ||
           (current?.protocol_params as any)?.library_protocol_id,
       };
+      if (resolvedFromNested) {
+        merged.host_exercise_id = resolvedFromNested;
+      } else {
+        delete merged.host_exercise_id;
+      }
       const updateRow: TemplateExerciseUpdate = {
         protocol_params: toJson(merged),
       };
+      // Se l'utente seleziona il primo esercizio nel protocollo, allinea la FK riga
+      if (resolvedFromNested && resolvedFromNested !== current?.exercise_id) {
+        updateRow.exercise_id = resolvedFromNested;
+      }
       const { error } = await supabase
         .from('template_exercises')
         .update(updateRow)
@@ -614,7 +689,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         if (lib && !lib.is_public) {
           await updatePtProtocol(current.library_protocol_id, {
             config: merged as ProtocolParams,
-            name: merged.protocol_name,
+            name: merged.protocol_name as string | undefined,
           }).catch(() => undefined);
         }
       }
@@ -835,24 +910,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                       favoriteExerciseOptions={addExercisePickerOptions.favorites}
                       mineExerciseOptions={addExercisePickerOptions.mine}
                       globalExerciseOptions={addExercisePickerOptions.global}
+                      catalogOptions={addExercisePickerOptions.catalogs}
                       onSelect={(opt) => {
                         if (opt.id) addExerciseMutation.mutate({ id: opt.id });
                         setSearchOpen(false);
                       }}
-                      emptyFallback={
-                        <div className="py-6 px-4 text-center space-y-3">
-                          <p className="text-sm text-muted-foreground">
-                            Nessun esercizio disponibile. Aggiungi preferiti o crea esercizi personali.
-                          </p>
-                          <Link
-                            to="/pt/exercises"
-                            onClick={() => setSearchOpen(false)}
-                            className="inline-block text-sm font-medium text-primary hover:underline"
-                          >
-                            Vai agli Esercizi →
-                          </Link>
-                        </div>
-                      }
                     />
                   </div>
                 </DrawerContent>
@@ -876,23 +938,10 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                   favoriteExerciseOptions={addExercisePickerOptions.favorites}
                   mineExerciseOptions={addExercisePickerOptions.mine}
                   globalExerciseOptions={addExercisePickerOptions.global}
+                  catalogOptions={addExercisePickerOptions.catalogs}
                   onSelect={(opt) => {
                     if (opt.id) addExerciseMutation.mutate({ id: opt.id });
                   }}
-                  emptyFallback={
-                    <div className="py-6 px-4 text-center space-y-3">
-                      <p className="text-sm text-muted-foreground">
-                        Nessun esercizio disponibile. Aggiungi preferiti o crea esercizi personali.
-                      </p>
-                      <Link
-                        to="/pt/exercises"
-                        onClick={() => setSearchOpen(false)}
-                        className="inline-block text-sm font-medium text-primary hover:underline"
-                      >
-                        Vai agli Esercizi →
-                      </Link>
-                    </div>
-                  }
                 />
               </PopoverContent>
             </Popover>
@@ -1001,7 +1050,16 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           </p>
                                           <p className="text-sm text-muted-foreground truncate">
                                             Protocollo · {def.label}
-                                            {te.exercise?.name ? ` · ${te.exercise.name}` : ''}
+                                            {(() => {
+                                              // Nasconde il placeholder FK silenzioso finché non c’è un esercizio annidato
+                                              const nestedHost = resolveHostExerciseId({
+                                                ...(te.protocol_params as Record<string, unknown>),
+                                                host_exercise_id: null,
+                                              });
+                                              return nestedHost && te.exercise?.name
+                                                ? ` · ${te.exercise.name}`
+                                                : '';
+                                            })()}
                                             {' · '}
                                             {describeExerciseProtocol(
                                               ptype,
@@ -1336,6 +1394,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
                                           mineExerciseOptions={protocolExerciseArchive.mineOptions}
                                           globalExerciseOptions={protocolExerciseArchive.globalOptions}
+                                          catalogOptions={protocolCatalogOptions}
                                           onChange={(next) => {
                                             updateProtocolParamMutation.mutate({
                                               id: te.id,
@@ -1360,6 +1419,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
                                           mineExerciseOptions={protocolExerciseArchive.mineOptions}
                                           globalExerciseOptions={protocolExerciseArchive.globalOptions}
+                                          catalogOptions={protocolCatalogOptions}
                                           onChange={(next) => {
                                             updateProtocolParamMutation.mutate({
                                               id: te.id,
@@ -1384,6 +1444,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
                                           mineExerciseOptions={protocolExerciseArchive.mineOptions}
                                           globalExerciseOptions={protocolExerciseArchive.globalOptions}
+                                          catalogOptions={protocolCatalogOptions}
                                           onChange={(next) => {
                                             updateProtocolParamMutation.mutate({
                                               id: te.id,
@@ -1409,6 +1470,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
                                           favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
                                           mineExerciseOptions={protocolExerciseArchive.mineOptions}
                                           globalExerciseOptions={protocolExerciseArchive.globalOptions}
+                                          catalogOptions={protocolCatalogOptions}
                                           onChange={(next) => {
                                             updateProtocolParamMutation.mutate({
                                               id: te.id,

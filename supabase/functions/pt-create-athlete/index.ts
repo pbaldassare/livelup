@@ -87,19 +87,15 @@ serve(async (req) => {
       })
     }
 
-    if (!fitnessLevel || !VALID_FITNESS_LEVELS.has(fitnessLevel)) {
+    if (fitnessLevel && !VALID_FITNESS_LEVELS.has(fitnessLevel)) {
       return new Response(JSON.stringify({ error: 'Seleziona un livello di allenamento valido' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    if (!goals.length) {
-      return new Response(JSON.stringify({ error: 'Seleziona almeno un obiettivo' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    const resolvedFitnessLevel = fitnessLevel || null
+    const resolvedGoals = goals || []
 
     const normalizedEmail = email.trim().toLowerCase()
 
@@ -219,9 +215,9 @@ serve(async (req) => {
       .from('atleta_profiles')
       .update({
         status: 'collegato',
-        fitness_level: fitnessLevel,
-        level: fitnessLevel,
-        goals,
+        fitness_level: resolvedFitnessLevel,
+        level: resolvedFitnessLevel,
+        goals: resolvedGoals,
         referred_by_pt: ptUserId,
       })
       .eq('user_id', newUserId)
@@ -237,9 +233,9 @@ serve(async (req) => {
         const { error: atletaInsertError } = await supabaseAdmin.from('atleta_profiles').insert({
           user_id: newUserId,
           status: 'collegato',
-          fitness_level: fitnessLevel,
-          level: fitnessLevel,
-          goals,
+          fitness_level: resolvedFitnessLevel,
+          level: resolvedFitnessLevel,
+          goals: resolvedGoals,
           referred_by_pt: ptUserId,
         })
 

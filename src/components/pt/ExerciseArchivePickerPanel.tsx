@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Plus, Check, Star } from 'lucide-react';
+import { Plus, Check, Star, ChevronLeft } from 'lucide-react';
 import {
   Command,
   CommandEmpty,
@@ -17,6 +17,13 @@ export type ExerciseOption = {
 
 /** @deprecated Usare ExerciseOption */
 export type ProtocolExerciseOption = ExerciseOption;
+
+export type CatalogPickerOption = {
+  id: string;
+  name: string;
+  emoji?: string | null;
+  exercises: ExerciseOption[];
+};
 
 export function dedupeExerciseOptions(options: ExerciseOption[]): ExerciseOption[] {
   const seen = new Set<string>();
@@ -42,7 +49,7 @@ function filterBySearch(options: ExerciseOption[], q: string): ExerciseOption[] 
   return options.filter((o) => o.name.toLowerCase().includes(lower));
 }
 
-type SourceTab = 'workout' | 'favorites' | 'mine' | 'global';
+type SourceTab = 'favorites' | 'mine' | 'global' | 'catalogs' | 'workout';
 
 function OptionItems({
   items,
@@ -87,6 +94,8 @@ export interface ExerciseArchivePickerProps {
   favoriteExerciseOptions?: ExerciseOption[];
   mineExerciseOptions?: ExerciseOption[];
   globalExerciseOptions?: ExerciseOption[];
+  /** Cataloghi PT con esercizi precaricati. */
+  catalogOptions?: CatalogPickerOption[];
   /** @deprecated Usare favorite/mine/global */
   archiveExerciseOptions?: ExerciseOption[];
   /** Valore selezionato (mostra check). Omesso in modalità aggiunta. */
@@ -101,11 +110,18 @@ export interface ExerciseArchivePickerProps {
   className?: string;
 }
 
+const EMPTY_TAB_MESSAGE: Record<Exclude<SourceTab, 'catalogs' | 'workout'>, string> = {
+  favorites: 'Nessun preferito',
+  mine: 'Nessun esercizio personale',
+  global: 'Nessun esercizio globale',
+};
+
 export function ExerciseArchivePickerPanel({
   workoutExerciseOptions = [],
   favoriteExerciseOptions = [],
   mineExerciseOptions = [],
   globalExerciseOptions = [],
+  catalogOptions = [],
   archiveExerciseOptions = [],
   value,
   onSelect,
@@ -116,11 +132,13 @@ export function ExerciseArchivePickerPanel({
 }: ExerciseArchivePickerProps) {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<SourceTab | null>(null);
+  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setSearch('');
       setTab(null);
+      setSelectedCatalogId(null);
     }
   }, [open]);
 
@@ -131,6 +149,14 @@ export function ExerciseArchivePickerPanel({
     globalExerciseOptions.length > 0
       ? dedupeExerciseOptions(globalExerciseOptions)
       : dedupeExerciseOptions(archiveExerciseOptions);
+  const catalogs = useMemo(
+    () =>
+      catalogOptions.map((c) => ({
+        ...c,
+        exercises: dedupeExerciseOptions(c.exercises ?? []),
+      })),
+    [catalogOptions],
+  );
 
   const sources = useMemo(
     () => ({ workout, favorites, mine, global }),
@@ -138,34 +164,95 @@ export function ExerciseArchivePickerPanel({
   );
 
   const tabsWithItems = useMemo(() => {
-    const defs: { key: SourceTab; label: string; count: number; star?: boolean }[] = [
-      { key: 'workout', label: 'Workout', count: sources.workout.length },
+    const always: { key: SourceTab; label: string; count: number; star?: boolean }[] = [
       { key: 'favorites', label: 'Preferiti', count: sources.favorites.length, star: true },
       { key: 'mine', label: 'I miei', count: sources.mine.length },
       { key: 'global', label: 'Globale', count: sources.global.length },
+      { key: 'catalogs', label: 'Cataloghi', count: catalogs.length },
     ];
-    return defs.filter((d) => d.count > 0);
-  }, [sources]);
+    if (sources.workout.length > 0) {
+      always.push({ key: 'workout', label: 'Workout', count: sources.workout.length });
+    }
+    return always;
+  }, [sources, catalogs.length]);
 
-  const activeTab: SourceTab | null =
+  const activeTab: SourceTab =
     tab && tabsWithItems.some((t) => t.key === tab)
       ? tab
-      : tabsWithItems[0]?.key ?? null;
+      : tabsWithItems[0]?.key ?? 'favorites';
+
+  const selectedCatalog = useMemo(
+    () => (selectedCatalogId ? catalogs.find((c) => c.id === selectedCatalogId) ?? null : null),
+    [catalogs, selectedCatalogId],
+  );
+
+  // Reset drill-down when leaving Cataloghi
+  useEffect(() => {
+    if (activeTab !== 'catalogs') {
+      setSelectedCatalogId(null);
+    }
+  }, [activeTab]);
 
   const q = search.trim();
-  const activeItems = activeTab ? filterBySearch(sources[activeTab], q) : [];
 
-  const allKnown = [...workout, ...favorites, ...mine, ...global];
+  const catalogListFiltered = useMemo(() => {
+    if (!q) return catalogs;
+    const lower = q.toLowerCase();
+    return catalogs.filter((c) => c.name.toLowerCase().includes(lower));
+  }, [catalogs, q]);
+
+  const activeItems =
+    activeTab === 'catalogs'
+      ? selectedCatalog
+        ? filterBySearch(selectedCatalog.exercises, q)
+        : []
+      : filterBySearch(sources[activeTab], q);
+
+  const allKnown = useMemo(() => {
+    const fromCatalogs = catalogs.flatMap((c) => c.exercises);
+    return [...workout, ...favorites, ...mine, ...global, ...fromCatalogs];
+  }, [workout, favorites, mine, global, catalogs]);
+
   const showFree =
     showFreeOption &&
     q.length > 0 &&
+    activeTab !== 'catalogs' &&
     !allKnown.some((o) => o.name.toLowerCase() === q.toLowerCase());
 
   const pick = (o: ExerciseOption) => {
     onSelect({ id: o.id, name: o.name });
   };
 
-  if (allKnown.length === 0 && emptyFallback) {
+  const handleTabClick = (key: SourceTab) => {
+    setTab(key);
+    setSearch('');
+    if (key !== 'catalogs') setSelectedCatalogId(null);
+  };
+
+  const emptyMessage = (): string => {
+    if (activeTab === 'catalogs') {
+      if (!selectedCatalog) {
+        return catalogs.length === 0
+          ? 'Nessun catalogo. Creane uno da Archivio Esercizi.'
+          : 'Nessun catalogo trovato';
+      }
+      return selectedCatalog.exercises.length === 0
+        ? 'Nessun esercizio in questo catalogo'
+        : 'Nessun esercizio trovato';
+    }
+    if (activeTab === 'workout') {
+      return sources.workout.length === 0
+        ? 'Nessun esercizio nel workout'
+        : 'Nessun esercizio trovato';
+    }
+    if (sources[activeTab].length === 0) {
+      return EMPTY_TAB_MESSAGE[activeTab];
+    }
+    return 'Nessun esercizio trovato';
+  };
+
+  // Solo se non ci sono tab (caso estremo) e c'è un fallback dedicato
+  if (tabsWithItems.length === 0 && emptyFallback) {
     return <>{emptyFallback}</>;
   }
 
@@ -183,7 +270,7 @@ export function ExerciseArchivePickerPanel({
             <button
               key={t.key}
               type="button"
-              onClick={() => setTab(t.key)}
+              onClick={() => handleTabClick(t.key)}
               className={cn(
                 'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:py-0.5',
                 activeTab === t.key
@@ -207,42 +294,93 @@ export function ExerciseArchivePickerPanel({
           ))}
         </div>
       )}
+
+      {activeTab === 'catalogs' && selectedCatalog && (
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedCatalogId(null);
+            setSearch('');
+          }}
+          className="flex shrink-0 items-center gap-1 border-b px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Cataloghi
+          <span className="ml-1 truncate text-foreground">
+            {selectedCatalog.emoji ? `${selectedCatalog.emoji} ` : ''}
+            {selectedCatalog.name}
+          </span>
+        </button>
+      )}
+
       <CommandInput
-        placeholder="Cerca esercizio…"
+        placeholder={
+          activeTab === 'catalogs' && !selectedCatalog
+            ? 'Cerca catalogo…'
+            : 'Cerca esercizio…'
+        }
         value={search}
         onValueChange={setSearch}
         className="h-8 shrink-0 text-sm [&_svg]:h-3.5 [&_svg]:w-3.5"
       />
       <CommandList className="max-h-[min(36vh,200px)] min-h-0 overflow-y-auto">
-        {activeItems.length === 0 && !showFree && (
-          <CommandEmpty className="py-4 text-xs">
-            {allKnown.length === 0
-              ? "Nessun esercizio disponibile nell'archivio."
-              : 'Nessun esercizio trovato'}
-          </CommandEmpty>
-        )}
-        {activeItems.length > 0 && (
-          <CommandGroup>
-            <OptionItems
-              items={activeItems}
-              value={value}
-              keyPrefix={activeTab ?? 'x'}
-              onPick={pick}
-              showStar={activeTab === 'favorites'}
-            />
-          </CommandGroup>
-        )}
-        {showFree && (
-          <CommandGroup heading="Personalizzato" className="[&_[cmdk-group-heading]]:text-[10px]">
-            <CommandItem
-              value={`__free__${search}`}
-              className="py-1 text-sm"
-              onSelect={() => onSelect({ name: q })}
-            >
-              <Plus className="mr-2 h-3.5 w-3.5" />
-              Usa &quot;{q}&quot;
-            </CommandItem>
-          </CommandGroup>
+        {activeTab === 'catalogs' && !selectedCatalog ? (
+          catalogListFiltered.length === 0 ? (
+            <CommandEmpty className="py-4 text-xs">{emptyMessage()}</CommandEmpty>
+          ) : (
+            <CommandGroup>
+              {catalogListFiltered.map((c) => (
+                <CommandItem
+                  key={`cat-${c.id}`}
+                  value={`catalog:${c.id}:${c.name}`}
+                  className="py-1 text-sm"
+                  onSelect={() => {
+                    setSelectedCatalogId(c.id);
+                    setSearch('');
+                  }}
+                >
+                  <span className="mr-1.5 shrink-0">{c.emoji || '🗂️'}</span>
+                  <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                  <span className="ml-2 shrink-0 text-[11px] text-muted-foreground">
+                    {c.exercises.length}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )
+        ) : (
+          <>
+            {activeItems.length === 0 && !showFree && (
+              <CommandEmpty className="py-4 text-xs">{emptyMessage()}</CommandEmpty>
+            )}
+            {activeItems.length > 0 && (
+              <CommandGroup>
+                <OptionItems
+                  items={activeItems}
+                  value={value}
+                  keyPrefix={
+                    activeTab === 'catalogs' && selectedCatalog
+                      ? `cat-${selectedCatalog.id}`
+                      : activeTab
+                  }
+                  onPick={pick}
+                  showStar={activeTab === 'favorites'}
+                />
+              </CommandGroup>
+            )}
+            {showFree && (
+              <CommandGroup heading="Personalizzato" className="[&_[cmdk-group-heading]]:text-[10px]">
+                <CommandItem
+                  value={`__free__${search}`}
+                  className="py-1 text-sm"
+                  onSelect={() => onSelect({ name: q })}
+                >
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  Usa &quot;{q}&quot;
+                </CommandItem>
+              </CommandGroup>
+            )}
+          </>
         )}
       </CommandList>
     </Command>

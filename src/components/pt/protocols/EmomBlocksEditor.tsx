@@ -7,6 +7,7 @@
 // - Nessuna scrittura automatica: ogni edit chiama onChange esplicitamente.
 // =====================================================
 
+import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +64,10 @@ export function EmomBlocksEditor({
   globalExerciseOptions = [],
   exerciseOptions,
 }: EmomBlocksEditorProps) {
+  const [autoOpenTarget, setAutoOpenTarget] = useState<{
+    blockIdx: number;
+    exIdx: number;
+  } | null>(null);
   const workoutOpts = workoutExerciseOptions.length > 0 ? workoutExerciseOptions : (exerciseOptions ?? []);
   const updateBlock = (idx: number, patch: Partial<EmomBlock>) => {
     const blocks = value.blocks.map((b, i) => (i === idx ? { ...b, ...patch } : b));
@@ -98,6 +103,8 @@ export function EmomBlocksEditor({
       i === blockIdx ? { ...b, exercises: [...b.exercises, makeEmomExercise()] } : b,
     );
     commit(value, { blocks }, onChange);
+    const newExIdx = (value.blocks[blockIdx]?.exercises.length ?? 0);
+    setAutoOpenTarget({ blockIdx, exIdx: newExIdx });
   };
 
   const removeExercise = (blockIdx: number, exIdx: number) => {
@@ -221,6 +228,11 @@ export function EmomBlocksEditor({
                     onLoadChange={(load) => updateExercise(bIdx, eIdx, load)}
                     canRemove={block.exercises.length > 1}
                     onRemove={() => removeExercise(bIdx, eIdx)}
+                    autoOpen={
+                      autoOpenTarget?.blockIdx === bIdx &&
+                      autoOpenTarget?.exIdx === eIdx
+                    }
+                    onAutoOpenConsumed={() => setAutoOpenTarget(null)}
                   />
                 ))}
               </div>

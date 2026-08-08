@@ -15,8 +15,8 @@ export type CreateAthleteInput = {
   firstName: string;
   lastName: string;
   phone?: string;
-  fitnessLevel: string;
-  goals: string[];
+  fitnessLevel?: string;
+  goals?: string[];
 };
 
 export type CreateAthleteResult = {
@@ -59,7 +59,7 @@ export async function createAndConnectAtleta(
       lastName: input.lastName,
       phone: input.phone,
       fitnessLevel: input.fitnessLevel,
-      goals: input.goals,
+      goals: input.goals ?? [],
     },
   });
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -30,15 +30,29 @@ export type ProtocolExercisePickerProps = Omit<
 interface ProtocolExerciseComboboxProps extends ProtocolExercisePickerProps {
   value: string;
   onChange: (opt: { id?: string; name: string }) => void;
+  /** When true, open the picker (Popover/Drawer) on mount / when it becomes true. */
+  autoOpen?: boolean;
+  /** Called after autoOpen has been consumed (picker opened). Parent should clear autoOpen. */
+  onAutoOpenConsumed?: () => void;
 }
 
 export function ProtocolExerciseCombobox({
   value,
   onChange,
+  autoOpen = false,
+  onAutoOpenConsumed,
   ...pickerProps
 }: ProtocolExerciseComboboxProps) {
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!autoOpen) return;
+    setOpen(true);
+    onAutoOpenConsumed?.();
+    // Only react to autoOpen flipping true; consumed callback is fire-and-forget.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [autoOpen]);
 
   const trigger = (
     <Button

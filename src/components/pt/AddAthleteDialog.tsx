@@ -58,7 +58,7 @@ const defaultCreateForm = {
   lastName: '',
   email: '',
   phone: '',
-  fitnessLevel: 'intermedio',
+  fitnessLevel: '',
   selectedGoals: [] as string[],
 };
 
@@ -126,7 +126,7 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
         firstName: createForm.firstName,
         lastName: createForm.lastName,
         phone: createForm.phone || undefined,
-        fitnessLevel: createForm.fitnessLevel,
+        fitnessLevel: createForm.fitnessLevel || undefined,
         goals: createForm.selectedGoals,
       }),
     onSuccess: (created) => {
@@ -156,9 +156,7 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
   const canCreate =
     createForm.firstName.trim().length >= 2 &&
     createForm.lastName.trim().length >= 2 &&
-    createForm.email.trim().length > 0 &&
-    createForm.selectedGoals.length > 0 &&
-    !!createForm.fitnessLevel;
+    createForm.email.trim().length > 0;
 
   const canInvite =
     lookupResult?.found &&
@@ -326,13 +324,13 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
             </div>
 
             <div className="space-y-2">
-              <Label>Livello *</Label>
+              <Label>Livello</Label>
               <Select
-                value={createForm.fitnessLevel}
+                value={createForm.fitnessLevel || undefined}
                 onValueChange={(v) => setCreateForm((f) => ({ ...f, fitnessLevel: v }))}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Seleziona (opzionale)" />
                 </SelectTrigger>
                 <SelectContent>
                   {ATHLETE_LEVELS.map((l) => (
@@ -345,7 +343,7 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
             </div>
 
             <div className="space-y-2">
-              <Label>Obiettivi *</Label>
+              <Label>Obiettivi</Label>
               <div className="grid grid-cols-2 gap-2">
                 {ATHLETE_GOALS.map((goal) => (
                   <label

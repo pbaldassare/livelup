@@ -27,6 +27,8 @@ interface ProtocolExerciseRowProps extends ProtocolExercisePickerProps {
   canRemove: boolean;
   className?: string;
   children?: ReactNode;
+  autoOpen?: boolean;
+  onAutoOpenConsumed?: () => void;
 }
 
 export function ProtocolExerciseRow({
@@ -44,6 +46,8 @@ export function ProtocolExerciseRow({
   favoriteExerciseOptions,
   mineExerciseOptions,
   globalExerciseOptions,
+  autoOpen,
+  onAutoOpenConsumed,
 }: ProtocolExerciseRowProps) {
   return (
     <div
@@ -62,6 +66,8 @@ export function ProtocolExerciseRow({
             mineExerciseOptions={mineExerciseOptions}
             globalExerciseOptions={globalExerciseOptions}
             onChange={onExerciseChange}
+            autoOpen={autoOpen}
+            onAutoOpenConsumed={onAutoOpenConsumed}
           />
         </div>
         <Button

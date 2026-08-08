@@ -6,6 +6,7 @@
 // - Nessuna scrittura automatica: ogni edit chiama onChange esplicitamente
 // =====================================================
 
+import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +58,7 @@ export function AmrapEditor({
   globalExerciseOptions = [],
   exerciseOptions,
 }: AmrapEditorProps) {
+  const [autoOpenIndex, setAutoOpenIndex] = useState<number | null>(null);
   const workoutOpts = workoutExerciseOptions.length > 0 ? workoutExerciseOptions : (exerciseOptions ?? []);
   const updateExercise = (idx: number, patch: Partial<AmrapExercise>) => {
     const exercises = value.exercises.map((e, i) => (i === idx ? { ...e, ...patch } : e));
@@ -66,6 +68,7 @@ export function AmrapEditor({
   const addExercise = () => {
     const exercises = [...value.exercises, makeAmrapExercise()];
     commit(value, { exercises }, onChange);
+    setAutoOpenIndex(exercises.length - 1);
   };
 
   const removeExercise = (idx: number) => {
@@ -141,6 +144,8 @@ export function AmrapEditor({
             onLoadChange={(load) => updateExercise(eIdx, load)}
             canRemove={value.exercises.length > 1}
             onRemove={() => removeExercise(eIdx)}
+            autoOpen={autoOpenIndex === eIdx}
+            onAutoOpenConsumed={() => setAutoOpenIndex(null)}
           />
         ))}
       </div>

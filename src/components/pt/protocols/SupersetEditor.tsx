@@ -6,6 +6,7 @@
 // - commit() centralizza gli invarianti (no scritture automatiche al mount)
 // =====================================================
 
+import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -99,6 +100,7 @@ export function SupersetEditor({
   globalExerciseOptions = [],
   exerciseOptions,
 }: SupersetEditorProps) {
+  const [autoOpenIndex, setAutoOpenIndex] = useState<number | null>(null);
   const workoutOpts = workoutExerciseOptions.length > 0 ? workoutExerciseOptions : (exerciseOptions ?? []);
   // --- exercises CRUD ------------------------------------------------
   const updateExercise = (idx: number, patch: Partial<SupersetExercise>) => {
@@ -159,6 +161,7 @@ export function SupersetEditor({
   const addExercise = () => {
     const exercises = [...value.exercises, makeSupersetExercise()];
     commit(value, { exercises }, onChange);
+    setAutoOpenIndex(exercises.length - 1);
   };
 
   const removeExercise = (idx: number) => {
@@ -307,6 +310,8 @@ export function SupersetEditor({
               onLoadChange={(load) => updateExercise(eIdx, load)}
               canRemove={value.exercises.length > 1}
               onRemove={() => removeExercise(eIdx)}
+              autoOpen={autoOpenIndex === eIdx}
+              onAutoOpenConsumed={() => setAutoOpenIndex(null)}
             >
               <div className="space-y-0.5">
                 <Label className="text-[10px] text-muted-foreground">Note</Label>
