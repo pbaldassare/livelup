@@ -140,6 +140,7 @@ serve(async (req) => {
     const newUserId = authData.user.id
 
     const cleanup = async () => {
+      await supabaseAdmin.from('pt_athlete_owners').delete().eq('atleta_user_id', newUserId)
       await supabaseAdmin.from('pt_atleta_connections').delete().eq('atleta_user_id', newUserId)
       await supabaseAdmin.from('atleta_profiles').delete().eq('user_id', newUserId)
       await supabaseAdmin.from('user_roles').delete().eq('user_id', newUserId)
@@ -278,13 +279,22 @@ serve(async (req) => {
       })
     }
 
-    await supabaseAdmin
+    // Ownership: creating PT becomes owner (collaborator assignments / cedi rules)
+    const { error: ownerError } = await supabaseAdmin
       .from('pt_athlete_owners')
       .upsert(
-        { atleta_user_id: newUserId, owner_pt_user_id: ptUserId, updated_at: now },
+        {
+          atleta_user_id: newUserId,
+          owner_pt_user_id: ptUserId,
+          updated_at: now,
+        },
         { onConflict: 'atleta_user_id' },
       )
 
+    if (ownerError) {
+      // Table may not exist until migration is applied - non-blocking for create flow
+      console.warn('pt_athlete_owners upsert skipped:', ownerError.message)
+    }
 
     const { data: ptProfile } = await supabaseAdmin
       .from('profiles')

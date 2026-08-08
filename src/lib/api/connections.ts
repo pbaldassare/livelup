@@ -573,16 +573,65 @@ export interface PtAthleteTransferLog {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sbAny = supabase as any;
 
-export async function searchPTsForTransfer(query?: string): Promise<PtTransferTarget[]> {
-  const { data, error } = await sbAny.rpc('search_pts_for_transfer', {
-    _query: query?.trim() || null,
-  });
+async function searchPtColleaguesAsTransferTargets(
+  query: string | null,
+): Promise<PtTransferTarget[]> {
+  // Exact same RPC as PTAppColleagueSearchPage / "Cerca colleghi".
+  const { data: colleagues, error: colleaguesError } = await supabase.rpc(
+    'search_pt_colleagues',
+    { _query: query },
+  );
 
-  if (error) {
-    throw new Error('Errore ricerca PT: ' + error.message);
+  if (colleaguesError) {
+    throw new Error('Errore ricerca PT: ' + colleaguesError.message);
   }
 
-  return (data ?? []) as PtTransferTarget[];
+  return (colleagues ?? []).map((p) => ({
+    user_id: p.user_id,
+    first_name: p.first_name,
+    last_name: p.last_name,
+    avatar_url: p.avatar_url,
+    location_city: p.location_city,
+    rating_avg: p.rating_avg,
+  }));
+}
+
+/**
+ * Active PT pool for Cedi destinatario / Collaboratori assign.
+ * Prefer search_pt_colleagues (live + in generated types). Only use
+ * search_pts_for_transfer when it actually returns rows — a successful
+ * empty response must NOT block the colleagues path (that was emptying
+ * both Assegna lists while Cerca colleghi still worked).
+ */
+export async function searchPTsForTransfer(query?: string): Promise<PtTransferTarget[]> {
+  const q = query?.trim() || null;
+
+  // Primary: same path as Cerca colleghi
+  try {
+    const colleagues = await searchPtColleaguesAsTransferTargets(q);
+    if (colleagues.length > 0) return colleagues;
+  } catch (colleaguesErr) {
+    const { data, error } = await sbAny.rpc('search_pts_for_transfer', {
+      _query: q,
+    });
+    if (!error && Array.isArray(data) && data.length > 0) {
+      return data as PtTransferTarget[];
+    }
+    throw colleaguesErr instanceof Error
+      ? colleaguesErr
+      : new Error('Errore ricerca PT');
+  }
+
+  // Colleagues returned [] — try transfer RPC before accepting empty
+  const { data, error } = await sbAny.rpc('search_pts_for_transfer', {
+    _query: q,
+  });
+  if (!error && Array.isArray(data) && data.length > 0) {
+    return data as PtTransferTarget[];
+  }
+
+  // Both empty (transfer missing/errored is fine if colleagues already said empty)
+  return [];
 }
 
 export async function getRecallableAthletes(): Promise<RecallableAthlete[]> {

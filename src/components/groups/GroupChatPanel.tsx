@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   getGroupMessages,
+  isAnnouncementEventAttachment,
+  listGroupAnnouncements,
   sendGroupMessage,
   subscribeToGroupMessages,
   toggleGroupMessageLike,
@@ -10,6 +12,7 @@ import {
   GROUP_CHAT_ATTACHMENT_MAX_BYTES,
 } from '@/lib/api/groups';
 import type { GroupChannel, GroupMemberRole, GroupMessageRow } from '@/types/groups';
+import { AnnouncementChatCard } from '@/components/groups/AnnouncementChatCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -193,6 +196,16 @@ function ChannelThread({
     enabled: !!groupId,
   });
 
+  const hasAnnouncementCards = messages.some((m) =>
+    isAnnouncementEventAttachment(m.attachment_type),
+  );
+  const { data: announcements = [] } = useQuery({
+    queryKey: ['group-announcements', groupId, userId],
+    queryFn: () => listGroupAnnouncements(groupId, userId),
+    enabled: !!groupId && hasAnnouncementCards,
+  });
+  const announcementMap = new Map(announcements.map((a) => [a.id, a]));
+
   const senderIds = [...new Set(messages.map((m) => m.sender_user_id))];
   const { data: profiles = [] } = useQuery({
     queryKey: ['group-message-profiles', senderIds.join(',')],
@@ -337,18 +350,26 @@ function ChannelThread({
             ? [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Utente'
             : 'Utente';
           const isMine = msg.sender_user_id === userId;
-          const youtubeId = resolveYouTubeId(msg);
+          const isAnnouncement =
+            isAnnouncementEventAttachment(msg.attachment_type) && !!msg.attachment_url;
+          const youtubeId = isAnnouncement ? null : resolveYouTubeId(msg);
           const youtubeSrc =
             (msg.attachment_url && getYouTubeVideoId(msg.attachment_url)
               ? msg.attachment_url
               : null) ||
             extractPrimaryYouTubeUrl(msg.content || '') ||
             (youtubeId ? `https://www.youtube.com/watch?v=${youtubeId}` : null);
-          const isYouTube = !!youtubeId && !!youtubeSrc;
+          const isYouTube = !isAnnouncement && !!youtubeId && !!youtubeSrc;
           const isImage =
-            !isYouTube && !!msg.attachment_type?.startsWith('image/') && !!msg.attachment_url;
+            !isAnnouncement &&
+            !isYouTube &&
+            !!msg.attachment_type?.startsWith('image/') &&
+            !!msg.attachment_url;
           const isVideo =
-            !isYouTube && !!msg.attachment_type?.startsWith('video/') && !!msg.attachment_url;
+            !isAnnouncement &&
+            !isYouTube &&
+            !!msg.attachment_type?.startsWith('video/') &&
+            !!msg.attachment_url;
           const contentIsPureYoutube =
             !!msg.content && !!extractPrimaryYouTubeUrl(msg.content);
           const isPlaceholderContent =
@@ -357,6 +378,7 @@ function ChannelThread({
               msg.content.startsWith('🎬') ||
               msg.content.startsWith('📎'));
           const showText =
+            !isAnnouncement &&
             !!msg.content &&
             !contentIsPureYoutube &&
             !(isPlaceholderContent && (!!msg.attachment_url || isYouTube));
@@ -372,72 +394,94 @@ function ChannelThread({
                   {name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className="max-w-[75%] space-y-1">
-                <div
-                  className={cn(
-                    'rounded-2xl px-3 py-2 space-y-1.5',
-                    isMine
-                      ? 'bg-app-accent text-app-accent-foreground rounded-tr-sm'
-                      : 'bg-app-muted text-app-foreground rounded-tl-sm',
-                  )}
-                >
-                  {!isMine && (
-                    <p className="text-[10px] font-semibold opacity-80">{name}</p>
-                  )}
-                  {isYouTube && youtubeSrc && <YouTubeChatPreview url={youtubeSrc} />}
-                  {isImage && (
-                    <a href={msg.attachment_url!} target="_blank" rel="noopener noreferrer">
-                      <img
-                        src={msg.attachment_url!}
-                        alt=""
-                        className="max-h-48 w-full rounded-lg object-cover"
-                      />
-                    </a>
-                  )}
-                  {isVideo && (
-                    <video
-                      src={msg.attachment_url!}
-                      controls
-                      className="max-h-48 w-full rounded-lg bg-black"
-                    />
-                  )}
-                  {msg.attachment_url && !isImage && !isVideo && !isYouTube && (
-                    <a
-                      href={msg.attachment_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs underline break-all"
-                    >
-                      Apri allegato
-                    </a>
-                  )}
-                  {showText ? (
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                  ) : null}
-                  <p
-                    className={cn(
-                      'text-[10px]',
-                      isMine ? 'text-app-accent-foreground/70' : 'text-app-muted-foreground',
+              <div className={cn('space-y-1', isAnnouncement ? 'max-w-[85%]' : 'max-w-[75%]')}>
+                {isAnnouncement ? (
+                  <div className="space-y-1">
+                    {!isMine && (
+                      <p className="text-[10px] font-semibold text-app-muted-foreground px-1">
+                        {name}
+                      </p>
                     )}
-                  >
-                    {format(new Date(msg.created_at), 'HH:mm', { locale: it })}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => likeMutation.mutate(msg)}
-                  className={cn(
-                    'inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full transition-colors',
-                    msg.liked_by_me
-                      ? 'text-red-500'
-                      : 'text-app-muted-foreground hover:text-app-foreground',
-                  )}
-                >
-                  <Heart
-                    className={cn('h-3.5 w-3.5', msg.liked_by_me && 'fill-current')}
-                  />
-                  {(msg.likes_count ?? 0) > 0 ? msg.likes_count : ''}
-                </button>
+                    <AnnouncementChatCard
+                      announcementId={msg.attachment_url!}
+                      groupId={groupId}
+                      userId={userId}
+                      announcement={announcementMap.get(msg.attachment_url!) ?? null}
+                      compact
+                    />
+                    <p className="text-[10px] text-app-muted-foreground px-1">
+                      {format(new Date(msg.created_at), 'HH:mm', { locale: it })}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      className={cn(
+                        'rounded-2xl px-3 py-2 space-y-1.5',
+                        isMine
+                          ? 'bg-app-accent text-app-accent-foreground rounded-tr-sm'
+                          : 'bg-app-muted text-app-foreground rounded-tl-sm',
+                      )}
+                    >
+                      {!isMine && (
+                        <p className="text-[10px] font-semibold opacity-80">{name}</p>
+                      )}
+                      {isYouTube && youtubeSrc && <YouTubeChatPreview url={youtubeSrc} />}
+                      {isImage && (
+                        <a href={msg.attachment_url!} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={msg.attachment_url!}
+                            alt=""
+                            className="max-h-48 w-full rounded-lg object-cover"
+                          />
+                        </a>
+                      )}
+                      {isVideo && (
+                        <video
+                          src={msg.attachment_url!}
+                          controls
+                          className="max-h-48 w-full rounded-lg bg-black"
+                        />
+                      )}
+                      {msg.attachment_url && !isImage && !isVideo && !isYouTube && (
+                        <a
+                          href={msg.attachment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs underline break-all"
+                        >
+                          Apri allegato
+                        </a>
+                      )}
+                      {showText ? (
+                        <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                      ) : null}
+                      <p
+                        className={cn(
+                          'text-[10px]',
+                          isMine ? 'text-app-accent-foreground/70' : 'text-app-muted-foreground',
+                        )}
+                      >
+                        {format(new Date(msg.created_at), 'HH:mm', { locale: it })}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => likeMutation.mutate(msg)}
+                      className={cn(
+                        'inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full transition-colors',
+                        msg.liked_by_me
+                          ? 'text-red-500'
+                          : 'text-app-muted-foreground hover:text-app-foreground',
+                      )}
+                    >
+                      <Heart
+                        className={cn('h-3.5 w-3.5', msg.liked_by_me && 'fill-current')}
+                      />
+                      {(msg.likes_count ?? 0) > 0 ? msg.likes_count : ''}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           );

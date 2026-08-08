@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 import { useAuth } from '@/hooks/useAuth';
@@ -42,6 +42,14 @@ import {
   type PtTransferTarget,
   type RecallableAthlete,
 } from '@/lib/api/connections';
+import {
+  assignAthleteToCollaborators,
+  groupCollaboratorRoster,
+  listMyCollaboratorRoster,
+  listOwnedAthleteIds,
+  moveAthleteCollaborator,
+  revokeAthleteCollaborator,
+} from '@/lib/api/collaborators';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
 import {
   TRAINING_MODALITIES,
@@ -54,11 +62,14 @@ import { cn } from '@/lib/utils';
 import {
   ArrowRightLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   History,
   Info,
   RotateCcw,
   Search,
   Star,
+  UserPlus,
   UserRound,
   Users,
 } from 'lucide-react';
@@ -89,21 +100,57 @@ function actionLabel(action: string) {
 
 type ModalityFilter = TrainingModality | 'all';
 
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+
+  return debounced;
+}
+
 export function PTAppAthleteTransferPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState('cedi');
+  const [activeTab, setActiveTab] = useState('collaboratori');
   const [athleteSearch, setAthleteSearch] = useState('');
   const [modalityFilter, setModalityFilter] = useState<ModalityFilter>('all');
   const [ptSearch, setPtSearch] = useState('');
+  const debouncedPtSearch = useDebouncedValue(ptSearch, 300);
   const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
   const [selectedPtId, setSelectedPtId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [confirmTransfer, setConfirmTransfer] = useState(false);
   const [recallTarget, setRecallTarget] = useState<RecallableAthlete | CededAthlete | null>(null);
   const [infoAthlete, setInfoAthlete] = useState<CededAthlete | null>(null);
+
+  // Collaboratori tab state
+  const [expandedCollabIds, setExpandedCollabIds] = useState<string[]>([]);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignAthleteIds, setAssignAthleteIds] = useState<string[]>([]);
+  const [assignCollabIds, setAssignCollabIds] = useState<string[]>([]);
+  const [assignCollabSearch, setAssignCollabSearch] = useState('');
+  const debouncedAssignCollabSearch = useDebouncedValue(assignCollabSearch, 300);
+  const [assignNotes, setAssignNotes] = useState('');
+  const [moveTarget, setMoveTarget] = useState<{
+    atletaUserId: string;
+    atletaName: string;
+    fromCollaboratorPtId: string;
+    fromCollaboratorName: string;
+  } | null>(null);
+  const [moveToPtId, setMoveToPtId] = useState<string | null>(null);
+  const [moveCollabSearch, setMoveCollabSearch] = useState('');
+  const debouncedMoveCollabSearch = useDebouncedValue(moveCollabSearch, 300);
+  const [revokeTarget, setRevokeTarget] = useState<{
+    atletaUserId: string;
+    atletaName: string;
+    collaboratorPtId: string;
+    collaboratorName: string;
+  } | null>(null);
 
   const { data: myAthletes, isLoading: loadingAthletes } = useQuery({
     queryKey: ['pt-transfer-my-athletes', user?.id],
@@ -129,10 +176,17 @@ export function PTAppAthleteTransferPage() {
     enabled: !!user?.id,
   });
 
-  const { data: ptTargets, isLoading: loadingPts } = useQuery({
-    queryKey: ['pt-transfer-targets', ptSearch],
-    queryFn: () => searchPTsForTransfer(ptSearch || undefined),
+  const {
+    data: ptTargets,
+    isLoading: loadingPts,
+    isError: ptTargetsError,
+    error: ptTargetsErrorObj,
+    refetch: refetchPtTargets,
+  } = useQuery({
+    queryKey: ['pt-transfer-targets', debouncedPtSearch],
+    queryFn: () => searchPTsForTransfer(debouncedPtSearch || undefined),
     enabled: activeTab === 'cedi' && selectedAthleteIds.length > 0,
+    retry: 1,
   });
 
   const { data: recallable, isLoading: loadingRecallable } = useQuery({
@@ -182,6 +236,94 @@ export function PTAppAthleteTransferPage() {
     enabled: !!user?.id && activeTab === 'storico',
   });
 
+  const {
+    data: collaboratorRoster,
+    isLoading: loadingCollaborators,
+    isError: collaboratorError,
+    error: collaboratorErrorObj,
+    refetch: refetchCollaborators,
+  } = useQuery({
+    queryKey: ['pt-collaborator-roster', user?.id],
+    queryFn: listMyCollaboratorRoster,
+    enabled: !!user?.id && activeTab === 'collaboratori',
+    retry: 1,
+  });
+
+  const collaboratorGroups = useMemo(
+    () => groupCollaboratorRoster(collaboratorRoster ?? []),
+    [collaboratorRoster],
+  );
+
+  const ownerViewGroups = useMemo(
+    () =>
+      collaboratorGroups
+        .map((g) => ({
+          ...g,
+          athletes: g.athletes.filter((a) => a.view_mode === 'owner'),
+        }))
+        .filter((g) => g.athletes.length > 0),
+    [collaboratorGroups],
+  );
+
+  const assignedToMe = useMemo(
+    () =>
+      (collaboratorRoster ?? []).filter((r) => r.view_mode === 'collaborator'),
+    [collaboratorRoster],
+  );
+
+  const { data: ownedAthleteIds } = useQuery({
+    queryKey: ['pt-owned-athlete-ids', user?.id],
+    queryFn: () => listOwnedAthleteIds(user!.id),
+    enabled: !!user?.id && (activeTab === 'collaboratori' || assignOpen),
+    retry: 1,
+  });
+
+  const ownedAthletes = useMemo(() => {
+    const ids = new Set(ownedAthleteIds ?? []);
+    return (myAthletes ?? []).filter((a) => ids.has(a.atleta_user_id));
+  }, [myAthletes, ownedAthleteIds]);
+
+  const {
+    data: assignCollabTargets,
+    isLoading: loadingAssignCollabs,
+    isError: assignCollabError,
+    error: assignCollabErrorObj,
+    refetch: refetchAssignCollabs,
+  } = useQuery({
+    queryKey: ['pt-assign-collab-targets', debouncedAssignCollabSearch],
+    queryFn: () => searchPTsForTransfer(debouncedAssignCollabSearch || undefined),
+    enabled: assignOpen,
+    retry: 1,
+  });
+
+  const assignCollabList = useMemo(
+    () => (assignCollabTargets ?? []).filter((pt) => pt.user_id !== user?.id),
+    [assignCollabTargets, user?.id],
+  );
+
+  const {
+    data: moveCollabTargets,
+    isLoading: loadingMoveCollabs,
+    isError: moveCollabError,
+    error: moveCollabErrorObj,
+    refetch: refetchMoveCollabs,
+  } = useQuery({
+    queryKey: ['pt-move-collab-targets', debouncedMoveCollabSearch, moveTarget?.fromCollaboratorPtId],
+    queryFn: () => searchPTsForTransfer(debouncedMoveCollabSearch || undefined),
+    enabled: !!moveTarget,
+    retry: 1,
+  });
+
+  const moveCollabList = useMemo(
+    () =>
+      (moveCollabTargets ?? []).filter(
+        (pt) =>
+          pt.user_id !== user?.id &&
+          pt.user_id !== moveTarget?.fromCollaboratorPtId,
+      ),
+    [moveCollabTargets, user?.id, moveTarget?.fromCollaboratorPtId],
+  );
+
   const filteredAthletes = useMemo(() => {
     if (!myAthletes) return [];
     const q = athleteSearch.trim().toLowerCase();
@@ -203,7 +345,12 @@ export function PTAppAthleteTransferPage() {
     () => (myAthletes ?? []).filter((a) => selectedAthleteIds.includes(a.atleta_user_id)),
     [myAthletes, selectedAthleteIds],
   );
-  const selectedPt = ptTargets?.find((p) => p.user_id === selectedPtId);
+  // RPC already excludes auth.uid(); keep a defensive client filter for Cedi too
+  const ptTargetsList = useMemo(
+    () => (ptTargets ?? []).filter((pt) => pt.user_id !== user?.id),
+    [ptTargets, user?.id],
+  );
+  const selectedPt = ptTargetsList.find((p) => p.user_id === selectedPtId);
 
   const toggleAthlete = (id: string) => {
     setSelectedAthleteIds((prev) =>
@@ -228,9 +375,101 @@ export function PTAppAthleteTransferPage() {
     queryClient.invalidateQueries({ queryKey: ['pt-recallable-athletes'] });
     queryClient.invalidateQueries({ queryKey: ['pt-ceded-athletes'] });
     queryClient.invalidateQueries({ queryKey: ['pt-transfer-history'] });
+    queryClient.invalidateQueries({ queryKey: ['pt-collaborator-roster'] });
+    queryClient.invalidateQueries({ queryKey: ['pt-owned-athlete-ids'] });
     queryClient.invalidateQueries({ queryKey: ['pt-connections'] });
     queryClient.invalidateQueries({ queryKey: ['pt-home-data'] });
   };
+
+  const toggleExpandedCollab = (id: string) => {
+    setExpandedCollabIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const toggleAssignAthlete = (id: string) => {
+    setAssignAthleteIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const toggleAssignCollab = (id: string) => {
+    setAssignCollabIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const assignMutation = useMutation({
+    mutationFn: async () => {
+      let total = 0;
+      for (const atletaUserId of assignAthleteIds) {
+        total += await assignAthleteToCollaborators({
+          atletaUserId,
+          collaboratorPtIds: assignCollabIds,
+          notes: assignNotes.trim() || undefined,
+        });
+      }
+      return total;
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Assegnazione completata',
+        description: 'Gli atleti sono stati assegnati ai collaboratori selezionati.',
+      });
+      setAssignOpen(false);
+      setAssignAthleteIds([]);
+      setAssignCollabIds([]);
+      setAssignNotes('');
+      setAssignCollabSearch('');
+      invalidateAll();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Errore', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const moveMutation = useMutation({
+    mutationFn: () =>
+      moveAthleteCollaborator({
+        atletaUserId: moveTarget!.atletaUserId,
+        fromCollaboratorPtId: moveTarget!.fromCollaboratorPtId,
+        toCollaboratorPtId: moveToPtId!,
+        notes: notes.trim() || undefined,
+      }),
+    onSuccess: () => {
+      toast({
+        title: 'Atleta spostato',
+        description: 'L\'assegnazione è stata trasferita al nuovo collaboratore.',
+      });
+      setMoveTarget(null);
+      setMoveToPtId(null);
+      setMoveCollabSearch('');
+      setNotes('');
+      invalidateAll();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Errore', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: () =>
+      revokeAthleteCollaborator({
+        atletaUserId: revokeTarget!.atletaUserId,
+        collaboratorPtId: revokeTarget!.collaboratorPtId,
+      }),
+    onSuccess: () => {
+      toast({
+        title: 'Assegnazione rimossa',
+        description: 'Il collaboratore non gestisce più questo atleta.',
+      });
+      setRevokeTarget(null);
+      invalidateAll();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Errore', description: err.message, variant: 'destructive' });
+    },
+  });
 
   const transferMutation = useMutation({
     mutationFn: () =>
@@ -309,29 +548,239 @@ export function PTAppAthleteTransferPage() {
   return (
     <PTAppPageShell
       title="Assegna atleta"
-      description="Cedi uno o più atleti a un altro PT, consulta i ceduti o riprendili. Storico e dati restano disponibili."
+      description="Assegna atleti ai collaboratori, oppure cedi in pieno a un altro PT. Storico e dati restano disponibili."
       showBack
       backTo="/pt/app/athletes"
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 bg-app-background border border-app-border">
-          <TabsTrigger value="cedi" className="text-[11px] sm:text-sm px-1">
-            <ArrowRightLeft className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+        <TabsList className="grid w-full grid-cols-5 bg-app-background border border-app-border h-auto">
+          <TabsTrigger value="collaboratori" className="text-[10px] sm:text-sm px-0.5 py-2">
+            <UserPlus className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
+            Collaboratori
+          </TabsTrigger>
+          <TabsTrigger value="cedi" className="text-[10px] sm:text-sm px-0.5 py-2">
+            <ArrowRightLeft className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
             Cedi
           </TabsTrigger>
-          <TabsTrigger value="ceduti" className="text-[11px] sm:text-sm px-1">
-            <Users className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+          <TabsTrigger value="ceduti" className="text-[10px] sm:text-sm px-0.5 py-2">
+            <Users className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
             Ceduti
           </TabsTrigger>
-          <TabsTrigger value="riprendi" className="text-[11px] sm:text-sm px-1">
-            <RotateCcw className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+          <TabsTrigger value="riprendi" className="text-[10px] sm:text-sm px-0.5 py-2">
+            <RotateCcw className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
             Riprendi
           </TabsTrigger>
-          <TabsTrigger value="storico" className="text-[11px] sm:text-sm px-1">
-            <History className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+          <TabsTrigger value="storico" className="text-[10px] sm:text-sm px-0.5 py-2">
+            <History className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
             Storico
           </TabsTrigger>
         </TabsList>
+
+        {/* ── COLLABORATORI ── */}
+        <TabsContent value="collaboratori" className="space-y-4 mt-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs text-app-muted-foreground">
+              Solo tu, come PT proprietario, puoi assegnare, spostare o rimuovere atleti dai
+              collaboratori. Un atleta può essere assegnato a più collaboratori in parallelo.
+            </p>
+            <Button
+              size="sm"
+              className="shrink-0 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+              onClick={() => setAssignOpen(true)}
+            >
+              <UserPlus className="h-3.5 w-3.5 mr-1" />
+              Assegna
+            </Button>
+          </div>
+
+          {loadingCollaborators ? (
+            Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            ))
+          ) : collaboratorError ? (
+            <Card className="bg-app-card border-app-border">
+              <CardContent className="p-6 text-center space-y-2">
+                <p className="text-sm text-app-muted-foreground">
+                  {collaboratorErrorObj instanceof Error
+                    ? collaboratorErrorObj.message
+                    : 'Impossibile caricare i collaboratori.'}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="border-app-border"
+                  onClick={() => refetchCollaborators()}
+                >
+                  Riprova
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <section className="space-y-2">
+                <h2 className="text-sm font-semibold text-app-foreground">
+                  I tuoi collaboratori
+                </h2>
+                {ownerViewGroups.length === 0 ? (
+                  <Card className="bg-app-card border-app-border">
+                    <CardContent className="p-6 text-center text-sm text-app-muted-foreground">
+                      Nessun atleta assegnato a collaboratori. Usa Assegna per iniziare.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  ownerViewGroups.map((group) => {
+                    const expanded = expandedCollabIds.includes(group.collaborator_pt_user_id);
+                    return (
+                      <Card
+                        key={group.collaborator_pt_user_id}
+                        className="bg-app-card border-app-border overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          className="w-full p-4 flex items-center gap-3 text-left"
+                          onClick={() => toggleExpandedCollab(group.collaborator_pt_user_id)}
+                        >
+                          <Avatar className="h-11 w-11">
+                            <AvatarImage src={group.avatar_url ?? undefined} />
+                            <AvatarFallback className="bg-app-background">
+                              {getAthleteInitials(group.first_name, group.last_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-app-foreground truncate">
+                              {formatPtName(group.first_name, group.last_name)}
+                            </p>
+                            <p className="text-xs text-app-muted-foreground">
+                              {group.athletes.length}{' '}
+                              {group.athletes.length === 1 ? 'atleta' : 'atleti'}
+                            </p>
+                          </div>
+                          <Badge variant="secondary" className="shrink-0">
+                            {group.athletes.length}
+                          </Badge>
+                          {expanded ? (
+                            <ChevronDown className="h-4 w-4 text-app-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-app-muted-foreground shrink-0" />
+                          )}
+                        </button>
+                        {expanded && (
+                          <div className="border-t border-app-border px-3 pb-3 space-y-2">
+                            {group.athletes.map((athlete) => (
+                              <div
+                                key={athlete.assignment_id}
+                                className="flex items-center gap-2 pt-3"
+                              >
+                                <Avatar className="h-9 w-9">
+                                  <AvatarImage src={athlete.avatar_url ?? undefined} />
+                                  <AvatarFallback className="bg-app-background text-xs">
+                                    {getAthleteInitials(athlete.first_name, athlete.last_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-app-foreground truncate">
+                                    {getAthleteDisplayName(
+                                      athlete.first_name,
+                                      athlete.last_name,
+                                    )}
+                                  </p>
+                                  <p className="text-[11px] text-app-muted-foreground">
+                                    Assegnato il {formatDate(athlete.assigned_at)}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col gap-1 shrink-0">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs border-app-border"
+                                    onClick={() => {
+                                      setMoveTarget({
+                                        atletaUserId: athlete.atleta_user_id,
+                                        atletaName: getAthleteDisplayName(
+                                          athlete.first_name,
+                                          athlete.last_name,
+                                        ),
+                                        fromCollaboratorPtId: group.collaborator_pt_user_id,
+                                        fromCollaboratorName: formatPtName(
+                                          group.first_name,
+                                          group.last_name,
+                                        ),
+                                      });
+                                      setMoveToPtId(null);
+                                    }}
+                                  >
+                                    Sposta
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs text-destructive"
+                                    onClick={() =>
+                                      setRevokeTarget({
+                                        atletaUserId: athlete.atleta_user_id,
+                                        atletaName: getAthleteDisplayName(
+                                          athlete.first_name,
+                                          athlete.last_name,
+                                        ),
+                                        collaboratorPtId: group.collaborator_pt_user_id,
+                                        collaboratorName: formatPtName(
+                                          group.first_name,
+                                          group.last_name,
+                                        ),
+                                      })
+                                    }
+                                  >
+                                    Rimuovi
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })
+                )}
+              </section>
+
+              {assignedToMe.length > 0 && (
+                <section className="space-y-2">
+                  <h2 className="text-sm font-semibold text-app-foreground">
+                    Assegnati a te
+                  </h2>
+                  <p className="text-xs text-app-muted-foreground">
+                    Atleti che puoi allenare come collaboratore. Non puoi cederli ad altri PT.
+                  </p>
+                  {assignedToMe.map((row) => (
+                    <Card key={row.assignment_id} className="bg-app-card border-app-border">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={row.atleta_avatar_url ?? undefined} />
+                          <AvatarFallback className="bg-app-background">
+                            {getAthleteInitials(row.atleta_first_name, row.atleta_last_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-app-foreground truncate">
+                            {getAthleteDisplayName(
+                              row.atleta_first_name,
+                              row.atleta_last_name,
+                            )}
+                          </p>
+                          <p className="text-xs text-app-muted-foreground truncate">
+                            Proprietario:{' '}
+                            {formatPtName(row.owner_first_name, row.owner_last_name)}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </section>
+              )}
+            </>
+          )}
+        </TabsContent>
 
         {/* ── CEDI ATLETA (multi-select) ── */}
         <TabsContent value="cedi" className="space-y-4 mt-0">
@@ -465,12 +914,32 @@ export function PTAppAthleteTransferPage() {
                   Array.from({ length: 3 }).map((_, i) => (
                     <Skeleton key={i} className="h-14 w-full rounded-xl" />
                   ))
-                ) : (ptTargets ?? []).length === 0 ? (
+                ) : ptTargetsError ? (
+                  <div className="py-4 text-center space-y-2">
+                    <p className="text-sm text-app-muted-foreground">
+                      Impossibile caricare i PT destinatari
+                      {ptTargetsErrorObj instanceof Error && ptTargetsErrorObj.message
+                        ? `: ${ptTargetsErrorObj.message}`
+                        : '.'}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="border-app-border"
+                      onClick={() => refetchPtTargets()}
+                    >
+                      Riprova
+                    </Button>
+                  </div>
+                ) : ptTargetsList.length === 0 ? (
                   <p className="text-sm text-app-muted-foreground py-4 text-center">
-                    Nessun PT trovato. Prova un altro termine di ricerca.
+                    {debouncedPtSearch.trim()
+                      ? 'Nessun PT trovato. Prova un altro termine di ricerca.'
+                      : 'Nessun altro PT attivo disponibile come destinatario.'}
                   </p>
                 ) : (
-                  (ptTargets ?? []).map((pt) => (
+                  ptTargetsList.map((pt) => (
                     <PtTargetRow
                       key={pt.user_id}
                       pt={pt}
@@ -738,6 +1207,309 @@ export function PTAppAthleteTransferPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Assegna a collaboratori */}
+      <Sheet
+        open={assignOpen}
+        onOpenChange={(open) => {
+          setAssignOpen(open);
+          if (!open) {
+            setAssignAthleteIds([]);
+            setAssignCollabIds([]);
+            setAssignNotes('');
+            setAssignCollabSearch('');
+          }
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          className="bg-app-card border-app-border text-app-foreground rounded-t-3xl max-h-[90vh] overflow-y-auto"
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle className="text-app-foreground">Assegna a collaboratori</SheetTitle>
+            <SheetDescription className="text-app-muted-foreground">
+              Seleziona gli atleti di tua proprietà e uno o più collaboratori.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 space-y-4">
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold text-app-foreground">1. Atleti</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {ownedAthletes.length === 0 ? (
+                  <p className="text-sm text-app-muted-foreground py-2 text-center">
+                    Nessun atleta di tua proprietà disponibile.
+                  </p>
+                ) : (
+                  ownedAthletes.map((conn) => {
+                    const selected = assignAthleteIds.includes(conn.atleta_user_id);
+                    return (
+                      <button
+                        key={conn.atleta_user_id}
+                        type="button"
+                        onClick={() => toggleAssignAthlete(conn.atleta_user_id)}
+                        className={cn(
+                          'w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left',
+                          selected
+                            ? 'border-app-accent bg-app-accent/10'
+                            : 'border-app-border bg-app-background',
+                        )}
+                      >
+                        <Checkbox
+                          checked={selected}
+                          onCheckedChange={() => toggleAssignAthlete(conn.atleta_user_id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={conn.profile?.avatar_url ?? undefined} />
+                          <AvatarFallback className="bg-app-card text-xs">
+                            {getAthleteInitials(
+                              conn.profile?.first_name,
+                              conn.profile?.last_name,
+                            )}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium text-app-foreground truncate">
+                          {getAthleteDisplayName(
+                            conn.profile?.first_name,
+                            conn.profile?.last_name,
+                            conn.profile?.email,
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+
+            {assignAthleteIds.length > 0 && (
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-app-foreground">2. Collaboratori</h3>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-app-muted-foreground" />
+                  <Input
+                    placeholder="Cerca PT collaboratore…"
+                    value={assignCollabSearch}
+                    onChange={(e) => setAssignCollabSearch(e.target.value)}
+                    className="pl-9 bg-app-background border-app-border"
+                  />
+                </div>
+                <div className="space-y-2 max-h-44 overflow-y-auto">
+                  {loadingAssignCollabs ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                    ))
+                  ) : assignCollabError ? (
+                    <div className="py-3 text-center space-y-2">
+                      <p className="text-sm text-app-muted-foreground">
+                        Impossibile caricare i collaboratori
+                        {assignCollabErrorObj instanceof Error && assignCollabErrorObj.message
+                          ? `: ${assignCollabErrorObj.message}`
+                          : '.'}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="border-app-border"
+                        onClick={() => refetchAssignCollabs()}
+                      >
+                        Riprova
+                      </Button>
+                    </div>
+                  ) : assignCollabList.length === 0 ? (
+                    <p className="text-sm text-app-muted-foreground py-2 text-center">
+                      {debouncedAssignCollabSearch.trim()
+                        ? 'Nessun PT trovato. Prova un altro termine di ricerca.'
+                        : 'Nessun altro PT attivo disponibile come collaboratore.'}
+                    </p>
+                  ) : (
+                    assignCollabList.map((pt) => {
+                      const selected = assignCollabIds.includes(pt.user_id);
+                      return (
+                        <button
+                          key={pt.user_id}
+                          type="button"
+                          onClick={() => toggleAssignCollab(pt.user_id)}
+                          className={cn(
+                            'w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left',
+                            selected
+                              ? 'border-app-accent bg-app-accent/10'
+                              : 'border-app-border bg-app-background',
+                          )}
+                        >
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => toggleAssignCollab(pt.user_id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Avatar className="h-9 w-9">
+                            <AvatarImage src={pt.avatar_url ?? undefined} />
+                            <AvatarFallback className="bg-app-card text-xs">
+                              {getAthleteInitials(pt.first_name, pt.last_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-sm font-medium text-app-foreground truncate block">
+                              {formatPtName(pt.first_name, pt.last_name)}
+                            </span>
+                            {pt.location_city && (
+                              <span className="text-[11px] text-app-muted-foreground truncate block">
+                                {pt.location_city}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
+            )}
+
+            {assignAthleteIds.length > 0 && assignCollabIds.length > 0 && (
+              <section className="space-y-3">
+                <Textarea
+                  placeholder="Note opzionali…"
+                  value={assignNotes}
+                  onChange={(e) => setAssignNotes(e.target.value)}
+                  className="bg-app-background border-app-border min-h-[64px]"
+                />
+                <Button
+                  className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+                  disabled={assignMutation.isPending}
+                  onClick={() => assignMutation.mutate()}
+                >
+                  {assignMutation.isPending
+                    ? 'Assegnazione…'
+                    : `Assegna ${assignAthleteIds.length} atleta/i a ${assignCollabIds.length} collaboratore/i`}
+                </Button>
+              </section>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Sposta tra collaboratori */}
+      <Sheet
+        open={!!moveTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMoveTarget(null);
+            setMoveToPtId(null);
+            setMoveCollabSearch('');
+          }
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          className="bg-app-card border-app-border text-app-foreground rounded-t-3xl max-h-[85vh] overflow-y-auto"
+        >
+          {moveTarget && (
+            <>
+              <SheetHeader className="text-left">
+                <SheetTitle className="text-app-foreground">Sposta atleta</SheetTitle>
+                <SheetDescription className="text-app-muted-foreground">
+                  {moveTarget.atletaName} da {moveTarget.fromCollaboratorName} a un altro
+                  collaboratore.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-4 space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-app-muted-foreground" />
+                  <Input
+                    placeholder="Cerca collaboratore destinazione…"
+                    value={moveCollabSearch}
+                    onChange={(e) => setMoveCollabSearch(e.target.value)}
+                    className="pl-9 bg-app-background border-app-border"
+                  />
+                </div>
+                <div className="space-y-2 max-h-52 overflow-y-auto">
+                  {loadingMoveCollabs ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                    ))
+                  ) : moveCollabError ? (
+                    <div className="py-3 text-center space-y-2">
+                      <p className="text-sm text-app-muted-foreground">
+                        Impossibile caricare i collaboratori
+                        {moveCollabErrorObj instanceof Error && moveCollabErrorObj.message
+                          ? `: ${moveCollabErrorObj.message}`
+                          : '.'}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="border-app-border"
+                        onClick={() => refetchMoveCollabs()}
+                      >
+                        Riprova
+                      </Button>
+                    </div>
+                  ) : moveCollabList.length === 0 ? (
+                    <p className="text-sm text-app-muted-foreground py-2 text-center">
+                      {debouncedMoveCollabSearch.trim()
+                        ? 'Nessun PT trovato. Prova un altro termine di ricerca.'
+                        : 'Nessun altro PT attivo disponibile.'}
+                    </p>
+                  ) : (
+                    moveCollabList.map((pt) => (
+                      <PtTargetRow
+                        key={pt.user_id}
+                        pt={pt}
+                        selected={moveToPtId === pt.user_id}
+                        onSelect={() => setMoveToPtId(pt.user_id)}
+                      />
+                    ))
+                  )}
+                </div>
+                {moveToPtId && (
+                  <Button
+                    className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+                    disabled={moveMutation.isPending}
+                    onClick={() => moveMutation.mutate()}
+                  >
+                    {moveMutation.isPending ? 'Spostamento…' : 'Conferma spostamento'}
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog
+        open={!!revokeTarget}
+        onOpenChange={(open) => !open && setRevokeTarget(null)}
+      >
+        <AlertDialogContent className="bg-app-card border-app-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rimuovi assegnazione</AlertDialogTitle>
+            <AlertDialogDescription>
+              {revokeTarget && (
+                <>
+                  <strong>{revokeTarget.atletaName}</strong> non sarà più assegnato a{' '}
+                  <strong>{revokeTarget.collaboratorName}</strong>. La connessione di coaching
+                  del collaboratore verrà terminata.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={revokeMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                revokeMutation.mutate();
+              }}
+            >
+              {revokeMutation.isPending ? 'Rimozione…' : 'Rimuovi'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={confirmTransfer} onOpenChange={setConfirmTransfer}>
         <AlertDialogContent className="bg-app-card border-app-border">

@@ -7,6 +7,7 @@ import type {
   CreateGroupAnnouncementInput,
   CreateGroupInput,
   GroupAnnouncementRow,
+  GroupAnnouncementRsvpParticipant,
   GroupChannel,
   GroupMemberRole,
   GroupMessageRow,
@@ -19,6 +20,15 @@ import type {
 
 export const GROUP_CHAT_ATTACHMENT_MAX_BYTES = 40 * 1024 * 1024;
 export const GROUP_CHAT_ATTACHMENTS_BUCKET = 'group-chat-attachments';
+/** Marker on group_messages.attachment_type; attachment_url holds announcement UUID */
+export const ANNOUNCEMENT_EVENT_ATTACHMENT_TYPE = 'announcement/event';
+
+export function isAnnouncementEventAttachment(type: string | null | undefined): boolean {
+  return (
+    type === ANNOUNCEMENT_EVENT_ATTACHMENT_TYPE ||
+    type === 'application/x-group-announcement'
+  );
+}
 
 // Client tipizzato manualmente fino a rigenerazione types.ts
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -691,13 +701,15 @@ export async function sendGroupMessage(params: {
       channel: params.channel,
       content:
         content ||
-        (params.attachmentType?.startsWith('image/')
-          ? '📷 Immagine'
-          : params.attachmentType === 'video/youtube' || params.attachmentType === 'youtube'
-            ? '🎬 Video YouTube'
-            : params.attachmentType?.startsWith('video/')
-              ? '🎬 Video'
-              : '📎 Allegato'),
+        (isAnnouncementEventAttachment(params.attachmentType)
+          ? '📣 Annuncio'
+          : params.attachmentType?.startsWith('image/')
+            ? '📷 Immagine'
+            : params.attachmentType === 'video/youtube' || params.attachmentType === 'youtube'
+              ? '🎬 Video YouTube'
+              : params.attachmentType?.startsWith('video/')
+                ? '🎬 Video'
+                : '📎 Allegato'),
       attachment_url: params.attachmentUrl ?? null,
       attachment_type: params.attachmentType ?? null,
     })
@@ -821,9 +833,74 @@ export async function listGroupAnnouncements(
   }
   return rows.map((r) => ({
     ...r,
+    requires_rsvp: r.requires_rsvp !== false,
     rsvp_count: counts.get(r.id) || 0,
     joined_by_me: mine.has(r.id),
   }));
+}
+
+async function enrichAnnouncementRsvp(
+  row: GroupAnnouncementRow,
+  userId?: string,
+): Promise<GroupAnnouncementRow> {
+  const { data: rsvps } = await db()
+    .from('group_announcement_rsvps')
+    .select('user_id')
+    .eq('announcement_id', row.id);
+  const list = (rsvps || []) as { user_id: string }[];
+  return {
+    ...row,
+    requires_rsvp: row.requires_rsvp !== false,
+    rsvp_count: list.length,
+    joined_by_me: !!userId && list.some((r) => r.user_id === userId),
+  };
+}
+
+export async function getGroupAnnouncement(
+  announcementId: string,
+  userId?: string,
+): Promise<GroupAnnouncementRow | null> {
+  const { data, error } = await db()
+    .from('group_announcements')
+    .select('*')
+    .eq('id', announcementId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return enrichAnnouncementRsvp(data as GroupAnnouncementRow, userId);
+}
+
+export async function listAnnouncementRsvps(
+  announcementId: string,
+): Promise<GroupAnnouncementRsvpParticipant[]> {
+  const { data: rsvps, error } = await db()
+    .from('group_announcement_rsvps')
+    .select('user_id, created_at')
+    .eq('announcement_id', announcementId)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  const rows = (rsvps || []) as { user_id: string; created_at: string }[];
+  if (rows.length === 0) return [];
+
+  const userIds = rows.map((r) => r.user_id);
+  const { data: profiles } = await db()
+    .from('profiles')
+    .select('user_id, first_name, last_name, avatar_url')
+    .in('user_id', userIds);
+
+  const byUser = new Map(
+    ((profiles || []) as GroupAnnouncementRsvpParticipant[]).map((p) => [p.user_id, p]),
+  );
+
+  return userIds.map((user_id) => {
+    const p = byUser.get(user_id);
+    return {
+      user_id,
+      first_name: p?.first_name ?? null,
+      last_name: p?.last_name ?? null,
+      avatar_url: p?.avatar_url ?? null,
+    };
+  });
 }
 
 export async function createGroupAnnouncement(
@@ -833,30 +910,48 @@ export async function createGroupAnnouncement(
   const title = input.title.trim();
   if (!title) throw new Error('Titolo obbligatorio');
   if (!input.startsAt) throw new Error('Data e ora obbligatorie');
+  const requiresRsvp = input.requiresRsvp !== false;
 
-  const { data, error } = await db()
+  const basePayload = {
+    group_id: input.groupId,
+    created_by: createdBy,
+    title,
+    body: (input.body || '').trim(),
+    cover_url: input.coverUrl ?? null,
+    starts_at: input.startsAt,
+    ends_at: input.endsAt ?? null,
+    place_label: input.placeLabel?.trim() || null,
+    address_line: input.addressLine?.trim() || null,
+  };
+
+  let { data, error } = await db()
     .from('group_announcements')
-    .insert({
-      group_id: input.groupId,
-      created_by: createdBy,
-      title,
-      body: (input.body || '').trim(),
-      cover_url: input.coverUrl ?? null,
-      starts_at: input.startsAt,
-      ends_at: input.endsAt ?? null,
-      place_label: input.placeLabel?.trim() || null,
-      address_line: input.addressLine?.trim() || null,
-    })
+    .insert({ ...basePayload, requires_rsvp: requiresRsvp })
     .select()
     .single();
+
+  // Colonna requires_rsvp non ancora migrata: riprova senza
+  if (
+    error &&
+    /requires_rsvp|schema cache|PGRST204/i.test(error.message)
+  ) {
+    ({ data, error } = await db()
+      .from('group_announcements')
+      .insert(basePayload)
+      .select()
+      .single());
+  }
   if (error) throw new Error(error.message);
 
-  // Notifica in chat gruppo
+  const announcement = data as GroupAnnouncementRow;
+
+  // Rich card in chat gruppo (attachment_url = announcement id)
   try {
     const when = new Date(input.startsAt);
     const whenLabel = Number.isNaN(when.getTime())
       ? ''
       : when.toLocaleString('it-IT', {
+          weekday: 'short',
           day: '2-digit',
           month: 'short',
           hour: '2-digit',
@@ -866,13 +961,20 @@ export async function createGroupAnnouncement(
       groupId: input.groupId,
       senderUserId: createdBy,
       channel: 'general',
-      content: `📣 Nuovo annuncio: ${title}${whenLabel ? ` · ${whenLabel}` : ''}. Apri Annunci per partecipare.`,
+      content: `📣 ${title}${whenLabel ? ` · ${whenLabel}` : ''}`,
+      attachmentUrl: announcement.id,
+      attachmentType: ANNOUNCEMENT_EVENT_ATTACHMENT_TYPE,
     });
   } catch {
     // non bloccare la creazione
   }
 
-  return { ...(data as GroupAnnouncementRow), rsvp_count: 0, joined_by_me: false };
+  return {
+    ...announcement,
+    requires_rsvp: requiresRsvp,
+    rsvp_count: 0,
+    joined_by_me: false,
+  };
 }
 
 export async function toggleAnnouncementRsvp(params: {

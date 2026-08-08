@@ -7,6 +7,7 @@ import {
   uploadGroupAnnouncementCover,
 } from '@/lib/api/groups';
 import type { GroupAnnouncementRow, GroupMemberRole } from '@/types/groups';
+import { AnnouncementParticipantsSheet } from '@/components/groups/AnnouncementParticipantsSheet';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +19,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Calendar, MapPin, Megaphone, Plus, Users } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Calendar, Heart, MapPin, Megaphone, Plus, Users } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -35,16 +37,19 @@ function toLocalInputValue(d: Date) {
 
 function AnnouncementCard({
   item,
-  isAdmin,
   onToggleRsvp,
   rsvpPending,
+  onOpenParticipants,
 }: {
   item: GroupAnnouncementRow;
-  isAdmin: boolean;
   onToggleRsvp: (item: GroupAnnouncementRow) => void;
   rsvpPending: boolean;
+  onOpenParticipants: (item: GroupAnnouncementRow) => void;
 }) {
   const starts = item.starts_at ? parseISO(item.starts_at) : null;
+  const requiresRsvp = item.requires_rsvp !== false;
+  const count = item.rsvp_count ?? 0;
+
   return (
     <div className="rounded-xl border border-app-border bg-app-background overflow-hidden">
       {item.cover_url ? (
@@ -75,25 +80,39 @@ function AnnouncementCard({
         {item.body ? (
           <p className="text-sm text-app-foreground whitespace-pre-wrap">{item.body}</p>
         ) : null}
-        <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="text-xs text-app-muted-foreground flex items-center gap-1">
-            <Users className="h-3.5 w-3.5" />
-            {item.rsvp_count ?? 0}{' '}
-            {(item.rsvp_count ?? 0) === 1 ? 'partecipante' : 'partecipanti'}
-            {isAdmin ? ' · visibile a te' : ''}
-          </span>
-          <Button
-            size="sm"
-            variant={item.joined_by_me ? 'outline' : 'default'}
-            className={cn(
-              !item.joined_by_me && 'bg-app-accent text-app-accent-foreground hover:bg-app-accent/90',
-            )}
-            disabled={rsvpPending}
-            onClick={() => onToggleRsvp(item)}
-          >
-            {item.joined_by_me ? 'Annulla' : 'Partecipa'}
-          </Button>
-        </div>
+        {requiresRsvp ? (
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => onOpenParticipants(item)}
+              className="text-xs text-app-muted-foreground flex items-center gap-1 min-h-9 px-1 -ml-1 rounded-md hover:text-app-foreground hover:bg-app-muted/60 transition-colors"
+            >
+              <Users className="h-3.5 w-3.5" />
+              {count} {count === 1 ? 'partecipante' : 'partecipanti'}
+            </button>
+            <Button
+              size="sm"
+              variant={item.joined_by_me ? 'outline' : 'default'}
+              className={cn(
+                'min-h-10',
+                !item.joined_by_me &&
+                  'bg-app-accent text-app-accent-foreground hover:bg-app-accent/90',
+              )}
+              disabled={rsvpPending}
+              onClick={() => onToggleRsvp(item)}
+            >
+              <Heart
+                className={cn(
+                  'h-3.5 w-3.5 mr-1.5',
+                  item.joined_by_me && 'fill-current text-red-500',
+                )}
+              />
+              {item.joined_by_me ? 'Annulla' : 'Ci sono'}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-app-muted-foreground pt-1">Solo avviso</p>
+        )}
       </div>
     </div>
   );
@@ -122,6 +141,8 @@ export function GroupAnnouncementsDialog({
   const [addressLine, setAddressLine] = useState('');
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [requiresRsvp, setRequiresRsvp] = useState(true);
+  const [participantsFor, setParticipantsFor] = useState<GroupAnnouncementRow | null>(null);
 
   const { data: items = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['group-announcements', groupId, userId],
@@ -135,6 +156,15 @@ export function GroupAnnouncementsDialog({
     );
   }, [items]);
 
+  const resetForm = () => {
+    setTitle('');
+    setBody('');
+    setPlaceLabel('');
+    setAddressLine('');
+    setCoverUrl(null);
+    setRequiresRsvp(true);
+  };
+
   const createMutation = useMutation({
     mutationFn: () =>
       createGroupAnnouncement(userId, {
@@ -145,15 +175,12 @@ export function GroupAnnouncementsDialog({
         startsAt: new Date(startsAt).toISOString(),
         placeLabel,
         addressLine,
+        requiresRsvp,
       }),
     onSuccess: () => {
       toast.success('Annuncio pubblicato');
       setCreating(false);
-      setTitle('');
-      setBody('');
-      setPlaceLabel('');
-      setAddressLine('');
-      setCoverUrl(null);
+      resetForm();
       queryClient.invalidateQueries({ queryKey: ['group-announcements', groupId] });
       queryClient.invalidateQueries({ queryKey: ['group-messages', groupId, 'general'] });
     },
@@ -167,8 +194,11 @@ export function GroupAnnouncementsDialog({
         userId,
         currentlyJoined: !!item.joined_by_me,
       }),
-    onSuccess: () => {
+    onSuccess: (_data, item) => {
       queryClient.invalidateQueries({ queryKey: ['group-announcements', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['group-announcement', item.id] });
+      queryClient.invalidateQueries({ queryKey: ['group-announcement-rsvps', item.id] });
+      queryClient.invalidateQueries({ queryKey: ['group-messages', groupId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -187,126 +217,152 @@ export function GroupAnnouncementsDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-app-card border-app-border">
-        <DialogHeader>
-          <DialogTitle className="text-app-foreground flex items-center gap-2">
-            <Megaphone className="h-5 w-5" />
-            Annunci
-          </DialogTitle>
-          <DialogDescription className="text-app-muted-foreground">
-            Mini-eventi del gruppo: data, luogo e partecipazione.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-app-card border-app-border">
+          <DialogHeader>
+            <DialogTitle className="text-app-foreground flex items-center gap-2">
+              <Megaphone className="h-5 w-5" />
+              Annunci
+            </DialogTitle>
+            <DialogDescription className="text-app-muted-foreground">
+              Mini-eventi del gruppo: data, luogo e partecipazione.
+            </DialogDescription>
+          </DialogHeader>
 
-        {admin && (
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              variant={creating ? 'outline' : 'default'}
-              className={!creating ? 'bg-app-accent text-app-accent-foreground' : undefined}
-              onClick={() => setCreating((v) => !v)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              {creating ? 'Chiudi form' : 'Nuovo annuncio'}
-            </Button>
-          </div>
-        )}
+          {admin && (
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant={creating ? 'outline' : 'default'}
+                className={!creating ? 'bg-app-accent text-app-accent-foreground' : undefined}
+                onClick={() => setCreating((v) => !v)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                {creating ? 'Chiudi form' : 'Nuovo annuncio'}
+              </Button>
+            </div>
+          )}
 
-        {creating && admin && (
-          <div className="space-y-3 rounded-xl border border-app-border p-3 bg-app-background">
-            <div className="space-y-1.5">
-              <Label>Nome *</Label>
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Es. Open day calisthenics"
-                maxLength={120}
-              />
+          {creating && admin && (
+            <div className="space-y-3 rounded-xl border border-app-border p-3 bg-app-background">
+              <div className="space-y-1.5">
+                <Label>Nome *</Label>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Es. Open day calisthenics"
+                  maxLength={120}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Data e ora *</Label>
+                <Input
+                  type="datetime-local"
+                  value={startsAt}
+                  onChange={(e) => setStartsAt(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Luogo</Label>
+                <Input
+                  value={placeLabel}
+                  onChange={(e) => setPlaceLabel(e.target.value)}
+                  placeholder="Nome luogo"
+                />
+                <Input
+                  value={addressLine}
+                  onChange={(e) => setAddressLine(e.target.value)}
+                  placeholder="Indirizzo (opzionale)"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Testo</Label>
+                <Textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder="Dettagli dell'annuncio..."
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Locandina (opzionale)</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingCover}
+                  onChange={(e) => void onCoverPick(e.target.files?.[0])}
+                />
+                {coverUrl && (
+                  <img src={coverUrl} alt="" className="h-28 w-full object-cover rounded-lg" />
+                )}
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-app-border px-3 py-2.5">
+                <div className="space-y-0.5">
+                  <Label htmlFor="requires-rsvp" className="text-sm">
+                    Richiedi partecipazione
+                  </Label>
+                  <p className="text-xs text-app-muted-foreground">
+                    Se disattivo, è solo un avviso (senza «Ci sono»).
+                  </p>
+                </div>
+                <Switch
+                  id="requires-rsvp"
+                  checked={requiresRsvp}
+                  onCheckedChange={setRequiresRsvp}
+                />
+              </div>
+              <Button
+                className="w-full bg-app-accent text-app-accent-foreground"
+                disabled={!title.trim() || !startsAt || createMutation.isPending || uploadingCover}
+                onClick={() => createMutation.mutate()}
+              >
+                {createMutation.isPending ? 'Pubblicazione…' : 'Pubblica annuncio'}
+              </Button>
             </div>
-            <div className="space-y-1.5">
-              <Label>Data e ora *</Label>
-              <Input
-                type="datetime-local"
-                value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Luogo</Label>
-              <Input
-                value={placeLabel}
-                onChange={(e) => setPlaceLabel(e.target.value)}
-                placeholder="Nome luogo"
-              />
-              <Input
-                value={addressLine}
-                onChange={(e) => setAddressLine(e.target.value)}
-                placeholder="Indirizzo (opzionale)"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Testo</Label>
-              <Textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Dettagli dell'annuncio..."
-                rows={3}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Locandina (opzionale)</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                disabled={uploadingCover}
-                onChange={(e) => void onCoverPick(e.target.files?.[0])}
-              />
-              {coverUrl && (
-                <img src={coverUrl} alt="" className="h-28 w-full object-cover rounded-lg" />
-              )}
-            </div>
-            <Button
-              className="w-full bg-app-accent text-app-accent-foreground"
-              disabled={!title.trim() || !startsAt || createMutation.isPending || uploadingCover}
-              onClick={() => createMutation.mutate()}
-            >
-              {createMutation.isPending ? 'Pubblicazione…' : 'Pubblica annuncio'}
-            </Button>
-          </div>
-        )}
+          )}
 
-        {isLoading && (
-          <p className="text-sm text-app-muted-foreground text-center py-6">Caricamento…</p>
-        )}
-        {isError && (
-          <div className="text-center space-y-2 py-4">
-            <p className="text-sm text-app-muted-foreground">
-              Impossibile caricare gli annunci. Applica la migration sul backend e riprova.
+          {isLoading && (
+            <p className="text-sm text-app-muted-foreground text-center py-6">Caricamento…</p>
+          )}
+          {isError && (
+            <div className="text-center space-y-2 py-4">
+              <p className="text-sm text-app-muted-foreground">
+                Impossibile caricare gli annunci. Applica la migration sul backend e riprova.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                Riprova
+              </Button>
+            </div>
+          )}
+          {!isLoading && !isError && sorted.length === 0 && (
+            <p className="text-sm text-app-muted-foreground text-center py-6">
+              Nessun annuncio ancora.
+              {admin ? ' Creane uno con «Nuovo annuncio».' : ''}
             </p>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Riprova
-            </Button>
+          )}
+          <div className="space-y-3">
+            {sorted.map((item) => (
+              <AnnouncementCard
+                key={item.id}
+                item={item}
+                rsvpPending={rsvpMutation.isPending}
+                onToggleRsvp={(a) => rsvpMutation.mutate(a)}
+                onOpenParticipants={setParticipantsFor}
+              />
+            ))}
           </div>
-        )}
-        {!isLoading && !isError && sorted.length === 0 && (
-          <p className="text-sm text-app-muted-foreground text-center py-6">
-            Nessun annuncio ancora.
-            {admin ? ' Creane uno con «Nuovo annuncio».' : ''}
-          </p>
-        )}
-        <div className="space-y-3">
-          {sorted.map((item) => (
-            <AnnouncementCard
-              key={item.id}
-              item={item}
-              isAdmin={admin}
-              rsvpPending={rsvpMutation.isPending}
-              onToggleRsvp={(a) => rsvpMutation.mutate(a)}
-            />
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <AnnouncementParticipantsSheet
+        open={!!participantsFor}
+        onOpenChange={(v) => {
+          if (!v) setParticipantsFor(null);
+        }}
+        announcementId={participantsFor?.id ?? null}
+        title={participantsFor?.title}
+      />
+    </>
   );
 }

@@ -1,11 +1,28 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import {
+  Calendar as CalendarIcon,
+  Clock,
+  MapPin,
+  Users,
+  Dumbbell,
+  Video,
+  Plus,
+  X,
+} from 'lucide-react';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
+import {
+  AppCalendarView,
+  itemDateKey,
+  rangeKey,
+  type AppCalendarItem,
+  type AppCalendarVisibleRange,
+} from '@/components/app/AppCalendarView';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { CreatePublicEventDialog } from '@/components/pt/CreatePublicEventDialog';
@@ -13,24 +30,11 @@ import { PTAvailabilityManager } from '@/components/pt/PTAvailabilityManager';
 import { GoogleCalendarConnectButton } from '@/components/pt/GoogleCalendarConnectButton';
 import { syncAppointmentToGoogleCalendar } from '@/lib/api/googleCalendarSync';
 import { toast } from 'sonner';
-import { 
-  Calendar as CalendarIcon, 
-  ChevronLeft, 
-  ChevronRight,
-  Clock,
-  MapPin,
-  Users,
-  Dumbbell,
-  Video,
-  Plus,
-  X
-} from 'lucide-react';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, isToday } from 'date-fns';
-import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 // =====================================================
 // PT APP CALENDAR PAGE - Calendario (Mobile)
+// Reuses shared AppCalendarView (Giorno / Settimana / Mese).
 // =====================================================
 
 const EVENT_TYPE_CONFIG = {
@@ -43,15 +47,44 @@ const EVENT_TYPE_CONFIG = {
   altro: { label: 'Altro', icon: CalendarIcon, color: 'bg-muted' },
 };
 
+type PtCalendarEvent = {
+  id: string;
+  title: string;
+  start_datetime: string;
+  end_datetime?: string | null;
+  location?: string | null;
+  event_type?: string | null;
+  category?: string | null;
+  atleta_user_id?: string | null;
+  creator_user_id?: string | null;
+  pt_user_id?: string | null;
+  atletaProfile?: {
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+};
+
 export function PTAppCalendarPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const appointmentsOnly = searchParams.get('view') === 'appuntamenti';
-  const [currentWeek, setCurrentWeek] = useState(new Date());
   const [showCreateEvent, setShowCreateEvent] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [range, setRange] = useState<AppCalendarVisibleRange | null>(null);
 
-  // Cancel event mutation
+  const onVisibleRangeChange = useCallback((next: AppCalendarVisibleRange) => {
+    setRange(next);
+  }, []);
+
+  const onSelectedDateChange = useCallback((date: Date) => {
+    setSelectedDate(date);
+  }, []);
+
   const cancelMutation = useMutation({
     mutationFn: async (eventId: string) => {
       const { error } = await supabase
@@ -59,7 +92,6 @@ export function PTAppCalendarPage() {
         .update({ is_cancelled: true, cancelled_at: new Date().toISOString() })
         .eq('id', eventId);
       if (error) throw error;
-      // Best-effort: remove from Google Calendar if linked
       void syncAppointmentToGoogleCalendar(eventId, 'delete');
     },
     onSuccess: () => {
@@ -69,30 +101,26 @@ export function PTAppCalendarPage() {
     onError: () => toast.error('Errore nella cancellazione'),
   });
 
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
-  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
-
-  const [selectedDate, setSelectedDate] = useState(new Date());
-
-  // Fetch events for the week
-  const { data: events, isLoading } = useQuery({
-    queryKey: ['pt-events', user?.id, weekStart.toISOString()],
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: [
+      'pt-events',
+      user?.id,
+      range ? rangeKey(range.from, range.to) : null,
+    ],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!user?.id || !range) return [] as PtCalendarEvent[];
 
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
         .eq('pt_user_id', user.id)
         .eq('is_cancelled', false)
-        .gte('start_datetime', weekStart.toISOString())
-        .lte('start_datetime', weekEnd.toISOString())
+        .gte('start_datetime', range.from.toISOString())
+        .lte('start_datetime', range.to.toISOString())
         .order('start_datetime', { ascending: true });
 
       if (error) throw error;
 
-      // Fetch athlete profiles for events with athletes
       const eventsWithProfiles = await Promise.all(
         (data || []).map(async (event) => {
           if (event.atleta_user_id) {
@@ -101,44 +129,49 @@ export function PTAppCalendarPage() {
               .select('first_name, last_name')
               .eq('user_id', event.atleta_user_id)
               .single();
-            return { ...event, atletaProfile: profile };
+            return { ...event, atletaProfile: profile } as PtCalendarEvent;
           }
-          return event;
-        })
+          return event as PtCalendarEvent;
+        }),
       );
 
       return eventsWithProfiles;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!range,
   });
 
-  const visibleEvents =
-    appointmentsOnly
-      ? (events ?? []).filter((e) => e.category === 'appuntamento')
-      : events ?? [];
-
-  // Filter events for selected date
-  const selectedDateEvents = visibleEvents.filter((event) =>
-    isSameDay(new Date(event.start_datetime), selectedDate),
+  const visibleEvents = useMemo(
+    () =>
+      appointmentsOnly
+        ? events.filter((e) => e.category === 'appuntamento')
+        : events,
+    [appointmentsOnly, events],
   );
 
-  // Count events per day for indicators
-  const eventCountByDay = weekDays.map((day) => ({
-    date: day,
-    count: visibleEvents.filter((e) => isSameDay(new Date(e.start_datetime), day)).length,
-  }));
+  const eventsById = useMemo(() => {
+    const m = new Map<string, PtCalendarEvent>();
+    for (const e of visibleEvents) m.set(e.id, e);
+    return m;
+  }, [visibleEvents]);
 
-  const goToPrevWeek = () => setCurrentWeek(subWeeks(currentWeek, 1));
-  const goToNextWeek = () => setCurrentWeek(addWeeks(currentWeek, 1));
-  const goToToday = () => {
-    setCurrentWeek(new Date());
-    setSelectedDate(new Date());
-  };
+  const items: AppCalendarItem[] = useMemo(
+    () =>
+      visibleEvents.map((event) => ({
+        id: event.id,
+        title: event.title,
+        date: itemDateKey(event.start_datetime),
+      })),
+    [visibleEvents],
+  );
 
   return (
     <PTAppPageShell
       title={appointmentsOnly ? 'Appuntamenti' : 'Calendario'}
-      description={appointmentsOnly ? 'Solo appuntamenti con atleti' : 'Eventi e appuntamenti della settimana'}
+      description={
+        appointmentsOnly
+          ? 'Solo appuntamenti con atleti'
+          : 'Eventi e appuntamenti'
+      }
       showBack
       flush
       actions={
@@ -154,147 +187,92 @@ export function PTAppCalendarPage() {
               Evento
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={goToToday} className="border-app-border">
-            Oggi
-          </Button>
         </div>
       }
     >
       <div data-tour="pt-calendar-page">
-      {/* Create Event Dialog */}
-      <CreatePublicEventDialog
-        open={showCreateEvent}
-        onOpenChange={setShowCreateEvent}
-        selectedDate={selectedDate}
-      />
+        <CreatePublicEventDialog
+          open={showCreateEvent}
+          onOpenChange={setShowCreateEvent}
+          selectedDate={selectedDate}
+        />
 
-      {/* Week navigation */}
-      <div className="px-4 pb-4 border-b border-app-border bg-app-background">
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={goToPrevWeek} className="text-app-foreground">
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <span className="font-medium text-app-foreground">
-            {format(weekStart, 'd', { locale: it })} - {format(weekEnd, 'd MMMM yyyy', { locale: it })}
-          </span>
-          <Button variant="ghost" size="icon" onClick={goToNextWeek} className="text-app-foreground">
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        </div>
-
-        {/* Week days */}
-        <div className="grid grid-cols-7 gap-1 mt-4">
-          {weekDays.map((day, i) => {
-            const isSelected = isSameDay(day, selectedDate);
-            const isTodayDate = isToday(day);
-            const eventCount = eventCountByDay[i].count;
-
+        <AppCalendarView
+          hideTitle
+          items={items}
+          isLoading={isLoading}
+          emptyLabel={
+            appointmentsOnly
+              ? 'Nessun appuntamento per questo giorno'
+              : 'Nessun evento per questo giorno'
+          }
+          onVisibleRangeChange={onVisibleRangeChange}
+          onSelectedDateChange={onSelectedDateChange}
+          renderItem={(item) => {
+            const event = eventsById.get(item.id);
+            if (!event) return null;
             return (
-              <button
-                key={day.toISOString()}
-                type="button"
-                onClick={() => setSelectedDate(day)}
-                className={cn(
-                  'flex flex-col items-center py-2 rounded-lg transition-colors',
-                  isSelected
-                    ? 'bg-app-accent text-black'
-                    : isTodayDate
-                      ? 'bg-app-accent/10'
-                      : 'hover:bg-app-card',
-                )}
-              >
-                <span className="text-xs text-app-muted-foreground">
-                  {format(day, 'EEE', { locale: it })}
-                </span>
-                <span className={cn('text-lg font-semibold', isSelected && 'text-black')}>
-                  {format(day, 'd')}
-                </span>
-                {eventCount > 0 && (
-                  <div
-                    className={cn(
-                      'w-1.5 h-1.5 rounded-full mt-1',
-                      isSelected ? 'bg-black/70' : 'bg-app-accent',
-                    )}
-                  />
-                )}
-              </button>
+              <EventCard
+                event={event}
+                onCancel={(id) => cancelMutation.mutate(id)}
+              />
             );
-          })}
-        </div>
-      </div>
-
-      {/* Events for selected date */}
-      <div className="p-4 space-y-3">
-        <h2 className="text-sm font-medium text-muted-foreground">
-          {isToday(selectedDate) 
-            ? 'Oggi' 
-            : format(selectedDate, 'EEEE d MMMM', { locale: it })}
-        </h2>
-
-        {isLoading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))
-        ) : selectedDateEvents.length > 0 ? (
-          selectedDateEvents.map((event) => (
-            <EventCard key={event.id} event={event} onCancel={(id) => cancelMutation.mutate(id)} />
-          ))
-        ) : (
-          <Card className="border-dashed">
-            <CardContent className="p-6 text-center">
-              <CalendarIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
-                {appointmentsOnly
-                  ? 'Nessun appuntamento per questa data'
-                  : 'Nessun evento per questa data'}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="pt-4">
-          <PTAvailabilityManager compact />
-        </div>
-      </div>
+          }}
+          footer={<PTAvailabilityManager compact />}
+        />
       </div>
     </PTAppPageShell>
   );
 }
 
-function EventCard({ event, onCancel }: { event: any; onCancel: (id: string) => void }) {
-  const config = EVENT_TYPE_CONFIG[event.event_type as keyof typeof EVENT_TYPE_CONFIG] || EVENT_TYPE_CONFIG.altro;
+function EventCard({
+  event,
+  onCancel,
+}: {
+  event: PtCalendarEvent;
+  onCancel: (id: string) => void;
+}) {
+  const config =
+    EVENT_TYPE_CONFIG[event.event_type as keyof typeof EVENT_TYPE_CONFIG] ||
+    EVENT_TYPE_CONFIG.altro;
   const Icon = config.icon;
-  const atletaName = event.atletaProfile 
+  const atletaName = event.atletaProfile
     ? `${event.atletaProfile.first_name || ''} ${event.atletaProfile.last_name || ''}`.trim()
     : null;
-  const isBookedByAthlete = event.creator_user_id !== event.pt_user_id && event.atleta_user_id;
+  const isBookedByAthlete =
+    event.creator_user_id !== event.pt_user_id && event.atleta_user_id;
 
   return (
-    <Card>
+    <Card className="bg-app-card border-app-border">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className={cn(
-            'w-10 h-10 rounded-lg flex items-center justify-center text-white',
-            config.color
-          )}>
+          <div
+            className={cn(
+              'w-10 h-10 rounded-lg flex items-center justify-center text-white',
+              config.color,
+            )}
+          >
             <Icon className="h-5 w-5" />
           </div>
-          
-          <div className="flex-1">
+
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold">{event.title}</h3>
+              <h3 className="font-semibold text-app-foreground">{event.title}</h3>
               {isBookedByAthlete && (
-                <Badge variant="secondary" className="text-[10px]">Prenotato</Badge>
+                <Badge variant="secondary" className="text-[10px]">
+                  Prenotato
+                </Badge>
               )}
             </div>
-            
-            <div className="flex flex-wrap gap-2 mt-1 text-sm text-muted-foreground">
+
+            <div className="flex flex-wrap gap-2 mt-1 text-sm text-app-muted-foreground">
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {format(new Date(event.start_datetime), 'HH:mm')}
-                {event.end_datetime && ` - ${format(new Date(event.end_datetime), 'HH:mm')}`}
+                {event.end_datetime &&
+                  ` - ${format(new Date(event.end_datetime), 'HH:mm')}`}
               </span>
-              
+
               {event.location && (
                 <span className="flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
@@ -314,7 +292,7 @@ function EventCard({ event, onCancel }: { event: any; onCancel: (id: string) => 
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            className="h-8 w-8 text-app-muted-foreground hover:text-destructive"
             onClick={() => onCancel(event.id)}
           >
             <X className="h-4 w-4" />

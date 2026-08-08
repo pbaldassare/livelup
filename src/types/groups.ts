@@ -75,11 +75,20 @@ export interface GroupAnnouncementRow {
   ends_at: string | null;
   place_label: string | null;
   address_line: string | null;
+  /** Default true — if false, card is "solo avviso" without RSVP */
+  requires_rsvp?: boolean;
   created_at: string;
   updated_at: string;
   /** Client enrich */
   rsvp_count?: number;
   joined_by_me?: boolean;
+}
+
+export interface GroupAnnouncementRsvpParticipant {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
 }
 
 export interface CreateGroupAnnouncementInput {
@@ -91,6 +100,8 @@ export interface CreateGroupAnnouncementInput {
   endsAt?: string | null;
   placeLabel?: string | null;
   addressLine?: string | null;
+  /** Default true */
+  requiresRsvp?: boolean;
 }
 
 export interface GroupWithDetails extends GroupRow {
