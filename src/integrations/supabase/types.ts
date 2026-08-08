@@ -2159,6 +2159,45 @@ export type Database = {
         }
         Relationships: []
       }
+      pt_atleta_transfers: {
+        Row: {
+          action: string
+          atleta_user_id: string
+          completed_at: string | null
+          created_at: string
+          from_pt_user_id: string
+          id: string
+          notes: string | null
+          requested_at: string
+          status: string
+          to_pt_user_id: string
+        }
+        Insert: {
+          action?: string
+          atleta_user_id: string
+          completed_at?: string | null
+          created_at?: string
+          from_pt_user_id: string
+          id?: string
+          notes?: string | null
+          requested_at?: string
+          status?: string
+          to_pt_user_id: string
+        }
+        Update: {
+          action?: string
+          atleta_user_id?: string
+          completed_at?: string | null
+          created_at?: string
+          from_pt_user_id?: string
+          id?: string
+          notes?: string | null
+          requested_at?: string
+          status?: string
+          to_pt_user_id?: string
+        }
+        Relationships: []
+      }
       pt_availability: {
         Row: {
           created_at: string
@@ -4310,6 +4349,19 @@ export type Database = {
           upcoming_events: number
         }[]
       }
+      get_recallable_athletes_for_pt: {
+        Args: never
+        Returns: {
+          atleta_user_id: string
+          avatar_url: string
+          current_pt_first_name: string
+          current_pt_last_name: string
+          current_pt_user_id: string
+          first_name: string
+          last_name: string
+          transferred_at: string
+        }[]
+      }
       get_sessions_remaining: {
         Args: { _subscription_id: string }
         Returns: number
@@ -4397,6 +4449,10 @@ export type Database = {
         }
         Returns: string
       }
+      recall_athlete_from_transfer: {
+        Args: { _atleta_user_id: string; _notes?: string }
+        Returns: string
+      }
       search_pt_colleagues: {
         Args: { _query?: string }
         Returns: {
@@ -4414,12 +4470,31 @@ export type Database = {
           user_id: string
         }[]
       }
+      search_pts_for_transfer: {
+        Args: { _query?: string }
+        Returns: {
+          avatar_url: string
+          first_name: string
+          last_name: string
+          location_city: string
+          rating_avg: number
+          user_id: string
+        }[]
+      }
       set_atleta_primary_pt: {
         Args: { _pt_user_id: string }
         Returns: undefined
       }
       start_course_step_workout: {
         Args: { _enrollment_id: string; _step_id: string }
+        Returns: string
+      }
+      transfer_athlete_to_pt: {
+        Args: {
+          _atleta_user_id: string
+          _notes?: string
+          _to_pt_user_id: string
+        }
         Returns: string
       }
       transfer_athletes_to_pt: {
