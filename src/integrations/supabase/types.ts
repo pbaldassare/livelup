@@ -2075,6 +2075,45 @@ export type Database = {
         }
         Relationships: []
       }
+      pt_athlete_collaborator_assignments: {
+        Row: {
+          assigned_at: string
+          atleta_user_id: string
+          collaborator_pt_user_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          owner_pt_user_id: string
+          revoked_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string
+          atleta_user_id: string
+          collaborator_pt_user_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          owner_pt_user_id: string
+          revoked_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string
+          atleta_user_id?: string
+          collaborator_pt_user_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          owner_pt_user_id?: string
+          revoked_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pt_athlete_notes: {
         Row: {
           atleta_user_id: string
@@ -2107,6 +2146,27 @@ export type Database = {
           pt_user_id?: string
           tag?: string | null
           title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pt_athlete_owners: {
+        Row: {
+          atleta_user_id: string
+          created_at: string
+          owner_pt_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          atleta_user_id: string
+          created_at?: string
+          owner_pt_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          atleta_user_id?: string
+          created_at?: string
+          owner_pt_user_id?: string
           updated_at?: string
         }
         Relationships: []
@@ -4181,6 +4241,14 @@ export type Database = {
         Args: { _atleta_user_id: string; _pt_user_id: string }
         Returns: boolean
       }
+      assign_athlete_to_collaborator: {
+        Args: {
+          _atleta_user_id: string
+          _collaborator_pt_user_id: string
+          _notes?: string
+        }
+        Returns: string
+      }
       athlete_redo_workout: { Args: { _workout_id: string }; Returns: string }
       atleta_reorder_workout_exercises: {
         Args: { _ordered_exercise_ids: string[]; _workout_id: string }
@@ -4304,6 +4372,10 @@ export type Database = {
           total_athletes: number
           total_pts: number
         }[]
+      }
+      get_athlete_owner_pt: {
+        Args: { _atleta_user_id: string }
+        Returns: string
       }
       get_atleta_active_pts: {
         Args: { _atleta_user_id: string }
@@ -4437,6 +4509,29 @@ export type Database = {
         Returns: boolean
       }
       join_group: { Args: { _group_id: string }; Returns: Json }
+      list_my_collaborator_roster: {
+        Args: never
+        Returns: {
+          assigned_at: string
+          assignment_id: string
+          atleta_user_id: string
+          avatar_url: string
+          email: string
+          first_name: string
+          last_name: string
+          owner_first_name: string
+          owner_last_name: string
+          owner_pt_user_id: string
+        }[]
+      }
+      move_athlete_to_collaborator: {
+        Args: {
+          _atleta_user_id: string
+          _collaborator_pt_user_id: string
+          _notes?: string
+        }
+        Returns: string
+      }
       pt_save_workout_log: {
         Args: {
           _duration_seconds?: number
@@ -4452,6 +4547,10 @@ export type Database = {
       recall_athlete_from_transfer: {
         Args: { _atleta_user_id: string; _notes?: string }
         Returns: string
+      }
+      revoke_collaborator_assignment: {
+        Args: { _atleta_user_id: string; _collaborator_pt_user_id: string }
+        Returns: boolean
       }
       search_pt_colleagues: {
         Args: { _query?: string }
