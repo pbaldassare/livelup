@@ -1270,6 +1270,7 @@ export type Database = {
           group_id: string
           id: string
           place_label: string | null
+          requires_rsvp: boolean
           starts_at: string
           title: string
           updated_at: string
@@ -1284,6 +1285,7 @@ export type Database = {
           group_id: string
           id?: string
           place_label?: string | null
+          requires_rsvp?: boolean
           starts_at: string
           title: string
           updated_at?: string
@@ -1298,6 +1300,7 @@ export type Database = {
           group_id?: string
           id?: string
           place_label?: string | null
+          requires_rsvp?: boolean
           starts_at?: string
           title?: string
           updated_at?: string
