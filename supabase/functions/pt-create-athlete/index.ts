@@ -278,6 +278,14 @@ serve(async (req) => {
       })
     }
 
+    await supabaseAdmin
+      .from('pt_athlete_owners')
+      .upsert(
+        { atleta_user_id: newUserId, owner_pt_user_id: ptUserId, updated_at: now },
+        { onConflict: 'atleta_user_id' },
+      )
+
+
     const { data: ptProfile } = await supabaseAdmin
       .from('profiles')
       .select('first_name, last_name')
