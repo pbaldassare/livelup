@@ -37,7 +37,6 @@ export const ptRoutes = {
     calendar: '/pt/app/calendar',
     appointments: '/pt/app/calendar?view=appuntamenti',
     payments: '/pt/app/payments',
-    collaboratori: '/pt/app/collaboratori',
     athleteTransfer: '/pt/app/athlete-transfer',
   },
 } as const;
@@ -57,7 +56,6 @@ export type PTRouteSet = {
   calendar: string;
   appointments: string;
   payments: string;
-  collaboratori?: string;
   athleteTransfer?: string;
 };
 
