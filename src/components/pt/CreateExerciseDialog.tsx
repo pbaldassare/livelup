@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, Link2, Film, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ interface ExerciseFormData {
   instructions?: string | null;
   video_url?: string | null;
   image_url?: string | null;
+  is_public?: boolean;
 }
 
 interface CreateExerciseDialogProps {
@@ -63,6 +65,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
   const [videoMode, setVideoMode] = useState<'link' | 'upload'>('link');
   const [isUploading, setIsUploading] = useState(false);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
+  const [isPublic, setIsPublic] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
   const isEditMode = !!exercise?.id;
@@ -80,6 +83,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
         image_url: exercise.image_url || '',
       });
       setSelectedMuscles(exercise.muscle_groups || []);
+      setIsPublic(!!exercise.is_public);
     } else if (open) {
       resetForm();
     }
@@ -128,6 +132,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
         instructions: form.instructions || null,
         video_url: form.video_url || null,
         image_url: form.image_url || null,
+        is_public: isPublic,
       };
 
       if (isEditMode && exercise?.id) {
@@ -141,7 +146,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
         const insertPayload: ExerciseInsert = {
           ...basePayload,
           created_by: user.id,
-          is_public: false,
+          is_public: isPublic,
         };
 
         const { error } = await supabase.from('exercises').insert(insertPayload);
@@ -165,6 +170,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
   const resetForm = () => {
     setForm(emptyForm);
     setSelectedMuscles([]);
+    setIsPublic(false);
     setVideoMode('link');
   };
 
@@ -253,6 +259,24 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
               onChange={e => setForm(p => ({ ...p, instructions: e.target.value }))}
               placeholder="Descrivi l'esecuzione corretta..."
               className="min-h-[80px]"
+            />
+          </div>
+
+          {/* Condivisione archivio */}
+          <div className="flex items-start justify-between gap-3 rounded-lg border p-3">
+            <div className="space-y-0.5 min-w-0">
+              <Label htmlFor="exercise-is-public" className="cursor-pointer">
+                Condividi nell&apos;archivio generale
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Di default resta in &quot;I miei&quot;. Attiva per renderlo visibile a tutti i coach nell&apos;archivio.
+              </p>
+            </div>
+            <Switch
+              id="exercise-is-public"
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+              className="mt-0.5 shrink-0"
             />
           </div>
 

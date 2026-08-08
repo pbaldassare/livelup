@@ -4,6 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, VolumeX, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
+import {
+  getYouTubeEmbedUrl as buildYouTubeEmbedUrl,
+  getYouTubeThumbnail,
+  getYouTubeVideoId,
+} from '@/lib/youtube';
 
 // =====================================================
 // EXERCISE VIDEO PLAYER
@@ -27,20 +32,14 @@ interface ExerciseVideoPlayerProps {
   useDefaultVideo?: boolean;
 }
 
-function getYouTubeVideoId(url: string): string | null {
-  const match = url.match(
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&?\/\s]+)/,
-  );
-  return match ? match[1] : null;
-}
-
-function getYouTubeThumbnail(videoId: string): string {
-  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-}
-
-/** Autoplay mute (richiesto dai browser) + loop. */
+/** Autoplay mute (richiesto dai browser) + loop — runner esercizi. */
 function getYouTubeEmbedUrl(videoId: string): string {
-  return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&rel=0&playsinline=1`;
+  return buildYouTubeEmbedUrl(videoId, {
+    autoplay: true,
+    mute: true,
+    loop: true,
+    controls: false,
+  });
 }
 
 export function ExerciseVideoPlayer({

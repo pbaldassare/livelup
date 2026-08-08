@@ -14,11 +14,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, Paperclip, Send, MessageCircle, Shield, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Heart, Paperclip, Play, Send, MessageCircle, Shield, X, Youtube } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  extractPrimaryYouTubeUrl,
+  getYouTubeEmbedUrl,
+  getYouTubeThumbnail,
+  getYouTubeVideoId,
+  isYouTubeAttachmentType,
+  isYouTubeUrl,
+  YOUTUBE_ATTACHMENT_TYPE,
+} from '@/lib/youtube';
 
 function isAdminRole(role?: GroupMemberRole | null) {
   return role === 'owner' || role === 'admin';
@@ -29,6 +39,60 @@ const CHANNEL_HINTS: Record<GroupChannel, string> = {
   announcements: 'Annunci dello staff verso tutti i membri.',
   admins: 'Canale privato tra amministratori del gruppo.',
 };
+
+function resolveYouTubeId(msg: GroupMessageRow): string | null {
+  if (msg.attachment_url && (isYouTubeAttachmentType(msg.attachment_type) || isYouTubeUrl(msg.attachment_url))) {
+    return getYouTubeVideoId(msg.attachment_url);
+  }
+  if (msg.attachment_url && getYouTubeVideoId(msg.attachment_url)) {
+    return getYouTubeVideoId(msg.attachment_url);
+  }
+  if (msg.content) {
+    const primary = extractPrimaryYouTubeUrl(msg.content);
+    if (primary) return getYouTubeVideoId(primary);
+    return getYouTubeVideoId(msg.content);
+  }
+  return null;
+}
+
+function YouTubeChatPreview({ url }: { url: string }) {
+  const videoId = getYouTubeVideoId(url);
+  const [playing, setPlaying] = useState(false);
+  if (!videoId) return null;
+
+  if (playing) {
+    return (
+      <div className="aspect-video w-full max-w-sm overflow-hidden rounded-lg bg-black">
+        <iframe
+          title="YouTube"
+          src={getYouTubeEmbedUrl(videoId, { autoplay: true, mute: false, controls: true })}
+          className="h-full w-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setPlaying(true)}
+      className="relative block w-full max-w-sm overflow-hidden rounded-lg bg-black text-left"
+    >
+      <img
+        src={getYouTubeThumbnail(videoId)}
+        alt="Anteprima YouTube"
+        className="aspect-video w-full object-cover"
+      />
+      <span className="absolute inset-0 flex items-center justify-center bg-black/35">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-red-600 text-white shadow">
+          <Play className="h-5 w-5 fill-current ml-0.5" />
+        </span>
+      </span>
+    </button>
+  );
+}
 
 export function GroupChannelPanel({
   groupId,
@@ -116,6 +180,9 @@ function ChannelThread({
   const queryClient = useQueryClient();
   const [input, setInput] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingYoutubeUrl, setPendingYoutubeUrl] = useState<string | null>(null);
+  const [youtubeDraft, setYoutubeDraft] = useState('');
+  const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -157,7 +224,12 @@ function ChannelThread({
     mutationFn: async () => {
       let attachmentUrl: string | null = null;
       let attachmentType: string | null = null;
-      if (pendingFile) {
+      let content = input;
+
+      if (pendingYoutubeUrl) {
+        attachmentUrl = pendingYoutubeUrl;
+        attachmentType = YOUTUBE_ATTACHMENT_TYPE;
+      } else if (pendingFile) {
         setUploading(true);
         try {
           const up = await uploadGroupChatAttachment({
@@ -171,11 +243,22 @@ function ChannelThread({
           setUploading(false);
         }
       }
+
+      // Auto-detect: messaggio che è solo un link YouTube
+      if (!attachmentUrl) {
+        const yt = extractPrimaryYouTubeUrl(input);
+        if (yt) {
+          attachmentUrl = yt;
+          attachmentType = YOUTUBE_ATTACHMENT_TYPE;
+          content = '';
+        }
+      }
+
       return sendGroupMessage({
         groupId,
         senderUserId: userId,
         channel,
-        content: input,
+        content,
         attachmentUrl,
         attachmentType,
       });
@@ -183,6 +266,8 @@ function ChannelThread({
     onSuccess: () => {
       setInput('');
       setPendingFile(null);
+      setPendingYoutubeUrl(null);
+      setYoutubeDraft('');
       if (fileRef.current) fileRef.current.value = '';
       queryClient.invalidateQueries({ queryKey: ['group-messages', groupId, channel] });
     },
@@ -204,20 +289,34 @@ function ChannelThread({
 
   const handleSend = () => {
     if (!canPost) return;
-    if (!input.trim() && !pendingFile) return;
+    if (!input.trim() && !pendingFile && !pendingYoutubeUrl) return;
     sendMutation.mutate();
   };
 
   const onPickFile = (file?: File | null) => {
     if (!file) return;
     if (file.size > GROUP_CHAT_ATTACHMENT_MAX_BYTES) {
-      toast.error('File troppo grande (max 20 MB)');
+      toast.error('File troppo grande (max 40 MB)');
       return;
     }
+    setPendingYoutubeUrl(null);
     setPendingFile(file);
   };
 
+  const confirmYoutubeLink = () => {
+    const raw = youtubeDraft.trim();
+    if (!raw || !isYouTubeUrl(raw)) {
+      toast.error('Inserisci un link YouTube valido');
+      return;
+    }
+    setPendingFile(null);
+    if (fileRef.current) fileRef.current.value = '';
+    setPendingYoutubeUrl(raw);
+    setYoutubeOpen(false);
+  };
+
   const busy = sendMutation.isPending || uploading;
+  const canSend = !!input.trim() || !!pendingFile || !!pendingYoutubeUrl;
 
   return (
     <div className="flex flex-col h-[min(60vh,480px)]">
@@ -238,8 +337,30 @@ function ChannelThread({
             ? [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Utente'
             : 'Utente';
           const isMine = msg.sender_user_id === userId;
-          const isImage = !!msg.attachment_type?.startsWith('image/') && !!msg.attachment_url;
-          const isVideo = !!msg.attachment_type?.startsWith('video/') && !!msg.attachment_url;
+          const youtubeId = resolveYouTubeId(msg);
+          const youtubeSrc =
+            (msg.attachment_url && getYouTubeVideoId(msg.attachment_url)
+              ? msg.attachment_url
+              : null) ||
+            extractPrimaryYouTubeUrl(msg.content || '') ||
+            (youtubeId ? `https://www.youtube.com/watch?v=${youtubeId}` : null);
+          const isYouTube = !!youtubeId && !!youtubeSrc;
+          const isImage =
+            !isYouTube && !!msg.attachment_type?.startsWith('image/') && !!msg.attachment_url;
+          const isVideo =
+            !isYouTube && !!msg.attachment_type?.startsWith('video/') && !!msg.attachment_url;
+          const contentIsPureYoutube =
+            !!msg.content && !!extractPrimaryYouTubeUrl(msg.content);
+          const isPlaceholderContent =
+            !!msg.content &&
+            (msg.content.startsWith('📷') ||
+              msg.content.startsWith('🎬') ||
+              msg.content.startsWith('📎'));
+          const showText =
+            !!msg.content &&
+            !contentIsPureYoutube &&
+            !(isPlaceholderContent && (!!msg.attachment_url || isYouTube));
+
           return (
             <div
               key={msg.id}
@@ -263,6 +384,7 @@ function ChannelThread({
                   {!isMine && (
                     <p className="text-[10px] font-semibold opacity-80">{name}</p>
                   )}
+                  {isYouTube && youtubeSrc && <YouTubeChatPreview url={youtubeSrc} />}
                   {isImage && (
                     <a href={msg.attachment_url!} target="_blank" rel="noopener noreferrer">
                       <img
@@ -279,7 +401,7 @@ function ChannelThread({
                       className="max-h-48 w-full rounded-lg bg-black"
                     />
                   )}
-                  {msg.attachment_url && !isImage && !isVideo && (
+                  {msg.attachment_url && !isImage && !isVideo && !isYouTube && (
                     <a
                       href={msg.attachment_url}
                       target="_blank"
@@ -289,9 +411,7 @@ function ChannelThread({
                       Apri allegato
                     </a>
                   )}
-                  {msg.content && !msg.content.startsWith('📷') && !msg.content.startsWith('🎬') && !msg.content.startsWith('📎') ? (
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                  ) : !msg.attachment_url ? (
+                  {showText ? (
                     <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                   ) : null}
                   <p
@@ -343,6 +463,19 @@ function ChannelThread({
               </button>
             </div>
           )}
+          {pendingYoutubeUrl && (
+            <div className="flex items-center gap-2 text-xs text-app-muted-foreground bg-app-muted/50 rounded-lg px-2 py-1.5">
+              <Youtube className="h-3.5 w-3.5 shrink-0 text-red-500" />
+              <span className="truncate flex-1">{pendingYoutubeUrl}</span>
+              <button
+                type="button"
+                onClick={() => setPendingYoutubeUrl(null)}
+                className="p-0.5"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <input
               ref={fileRef}
@@ -358,10 +491,47 @@ function ChannelThread({
               className="shrink-0 border-app-border"
               onClick={() => fileRef.current?.click()}
               disabled={busy}
-              title="Allega file (max 20 MB)"
+              title="Allega file (max 40 MB)"
             >
               <Paperclip className="h-4 w-4" />
             </Button>
+            <Popover open={youtubeOpen} onOpenChange={setYoutubeOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="shrink-0 border-app-border"
+                  disabled={busy}
+                  title="Link YouTube"
+                >
+                  <Youtube className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-3 space-y-2" align="start">
+                <p className="text-sm font-medium">Link YouTube</p>
+                <Input
+                  value={youtubeDraft}
+                  onChange={(e) => setYoutubeDraft(e.target.value)}
+                  placeholder="Incolla link YouTube…"
+                  className="bg-app-background border-app-border"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      confirmYoutubeLink();
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full bg-app-accent text-black"
+                  onClick={confirmYoutubeLink}
+                >
+                  Allega video
+                </Button>
+              </PopoverContent>
+            </Popover>
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -377,7 +547,7 @@ function ChannelThread({
             <Button
               size="icon"
               onClick={handleSend}
-              disabled={busy || (!input.trim() && !pendingFile)}
+              disabled={busy || !canSend}
               className="bg-app-accent text-black shrink-0"
             >
               <Send className="h-4 w-4" />

@@ -7,7 +7,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export const CHAT_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5MB
-export const CHAT_VIDEO_MAX_BYTES = 25 * 1024 * 1024; // 25MB
+export const CHAT_VIDEO_MAX_BYTES = 40 * 1024 * 1024; // 40MB
 
 export const CHAT_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 export const CHAT_VIDEO_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];

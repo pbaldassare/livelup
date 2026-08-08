@@ -22,6 +22,7 @@ import { ExerciseCatalogAssignPopover } from '@/components/pt/ExerciseCatalogAss
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
 import { useExerciseCatalogs, type ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
 import { cn } from '@/lib/utils';
+import livellappIcon from '@/assets/livellapp-icon.svg';
 
 type Exercise = {
   id: string;
@@ -130,6 +131,13 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
 
   const isPersonal = (ex: Exercise) =>
     ex.created_by === user?.id && !ex.is_public;
+
+  const isOwnShared = (ex: Exercise) =>
+    ex.created_by === user?.id && ex.is_public;
+
+  /** Archivio piattaforma / esercizi pubblici di altri (non i propri condivisi). */
+  const isPlatformGlobal = (ex: Exercise) =>
+    ex.is_public && ex.created_by !== user?.id;
 
   return (
     <div className="space-y-6">
@@ -318,6 +326,8 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                 {filtered.map(ex => {
                   const isFav = favIds?.has(ex.id) ?? false;
                   const personal = isPersonal(ex);
+                  const ownShared = isOwnShared(ex);
+                  const platform = isPlatformGlobal(ex);
                   return (
                     <TableRow
                       key={ex.id}
@@ -370,6 +380,22 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                             >
                               Personale
                             </Badge>
+                          )}
+                          {ownShared && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] h-4 px-1.5 bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30 shrink-0"
+                            >
+                              Condiviso
+                            </Badge>
+                          )}
+                          {platform && (
+                            <img
+                              src={livellappIcon}
+                              alt=""
+                              title="Esercizio Livelapp"
+                              className="h-4 w-4 shrink-0"
+                            />
                           )}
                         </div>
                       </TableCell>

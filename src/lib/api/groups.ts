@@ -17,7 +17,7 @@ import type {
   UpdateGroupInput,
 } from '@/types/groups';
 
-export const GROUP_CHAT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+export const GROUP_CHAT_ATTACHMENT_MAX_BYTES = 40 * 1024 * 1024;
 export const GROUP_CHAT_ATTACHMENTS_BUCKET = 'group-chat-attachments';
 
 // Client tipizzato manualmente fino a rigenerazione types.ts
@@ -689,7 +689,15 @@ export async function sendGroupMessage(params: {
       group_id: params.groupId,
       sender_user_id: params.senderUserId,
       channel: params.channel,
-      content: content || (params.attachmentType?.startsWith('image/') ? '📷 Immagine' : params.attachmentType?.startsWith('video/') ? '🎬 Video' : '📎 Allegato'),
+      content:
+        content ||
+        (params.attachmentType?.startsWith('image/')
+          ? '📷 Immagine'
+          : params.attachmentType === 'video/youtube' || params.attachmentType === 'youtube'
+            ? '🎬 Video YouTube'
+            : params.attachmentType?.startsWith('video/')
+              ? '🎬 Video'
+              : '📎 Allegato'),
       attachment_url: params.attachmentUrl ?? null,
       attachment_type: params.attachmentType ?? null,
     })
@@ -705,7 +713,7 @@ export async function uploadGroupChatAttachment(params: {
   file: File;
 }): Promise<{ publicUrl: string; mimeType: string }> {
   if (params.file.size > GROUP_CHAT_ATTACHMENT_MAX_BYTES) {
-    throw new Error('File troppo grande (max 20 MB)');
+    throw new Error('File troppo grande (max 40 MB)');
   }
   const ext = params.file.name.split('.').pop()?.toLowerCase() || 'bin';
   const path = `${params.userId}/${params.groupId}/${crypto.randomUUID()}.${ext}`;
@@ -893,7 +901,7 @@ export async function uploadGroupAnnouncementCover(params: {
   file: File;
 }): Promise<string> {
   if (params.file.size > GROUP_CHAT_ATTACHMENT_MAX_BYTES) {
-    throw new Error('Immagine troppo grande (max 20 MB)');
+    throw new Error('Immagine troppo grande (max 40 MB)');
   }
   const ext = params.file.name.split('.').pop()?.toLowerCase() || 'jpg';
   const path = `${params.userId}/announcements/${crypto.randomUUID()}.${ext}`;
