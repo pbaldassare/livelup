@@ -33,8 +33,8 @@ import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import {
   getCededAthletes,
   getPTConnectionsWithPtActive,
-  getPtTransferHistory,
   getRecallableAthletes,
+  getReceivedAthletes,
   recallAthleteFromTransfer,
   searchPTsForTransfer,
   transferAthletesToPt,
@@ -45,6 +45,7 @@ import {
 import {
   assignAthleteToCollaborators,
   groupCollaboratorRoster,
+  listActiveCollaboratorAssignedAthleteIds,
   listCollaboratorRosterViews,
   listOwnedAthleteIds,
   moveAthleteCollaborator,
@@ -64,7 +65,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  History,
+  Inbox,
   Info,
   RotateCcw,
   Search,
@@ -83,19 +84,6 @@ function formatPtName(first?: string | null, last?: string | null) {
 function formatDate(iso: string | null | undefined) {
   if (!iso) return '—';
   return format(new Date(iso), 'd MMM yyyy, HH:mm', { locale: it });
-}
-
-function actionLabel(action: string) {
-  switch (action) {
-    case 'transfer_out':
-      return 'Cessione';
-    case 'recall':
-      return 'Ripresa';
-    case 'transfer_in':
-      return 'Ricezione';
-    default:
-      return action;
-  }
 }
 
 type ModalityFilter = TrainingModality | 'all';
@@ -198,42 +186,19 @@ export function PTAppAthleteTransferPage() {
   const { data: cededAthletes, isLoading: loadingCeded } = useQuery({
     queryKey: ['pt-ceded-athletes', user?.id],
     queryFn: getCededAthletes,
-    enabled: !!user?.id && (activeTab === 'ceduti' || activeTab === 'storico'),
+    enabled: !!user?.id && activeTab === 'ceduti',
   });
 
-  const { data: history, isLoading: loadingHistory } = useQuery({
-    queryKey: ['pt-transfer-history', user?.id],
-    queryFn: async () => {
-      const rows = await getPtTransferHistory(user!.id);
-      const userIds = new Set<string>();
-      rows.forEach((r) => {
-        userIds.add(r.atleta_user_id);
-        userIds.add(r.from_pt_user_id);
-        userIds.add(r.to_pt_user_id);
-      });
-      const ids = Array.from(userIds);
-      if (ids.length === 0) {
-        return rows.map((r) => ({
-          ...r,
-          profiles: {} as Record<string, { first_name: string | null; last_name: string | null }>,
-        }));
-      }
+  const { data: receivedAthletes, isLoading: loadingReceived } = useQuery({
+    queryKey: ['pt-received-athletes', user?.id],
+    queryFn: getReceivedAthletes,
+    enabled: !!user?.id && activeTab === 'ricevuti',
+  });
 
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name')
-        .in('user_id', ids);
-
-      const profileMap = Object.fromEntries(
-        (profiles ?? []).map((p) => [
-          p.user_id,
-          { first_name: p.first_name, last_name: p.last_name },
-        ]),
-      );
-
-      return rows.map((r) => ({ ...r, profiles: profileMap }));
-    },
-    enabled: !!user?.id && activeTab === 'storico',
+  const { data: assignedToCollaboratorIds } = useQuery({
+    queryKey: ['pt-active-collab-assigned-ids', user?.id],
+    queryFn: () => listActiveCollaboratorAssignedAthleteIds(user!.id),
+    enabled: !!user?.id && activeTab === 'cedi',
   });
 
   const {
@@ -324,10 +289,19 @@ export function PTAppAthleteTransferPage() {
     [moveCollabTargets, user?.id, moveTarget?.fromCollaboratorPtId],
   );
 
-  const filteredAthletes = useMemo(() => {
+  const assignedCollabIdSet = useMemo(
+    () => new Set(assignedToCollaboratorIds ?? []),
+    [assignedToCollaboratorIds],
+  );
+
+  const cediAthletes = useMemo(() => {
     if (!myAthletes) return [];
+    return myAthletes.filter((a) => !assignedCollabIdSet.has(a.atleta_user_id));
+  }, [myAthletes, assignedCollabIdSet]);
+
+  const filteredAthletes = useMemo(() => {
     const q = athleteSearch.trim().toLowerCase();
-    return myAthletes.filter((a) => {
+    return cediAthletes.filter((a) => {
       if (modalityFilter !== 'all') {
         if (normalizeTrainingModality(a.training_modality) !== modalityFilter) return false;
       }
@@ -339,11 +313,21 @@ export function PTAppAthleteTransferPage() {
       ).toLowerCase();
       return name.includes(q);
     });
-  }, [myAthletes, athleteSearch, modalityFilter]);
+  }, [cediAthletes, athleteSearch, modalityFilter]);
+
+  // Drop selection if athlete becomes assigned to a collaborator
+  useEffect(() => {
+    if (assignedCollabIdSet.size === 0) return;
+    setSelectedAthleteIds((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev.filter((id) => !assignedCollabIdSet.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [assignedCollabIdSet]);
 
   const selectedAthletes = useMemo(
-    () => (myAthletes ?? []).filter((a) => selectedAthleteIds.includes(a.atleta_user_id)),
-    [myAthletes, selectedAthleteIds],
+    () => cediAthletes.filter((a) => selectedAthleteIds.includes(a.atleta_user_id)),
+    [cediAthletes, selectedAthleteIds],
   );
   // RPC already excludes auth.uid(); keep a defensive client filter for Cedi too
   const ptTargetsList = useMemo(
@@ -374,7 +358,8 @@ export function PTAppAthleteTransferPage() {
     queryClient.invalidateQueries({ queryKey: ['pt-transfer-my-athletes'] });
     queryClient.invalidateQueries({ queryKey: ['pt-recallable-athletes'] });
     queryClient.invalidateQueries({ queryKey: ['pt-ceded-athletes'] });
-    queryClient.invalidateQueries({ queryKey: ['pt-transfer-history'] });
+    queryClient.invalidateQueries({ queryKey: ['pt-received-athletes'] });
+    queryClient.invalidateQueries({ queryKey: ['pt-active-collab-assigned-ids'] });
     queryClient.invalidateQueries({ queryKey: ['pt-collaborator-roster'] });
     queryClient.invalidateQueries({ queryKey: ['pt-owned-athlete-ids'] });
     queryClient.invalidateQueries({ queryKey: ['pt-connections'] });
@@ -515,39 +500,10 @@ export function PTAppAthleteTransferPage() {
     },
   });
 
-  type HistoryRow = Awaited<ReturnType<typeof getPtTransferHistory>>[number] & {
-    profiles?: Record<string, { first_name: string | null; last_name: string | null }>;
-  };
-
-  const openCededInfoFromHistory = (atletaUserId: string) => {
-    const fromCeded = cededAthletes?.find((c) => c.atleta_user_id === atletaUserId);
-    if (fromCeded) {
-      setInfoAthlete(fromCeded);
-      return;
-    }
-    const row = history?.find((h) => h.atleta_user_id === atletaUserId) as HistoryRow | undefined;
-    const profiles = row?.profiles ?? {};
-    const athlete = profiles[atletaUserId];
-    setInfoAthlete({
-      atleta_user_id: atletaUserId,
-      first_name: athlete?.first_name ?? null,
-      last_name: athlete?.last_name ?? null,
-      avatar_url: null,
-      email: null,
-      training_modality: 'mix',
-      fitness_level: null,
-      current_pt_user_id: row?.to_pt_user_id ?? null,
-      current_pt_first_name: profiles[row?.to_pt_user_id ?? '']?.first_name ?? null,
-      current_pt_last_name: profiles[row?.to_pt_user_id ?? '']?.last_name ?? null,
-      transferred_at: row?.completed_at ?? row?.requested_at ?? null,
-      is_recallable: false,
-    });
-  };
-
   return (
     <PTAppPageShell
       title="Assegna atleta"
-      description="Assegna atleti ai collaboratori, oppure cedi in pieno a un altro PT. Storico e dati restano disponibili."
+      description="Assegna atleti ai collaboratori, oppure cedi in pieno a un altro PT. Consulta ceduti, ricevuti e riprese."
       showBack
       backTo="/pt/app/athletes"
     >
@@ -565,13 +521,13 @@ export function PTAppAthleteTransferPage() {
             <Users className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
             Ceduti
           </TabsTrigger>
+          <TabsTrigger value="ricevuti" className="text-[10px] sm:text-sm px-0.5 py-2">
+            <Inbox className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
+            Ricevuti
+          </TabsTrigger>
           <TabsTrigger value="riprendi" className="text-[10px] sm:text-sm px-0.5 py-2">
             <RotateCcw className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
             Riprendi
-          </TabsTrigger>
-          <TabsTrigger value="storico" className="text-[10px] sm:text-sm px-0.5 py-2">
-            <History className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
-            Storico
           </TabsTrigger>
         </TabsList>
 
@@ -783,6 +739,10 @@ export function PTAppAthleteTransferPage() {
 
         {/* ── CEDI ATLETA (multi-select) ── */}
         <TabsContent value="cedi" className="space-y-4 mt-0">
+          <p className="text-xs text-app-muted-foreground">
+            Gli atleti già assegnati a un collaboratore non compaiono qui. Rimuovili da
+            Collaboratori prima di cederli.
+          </p>
           <section className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-app-foreground">1. Seleziona atleti</h2>
@@ -1016,8 +976,8 @@ export function PTAppAthleteTransferPage() {
         {/* ── CEDUTI (post-assign visibility) ── */}
         <TabsContent value="ceduti" className="space-y-3 mt-0">
           <p className="text-xs text-app-muted-foreground">
-            Atleti che hai ceduto: puoi sempre consultare nome, modalità e stato. Usa Riprendi se
-            risultano ancora riprendibili.
+            Elenco degli atleti che hai ceduto a un altro PT. Se risultano riprendibili puoi
+            riprenderli da qui o dal tab Riprendi.
           </p>
           {loadingCeded ? (
             Array.from({ length: 2 }).map((_, i) => (
@@ -1086,6 +1046,51 @@ export function PTAppAthleteTransferPage() {
           )}
         </TabsContent>
 
+        {/* ── RICEVUTI ── */}
+        <TabsContent value="ricevuti" className="space-y-3 mt-0">
+          <p className="text-xs text-app-muted-foreground">
+            Atleti che altri PT ti hanno ceduto con trasferimento completo.
+          </p>
+          {loadingReceived ? (
+            Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            ))
+          ) : (receivedAthletes ?? []).length === 0 ? (
+            <Card className="bg-app-card border-app-border">
+              <CardContent className="p-6 text-center text-sm text-app-muted-foreground">
+                Nessun atleta ricevuto da altri PT.
+              </CardContent>
+            </Card>
+          ) : (
+            (receivedAthletes ?? []).map((item) => (
+              <Card key={item.id} className="bg-app-card border-app-border">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Avatar className="h-11 w-11">
+                    <AvatarImage src={item.avatar_url ?? undefined} />
+                    <AvatarFallback className="bg-app-background">
+                      {getAthleteInitials(item.first_name, item.last_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="font-medium text-app-foreground truncate">
+                      {getAthleteDisplayName(item.first_name, item.last_name)}
+                    </p>
+                    <p className="text-xs text-app-muted-foreground truncate">
+                      Da {formatPtName(item.from_pt_first_name, item.from_pt_last_name)}
+                      {item.completed_at && ` · ${formatDate(item.completed_at)}`}
+                    </p>
+                    {item.notes && (
+                      <p className="text-xs text-app-muted-foreground italic line-clamp-2">
+                        {item.notes}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </TabsContent>
+
         {/* ── RIPRENDI ATLETA ── */}
         <TabsContent value="riprendi" className="space-y-3 mt-0">
           <p className="text-xs text-app-muted-foreground">
@@ -1132,77 +1137,6 @@ export function PTAppAthleteTransferPage() {
                 </CardContent>
               </Card>
             ))
-          )}
-        </TabsContent>
-
-        {/* ── STORICO ── */}
-        <TabsContent value="storico" className="space-y-2 mt-0">
-          {loadingHistory ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-xl" />
-            ))
-          ) : (history ?? []).length === 0 ? (
-            <Card className="bg-app-card border-app-border">
-              <CardContent className="p-6 text-center text-sm text-app-muted-foreground">
-                Nessun trasferimento registrato.
-              </CardContent>
-            </Card>
-          ) : (
-            (history ?? []).map((entry) => {
-              const row = entry as HistoryRow;
-              const profiles = row.profiles ?? {};
-              const athlete = profiles[row.atleta_user_id];
-              const fromPt = profiles[row.from_pt_user_id];
-              const toPt = profiles[row.to_pt_user_id];
-              const isFromMe = row.from_pt_user_id === user?.id;
-              const counterparty = isFromMe ? toPt : fromPt;
-              const cededMeta = cededAthletes?.find(
-                (c) => c.atleta_user_id === row.atleta_user_id,
-              );
-
-              return (
-                <Card key={row.id} className="bg-app-card border-app-border">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-sm text-app-foreground truncate">
-                        {getAthleteDisplayName(athlete?.first_name, athlete?.last_name)}
-                      </p>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {cededMeta && (
-                          <TrainingModalityBadge modality={cededMeta.training_modality} />
-                        )}
-                        <Badge variant="secondary" className="text-[10px]">
-                          {actionLabel(row.action)}
-                        </Badge>
-                      </div>
-                    </div>
-                    <p className="text-xs text-app-muted-foreground">
-                      {row.action === 'recall'
-                        ? `Ripreso da ${formatPtName(fromPt?.first_name, fromPt?.last_name)}`
-                        : isFromMe
-                          ? `Ceduto a ${formatPtName(counterparty?.first_name, counterparty?.last_name)}`
-                          : `Ricevuto da ${formatPtName(counterparty?.first_name, counterparty?.last_name)}`}
-                      {' · '}
-                      {formatDate(row.completed_at ?? row.requested_at)}
-                    </p>
-                    {row.notes && (
-                      <p className="text-xs text-app-muted-foreground italic">{row.notes}</p>
-                    )}
-                    {isFromMe && row.action === 'transfer_out' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-2 text-xs"
-                        onClick={() => openCededInfoFromHistory(row.atleta_user_id)}
-                      >
-                        <Info className="h-3.5 w-3.5 mr-1" />
-                        Vedi info atleta
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })
           )}
         </TabsContent>
       </Tabs>
@@ -1531,7 +1465,7 @@ export function PTAppAthleteTransferPage() {
                 <>
                   Gli atleti selezionati usciranno dalla tua lista attiva e appariranno nel profilo di{' '}
                   <strong>{formatPtName(selectedPt?.first_name, selectedPt?.last_name)}</strong>.
-                  Resteranno visibili in Ceduti / Storico.
+                  Resteranno visibili in Ceduti.
                 </>
               )}
             </AlertDialogDescription>

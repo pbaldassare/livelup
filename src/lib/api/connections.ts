@@ -768,3 +768,93 @@ export async function getPtTransferHistory(ptUserId: string): Promise<PtAthleteT
 
   return (data ?? []) as PtAthleteTransferLog[];
 }
+
+export interface ReceivedAthlete {
+  id: string;
+  atleta_user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  from_pt_user_id: string;
+  from_pt_first_name: string | null;
+  from_pt_last_name: string | null;
+  completed_at: string | null;
+  notes: string | null;
+}
+
+/** Atleti ricevuti tramite cessione piena (tu sei il PT destinatario). */
+export async function getReceivedAthletes(): Promise<ReceivedAthlete[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.id) return [];
+
+  const { data, error } = await sbAny
+    .from('pt_atleta_transfers')
+    .select(
+      'id, atleta_user_id, from_pt_user_id, to_pt_user_id, action, status, completed_at, notes',
+    )
+    .eq('to_pt_user_id', user.id)
+    .eq('status', 'completed')
+    .in('action', ['transfer_out', 'transfer_in'])
+    .order('completed_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    throw new Error('Errore recupero atleti ricevuti: ' + error.message);
+  }
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    atleta_user_id: string;
+    from_pt_user_id: string;
+    to_pt_user_id: string;
+    action: string;
+    status: string;
+    completed_at: string | null;
+    notes: string | null;
+  }>;
+
+  if (rows.length === 0) return [];
+
+  const profileIds = Array.from(
+    new Set(rows.flatMap((r) => [r.atleta_user_id, r.from_pt_user_id])),
+  );
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('user_id, first_name, last_name, avatar_url')
+    .in('user_id', profileIds);
+
+  if (profilesError) {
+    throw new Error('Errore caricamento profili: ' + profilesError.message);
+  }
+
+  const profileMap = Object.fromEntries(
+    (profiles ?? []).map((p) => [
+      p.user_id,
+      {
+        first_name: p.first_name,
+        last_name: p.last_name,
+        avatar_url: p.avatar_url,
+      },
+    ]),
+  );
+
+  return rows.map((r) => {
+    const athlete = profileMap[r.atleta_user_id];
+    const fromPt = profileMap[r.from_pt_user_id];
+    return {
+      id: r.id,
+      atleta_user_id: r.atleta_user_id,
+      first_name: athlete?.first_name ?? null,
+      last_name: athlete?.last_name ?? null,
+      avatar_url: athlete?.avatar_url ?? null,
+      from_pt_user_id: r.from_pt_user_id,
+      from_pt_first_name: fromPt?.first_name ?? null,
+      from_pt_last_name: fromPt?.last_name ?? null,
+      completed_at: r.completed_at,
+      notes: r.notes,
+    };
+  });
+}

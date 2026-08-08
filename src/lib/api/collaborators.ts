@@ -277,6 +277,34 @@ export async function listOwnedAthleteIds(ownerPtUserId: string): Promise<string
   return ((data ?? []) as Array<{ atleta_user_id: string }>).map((r) => r.atleta_user_id);
 }
 
+/**
+ * Atleti con almeno un'assegnazione collaboratore attiva (owner = me).
+ * Usato per escluderli dalla lista Cedi (cessione piena).
+ */
+export async function listActiveCollaboratorAssignedAthleteIds(
+  ownerPtUserId: string,
+): Promise<string[]> {
+  const { data, error } = await db()
+    .from('pt_athlete_collaborator_assignments')
+    .select('atleta_user_id')
+    .eq('owner_pt_user_id', ownerPtUserId)
+    .eq('status', 'active');
+
+  if (error) {
+    if (isMissingCollaboratorRpc(error) || error.code === '42P01' || error.code === 'PGRST205') {
+      // Se la tabella non è ancora disponibile, non bloccare Cedi
+      return [];
+    }
+    throw new Error('Errore caricamento assegnazioni attive: ' + error.message);
+  }
+
+  return Array.from(
+    new Set(
+      ((data ?? []) as Array<{ atleta_user_id: string }>).map((r) => r.atleta_user_id),
+    ),
+  );
+}
+
 export async function getAthleteOwnerPt(atletaUserId: string): Promise<string | null> {
   const { data, error } = await db().rpc('get_athlete_owner_pt', {
     _atleta_user_id: atletaUserId,
