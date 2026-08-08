@@ -106,6 +106,7 @@ import PTAppPaymentsPage from "./pages/pt/PTAppPaymentsPage";
 import PTAppBlogPage from "./pages/pt/PTAppBlogPage";
 import PTAppSettingsPage from "./pages/pt/PTAppSettingsPage";
 import PTAppAthleteTransferPage from "./pages/pt/PTAppAthleteTransferPage";
+import PTAppCollaboratoriPage from "./pages/pt/PTAppCollaboratoriPage";
 import PTAppColleagueSearchPage from "./pages/pt/PTAppColleagueSearchPage";
 
 // Atleta App pages (Mobile/PWA)
@@ -625,10 +626,17 @@ const App = () => {
                   </AppLayout>
                 </PTAppRoute>
               } />
+              <Route path="/pt/app/collaboratori" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppCollaboratoriPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
               <Route path="/pt/app/athlete-transfer" element={
                 <PTAppRoute>
                   <AppLayout>
-                    <PTAppAthleteTransferPage />
+                    <PTAppAthleteTransferPage mode="cedi" />
                   </AppLayout>
                 </PTAppRoute>
               } />

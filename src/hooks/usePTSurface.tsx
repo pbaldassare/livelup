@@ -89,6 +89,7 @@ export function mapPTWebToApp(pathname: string): string {
   if (pathname.startsWith('/pt/blog')) return '/pt/app/blog';
   if (pathname.startsWith('/pt/settings')) return '/pt/app/settings';
   if (pathname.startsWith('/pt/cerca-professionisti')) return '/pt/app/cerca-professionisti';
+  if (pathname.startsWith('/pt/collaboratori')) return '/pt/app/collaboratori';
   if (pathname.startsWith('/pt/athlete-transfer')) return '/pt/app/athlete-transfer';
   // Assistant is web-only for now — keep PT on a useful app surface
   if (pathname.startsWith('/pt/assistant')) return '/pt/app';

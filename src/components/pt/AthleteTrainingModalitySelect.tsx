@@ -87,7 +87,7 @@ export function AthleteTrainingModalitySelect({
         </SelectContent>
       </Select>
       <p className="text-[11px] text-muted-foreground">
-        In presenza, online o mix — usata in lista e in Assegna atleta
+        In presenza, online o mix — usata in lista e in Cedi atleta
       </p>
     </div>
   );

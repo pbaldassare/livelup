@@ -99,12 +99,20 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-export function PTAppAthleteTransferPage() {
+export type AthleteTransferPageMode = 'collaboratori' | 'cedi';
+
+type PTAppAthleteTransferPageProps = {
+  mode?: AthleteTransferPageMode;
+};
+
+export function PTAppAthleteTransferPage({ mode = 'cedi' }: PTAppAthleteTransferPageProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isCollaboratori = mode === 'collaboratori';
+  const isCedi = mode === 'cedi';
 
-  const [activeTab, setActiveTab] = useState('collaboratori');
+  const [activeTab, setActiveTab] = useState(isCollaboratori ? 'collaboratori' : 'cedi');
   const [athleteSearch, setAthleteSearch] = useState('');
   const [modalityFilter, setModalityFilter] = useState<ModalityFilter>('all');
   const [ptSearch, setPtSearch] = useState('');
@@ -116,7 +124,7 @@ export function PTAppAthleteTransferPage() {
   const [recallTarget, setRecallTarget] = useState<RecallableAthlete | CededAthlete | null>(null);
   const [infoAthlete, setInfoAthlete] = useState<CededAthlete | null>(null);
 
-  // Collaboratori tab state
+  // Collaboratori page state
   const [expandedCollabIds, setExpandedCollabIds] = useState<string[]>([]);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignAthleteIds, setAssignAthleteIds] = useState<string[]>([]);
@@ -173,32 +181,32 @@ export function PTAppAthleteTransferPage() {
   } = useQuery({
     queryKey: ['pt-transfer-targets', debouncedPtSearch],
     queryFn: () => searchPTsForTransfer(debouncedPtSearch || undefined),
-    enabled: activeTab === 'cedi' && selectedAthleteIds.length > 0,
+    enabled: isCedi && activeTab === 'cedi' && selectedAthleteIds.length > 0,
     retry: 1,
   });
 
   const { data: recallable, isLoading: loadingRecallable } = useQuery({
     queryKey: ['pt-recallable-athletes', user?.id],
     queryFn: getRecallableAthletes,
-    enabled: !!user?.id && (activeTab === 'riprendi' || activeTab === 'ceduti'),
+    enabled: !!user?.id && isCedi && (activeTab === 'riprendi' || activeTab === 'ceduti'),
   });
 
   const { data: cededAthletes, isLoading: loadingCeded } = useQuery({
     queryKey: ['pt-ceded-athletes', user?.id],
     queryFn: getCededAthletes,
-    enabled: !!user?.id && activeTab === 'ceduti',
+    enabled: !!user?.id && isCedi && activeTab === 'ceduti',
   });
 
   const { data: receivedAthletes, isLoading: loadingReceived } = useQuery({
     queryKey: ['pt-received-athletes', user?.id],
     queryFn: getReceivedAthletes,
-    enabled: !!user?.id && activeTab === 'ricevuti',
+    enabled: !!user?.id && isCedi && activeTab === 'ricevuti',
   });
 
   const { data: assignedToCollaboratorIds } = useQuery({
     queryKey: ['pt-active-collab-assigned-ids', user?.id],
     queryFn: () => listActiveCollaboratorAssignedAthleteIds(user!.id),
-    enabled: !!user?.id && activeTab === 'cedi',
+    enabled: !!user?.id && isCedi && activeTab === 'cedi',
   });
 
   const {
@@ -210,7 +218,7 @@ export function PTAppAthleteTransferPage() {
   } = useQuery({
     queryKey: ['pt-collaborator-roster', user?.id],
     queryFn: () => listCollaboratorRosterViews(user!.id),
-    enabled: !!user?.id && activeTab === 'collaboratori',
+    enabled: !!user?.id && isCollaboratori,
     retry: 1,
   });
 
@@ -239,7 +247,7 @@ export function PTAppAthleteTransferPage() {
   const { data: ownedAthleteIds } = useQuery({
     queryKey: ['pt-owned-athlete-ids', user?.id],
     queryFn: () => listOwnedAthleteIds(user!.id),
-    enabled: !!user?.id && (activeTab === 'collaboratori' || assignOpen),
+    enabled: !!user?.id && (isCollaboratori || assignOpen),
     retry: 1,
   });
 
@@ -502,36 +510,39 @@ export function PTAppAthleteTransferPage() {
 
   return (
     <PTAppPageShell
-      title="Assegna atleta"
-      description="Assegna atleti ai collaboratori, oppure cedi in pieno a un altro PT. Consulta ceduti, ricevuti e riprese."
+      title={isCollaboratori ? 'Collaboratori' : 'Cedi atleta'}
+      description={
+        isCollaboratori
+          ? 'Assegna, sposta o rimuovi atleti dai collaboratori. Un atleta può essere gestito da più collaboratori in parallelo.'
+          : 'Cedi atleti in pieno a un altro PT. Consulta ceduti, ricevuti e riprese.'
+      }
       showBack
       backTo="/pt/app/athletes"
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5 bg-app-background border border-app-border h-auto">
-          <TabsTrigger value="collaboratori" className="text-[10px] sm:text-sm px-0.5 py-2">
-            <UserPlus className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
-            Collaboratori
-          </TabsTrigger>
-          <TabsTrigger value="cedi" className="text-[10px] sm:text-sm px-0.5 py-2">
-            <ArrowRightLeft className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
-            Cedi
-          </TabsTrigger>
-          <TabsTrigger value="ceduti" className="text-[10px] sm:text-sm px-0.5 py-2">
-            <Users className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
-            Ceduti
-          </TabsTrigger>
-          <TabsTrigger value="ricevuti" className="text-[10px] sm:text-sm px-0.5 py-2">
-            <Inbox className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
-            Ricevuti
-          </TabsTrigger>
-          <TabsTrigger value="riprendi" className="text-[10px] sm:text-sm px-0.5 py-2">
-            <RotateCcw className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
-            Riprendi
-          </TabsTrigger>
-        </TabsList>
+        {isCedi && (
+          <TabsList className="grid w-full grid-cols-4 bg-app-background border border-app-border h-auto">
+            <TabsTrigger value="cedi" className="text-[10px] sm:text-sm px-0.5 py-2">
+              <ArrowRightLeft className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
+              Cedi
+            </TabsTrigger>
+            <TabsTrigger value="ceduti" className="text-[10px] sm:text-sm px-0.5 py-2">
+              <Users className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
+              Ceduti
+            </TabsTrigger>
+            <TabsTrigger value="ricevuti" className="text-[10px] sm:text-sm px-0.5 py-2">
+              <Inbox className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
+              Ricevuti
+            </TabsTrigger>
+            <TabsTrigger value="riprendi" className="text-[10px] sm:text-sm px-0.5 py-2">
+              <RotateCcw className="h-3.5 w-3.5 mr-0.5 hidden sm:inline" />
+              Riprendi
+            </TabsTrigger>
+          </TabsList>
+        )}
 
         {/* ── COLLABORATORI ── */}
+        {isCollaboratori && (
         <TabsContent value="collaboratori" className="space-y-4 mt-0">
           <div className="flex items-start justify-between gap-2">
             <p className="text-xs text-app-muted-foreground">
@@ -736,8 +747,11 @@ export function PTAppAthleteTransferPage() {
             </>
           )}
         </TabsContent>
+        )}
 
         {/* ── CEDI ATLETA (multi-select) ── */}
+        {isCedi && (
+        <>
         <TabsContent value="cedi" className="space-y-4 mt-0">
           <p className="text-xs text-app-muted-foreground">
             Gli atleti già assegnati a un collaboratore non compaiono qui. Rimuovili da
@@ -1139,9 +1153,13 @@ export function PTAppAthleteTransferPage() {
             ))
           )}
         </TabsContent>
+        </>
+        )}
       </Tabs>
 
       {/* Assegna a collaboratori */}
+      {isCollaboratori && (
+      <>
       <Sheet
         open={assignOpen}
         onOpenChange={(open) => {
@@ -1445,7 +1463,11 @@ export function PTAppAthleteTransferPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </>
+      )}
 
+      {isCedi && (
+      <>
       <AlertDialog open={confirmTransfer} onOpenChange={setConfirmTransfer}>
         <AlertDialogContent className="bg-app-card border-app-border">
           <AlertDialogHeader>
@@ -1607,6 +1629,8 @@ export function PTAppAthleteTransferPage() {
           )}
         </SheetContent>
       </Sheet>
+      </>
+      )}
     </PTAppPageShell>
   );
 }
