@@ -45,7 +45,7 @@ import {
 import {
   assignAthleteToCollaborators,
   groupCollaboratorRoster,
-  listMyCollaboratorRoster,
+  listCollaboratorRosterViews,
   listOwnedAthleteIds,
   moveAthleteCollaborator,
   revokeAthleteCollaborator,
@@ -244,7 +244,7 @@ export function PTAppAthleteTransferPage() {
     refetch: refetchCollaborators,
   } = useQuery({
     queryKey: ['pt-collaborator-roster', user?.id],
-    queryFn: listMyCollaboratorRoster,
+    queryFn: () => listCollaboratorRosterViews(user!.id),
     enabled: !!user?.id && activeTab === 'collaboratori',
     retry: 1,
   });
@@ -434,7 +434,6 @@ export function PTAppAthleteTransferPage() {
         atletaUserId: moveTarget!.atletaUserId,
         fromCollaboratorPtId: moveTarget!.fromCollaboratorPtId,
         toCollaboratorPtId: moveToPtId!,
-        notes: notes.trim() || undefined,
       }),
     onSuccess: () => {
       toast({
@@ -1237,7 +1236,9 @@ export function PTAppAthleteTransferPage() {
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {ownedAthletes.length === 0 ? (
                   <p className="text-sm text-app-muted-foreground py-2 text-center">
-                    Nessun atleta di tua proprietà disponibile.
+                    {(myAthletes?.length ?? 0) > 0
+                      ? 'Hai atleti collegati ma senza titolarità registrata: non puoi assegnarli ai collaboratori. Ricrea l’atleta o chiedi un allineamento ownership sul backend.'
+                      : 'Nessun atleta di tua proprietà disponibile.'}
                   </p>
                 ) : (
                   ownedAthletes.map((conn) => {
