@@ -87,6 +87,49 @@ function formatDate(iso: string | null | undefined) {
 }
 
 type ModalityFilter = TrainingModality | 'all';
+type CollabPerspective = 'per_collaboratore' | 'per_atleta';
+type CedutiPerspective = 'per_atleta' | 'per_pt';
+
+function PerspectiveToggle<T extends string>({
+  value,
+  onChange,
+  options,
+  helperText,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  helperText?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div
+        role="group"
+        aria-label="Prospettiva elenco"
+        className="flex w-full p-1 rounded-lg border border-app-border bg-app-background"
+      >
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              'flex-1 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors',
+              value === opt.value
+                ? 'bg-app-card text-app-foreground shadow-sm'
+                : 'text-app-muted-foreground hover:text-app-foreground',
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {helperText ? (
+        <p className="text-[11px] text-app-muted-foreground leading-snug">{helperText}</p>
+      ) : null}
+    </div>
+  );
+}
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -117,7 +160,13 @@ export function PTAppAthleteTransferPage() {
   const [infoAthlete, setInfoAthlete] = useState<CededAthlete | null>(null);
 
   // Collaboratori tab state
+  const [collabPerspective, setCollabPerspective] =
+    useState<CollabPerspective>('per_collaboratore');
+  const [cedutiPerspective, setCedutiPerspective] =
+    useState<CedutiPerspective>('per_atleta');
   const [expandedCollabIds, setExpandedCollabIds] = useState<string[]>([]);
+  const [expandedAthleteIds, setExpandedAthleteIds] = useState<string[]>([]);
+  const [expandedCededPtIds, setExpandedCededPtIds] = useState<string[]>([]);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignAthleteIds, setAssignAthleteIds] = useState<string[]>([]);
   const [assignCollabIds, setAssignCollabIds] = useState<string[]>([]);
@@ -229,6 +278,82 @@ export function PTAppAthleteTransferPage() {
         .filter((g) => g.athletes.length > 0),
     [collaboratorGroups],
   );
+
+  /** Same owner assignments, regrouped athlete → collaborators. */
+  const ownerAthleteGroups = useMemo(() => {
+    type AthleteGroup = {
+      atleta_user_id: string;
+      first_name: string | null;
+      last_name: string | null;
+      avatar_url: string | null;
+      collaborators: Array<{
+        collaborator_pt_user_id: string;
+        first_name: string | null;
+        last_name: string | null;
+        avatar_url: string | null;
+        assignment_id: string;
+        assigned_at: string;
+      }>;
+    };
+    const map = new Map<string, AthleteGroup>();
+    for (const group of ownerViewGroups) {
+      for (const athlete of group.athletes) {
+        let entry = map.get(athlete.atleta_user_id);
+        if (!entry) {
+          entry = {
+            atleta_user_id: athlete.atleta_user_id,
+            first_name: athlete.first_name,
+            last_name: athlete.last_name,
+            avatar_url: athlete.avatar_url,
+            collaborators: [],
+          };
+          map.set(athlete.atleta_user_id, entry);
+        }
+        entry.collaborators.push({
+          collaborator_pt_user_id: group.collaborator_pt_user_id,
+          first_name: group.first_name,
+          last_name: group.last_name,
+          avatar_url: group.avatar_url,
+          assignment_id: athlete.assignment_id,
+          assigned_at: athlete.assigned_at,
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      const an = `${a.last_name ?? ''} ${a.first_name ?? ''}`.trim().toLowerCase();
+      const bn = `${b.last_name ?? ''} ${b.first_name ?? ''}`.trim().toLowerCase();
+      return an.localeCompare(bn, 'it');
+    });
+  }, [ownerViewGroups]);
+
+  const cededByPtGroups = useMemo(() => {
+    type PtGroup = {
+      pt_user_id: string;
+      first_name: string | null;
+      last_name: string | null;
+      athletes: CededAthlete[];
+    };
+    const map = new Map<string, PtGroup>();
+    for (const item of cededAthletes ?? []) {
+      const key = item.current_pt_user_id ?? '__unknown__';
+      let group = map.get(key);
+      if (!group) {
+        group = {
+          pt_user_id: key,
+          first_name: item.current_pt_first_name,
+          last_name: item.current_pt_last_name,
+          athletes: [],
+        };
+        map.set(key, group);
+      }
+      group.athletes.push(item);
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      const an = `${a.last_name ?? ''} ${a.first_name ?? ''}`.trim().toLowerCase();
+      const bn = `${b.last_name ?? ''} ${b.first_name ?? ''}`.trim().toLowerCase();
+      return an.localeCompare(bn, 'it');
+    });
+  }, [cededAthletes]);
 
   const assignedToMe = useMemo(
     () =>
@@ -368,6 +493,18 @@ export function PTAppAthleteTransferPage() {
 
   const toggleExpandedCollab = (id: string) => {
     setExpandedCollabIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const toggleExpandedAthlete = (id: string) => {
+    setExpandedAthleteIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const toggleExpandedCededPt = (id: string) => {
+    setExpandedCededPtIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
@@ -573,9 +710,25 @@ export function PTAppAthleteTransferPage() {
             </Card>
           ) : (
             <>
+              <PerspectiveToggle
+                value={collabPerspective}
+                onChange={setCollabPerspective}
+                options={[
+                  { value: 'per_collaboratore', label: 'Per collaboratore' },
+                  { value: 'per_atleta', label: 'Per atleta' },
+                ]}
+                helperText={
+                  collabPerspective === 'per_collaboratore'
+                    ? 'Vista PT: ogni collaboratore con gli atleti assegnati.'
+                    : 'Vista Atleti: ogni atleta con i collaboratori assegnati.'
+                }
+              />
+
               <section className="space-y-2">
                 <h2 className="text-sm font-semibold text-app-foreground">
-                  I tuoi collaboratori
+                  {collabPerspective === 'per_collaboratore'
+                    ? 'I tuoi collaboratori'
+                    : 'I tuoi atleti assegnati'}
                 </h2>
                 {ownerViewGroups.length === 0 ? (
                   <Card className="bg-app-card border-app-border">
@@ -583,7 +736,7 @@ export function PTAppAthleteTransferPage() {
                       Nessun atleta assegnato a collaboratori. Usa Assegna per iniziare.
                     </CardContent>
                   </Card>
-                ) : (
+                ) : collabPerspective === 'per_collaboratore' ? (
                   ownerViewGroups.map((group) => {
                     const expanded = expandedCollabIds.includes(group.collaborator_pt_user_id);
                     return (
@@ -607,7 +760,7 @@ export function PTAppAthleteTransferPage() {
                               {formatPtName(group.first_name, group.last_name)}
                             </p>
                             <p className="text-xs text-app-muted-foreground">
-                              {group.athletes.length}{' '}
+                              Collaboratore · {group.athletes.length}{' '}
                               {group.athletes.length === 1 ? 'atleta' : 'atleti'}
                             </p>
                           </div>
@@ -641,7 +794,7 @@ export function PTAppAthleteTransferPage() {
                                     )}
                                   </p>
                                   <p className="text-[11px] text-app-muted-foreground">
-                                    Assegnato il {formatDate(athlete.assigned_at)}
+                                    Atleta · assegnato il {formatDate(athlete.assigned_at)}
                                   </p>
                                 </div>
                                 <div className="flex flex-col gap-1 shrink-0">
@@ -682,6 +835,119 @@ export function PTAppAthleteTransferPage() {
                                         collaboratorName: formatPtName(
                                           group.first_name,
                                           group.last_name,
+                                        ),
+                                      })
+                                    }
+                                  >
+                                    Rimuovi
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })
+                ) : (
+                  ownerAthleteGroups.map((group) => {
+                    const expanded = expandedAthleteIds.includes(group.atleta_user_id);
+                    return (
+                      <Card
+                        key={group.atleta_user_id}
+                        className="bg-app-card border-app-border overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          className="w-full p-4 flex items-center gap-3 text-left"
+                          onClick={() => toggleExpandedAthlete(group.atleta_user_id)}
+                        >
+                          <Avatar className="h-11 w-11">
+                            <AvatarImage src={group.avatar_url ?? undefined} />
+                            <AvatarFallback className="bg-app-background">
+                              {getAthleteInitials(group.first_name, group.last_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-app-foreground truncate">
+                              {getAthleteDisplayName(group.first_name, group.last_name)}
+                            </p>
+                            <p className="text-xs text-app-muted-foreground">
+                              Atleta · {group.collaborators.length}{' '}
+                              {group.collaborators.length === 1
+                                ? 'collaboratore'
+                                : 'collaboratori'}
+                            </p>
+                          </div>
+                          <Badge variant="secondary" className="shrink-0">
+                            {group.collaborators.length}
+                          </Badge>
+                          {expanded ? (
+                            <ChevronDown className="h-4 w-4 text-app-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-app-muted-foreground shrink-0" />
+                          )}
+                        </button>
+                        {expanded && (
+                          <div className="border-t border-app-border px-3 pb-3 space-y-2">
+                            {group.collaborators.map((collab) => (
+                              <div
+                                key={collab.assignment_id}
+                                className="flex items-center gap-2 pt-3"
+                              >
+                                <Avatar className="h-9 w-9">
+                                  <AvatarImage src={collab.avatar_url ?? undefined} />
+                                  <AvatarFallback className="bg-app-background text-xs">
+                                    {getAthleteInitials(collab.first_name, collab.last_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-app-foreground truncate">
+                                    {formatPtName(collab.first_name, collab.last_name)}
+                                  </p>
+                                  <p className="text-[11px] text-app-muted-foreground">
+                                    Collaboratore · assegnato il{' '}
+                                    {formatDate(collab.assigned_at)}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col gap-1 shrink-0">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs border-app-border"
+                                    onClick={() => {
+                                      setMoveTarget({
+                                        atletaUserId: group.atleta_user_id,
+                                        atletaName: getAthleteDisplayName(
+                                          group.first_name,
+                                          group.last_name,
+                                        ),
+                                        fromCollaboratorPtId: collab.collaborator_pt_user_id,
+                                        fromCollaboratorName: formatPtName(
+                                          collab.first_name,
+                                          collab.last_name,
+                                        ),
+                                      });
+                                      setMoveToPtId(null);
+                                    }}
+                                  >
+                                    Sposta
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs text-destructive"
+                                    onClick={() =>
+                                      setRevokeTarget({
+                                        atletaUserId: group.atleta_user_id,
+                                        atletaName: getAthleteDisplayName(
+                                          group.first_name,
+                                          group.last_name,
+                                        ),
+                                        collaboratorPtId: collab.collaborator_pt_user_id,
+                                        collaboratorName: formatPtName(
+                                          collab.first_name,
+                                          collab.last_name,
                                         ),
                                       })
                                     }
@@ -979,6 +1245,19 @@ export function PTAppAthleteTransferPage() {
             Elenco degli atleti che hai ceduto a un altro PT. Se risultano riprendibili puoi
             riprenderli da qui o dal tab Riprendi.
           </p>
+          <PerspectiveToggle
+            value={cedutiPerspective}
+            onChange={setCedutiPerspective}
+            options={[
+              { value: 'per_atleta', label: 'Per atleta' },
+              { value: 'per_pt', label: 'Per PT' },
+            ]}
+            helperText={
+              cedutiPerspective === 'per_atleta'
+                ? 'Vista Atleti: ogni atleta ceduto con il PT destinatario.'
+                : 'Vista PT: ogni destinatario con gli atleti che gli hai ceduto.'
+            }
+          />
           {loadingCeded ? (
             Array.from({ length: 2 }).map((_, i) => (
               <Skeleton key={i} className="h-20 w-full rounded-xl" />
@@ -989,60 +1268,72 @@ export function PTAppAthleteTransferPage() {
                 Nessun atleta ceduto al momento.
               </CardContent>
             </Card>
-          ) : (
+          ) : cedutiPerspective === 'per_atleta' ? (
             (cededAthletes ?? []).map((item) => (
-              <Card key={item.atleta_user_id} className="bg-app-card border-app-border">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <Avatar className="h-11 w-11">
-                    <AvatarImage src={item.avatar_url ?? undefined} />
-                    <AvatarFallback className="bg-app-background">
-                      {getAthleteInitials(item.first_name, item.last_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="font-medium text-app-foreground truncate">
-                      {getAthleteDisplayName(item.first_name, item.last_name, item.email)}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <TrainingModalityBadge modality={item.training_modality} />
-                      {item.is_recallable ? (
-                        <Badge variant="secondary" className="text-[10px]">
-                          Riprendibile
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[10px]">
-                          Ceduto
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-app-muted-foreground truncate">
-                      Con {formatPtName(item.current_pt_first_name, item.current_pt_last_name)}
-                      {item.transferred_at && ` · ceduto il ${formatDate(item.transferred_at)}`}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-1.5 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-app-border"
-                      onClick={() => setInfoAthlete(item)}
-                    >
-                      <Info className="h-3.5 w-3.5 mr-1" />
-                      Info
-                    </Button>
-                    {item.is_recallable && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setRecallTarget(item)}
-                      >
-                        Riprendi
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <CededAthleteCard
+                key={item.atleta_user_id}
+                item={item}
+                showDestinationPt
+                onInfo={() => setInfoAthlete(item)}
+                onRecall={() => setRecallTarget(item)}
+              />
             ))
+          ) : (
+            cededByPtGroups.map((group) => {
+              const expanded = expandedCededPtIds.includes(group.pt_user_id);
+              const ptLabel =
+                group.pt_user_id === '__unknown__'
+                  ? 'PT non disponibile'
+                  : formatPtName(group.first_name, group.last_name);
+              return (
+                <Card
+                  key={group.pt_user_id}
+                  className="bg-app-card border-app-border overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    className="w-full p-4 flex items-center gap-3 text-left"
+                    onClick={() => toggleExpandedCededPt(group.pt_user_id)}
+                  >
+                    <Avatar className="h-11 w-11">
+                      <AvatarFallback className="bg-app-background">
+                        {getAthleteInitials(group.first_name, group.last_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-app-foreground truncate">{ptLabel}</p>
+                      <p className="text-xs text-app-muted-foreground">
+                        PT destinatario · {group.athletes.length}{' '}
+                        {group.athletes.length === 1 ? 'atleta ceduto' : 'atleti ceduti'}
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0">
+                      {group.athletes.length}
+                    </Badge>
+                    {expanded ? (
+                      <ChevronDown className="h-4 w-4 text-app-muted-foreground shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-app-muted-foreground shrink-0" />
+                    )}
+                  </button>
+                  {expanded && (
+                    <div className="border-t border-app-border px-3 pb-3 space-y-2">
+                      {group.athletes.map((item) => (
+                        <div key={item.atleta_user_id} className="pt-3">
+                          <CededAthleteCard
+                            item={item}
+                            showDestinationPt={false}
+                            compact
+                            onInfo={() => setInfoAthlete(item)}
+                            onRecall={() => setRecallTarget(item)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })
           )}
         </TabsContent>
 
@@ -1608,6 +1899,70 @@ export function PTAppAthleteTransferPage() {
         </SheetContent>
       </Sheet>
     </PTAppPageShell>
+  );
+}
+
+function CededAthleteCard({
+  item,
+  showDestinationPt,
+  compact = false,
+  onInfo,
+  onRecall,
+}: {
+  item: CededAthlete;
+  showDestinationPt: boolean;
+  compact?: boolean;
+  onInfo: () => void;
+  onRecall: () => void;
+}) {
+  const athleteName = getAthleteDisplayName(item.first_name, item.last_name, item.email);
+  const destinationPt = formatPtName(item.current_pt_first_name, item.current_pt_last_name);
+
+  return (
+    <Card className={cn('bg-app-card border-app-border', compact && 'border-0 shadow-none bg-transparent')}>
+      <CardContent className={cn('flex items-center gap-3', compact ? 'p-0' : 'p-4')}>
+        <Avatar className={cn(compact ? 'h-9 w-9' : 'h-11 w-11')}>
+          <AvatarImage src={item.avatar_url ?? undefined} />
+          <AvatarFallback className="bg-app-background">
+            {getAthleteInitials(item.first_name, item.last_name)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className={cn('font-medium text-app-foreground truncate', compact && 'text-sm')}>
+            {athleteName}
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <TrainingModalityBadge modality={item.training_modality} />
+            {item.is_recallable ? (
+              <Badge variant="secondary" className="text-[10px]">
+                Riprendibile
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px]">
+                Ceduto
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-app-muted-foreground truncate">
+            {showDestinationPt
+              ? `PT destinatario: ${destinationPt}`
+              : 'Atleta ceduto'}
+            {item.transferred_at && ` · ceduto il ${formatDate(item.transferred_at)}`}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5 shrink-0">
+          <Button size="sm" variant="outline" className="border-app-border" onClick={onInfo}>
+            <Info className="h-3.5 w-3.5 mr-1" />
+            Info
+          </Button>
+          {item.is_recallable && (
+            <Button size="sm" variant="secondary" onClick={onRecall}>
+              Riprendi
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
