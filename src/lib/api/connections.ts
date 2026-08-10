@@ -8,6 +8,15 @@ import {
   isTrainingModality,
   type TrainingModality,
 } from '@/lib/trainingModality';
+import { getSystemCategoryIdBySlug } from '@/lib/api/athleteCategories';
+
+export interface PtConnectionCategory {
+  id: string;
+  name: string;
+  slug: string | null;
+  color: string | null;
+  is_system: boolean;
+}
 
 export interface PtConnectionWithPtActive {
   id?: string;
@@ -15,6 +24,8 @@ export interface PtConnectionWithPtActive {
   status?: string;
   is_pt_active?: boolean | null;
   training_modality?: TrainingModality | null;
+  category_id?: string | null;
+  athlete_category?: PtConnectionCategory | null;
   created_at?: string;
   accepted_at?: string | null;
 }
@@ -64,6 +75,35 @@ export class TrainingModalityMigrationRequiredError extends Error {
   }
 }
 
+function isMissingCategoryColumn(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === '42703' || error.code === 'PGRST204' || error.code === 'PGRST200') return true;
+  const msg = (error.message ?? '').toLowerCase();
+  return (
+    (msg.includes('category_id') ||
+      msg.includes('pt_athlete_categories') ||
+      msg.includes('athlete_category')) &&
+    (msg.includes('does not exist') ||
+      msg.includes('schema cache') ||
+      msg.includes('could not find') ||
+      msg.includes('relationship'))
+  );
+}
+
+function normalizeConnectionCategoryRows(
+  rows: PtConnectionWithPtActive[],
+): PtConnectionWithPtActive[] {
+  return rows.map((row) => {
+    const raw = row as PtConnectionWithPtActive & {
+      athlete_category?: PtConnectionCategory | PtConnectionCategory[] | null;
+    };
+    const embedded = Array.isArray(raw.athlete_category)
+      ? raw.athlete_category[0] ?? null
+      : raw.athlete_category ?? null;
+    return { ...row, athlete_category: embedded };
+  });
+}
+
 /** Probe whether is_pt_active exists on pt_atleta_connections (migration applied). */
 export async function checkPtActiveColumnAvailable(): Promise<boolean> {
   const { error } = await supabase
@@ -90,6 +130,10 @@ export async function getPTConnectionsWithPtActive(
   const status = options?.status;
   const withAll =
     options?.columns === 'list'
+      ? 'id, atleta_user_id, status, is_pt_active, training_modality, category_id, created_at, accepted_at, athlete_category:pt_athlete_categories(id, name, slug, is_system)'
+      : 'atleta_user_id, is_pt_active, training_modality, category_id, athlete_category:pt_athlete_categories(id, name, slug, is_system)';
+  const withoutCategory =
+    options?.columns === 'list'
       ? 'id, atleta_user_id, status, is_pt_active, training_modality, created_at, accepted_at'
       : 'atleta_user_id, is_pt_active, training_modality';
   const withoutModality =
@@ -112,7 +156,25 @@ export async function getPTConnectionsWithPtActive(
   const { data, error } = (await query) as { data: unknown[] | null; error: { message?: string; code?: string } | null };
 
   if (!error) {
-    return (data ?? []) as PtConnectionWithPtActive[];
+    return normalizeConnectionCategoryRows((data ?? []) as PtConnectionWithPtActive[]);
+  }
+
+  // Fall back when category join/column not yet applied
+  if (isMissingCategoryColumn(error) && !isMissingPtActiveColumn(error)) {
+    let categoryFallback = (supabase.from('pt_atleta_connections') as any)
+      .select(withoutCategory)
+      .eq('pt_user_id', ptUserId);
+    if (status) categoryFallback = categoryFallback.eq('status', status);
+    if (options?.orderByCreatedAt) {
+      categoryFallback = categoryFallback.order('created_at', { ascending: false });
+    }
+    const { data: catData, error: catError } = await categoryFallback;
+    if (!catError) {
+      return normalizeConnectionCategoryRows((catData ?? []) as PtConnectionWithPtActive[]);
+    }
+    if (!isMissingTrainingModalityColumn(catError)) {
+      throw new Error('Errore nel recupero connessioni: ' + catError.message);
+    }
   }
 
   // Prefer modality-aware select; fall back if column missing
@@ -334,6 +396,28 @@ export async function setAthleteTrainingModality(
     throw new Error('Modalità non valida');
   }
 
+  // Prefer category_id (system, lookup by slug) when available
+  const categoryId = await getSystemCategoryIdBySlug(modality);
+
+  if (categoryId) {
+    const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('set_athlete_category', {
+      _connection_id: connectionId,
+      _category_id: categoryId,
+    });
+
+    if (!rpcError) return rpcData;
+
+    const rpcMsg = (rpcError.message ?? '').toLowerCase();
+    const missingRpc =
+      rpcError.code === 'PGRST202' ||
+      rpcMsg.includes('set_athlete_category') ||
+      rpcMsg.includes('could not find the function');
+
+    if (!missingRpc) {
+      throw new Error(rpcError.message || 'Errore durante l\'aggiornamento modalità');
+    }
+  }
+
   const { data, error } = await (supabase.from('pt_atleta_connections') as any)
     .update({
       training_modality: modality,
@@ -549,6 +633,10 @@ export interface CededAthlete {
   avatar_url: string | null;
   email: string | null;
   training_modality: TrainingModality | null;
+  category_id?: string | null;
+  category_name?: string | null;
+  category_color?: string | null;
+  category_is_system?: boolean | null;
   fitness_level: string | null;
   current_pt_user_id: string | null;
   current_pt_first_name: string | null;

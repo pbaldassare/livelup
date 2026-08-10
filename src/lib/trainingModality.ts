@@ -1,6 +1,7 @@
 // =====================================================
-// Training modality (PT ↔ athlete connection)
-// DB: in_presenza | online | mix — UI labels in Italian
+// Legacy system category slugs (PT ↔ athlete connection)
+// Prefer pt_athlete_categories + category_id. These helpers
+// remain for filters/fallback when slug = in_presenza|online|mix.
 // =====================================================
 
 export type TrainingModality = 'in_presenza' | 'online' | 'mix';

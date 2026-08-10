@@ -274,7 +274,10 @@ export function AtletaChatPage() {
     const unsubscribe = subscribeToMessages(currentChat.id, () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', currentChat.id] });
       if (user?.id) {
-        markMessagesAsRead(currentChat.id, user.id);
+        markMessagesAsRead(currentChat.id, user.id).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['atleta-unread-messages'] });
+          queryClient.invalidateQueries({ queryKey: ['atleta-chats'] });
+        });
       }
     });
 

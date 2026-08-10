@@ -152,24 +152,33 @@ export async function sendMessage(params: {
 // =====================================================
 
 export async function markMessagesAsRead(chatId: string, userId: string) {
-  // RPC SECURITY DEFINER: le policy RLS permettono l'UPDATE solo al mittente,
-  // quindi senza questa RPC il badge "non letto" non sparirebbe mai.
-  const { error } = await supabase.rpc('mark_messages_as_read', {
+  // RPC SECURITY DEFINER: RLS permette UPDATE solo al mittente.
+  const { error: rpcError } = await (supabase.rpc as any)('mark_messages_as_read', {
     _chat_id: chatId,
-  } as never);
+  });
 
-  if (error) {
-    // Fallback legacy (se la RPC non è ancora disponibile)
-    const { error: updateError } = await supabase
-      .from('messages')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('chat_id', chatId)
-      .neq('sender_user_id', userId)
-      .eq('is_read', false);
+  if (!rpcError) return;
 
-    if (updateError) {
-      throw new Error('Errore aggiornamento lettura: ' + updateError.message);
-    }
+  const msg = (rpcError.message ?? '').toLowerCase();
+  const missingRpc =
+    rpcError.code === 'PGRST202' ||
+    msg.includes('mark_messages_as_read') ||
+    msg.includes('could not find the function');
+
+  if (!missingRpc) {
+    throw new Error('Errore aggiornamento lettura: ' + rpcError.message);
+  }
+
+  // Fallback legacy (no-op sotto RLS attuale se la RPC manca)
+  const { error: updateError } = await supabase
+    .from('messages')
+    .update({ is_read: true, read_at: new Date().toISOString() })
+    .eq('chat_id', chatId)
+    .neq('sender_user_id', userId)
+    .eq('is_read', false);
+
+  if (updateError) {
+    throw new Error('Errore aggiornamento lettura: ' + updateError.message);
   }
 }
 

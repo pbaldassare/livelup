@@ -12,7 +12,7 @@ import { MessageSquare, Send, Search, Users, Plus, Settings, Globe } from 'lucid
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { getOrCreateChat } from '@/lib/api/messages';
+import { getOrCreateChat, markMessagesAsRead } from '@/lib/api/messages';
 import {
   getPTChatGroups,
   getChatGroupMessages,
@@ -393,18 +393,15 @@ export function PTMessagesPage() {
       ? sendGroupMutation.isPending
       : sendAthleteMutation.isPending;
 
-  // Mark as read — atleta
+  // Mark as read — atleta (RPC: RLS blocca update diretto del destinatario)
   useEffect(() => {
     if (selection?.kind === 'athlete' && selectedChatId && user?.id) {
-      supabase
-        .from('messages')
-        .update({ is_read: true, read_at: new Date().toISOString() })
-        .eq('chat_id', selectedChatId)
-        .neq('sender_user_id', user.id)
-        .eq('is_read', false)
+      markMessagesAsRead(selectedChatId, user.id)
         .then(() => {
           queryClient.invalidateQueries({ queryKey: ['pt-athletes-chats'] });
-        });
+          queryClient.invalidateQueries({ queryKey: ['pt-chats-with-athletes'] });
+        })
+        .catch(() => {});
     }
   }, [selection?.kind, selectedChatId, user?.id, queryClient]);
 
