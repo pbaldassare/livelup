@@ -40,13 +40,23 @@ import {
   Copy,
   UserPlus,
   Tags,
+  ArrowRightLeft,
+  RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
 import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCategoriesDialog';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
+import { AthleteRosterBadges } from '@/components/pt/AthleteRosterBadges';
 import { listAthleteCategories } from '@/lib/api/athleteCategories';
 import { resolveCategoryId } from '@/lib/athleteCategories';
+import {
+  usePTAthleteRosterMeta,
+  type CededFilter,
+  type OwnershipFilter,
+} from '@/hooks/usePTAthleteRosterMeta';
+import { recallAthleteFromTransfer } from '@/lib/api/connections';
+import { ptRoutes } from '@/lib/pt/routes';
 
 // =====================================================
 // PT ATHLETES PAGE - CRM Atleti con paginazione
@@ -94,10 +104,15 @@ export function PTAthletesPage() {
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
+  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
+  const [cededFilter, setCededFilter] = useState<CededFilter>('all');
+  const [recallingId, setRecallingId] = useState<string | null>(null);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  const roster = usePTAthleteRosterMeta(user?.id);
 
   const { data: athleteCategories = [] } = useQuery({
     queryKey: ['pt-athlete-categories'],
@@ -232,21 +247,35 @@ export function PTAthletesPage() {
       const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
                             conn.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      if (activeTab === 'active' && categoryFilter !== 'all') {
-        const connCategoryId = resolveCategoryId(
-          conn.category_id,
-          conn.training_modality,
-          athleteCategories,
-        );
-        if (connCategoryId !== categoryFilter) return false;
+      if (activeTab === 'active') {
+        if (conn.status !== 'active' || !matchesSearch) return false;
+        if (categoryFilter !== 'all') {
+          const connCategoryId = resolveCategoryId(
+            conn.category_id,
+            conn.training_modality,
+            athleteCategories,
+          );
+          if (connCategoryId !== categoryFilter) return false;
+        }
+        if (!roster.matchesFilters(conn.atleta_user_id, ownershipFilter, cededFilter)) {
+          return false;
+        }
+        return true;
       }
-      
-      if (activeTab === 'active') return conn.status === 'active' && matchesSearch;
       if (activeTab === 'pending') return conn.status === 'pending' && matchesSearch;
       if (activeTab === 'terminated') return (conn.status === 'terminated' || conn.status === 'terminato') && matchesSearch;
       return matchesSearch;
     });
-  }, [connections, searchTerm, activeTab, categoryFilter, athleteCategories]);
+  }, [
+    connections,
+    searchTerm,
+    activeTab,
+    categoryFilter,
+    athleteCategories,
+    ownershipFilter,
+    cededFilter,
+    roster,
+  ]);
 
   const totalPages = Math.ceil(filteredConnections.length / pageSize);
   const paginatedConnections = useMemo(() => {
@@ -258,12 +287,43 @@ export function PTAthletesPage() {
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setCurrentPage(1);
-    if (tab !== 'active') setCategoryFilter('all');
+    if (tab !== 'active') {
+      setCategoryFilter('all');
+      setOwnershipFilter('all');
+      setCededFilter('all');
+    }
   };
 
   const handleCategoryFilter = (value: string | 'all') => {
     setCategoryFilter(value);
     setCurrentPage(1);
+  };
+
+  const handleOwnershipFilter = (value: OwnershipFilter) => {
+    setOwnershipFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleCededFilter = (value: CededFilter) => {
+    setCededFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleRecall = async (atletaUserId: string, name: string) => {
+    setRecallingId(atletaUserId);
+    try {
+      await recallAthleteFromTransfer({ atletaUserId });
+      toast.success(`${name} ripreso`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['pt-athletes'] }),
+        queryClient.invalidateQueries({ queryKey: ['pt-ceded-athletes'] }),
+        roster.refetch(),
+      ]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Errore ripresa atleta');
+    } finally {
+      setRecallingId(null);
+    }
   };
 
   const handleSearchChange = (value: string) => {
@@ -315,7 +375,7 @@ export function PTAthletesPage() {
     <div className="space-y-6 animate-in">
       <DashboardPageHeader
         title="I Miei Atleti"
-        subtitle="Gestisci i tuoi atleti e le richieste di collegamento"
+        subtitle="Miei e in coaching, ceduti e non ceduti — tutto da qui"
         icon={<Users className="h-6 w-6" />}
         breadcrumbs={[
           { label: 'Dashboard', href: '/pt' },
@@ -323,6 +383,14 @@ export function PTAthletesPage() {
         ]}
         actions={
           <div className="flex gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(ptRoutes.web.athleteTransfer)}
+            >
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Cedi
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setManageCategoriesOpen(true)}>
               <Tags className="h-4 w-4 mr-2" />
               Categorie
@@ -411,38 +479,82 @@ export function PTAthletesPage() {
           </div>
 
           {activeTab === 'active' && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <Button
-                type="button"
-                size="sm"
-                variant={categoryFilter === 'all' ? 'default' : 'outline'}
-                className="h-8 text-xs"
-                onClick={() => handleCategoryFilter('all')}
-              >
-                Tutti
-              </Button>
-              {athleteCategories.map((c) => (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-xs text-muted-foreground mr-1">Relazione</span>
+                {(
+                  [
+                    ['all', 'Tutti'],
+                    ['mine', 'Miei'],
+                    ['coaching', 'In coaching'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    variant={ownershipFilter === value ? 'default' : 'outline'}
+                    className="h-8 text-xs"
+                    onClick={() => handleOwnershipFilter(value)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+                <span className="text-xs text-muted-foreground mx-1">|</span>
+                <span className="text-xs text-muted-foreground mr-1">Cessione</span>
+                {(
+                  [
+                    ['all', 'Tutti'],
+                    ['not_ceded', 'Non ceduti'],
+                    ['ceded', 'Ceduti'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    variant={cededFilter === value ? 'default' : 'outline'}
+                    className="h-8 text-xs"
+                    onClick={() => handleCededFilter(value)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-xs text-muted-foreground mr-1">Categoria</span>
                 <Button
-                  key={c.id}
                   type="button"
                   size="sm"
-                  variant={categoryFilter === c.id ? 'default' : 'outline'}
+                  variant={categoryFilter === 'all' ? 'default' : 'outline'}
                   className="h-8 text-xs"
-                  onClick={() => handleCategoryFilter(c.id)}
+                  onClick={() => handleCategoryFilter('all')}
                 >
-                  {c.name}
+                  Tutte
                 </Button>
-              ))}
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-8 text-xs gap-1"
-                onClick={() => setManageCategoriesOpen(true)}
-              >
-                <Tags className="h-3.5 w-3.5" />
-                Gestisci
-              </Button>
+                {athleteCategories.map((c) => (
+                  <Button
+                    key={c.id}
+                    type="button"
+                    size="sm"
+                    variant={categoryFilter === c.id ? 'default' : 'outline'}
+                    className="h-8 text-xs"
+                    onClick={() => handleCategoryFilter(c.id)}
+                  >
+                    {c.name}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-xs gap-1"
+                  onClick={() => setManageCategoriesOpen(true)}
+                >
+                  <Tags className="h-3.5 w-3.5" />
+                  Gestisci
+                </Button>
+              </div>
             </div>
           )}
 
@@ -452,6 +564,7 @@ export function PTAthletesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Atleta</TableHead>
+                  <TableHead>Relazione</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Livello</TableHead>
                   <TableHead>Stato</TableHead>
@@ -462,18 +575,27 @@ export function PTAthletesPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <LoadingSpinner variant="dots" size="sm" />
                     </TableCell>
                   </TableRow>
                 ) : paginatedConnections.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       {activeTab === 'pending' ? 'Nessuna richiesta pendente' : 'Nessun atleta trovato'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedConnections.map((conn) => (
+                  paginatedConnections.map((conn) => {
+                    const role = roster.getRole(conn.atleta_user_id);
+                    const ceded = roster.isCeded(conn.atleta_user_id);
+                    const cededMeta = roster.getCededMeta(conn.atleta_user_id);
+                    const displayName = getAthleteDisplayName(
+                      conn.profiles?.first_name,
+                      conn.profiles?.last_name,
+                      conn.profiles?.email,
+                    );
+                    return (
                     <TableRow 
                       key={conn.id}
                       className="cursor-pointer hover:bg-muted/50"
@@ -488,12 +610,21 @@ export function PTAthletesPage() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">
-                              {getAthleteDisplayName(conn.profiles?.first_name, conn.profiles?.last_name, conn.profiles?.email)}
-                            </p>
+                            <p className="font-medium">{displayName}</p>
                             <p className="text-sm text-muted-foreground">{conn.profiles?.email}</p>
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {conn.status === 'active' ? (
+                          <AthleteRosterBadges
+                            role={role}
+                            ceded={ceded}
+                            cededMeta={cededMeta}
+                          />
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {conn.status === 'active' ? (
@@ -556,12 +687,38 @@ export function PTAthletesPage() {
                               <Button size="sm" variant="ghost" onClick={() => handleAssignFromList(conn)} title="Assegna allenamento">
                                 <Dumbbell className="h-4 w-4" />
                               </Button>
+                              {conn.status === 'active' && cededMeta?.is_recallable && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 text-xs"
+                                  disabled={recallingId === conn.atleta_user_id}
+                                  onClick={() => handleRecall(conn.atleta_user_id, displayName)}
+                                  title="Riprendi atleta"
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                                  Riprendi
+                                </Button>
+                              )}
+                              {conn.status === 'active' && role === 'owner' && !ceded && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 text-xs"
+                                  onClick={() => navigate(ptRoutes.web.athleteTransfer)}
+                                  title="Cedi atleta"
+                                >
+                                  <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
+                                  Cedi
+                                </Button>
+                              )}
                             </>
                           )}
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

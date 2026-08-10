@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,14 +23,28 @@ import {
 
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { getPTConnectionsWithPtActive, acceptConnection, rejectConnection } from '@/lib/api/connections';
+import {
+  getPTConnectionsWithPtActive,
+  acceptConnection,
+  rejectConnection,
+  recallAthleteFromTransfer,
+} from '@/lib/api/connections';
 import { AthleteSubscriptionsTab } from '@/components/pt/AthleteSubscriptionsTab';
 import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
 import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCategoriesDialog';
+import { AthleteRosterBadges } from '@/components/pt/AthleteRosterBadges';
 import { listAthleteCategories } from '@/lib/api/athleteCategories';
 import { isSystemCategorySlug, resolveCategoryId } from '@/lib/athleteCategories';
 import { isTrainingModality } from '@/lib/trainingModality';
+import {
+  usePTAthleteRosterMeta,
+  type CededFilter,
+  type OwnershipFilter,
+  type AthleteRosterRole,
+  type CededMeta,
+} from '@/hooks/usePTAthleteRosterMeta';
+import { ptRoutes } from '@/lib/pt/routes';
 import { 
   Users, 
   Search, 
@@ -44,6 +58,8 @@ import {
   X,
   Package,
   Tags,
+  ArrowRightLeft,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -65,6 +81,7 @@ function normalizeTab(value: string | null): string | null {
 
 export function PTAppAthletesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>(
@@ -76,6 +93,11 @@ export function PTAppAthletesPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string } | null>(null);
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
+  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
+  const [cededFilter, setCededFilter] = useState<CededFilter>('all');
+  const [recallingId, setRecallingId] = useState<string | null>(null);
+
+  const roster = usePTAthleteRosterMeta(user?.id);
 
   const categoryFilterParam = searchParams.get('category') ?? searchParams.get('modality');
 
@@ -107,6 +129,10 @@ export function PTAppAthletesPage() {
     if (value === 'active') next.delete('tab');
     else next.set('tab', value);
     setSearchParams(next, { replace: true });
+    if (value !== 'active') {
+      setOwnershipFilter('all');
+      setCededFilter('all');
+    }
   };
 
   useEffect(() => {
@@ -189,6 +215,23 @@ export function PTAppAthletesPage() {
     }
   };
 
+  const handleRecall = async (atletaUserId: string, name: string) => {
+    setRecallingId(atletaUserId);
+    try {
+      await recallAthleteFromTransfer({ atletaUserId });
+      toast.success(`${name} ripreso`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['pt-athletes'] }),
+        queryClient.invalidateQueries({ queryKey: ['pt-ceded-athletes'] }),
+        queryClient.invalidateQueries({ queryKey: ['pt-connections'] }),
+        roster.refetch(),
+      ]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Errore ripresa atleta');
+    } finally {
+      setRecallingId(null);
+    }
+  };
 
   // Fetch connections
   const { data: connections, isLoading } = useQuery({
@@ -235,19 +278,33 @@ export function PTAppAthletesPage() {
   const filteredConnections = useMemo(() => {
     if (!connections) return [];
     return connections.filter((conn) => {
-      if (activeTab === 'active' && activeCategoryId !== 'all') {
-        const connCategoryId = resolveCategoryId(
-          conn.category_id,
-          conn.training_modality,
-          athleteCategories,
-        );
-        if (connCategoryId !== activeCategoryId) return false;
+      if (activeTab === 'active') {
+        if (activeCategoryId !== 'all') {
+          const connCategoryId = resolveCategoryId(
+            conn.category_id,
+            conn.training_modality,
+            athleteCategories,
+          );
+          if (connCategoryId !== activeCategoryId) return false;
+        }
+        if (!roster.matchesFilters(conn.atleta_user_id, ownershipFilter, cededFilter)) {
+          return false;
+        }
       }
       if (!searchQuery) return true;
       const name = `${conn.profiles?.first_name || ''} ${conn.profiles?.last_name || ''}`.toLowerCase();
       return name.includes(searchQuery.toLowerCase());
     });
-  }, [connections, searchQuery, activeCategoryId, activeTab, athleteCategories]);
+  }, [
+    connections,
+    searchQuery,
+    activeCategoryId,
+    activeTab,
+    athleteCategories,
+    ownershipFilter,
+    cededFilter,
+    roster,
+  ]);
 
   const activeCount = connections?.length || 0;
 
@@ -294,38 +351,82 @@ export function PTAppAthletesPage() {
         </div>
 
         {activeTab === 'active' && (
-          <div className="flex flex-wrap gap-2 items-center">
-            <Button
-              type="button"
-              size="sm"
-              variant={activeCategoryId === 'all' ? 'default' : 'outline'}
-              className="h-8 text-xs"
-              onClick={() => setCategoryFilter('all')}
-            >
-              Tutti
-            </Button>
-            {athleteCategories.map((c) => (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-xs text-muted-foreground mr-1">Relazione</span>
+              {(
+                [
+                  ['all', 'Tutti'],
+                  ['mine', 'Miei'],
+                  ['coaching', 'In coaching'],
+                ] as const
+              ).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  variant={ownershipFilter === value ? 'default' : 'outline'}
+                  className="h-8 text-xs"
+                  onClick={() => setOwnershipFilter(value)}
+                >
+                  {label}
+                </Button>
+              ))}
+              <span className="text-xs text-muted-foreground mx-1">|</span>
+              <span className="text-xs text-muted-foreground mr-1">Cessione</span>
+              {(
+                [
+                  ['all', 'Tutti'],
+                  ['not_ceded', 'Non ceduti'],
+                  ['ceded', 'Ceduti'],
+                ] as const
+              ).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  variant={cededFilter === value ? 'default' : 'outline'}
+                  className="h-8 text-xs"
+                  onClick={() => setCededFilter(value)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-xs text-muted-foreground mr-1">Categoria</span>
               <Button
-                key={c.id}
                 type="button"
                 size="sm"
-                variant={activeCategoryId === c.id ? 'default' : 'outline'}
+                variant={activeCategoryId === 'all' ? 'default' : 'outline'}
                 className="h-8 text-xs"
-                onClick={() => setCategoryFilter(c.id)}
+                onClick={() => setCategoryFilter('all')}
               >
-                {c.name}
+                Tutte
               </Button>
-            ))}
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-8 text-xs gap-1"
-              onClick={() => setManageCategoriesOpen(true)}
-            >
-              <Tags className="h-3.5 w-3.5" />
-              Gestisci
-            </Button>
+              {athleteCategories.map((c) => (
+                <Button
+                  key={c.id}
+                  type="button"
+                  size="sm"
+                  variant={activeCategoryId === c.id ? 'default' : 'outline'}
+                  className="h-8 text-xs"
+                  onClick={() => setCategoryFilter(c.id)}
+                >
+                  {c.name}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs gap-1"
+                onClick={() => setManageCategoriesOpen(true)}
+              >
+                <Tags className="h-3.5 w-3.5" />
+                Gestisci
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -360,7 +461,17 @@ export function PTAppAthletesPage() {
             ))
           ) : filteredConnections.length > 0 ? (
             filteredConnections.map((conn) => (
-              <AthleteCard key={conn.id} connection={conn} type="active" />
+              <AthleteCard
+                key={conn.id}
+                connection={conn}
+                type="active"
+                role={roster.getRole(conn.atleta_user_id)}
+                ceded={roster.isCeded(conn.atleta_user_id)}
+                cededMeta={roster.getCededMeta(conn.atleta_user_id)}
+                recalling={recallingId === conn.atleta_user_id}
+                onRecall={(name) => handleRecall(conn.atleta_user_id, name)}
+                onCede={() => navigate(ptRoutes.app.athleteTransfer)}
+              />
             ))
           ) : (
             <EmptyState
@@ -441,12 +552,24 @@ function AthleteCard({
   processing = false,
   onAccept,
   onReject,
+  role = 'unknown',
+  ceded = false,
+  cededMeta = null,
+  recalling = false,
+  onRecall,
+  onCede,
 }: {
   connection: any;
   type: 'active' | 'pending';
   processing?: boolean;
   onAccept?: (name: string) => void;
   onReject?: (name: string) => void;
+  role?: AthleteRosterRole;
+  ceded?: boolean;
+  cededMeta?: CededMeta | null;
+  recalling?: boolean;
+  onRecall?: (name: string) => void;
+  onCede?: () => void;
 }) {
 
   const p = connection.profiles;
@@ -454,6 +577,8 @@ function AthleteCard({
   const initials = getAthleteInitials(p?.first_name, p?.last_name, p?.email);
   const email = p?.email?.trim() || null;
   const isPtActive = connection.is_pt_active !== false;
+  const showRecall = Boolean(cededMeta?.is_recallable);
+  const showCede = role === 'owner' && !ceded;
 
   // Card richieste: nessuna navigazione chevron, azioni dirette sulla card
   if (type === 'pending') {
@@ -512,66 +637,91 @@ function AthleteCard({
   }
 
   return (
-    <Link to={`/pt/app/athlete/${connection.atleta_user_id}`}>
-      <Card className="hover:bg-muted/50 transition-colors">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-12 w-12">
-              <AvatarImage src={p?.avatar_url || undefined} />
-              <AvatarFallback>{initials || 'A'}</AvatarFallback>
-            </Avatar>
+    <Card className="hover:bg-muted/50 transition-colors">
+      <CardContent className="p-4">
+        <Link
+          to={`/pt/app/athlete/${connection.atleta_user_id}`}
+          className="flex items-center gap-3"
+        >
+          <Avatar className="h-12 w-12">
+            <AvatarImage src={p?.avatar_url || undefined} />
+            <AvatarFallback>{initials || 'A'}</AvatarFallback>
+          </Avatar>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold truncate">{name}</h3>
-                <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-              </div>
-
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    'text-xs',
-                    isPtActive
-                      ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                      : 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-                  )}
-                >
-                  {isPtActive ? 'Attivo' : 'Disattivo'}
-                </Badge>
-                <TrainingModalityBadge
-                  modality={connection.training_modality}
-                  name={connection.athlete_category?.name}
-                  color={connection.athlete_category?.color}
-                  slug={connection.athlete_category?.slug}
-                  isSystem={connection.athlete_category?.is_system}
-                />
-                {connection.atleta_profiles?.fitness_level && (
-                  <Badge variant="outline" className="text-xs capitalize">
-                    {connection.atleta_profiles.fitness_level}
-                  </Badge>
-                )}
-              </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold truncate">{name}</h3>
+              <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
             </div>
-          </div>
 
-          <div className="flex gap-2 mt-3">
-            <Button variant="outline" size="sm" className="flex-1" asChild>
-              <Link to={`/pt/app/chat/${connection.atleta_user_id}`} onClick={(e) => e.stopPropagation()}>
-                <MessageSquare className="h-4 w-4 mr-1" />
-                Chat
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="flex-1" asChild>
-              <Link to={`/pt/app/athlete/${connection.atleta_user_id}/workouts`} onClick={(e) => e.stopPropagation()}>
-                <Dumbbell className="h-4 w-4 mr-1" />
-                Schede
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-xs',
+                  isPtActive
+                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                    : 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+                )}
+              >
+                {isPtActive ? 'Attivo' : 'Disattivo'}
+              </Badge>
+              <TrainingModalityBadge
+                modality={connection.training_modality}
+                name={connection.athlete_category?.name}
+                color={connection.athlete_category?.color}
+                slug={connection.athlete_category?.slug}
+                isSystem={connection.athlete_category?.is_system}
+              />
+              {connection.atleta_profiles?.fitness_level && (
+                <Badge variant="outline" className="text-xs capitalize">
+                  {connection.atleta_profiles.fitness_level}
+                </Badge>
+              )}
+            </div>
+            <AthleteRosterBadges
+              role={role}
+              ceded={ceded}
+              cededMeta={cededMeta}
+              className="mt-1.5"
+            />
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+        </Link>
+
+        <div className="flex gap-2 mt-3 flex-wrap">
+          <Button variant="outline" size="sm" className="flex-1" asChild>
+            <Link to={`/pt/app/chat/${connection.atleta_user_id}`}>
+              <MessageSquare className="h-4 w-4 mr-1" />
+              Chat
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="flex-1" asChild>
+            <Link to={`/pt/app/athlete/${connection.atleta_user_id}/workouts`}>
+              <Dumbbell className="h-4 w-4 mr-1" />
+              Schede
+            </Link>
+          </Button>
+          {showRecall && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              disabled={recalling}
+              onClick={() => onRecall?.(name)}
+            >
+              <RotateCcw className="h-4 w-4 mr-1" />
+              Riprendi
+            </Button>
+          )}
+          {showCede && (
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => onCede?.()}>
+              <ArrowRightLeft className="h-4 w-4 mr-1" />
+              Cedi
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
