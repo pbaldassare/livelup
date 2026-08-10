@@ -65,7 +65,7 @@ interface AtletaConnection {
     id: string;
     name: string;
     slug: string | null;
-    color: string | null;
+    color?: string | null;
     is_system: boolean;
   } | null;
   profiles: {
