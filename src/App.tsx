@@ -379,6 +379,13 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/athlete-transfer" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAppAthleteTransferPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
               <Route path="/pt/workouts" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>

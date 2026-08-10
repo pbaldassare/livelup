@@ -20,6 +20,7 @@ export const ptRoutes = {
     calendar: '/pt/events',
     appointments: '/pt/calendar/appuntamenti',
     payments: '/pt/payments',
+    athleteTransfer: '/pt/athlete-transfer',
   },
   app: {
     home: '/pt/app',
@@ -56,7 +57,7 @@ export type PTRouteSet = {
   calendar: string;
   appointments: string;
   payments: string;
-  athleteTransfer?: string;
+  athleteTransfer: string;
 };
 
 export function ptRoutesForPath(pathname: string): PTRouteSet {

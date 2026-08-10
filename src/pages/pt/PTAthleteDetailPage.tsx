@@ -259,11 +259,11 @@ export function PTAthleteDetailPage() {
               Chat
             </Button>
 
-            {isOwner && atletaId && routes.athleteTransfer && (
+            {isOwner && atletaId && (
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => navigate(routes.athleteTransfer!)}
+                onClick={() => navigate(routes.athleteTransfer)}
               >
                 Cedi / Riprendi
               </Button>

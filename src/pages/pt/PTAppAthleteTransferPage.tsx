@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
+import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { useAuth } from '@/hooks/useAuth';
+import { usePTRoutes } from '@/hooks/usePTRoutes';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -89,8 +91,12 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
+const PAGE_DESCRIPTION =
+  'Cedi atleti a un altro PT restando titolare: entrambi potete coachare; solo tu gestisci ripresa e abbonamenti.';
+
 export function PTAppAthleteTransferPage() {
   const { user } = useAuth();
+  const { isApp, routes } = usePTRoutes();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -356,23 +362,23 @@ export function PTAppAthleteTransferPage() {
     },
   });
 
-  return (
-    <PTAppPageShell
-      title="Assegna atleta"
-      description="Cedi atleti a un altro PT restando titolare: entrambi potete coachare; solo tu gestisci ripresa e abbonamenti."
-      showBack
-      backTo="/pt/app/athletes"
-      actions={
-        <Button
-          size="sm"
-          className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
-          onClick={() => setCediOpen(true)}
-        >
-          <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
-          Cedi
-        </Button>
+  const cediAction = (
+    <Button
+      size="sm"
+      className={
+        isApp
+          ? 'bg-app-accent text-app-accent-foreground hover:bg-app-accent/90'
+          : undefined
       }
+      onClick={() => setCediOpen(true)}
     >
+      <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
+      Cedi
+    </Button>
+  );
+
+  const pageBody = (
+    <>
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as ListTab)}
@@ -1018,7 +1024,38 @@ export function PTAppAthleteTransferPage() {
           )}
         </SheetContent>
       </Sheet>
-    </PTAppPageShell>
+    </>
+  );
+
+  if (isApp) {
+    return (
+      <PTAppPageShell
+        title="Assegna atleta"
+        description={PAGE_DESCRIPTION}
+        showBack
+        backTo={routes.athletes}
+        actions={cediAction}
+      >
+        {pageBody}
+      </PTAppPageShell>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <DashboardPageHeader
+        title="Assegna atleta"
+        subtitle={PAGE_DESCRIPTION}
+        icon={<ArrowRightLeft className="h-5 w-5" />}
+        breadcrumbs={[
+          { label: 'Dashboard', href: routes.home },
+          { label: 'Atleti', href: routes.athletes },
+          { label: 'Assegna atleta' },
+        ]}
+        actions={cediAction}
+      />
+      {pageBody}
+    </div>
   );
 }
 
