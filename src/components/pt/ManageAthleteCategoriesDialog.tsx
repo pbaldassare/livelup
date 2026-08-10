@@ -20,6 +20,10 @@ import {
   listAthleteCategories,
   updateAthleteCategory,
 } from '@/lib/api/athleteCategories';
+import {
+  ATHLETE_CATEGORIES_MIGRATION_HINT,
+  SYSTEM_BASE_CATEGORIES,
+} from '@/lib/athleteCategories';
 
 interface Props {
   open: boolean;
@@ -32,7 +36,12 @@ export function ManageAthleteCategoriesDialog({ open, onOpenChange }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
-  const { data: categories = [], isLoading } = useQuery({
+  const {
+    data: categories = SYSTEM_BASE_CATEGORIES,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['pt-athlete-categories', 'manage'],
     queryFn: () => listAthleteCategories({ includeInactive: true }),
     enabled: open,
@@ -79,8 +88,16 @@ export function ManageAthleteCategoriesDialog({ open, onOpenChange }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const system = categories.filter((c) => c.is_system && c.is_active);
+  const system =
+    categories.filter((c) => Boolean(c.is_system) && c.is_active !== false).length > 0
+      ? categories.filter((c) => Boolean(c.is_system) && c.is_active !== false)
+      : SYSTEM_BASE_CATEGORIES;
   const custom = categories.filter((c) => !c.is_system);
+  const migrationHint =
+    (createMutation.error?.message?.includes('20260810150000') ?? false) ||
+    (isError &&
+      error instanceof Error &&
+      error.message.includes('20260810150000'));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -175,6 +192,12 @@ export function ManageAthleteCategoriesDialog({ open, onOpenChange }: Props) {
               </ul>
             )}
           </div>
+
+          {migrationHint && (
+            <p className="text-xs text-amber-700 dark:text-amber-300 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-2">
+              {ATHLETE_CATEGORIES_MIGRATION_HINT}
+            </p>
+          )}
 
           <div className="flex gap-2">
             <Input

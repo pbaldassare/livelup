@@ -3,10 +3,27 @@
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';
-import type { AthleteCategory } from '@/lib/athleteCategories';
+import {
+  ATHLETE_CATEGORIES_MIGRATION_HINT,
+  SYSTEM_BASE_CATEGORIES,
+  mergeWithSystemCategories,
+  type AthleteCategory,
+} from '@/lib/athleteCategories';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
+
+function isMissingCategoriesTable(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === '42P01' || error.code === 'PGRST205' || error.code === 'PGRST204') return true;
+  const msg = (error.message ?? '').toLowerCase();
+  return (
+    msg.includes('pt_athlete_categories') &&
+    (msg.includes('does not exist') ||
+      msg.includes('schema cache') ||
+      msg.includes('could not find'))
+  );
+}
 
 export async function listAthleteCategories(options?: {
   includeInactive?: boolean;
@@ -14,7 +31,6 @@ export async function listAthleteCategories(options?: {
   let query = sb
     .from('pt_athlete_categories')
     .select('id, pt_user_id, name, slug, color, sort_order, is_system, is_active')
-    .order('is_system', { ascending: false })
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
 
@@ -24,9 +40,14 @@ export async function listAthleteCategories(options?: {
 
   const { data, error } = await query;
   if (error) {
+    if (isMissingCategoriesTable(error)) {
+      // UI resta usabile con le 3 di base finché Lovable non applica la migration
+      return [...SYSTEM_BASE_CATEGORIES];
+    }
     throw new Error('Errore recupero categorie: ' + error.message);
   }
-  return (data ?? []) as AthleteCategory[];
+
+  return mergeWithSystemCategories((data ?? []) as AthleteCategory[]);
 }
 
 export async function createAthleteCategory(params: {
@@ -55,7 +76,12 @@ export async function createAthleteCategory(params: {
     .select('id, pt_user_id, name, slug, color, sort_order, is_system, is_active')
     .single();
 
-  if (error) throw new Error('Errore creazione categoria: ' + error.message);
+  if (error) {
+    if (isMissingCategoriesTable(error)) {
+      throw new Error(ATHLETE_CATEGORIES_MIGRATION_HINT);
+    }
+    throw new Error('Errore creazione categoria: ' + error.message);
+  }
   return data as AthleteCategory;
 }
 
@@ -86,7 +112,12 @@ export async function updateAthleteCategory(params: {
     .select('id, pt_user_id, name, slug, color, sort_order, is_system, is_active')
     .single();
 
-  if (error) throw new Error('Errore aggiornamento categoria: ' + error.message);
+  if (error) {
+    if (isMissingCategoriesTable(error)) {
+      throw new Error(ATHLETE_CATEGORIES_MIGRATION_HINT);
+    }
+    throw new Error('Errore aggiornamento categoria: ' + error.message);
+  }
   return data as AthleteCategory;
 }
 
@@ -102,6 +133,9 @@ export async function deleteAthleteCategory(id: string): Promise<void> {
     .eq('is_system', false);
 
   if (error) {
+    if (isMissingCategoriesTable(error)) {
+      throw new Error(ATHLETE_CATEGORIES_MIGRATION_HINT);
+    }
     // Likely still referenced — soft archive instead
     if (error.code === '23503') {
       await archiveAthleteCategory(id);
@@ -121,6 +155,14 @@ export async function setAthleteCategory(params: {
   });
 
   if (error) {
+    const msg = (error.message ?? '').toLowerCase();
+    if (
+      error.code === 'PGRST202' ||
+      msg.includes('set_athlete_category') ||
+      msg.includes('pt_athlete_categories')
+    ) {
+      throw new Error(ATHLETE_CATEGORIES_MIGRATION_HINT);
+    }
     throw new Error(error.message || 'Errore aggiornamento categoria');
   }
   return data;
