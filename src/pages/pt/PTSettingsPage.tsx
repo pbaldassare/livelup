@@ -25,9 +25,10 @@ import {
 } from '@/components/ui/dialog';
 import { 
   Settings, User, Globe, MapPin, Award, Euro, Eye, Save, Package,
-  Navigation, Loader2, CheckCircle2, Upload, FileText, Trash2, Lightbulb, Calendar
+  Navigation, Loader2, CheckCircle2, Upload, FileText, Trash2, Lightbulb, Calendar, Tags,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCategoriesDialog';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyA76iVcQpSnl76_G6bJVnEeOUmWVd7278I';
 
@@ -79,6 +80,7 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
   const [suggestionDialogOpen, setSuggestionDialogOpen] = useState(false);
   const [suggestionType, setSuggestionType] = useState<'specialization' | 'certification'>('specialization');
   const [suggestionName, setSuggestionName] = useState('');
+  const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
 
   // Fetch profile
   const { data: profile } = useQuery({
@@ -162,6 +164,11 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
 
   // Form state
   const [formData, setFormData] = useState<Partial<Omit<PTProfile, 'status'>>>({});
+  const [basicInfo, setBasicInfo] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+  });
 
   useEffect(() => {
     if (ptProfile) {
@@ -170,21 +177,57 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
     }
   }, [ptProfile]);
 
-  // Update profile mutation
+  useEffect(() => {
+    if (profile) {
+      setBasicInfo({
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        phone: profile.phone || '',
+      });
+    }
+  }, [profile]);
+
+  // Update profile mutation (pt_profiles + anagrafica profiles)
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: Partial<Omit<PTProfile, 'status'>>) => {
+    mutationFn: async (payload: {
+      ptData: Partial<Omit<PTProfile, 'status'>>;
+      basic: { first_name: string; last_name: string; phone: string };
+    }) => {
       if (!user?.id) throw new Error('Not authenticated');
-      const { error } = await supabase.from('pt_profiles').update(data).eq('user_id', user.id);
+
+      const firstName = payload.basic.first_name.trim();
+      const lastName = payload.basic.last_name.trim();
+      if (!firstName || !lastName) {
+        throw new Error('Nome e cognome sono obbligatori');
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          first_name: firstName,
+          last_name: lastName,
+          phone: payload.basic.phone.trim() || null,
+        })
+        .eq('user_id', user.id);
+      if (profileError) throw profileError;
+
+      const { error } = await supabase
+        .from('pt_profiles')
+        .update(payload.ptData)
+        .eq('user_id', user.id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
       toast.success('Profilo aggiornato con successo');
     },
-    onError: () => toast.error("Errore durante l'aggiornamento"),
+    onError: (err: Error) =>
+      toast.error(err.message || "Errore durante l'aggiornamento"),
   });
 
-  const handleSave = () => updateProfileMutation.mutate(formData);
+  const handleSave = () =>
+    updateProfileMutation.mutate({ ptData: formData, basic: basicInfo });
 
   // Save specializations
   const saveSpecsMutation = useMutation({
@@ -389,6 +432,26 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
           </Button>
         </div>
 
+        <div className="rounded-lg border bg-muted/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <Tags className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Categorie cliente</p>
+              <p className="text-xs text-muted-foreground">
+                In presenza, Online e Mix sono fisse. Puoi aggiungere e personalizzare le tue categorie per gli atleti.
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
+            Gestisci categorie
+          </Button>
+        </div>
+
+        <ManageAthleteCategoriesDialog
+          open={manageCategoriesOpen}
+          onOpenChange={setManageCategoriesOpen}
+        />
+
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
           {/* Avatar + Basic Info */}
@@ -408,18 +471,56 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
                   variant="avatar"
                 />
                 <div>
-                  <p className="font-medium">{profile?.first_name} {profile?.last_name}</p>
+                  <p className="font-medium">
+                    {basicInfo.first_name || profile?.first_name}{' '}
+                    {basicInfo.last_name || profile?.last_name}
+                  </p>
                   <p className="text-sm text-muted-foreground">Clicca sull'avatar per cambiare foto</p>
                 </div>
               </div>
               <Separator />
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2"><Label>Nome</Label><Input value={profile?.first_name || ''} disabled /></div>
-                <div className="space-y-2"><Label>Cognome</Label><Input value={profile?.last_name || ''} disabled /></div>
+                <div className="space-y-2">
+                  <Label htmlFor="pt-first-name">Nome</Label>
+                  <Input
+                    id="pt-first-name"
+                    value={basicInfo.first_name}
+                    onChange={(e) =>
+                      setBasicInfo((prev) => ({ ...prev, first_name: e.target.value }))
+                    }
+                    placeholder="Nome"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pt-last-name">Cognome</Label>
+                  <Input
+                    id="pt-last-name"
+                    value={basicInfo.last_name}
+                    onChange={(e) =>
+                      setBasicInfo((prev) => ({ ...prev, last_name: e.target.value }))
+                    }
+                    placeholder="Cognome"
+                  />
+                </div>
               </div>
-              <div className="space-y-2"><Label>Email</Label><Input value={profile?.email || user?.email || ''} disabled /></div>
-              <div className="space-y-2"><Label>Telefono</Label><Input value={profile?.phone || ''} disabled /></div>
-              <p className="text-sm text-muted-foreground">Per modificare queste informazioni, contatta il supporto.</p>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input value={profile?.email || user?.email || ''} disabled />
+                <p className="text-xs text-muted-foreground">
+                  L&apos;email non è modificabile da qui. Contatta il supporto per cambiarla.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pt-phone">Telefono</Label>
+                <Input
+                  id="pt-phone"
+                  value={basicInfo.phone}
+                  onChange={(e) =>
+                    setBasicInfo((prev) => ({ ...prev, phone: e.target.value }))
+                  }
+                  placeholder="Telefono"
+                />
+              </div>
             </CardContent>
           </Card>
 

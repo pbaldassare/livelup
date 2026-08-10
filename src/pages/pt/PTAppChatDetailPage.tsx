@@ -108,18 +108,27 @@ export function PTAppChatDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', chatData?.chatId] });
       queryClient.invalidateQueries({ queryKey: ['pt-chats'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-chats-with-athletes'] });
     },
     onError: (error: Error) => {
       toast.error(error.message);
     },
   });
 
+  const refreshUnreadCaches = () => {
+    queryClient.invalidateQueries({ queryKey: ['pt-chats-with-athletes'] });
+    queryClient.invalidateQueries({ queryKey: ['pt-chats'] });
+    queryClient.invalidateQueries({ queryKey: ['pt-app-stats'] });
+  };
+
   // Mark messages as read
   useEffect(() => {
     if (chatData?.chatId && user?.id) {
-      markMessagesAsRead(chatData.chatId, user.id);
+      markMessagesAsRead(chatData.chatId, user.id)
+        .then(refreshUnreadCaches)
+        .catch(() => {});
     }
-  }, [chatData?.chatId, user?.id]);
+  }, [chatData?.chatId, user?.id, queryClient]);
 
   // Subscribe to new messages
   useEffect(() => {
@@ -128,7 +137,9 @@ export function PTAppChatDetailPage() {
     const unsubscribe = subscribeToMessages(chatData.chatId, () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', chatData.chatId] });
       if (user?.id) {
-        markMessagesAsRead(chatData.chatId, user.id);
+        markMessagesAsRead(chatData.chatId, user.id)
+          .then(refreshUnreadCaches)
+          .catch(() => {});
       }
     });
 

@@ -152,6 +152,24 @@ export async function sendMessage(params: {
 // =====================================================
 
 export async function markMessagesAsRead(chatId: string, userId: string) {
+  // RPC SECURITY DEFINER: RLS allows only sender UPDATE, so direct update cannot mark received msgs.
+  const { error: rpcError } = await (supabase.rpc as any)('mark_messages_as_read', {
+    _chat_id: chatId,
+  });
+
+  if (!rpcError) return;
+
+  const msg = (rpcError.message ?? '').toLowerCase();
+  const missingRpc =
+    rpcError.code === 'PGRST202' ||
+    msg.includes('mark_messages_as_read') ||
+    msg.includes('could not find the function');
+
+  if (!missingRpc) {
+    throw new Error('Errore aggiornamento lettura: ' + rpcError.message);
+  }
+
+  // Fallback (pre-migration): will no-op under current RLS, but keeps clients from crashing
   const { error } = await supabase
     .from('messages')
     .update({

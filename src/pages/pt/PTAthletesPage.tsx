@@ -39,9 +39,14 @@ import {
   Link2,
   Copy,
   UserPlus,
+  Tags,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
+import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCategoriesDialog';
+import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
+import { listAthleteCategories } from '@/lib/api/athleteCategories';
+import { systemCategoryIdFromSlug } from '@/lib/athleteCategories';
 
 // =====================================================
 // PT ATHLETES PAGE - CRM Atleti con paginazione
@@ -54,6 +59,15 @@ interface AtletaConnection {
   status: string;
   requested_at: string;
   accepted_at: string | null;
+  training_modality?: string | null;
+  category_id?: string | null;
+  athlete_category?: {
+    id: string;
+    name: string;
+    slug: string | null;
+    color: string | null;
+    is_system: boolean;
+  } | null;
   profiles: {
     first_name: string | null;
     last_name: string | null;
@@ -78,10 +92,17 @@ export function PTAthletesPage() {
   const [selectedAthlete, setSelectedAthlete] = useState<AtletaConnection | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
+  const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  const { data: athleteCategories = [] } = useQuery({
+    queryKey: ['pt-athlete-categories'],
+    queryFn: () => listAthleteCategories(),
+  });
 
   // Fetch connections
   const { data: connections = [], isLoading } = useQuery({
@@ -89,16 +110,36 @@ export function PTAthletesPage() {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data, error } = await supabase
-        .from('pt_atleta_connections')
-        .select(`id, atleta_user_id, status, requested_at, accepted_at`)
+      // Prefer category join; fall back if migration not applied yet
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let rows: any[] | null = null;
+      const withCategory = await (supabase.from('pt_atleta_connections') as any)
+        .select(
+          `id, atleta_user_id, status, requested_at, accepted_at, training_modality, category_id,
+           athlete_category:pt_athlete_categories(id, name, slug, color, is_system)`,
+        )
         .eq('pt_user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (withCategory.error) {
+        const { data, error } = await supabase
+          .from('pt_atleta_connections')
+          .select(`id, atleta_user_id, status, requested_at, accepted_at`)
+          .eq('pt_user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        rows = data || [];
+      } else {
+        rows = (withCategory.data || []).map((row: Record<string, unknown>) => {
+          const embedded = Array.isArray(row.athlete_category)
+            ? row.athlete_category[0] ?? null
+            : row.athlete_category ?? null;
+          return { ...row, athlete_category: embedded };
+        });
+      }
 
       const enrichedData = await Promise.all(
-        (data || []).map(async (conn) => {
+        (rows || []).map(async (conn) => {
           const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name, email, avatar_url, phone')
@@ -190,13 +231,19 @@ export function PTAthletesPage() {
       const fullName = `${conn.profiles?.first_name || ''} ${conn.profiles?.last_name || ''}`.toLowerCase();
       const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
                             conn.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      if (activeTab === 'active' && categoryFilter !== 'all') {
+        const connCategoryId =
+          conn.category_id || systemCategoryIdFromSlug(conn.training_modality);
+        if (connCategoryId !== categoryFilter) return false;
+      }
       
       if (activeTab === 'active') return conn.status === 'active' && matchesSearch;
       if (activeTab === 'pending') return conn.status === 'pending' && matchesSearch;
       if (activeTab === 'terminated') return (conn.status === 'terminated' || conn.status === 'terminato') && matchesSearch;
       return matchesSearch;
     });
-  }, [connections, searchTerm, activeTab]);
+  }, [connections, searchTerm, activeTab, categoryFilter]);
 
   const totalPages = Math.ceil(filteredConnections.length / pageSize);
   const paginatedConnections = useMemo(() => {
@@ -207,6 +254,12 @@ export function PTAthletesPage() {
   // Reset page on filter change
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    setCurrentPage(1);
+    if (tab !== 'active') setCategoryFilter('all');
+  };
+
+  const handleCategoryFilter = (value: string | 'all') => {
+    setCategoryFilter(value);
     setCurrentPage(1);
   };
 
@@ -266,7 +319,11 @@ export function PTAthletesPage() {
           { label: 'Atleti' },
         ]}
         actions={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button size="sm" variant="outline" onClick={() => setManageCategoriesOpen(true)}>
+              <Tags className="h-4 w-4 mr-2" />
+              Categorie
+            </Button>
             <Button size="sm" onClick={() => setAddAthleteOpen(true)}>
               <UserPlus className="h-4 w-4 mr-2" />
               Aggiungi atleta
@@ -350,12 +407,49 @@ export function PTAthletesPage() {
             </div>
           </div>
 
+          {activeTab === 'active' && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button
+                type="button"
+                size="sm"
+                variant={categoryFilter === 'all' ? 'default' : 'outline'}
+                className="h-8 text-xs"
+                onClick={() => handleCategoryFilter('all')}
+              >
+                Tutti
+              </Button>
+              {athleteCategories.map((c) => (
+                <Button
+                  key={c.id}
+                  type="button"
+                  size="sm"
+                  variant={categoryFilter === c.id ? 'default' : 'outline'}
+                  className="h-8 text-xs"
+                  onClick={() => handleCategoryFilter(c.id)}
+                >
+                  {c.name}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs gap-1"
+                onClick={() => setManageCategoriesOpen(true)}
+              >
+                <Tags className="h-3.5 w-3.5" />
+                Gestisci
+              </Button>
+            </div>
+          )}
+
           {/* Table */}
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Atleta</TableHead>
+                  <TableHead>Categoria</TableHead>
                   <TableHead>Livello</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Data</TableHead>
@@ -365,13 +459,13 @@ export function PTAthletesPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       <LoadingSpinner variant="dots" size="sm" />
                     </TableCell>
                   </TableRow>
                 ) : paginatedConnections.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       {activeTab === 'pending' ? 'Nessuna richiesta pendente' : 'Nessun atleta trovato'}
                     </TableCell>
                   </TableRow>
@@ -397,6 +491,19 @@ export function PTAthletesPage() {
                             <p className="text-sm text-muted-foreground">{conn.profiles?.email}</p>
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {conn.status === 'active' ? (
+                          <TrainingModalityBadge
+                            modality={conn.training_modality}
+                            name={conn.athlete_category?.name}
+                            color={conn.athlete_category?.color}
+                            slug={conn.athlete_category?.slug}
+                            isSystem={conn.athlete_category?.is_system}
+                          />
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <span className="capitalize text-sm">{conn.atleta_profiles?.level || 'N/A'}</span>
@@ -470,6 +577,10 @@ export function PTAthletesPage() {
       </SectionCard>
 
       <AddAthleteDialog open={addAthleteOpen} onOpenChange={setAddAthleteOpen} />
+      <ManageAthleteCategoriesDialog
+        open={manageCategoriesOpen}
+        onOpenChange={setManageCategoriesOpen}
+      />
 
       {/* Detail Sheet */}
       <DetailSheet
