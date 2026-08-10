@@ -44,12 +44,8 @@ import {
 } from '@/lib/api/connections';
 import { listOwnedAthleteIds } from '@/lib/api/collaborators';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
-import {
-  TRAINING_MODALITIES,
-  TRAINING_MODALITY_LABELS,
-  normalizeTrainingModality,
-  type TrainingModality,
-} from '@/lib/trainingModality';
+import { listAthleteCategories } from '@/lib/api/athleteCategories';
+import { systemCategoryIdFromSlug } from '@/lib/athleteCategories';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
@@ -77,7 +73,6 @@ function formatDate(iso: string | null | undefined) {
   return format(new Date(iso), 'd MMM yyyy, HH:mm', { locale: it });
 }
 
-type ModalityFilter = TrainingModality | 'all';
 type ListTab = 'collaboratori' | 'ceduti' | 'ricevuti';
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -104,7 +99,7 @@ export function PTAppAthleteTransferPage() {
   const [listSearch, setListSearch] = useState('');
   const [cediOpen, setCediOpen] = useState(false);
   const [athleteSearch, setAthleteSearch] = useState('');
-  const [modalityFilter, setModalityFilter] = useState<ModalityFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
   const [ptSearch, setPtSearch] = useState('');
   const debouncedPtSearch = useDebouncedValue(ptSearch, 300);
   const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
@@ -140,6 +135,12 @@ export function PTAppAthleteTransferPage() {
       return withProfiles;
     },
     enabled: !!user?.id,
+  });
+
+  const { data: athleteCategories = [] } = useQuery({
+    queryKey: ['pt-athlete-categories'],
+    queryFn: () => listAthleteCategories(),
+    enabled: cediOpen,
   });
 
   const {
@@ -251,8 +252,9 @@ export function PTAppAthleteTransferPage() {
   const filteredAthletes = useMemo(() => {
     const q = athleteSearch.trim().toLowerCase();
     return (myAthletes ?? []).filter((a) => {
-      if (modalityFilter !== 'all') {
-        if (normalizeTrainingModality(a.training_modality) !== modalityFilter) return false;
+      if (categoryFilter !== 'all') {
+        const id = a.category_id || systemCategoryIdFromSlug(a.training_modality);
+        if (id !== categoryFilter) return false;
       }
       if (!q) return true;
       const name = getAthleteDisplayName(
@@ -262,7 +264,7 @@ export function PTAppAthleteTransferPage() {
       ).toLowerCase();
       return name.includes(q);
     });
-  }, [myAthletes, athleteSearch, modalityFilter]);
+  }, [myAthletes, athleteSearch, categoryFilter]);
 
   const selectedAthletes = useMemo(
     () => (myAthletes ?? []).filter((a) => selectedAthleteIds.includes(a.atleta_user_id)),
@@ -280,7 +282,7 @@ export function PTAppAthleteTransferPage() {
     setSelectedPtId(null);
     setNotes('');
     setAthleteSearch('');
-    setModalityFilter('all');
+    setCategoryFilter('all');
     setPtSearch('');
     setConfirmTransfer(false);
   };
@@ -643,22 +645,22 @@ export function PTAppAthleteTransferPage() {
                 <Button
                   type="button"
                   size="sm"
-                  variant={modalityFilter === 'all' ? 'default' : 'outline'}
+                  variant={categoryFilter === 'all' ? 'default' : 'outline'}
                   className="h-8 text-xs"
-                  onClick={() => setModalityFilter('all')}
+                  onClick={() => setCategoryFilter('all')}
                 >
                   Tutti
                 </Button>
-                {TRAINING_MODALITIES.map((m) => (
+                {athleteCategories.map((c) => (
                   <Button
-                    key={m}
+                    key={c.id}
                     type="button"
                     size="sm"
-                    variant={modalityFilter === m ? 'default' : 'outline'}
+                    variant={categoryFilter === c.id ? 'default' : 'outline'}
                     className="h-8 text-xs"
-                    onClick={() => setModalityFilter(m)}
+                    onClick={() => setCategoryFilter(c.id)}
                   >
-                    {TRAINING_MODALITY_LABELS[m]}
+                    {c.name}
                   </Button>
                 ))}
               </div>
@@ -681,8 +683,8 @@ export function PTAppAthleteTransferPage() {
                 ) : filteredAthletes.length === 0 ? (
                   <p className="text-sm text-app-muted-foreground py-4 text-center">
                     Nessun atleta attivo da cedere
-                    {modalityFilter !== 'all'
-                      ? ` in modalità ${TRAINING_MODALITY_LABELS[modalityFilter].toLowerCase()}`
+                    {categoryFilter !== 'all'
+                      ? ` in «${athleteCategories.find((c) => c.id === categoryFilter)?.name ?? 'categoria'}»`
                       : ''}
                     .
                   </p>
@@ -726,7 +728,13 @@ export function PTAppAthleteTransferPage() {
                             )}
                           </p>
                           <div className="mt-1">
-                            <TrainingModalityBadge modality={conn.training_modality} />
+                            <TrainingModalityBadge
+                              modality={conn.training_modality}
+                              name={conn.athlete_category?.name}
+                              color={conn.athlete_category?.color}
+                              slug={conn.athlete_category?.slug}
+                              isSystem={conn.athlete_category?.is_system}
+                            />
                           </div>
                         </div>
                         {selected && <CheckCircle2 className="h-5 w-5 text-app-accent shrink-0" />}
@@ -821,11 +829,14 @@ export function PTAppAthleteTransferPage() {
                                   a.profile?.email,
                                 )}{' '}
                                 (
-                                {
-                                  TRAINING_MODALITY_LABELS[
-                                    normalizeTrainingModality(a.training_modality)
-                                  ]
-                                }
+                                {a.athlete_category?.name ||
+                                  athleteCategories.find(
+                                    (c) =>
+                                      c.id ===
+                                      (a.category_id ||
+                                        systemCategoryIdFromSlug(a.training_modality)),
+                                  )?.name ||
+                                  'Mix'}
                                 )
                               </li>
                             ))}
@@ -970,7 +981,12 @@ export function PTAppAthleteTransferPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="space-y-1.5">
-                    <TrainingModalityBadge modality={infoAthlete.training_modality} />
+                    <TrainingModalityBadge
+                      modality={infoAthlete.training_modality}
+                      name={infoAthlete.category_name}
+                      color={infoAthlete.category_color}
+                      isSystem={infoAthlete.category_is_system}
+                    />
                     {infoAthlete.fitness_level && (
                       <Badge variant="outline" className="text-xs capitalize ml-1">
                         {infoAthlete.fitness_level}
@@ -1030,7 +1046,7 @@ export function PTAppAthleteTransferPage() {
   if (isApp) {
     return (
       <PTAppPageShell
-        title="Assegna atleta"
+        title="Collaborazioni"
         description={PAGE_DESCRIPTION}
         showBack
         backTo={routes.athletes}
@@ -1044,13 +1060,13 @@ export function PTAppAthleteTransferPage() {
   return (
     <div className="space-y-6">
       <DashboardPageHeader
-        title="Assegna atleta"
+        title="Collaborazioni"
         subtitle={PAGE_DESCRIPTION}
         icon={<ArrowRightLeft className="h-5 w-5" />}
         breadcrumbs={[
           { label: 'Dashboard', href: routes.home },
           { label: 'Atleti', href: routes.athletes },
-          { label: 'Assegna atleta' },
+          { label: 'Collaborazioni' },
         ]}
         actions={cediAction}
       />
@@ -1094,7 +1110,12 @@ function CededAthleteCard({
             {athleteName}
           </p>
           <div className="flex flex-wrap items-center gap-1.5">
-            <TrainingModalityBadge modality={item.training_modality} />
+            <TrainingModalityBadge
+              modality={item.training_modality}
+              name={item.category_name}
+              color={item.category_color}
+              isSystem={item.category_is_system}
+            />
             {item.is_recallable ? (
               <Badge variant="secondary" className="text-[10px]">
                 Riprendibile

@@ -27,13 +27,10 @@ import { getPTConnectionsWithPtActive, acceptConnection, rejectConnection } from
 import { AthleteSubscriptionsTab } from '@/components/pt/AthleteSubscriptionsTab';
 import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
-import {
-  TRAINING_MODALITIES,
-  TRAINING_MODALITY_LABELS,
-  isTrainingModality,
-  normalizeTrainingModality,
-  type TrainingModality,
-} from '@/lib/trainingModality';
+import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCategoriesDialog';
+import { listAthleteCategories } from '@/lib/api/athleteCategories';
+import { systemCategoryIdFromSlug } from '@/lib/athleteCategories';
+import { isTrainingModality } from '@/lib/trainingModality';
 import { 
   Users, 
   Search, 
@@ -45,7 +42,8 @@ import {
   UserRoundPlus,
   Check,
   X,
-  Package
+  Package,
+  Tags,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -77,19 +75,27 @@ export function PTAppAthletesPage() {
   const [addAthleteTab, setAddAthleteTab] = useState<'link' | 'create'>('link');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string } | null>(null);
+  const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
 
-
-  const modalityFilter = searchParams.get('modality');
-  const activeModality: TrainingModality | 'all' = isTrainingModality(modalityFilter)
-    ? modalityFilter
+  const categoryFilterParam = searchParams.get('category') ?? searchParams.get('modality');
+  const activeCategoryId: string | 'all' = categoryFilterParam
+    ? isTrainingModality(categoryFilterParam)
+      ? systemCategoryIdFromSlug(categoryFilterParam)
+      : categoryFilterParam
     : 'all';
 
-  const setModalityFilter = (value: TrainingModality | 'all') => {
+  const setCategoryFilter = (value: string | 'all') => {
     const next = new URLSearchParams(searchParams);
-    if (value === 'all') next.delete('modality');
-    else next.set('modality', value);
+    next.delete('modality');
+    if (value === 'all') next.delete('category');
+    else next.set('category', value);
     setSearchParams(next, { replace: true });
   };
+
+  const { data: athleteCategories = [] } = useQuery({
+    queryKey: ['pt-athlete-categories'],
+    queryFn: () => listAthleteCategories(),
+  });
 
   // Tab -> URL
   const handleTabChange = (value: string) => {
@@ -118,7 +124,10 @@ export function PTAppAthletesPage() {
       setActiveTab(t);
       return;
     }
-    if (!t && isTrainingModality(searchParams.get('modality'))) {
+    if (
+      !t &&
+      (searchParams.get('category') || isTrainingModality(searchParams.get('modality')))
+    ) {
       setActiveTab('active');
     }
   }, [searchParams]);
@@ -223,14 +232,16 @@ export function PTAppAthletesPage() {
   const filteredConnections = useMemo(() => {
     if (!connections) return [];
     return connections.filter((conn) => {
-      if (activeTab === 'active' && activeModality !== 'all') {
-        if (normalizeTrainingModality(conn.training_modality) !== activeModality) return false;
+      if (activeTab === 'active' && activeCategoryId !== 'all') {
+        const connCategoryId =
+          conn.category_id || systemCategoryIdFromSlug(conn.training_modality);
+        if (connCategoryId !== activeCategoryId) return false;
       }
       if (!searchQuery) return true;
       const name = `${conn.profiles?.first_name || ''} ${conn.profiles?.last_name || ''}`.toLowerCase();
       return name.includes(searchQuery.toLowerCase());
     });
-  }, [connections, searchQuery, activeModality, activeTab]);
+  }, [connections, searchQuery, activeCategoryId, activeTab]);
 
   const activeCount = connections?.length || 0;
 
@@ -277,31 +288,46 @@ export function PTAppAthletesPage() {
         </div>
 
         {activeTab === 'active' && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <Button
               type="button"
               size="sm"
-              variant={activeModality === 'all' ? 'default' : 'outline'}
+              variant={activeCategoryId === 'all' ? 'default' : 'outline'}
               className="h-8 text-xs"
-              onClick={() => setModalityFilter('all')}
+              onClick={() => setCategoryFilter('all')}
             >
               Tutti
             </Button>
-            {TRAINING_MODALITIES.map((m) => (
+            {athleteCategories.map((c) => (
               <Button
-                key={m}
+                key={c.id}
                 type="button"
                 size="sm"
-                variant={activeModality === m ? 'default' : 'outline'}
+                variant={activeCategoryId === c.id ? 'default' : 'outline'}
                 className="h-8 text-xs"
-                onClick={() => setModalityFilter(m)}
+                onClick={() => setCategoryFilter(c.id)}
               >
-                {TRAINING_MODALITY_LABELS[m]}
+                {c.name}
               </Button>
             ))}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs gap-1"
+              onClick={() => setManageCategoriesOpen(true)}
+            >
+              <Tags className="h-3.5 w-3.5" />
+              Gestisci
+            </Button>
           </div>
         )}
       </div>
+
+      <ManageAthleteCategoriesDialog
+        open={manageCategoriesOpen}
+        onOpenChange={setManageCategoriesOpen}
+      />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="p-4">
@@ -331,7 +357,14 @@ export function PTAppAthletesPage() {
               <AthleteCard key={conn.id} connection={conn} type="active" />
             ))
           ) : (
-            <EmptyState type="active" modalityFilter={activeModality} />
+            <EmptyState
+              type="active"
+              categoryLabel={
+                activeCategoryId === 'all'
+                  ? null
+                  : athleteCategories.find((c) => c.id === activeCategoryId)?.name
+              }
+            />
           )}
         </TabsContent>
 
@@ -500,7 +533,13 @@ function AthleteCard({
                 >
                   {isPtActive ? 'Attivo' : 'Disattivo'}
                 </Badge>
-                <TrainingModalityBadge modality={connection.training_modality} />
+                <TrainingModalityBadge
+                  modality={connection.training_modality}
+                  name={connection.athlete_category?.name}
+                  color={connection.athlete_category?.color}
+                  slug={connection.athlete_category?.slug}
+                  isSystem={connection.athlete_category?.is_system}
+                />
                 {connection.atleta_profiles?.fitness_level && (
                   <Badge variant="outline" className="text-xs capitalize">
                     {connection.atleta_profiles.fitness_level}
@@ -533,10 +572,10 @@ function AthleteCard({
 
 function EmptyState({
   type,
-  modalityFilter = 'all',
+  categoryLabel,
 }: {
   type: 'active' | 'pending';
-  modalityFilter?: TrainingModality | 'all';
+  categoryLabel?: string | null;
 }) {
   return (
     <Card className="border-dashed">
@@ -545,14 +584,14 @@ function EmptyState({
           <>
             <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="font-semibold mb-2">
-              {modalityFilter === 'all'
+              {!categoryLabel
                 ? 'Nessun atleta attivo'
-                : `Nessun atleta ${TRAINING_MODALITY_LABELS[modalityFilter].toLowerCase()}`}
+                : `Nessun atleta in «${categoryLabel}»`}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {modalityFilter === 'all'
+              {!categoryLabel
                 ? 'I tuoi atleti collegati appariranno qui'
-                : 'Prova un altro filtro modalità o cambia la categoria dell\'atleta dal dettaglio'}
+                : 'Prova un altro filtro o cambia la categoria dell\'atleta dal dettaglio'}
             </p>
           </>
         ) : (

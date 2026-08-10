@@ -106,15 +106,31 @@ export function PTAthleteDetailPage() {
       if (!atletaId || !user?.id) return null;
 
       // Get connection (no throw: una connessione mancante è uno stato valido)
-      const { data: connection, error: connError } = await supabase
-        .from('pt_atleta_connections')
-        .select('*')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let connection: any = null;
+      const withCategory = await (supabase.from('pt_atleta_connections') as any)
+        .select('*, athlete_category:pt_athlete_categories(id, name, slug, color, is_system)')
         .eq('atleta_user_id', atletaId)
         .eq('pt_user_id', user.id)
         .maybeSingle();
 
-      if (connError) {
-        console.warn('[PTAthleteDetail] connection lookup failed', connError.message);
+      if (withCategory.error) {
+        const fallback = await supabase
+          .from('pt_atleta_connections')
+          .select('*')
+          .eq('atleta_user_id', atletaId)
+          .eq('pt_user_id', user.id)
+          .maybeSingle();
+        if (fallback.error) {
+          console.warn('[PTAthleteDetail] connection lookup failed', fallback.error.message);
+        }
+        connection = fallback.data ?? null;
+      } else {
+        const row = withCategory.data;
+        const embedded = Array.isArray(row?.athlete_category)
+          ? row.athlete_category[0] ?? null
+          : row?.athlete_category ?? null;
+        connection = row ? { ...row, athlete_category: embedded } : null;
       }
 
       // Get profile
@@ -159,8 +175,20 @@ export function PTAthleteDetailPage() {
 
   const { connection, profile, atletaProfile } = athlete;
   const isPtActive = (connection as { is_pt_active?: boolean } | null)?.is_pt_active !== false;
-  const trainingModality = (connection as { training_modality?: string | null } | null)
-    ?.training_modality;
+  const connectionMeta = connection as {
+    training_modality?: string | null;
+    category_id?: string | null;
+    athlete_category?: {
+      id: string;
+      name: string;
+      slug: string | null;
+      color: string | null;
+      is_system: boolean;
+    } | null;
+  } | null;
+  const trainingModality = connectionMeta?.training_modality;
+  const categoryId = connectionMeta?.category_id;
+  const athleteCategory = connectionMeta?.athlete_category;
   const ptManagedStatus =
     connection?.status === 'active'
       ? isPtActive
@@ -221,7 +249,13 @@ export function PTAthleteDetailPage() {
                 </Badge>
               )}
               {connection?.status === 'active' && (
-                <TrainingModalityBadge modality={trainingModality} />
+                <TrainingModalityBadge
+                  modality={trainingModality}
+                  name={athleteCategory?.name}
+                  color={athleteCategory?.color}
+                  slug={athleteCategory?.slug}
+                  isSystem={athleteCategory?.is_system}
+                />
               )}
             </div>
           </CardHeader>
@@ -245,6 +279,7 @@ export function PTAthleteDetailPage() {
                 connectionId={connection.id}
                 atletaUserId={atletaId}
                 modality={trainingModality}
+                categoryId={categoryId}
                 ptUserId={user?.id}
               />
             )}
