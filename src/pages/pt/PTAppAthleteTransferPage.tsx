@@ -94,6 +94,7 @@ export function PTAppAthleteTransferPage() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<ListTab>('collaboratori');
+  const [listSearch, setListSearch] = useState('');
   const [cediOpen, setCediOpen] = useState(false);
   const [athleteSearch, setAthleteSearch] = useState('');
   const [modalityFilter, setModalityFilter] = useState<ModalityFilter>('all');
@@ -156,6 +157,8 @@ export function PTAppAthleteTransferPage() {
     enabled: !!user?.id && activeTab === 'ricevuti',
   });
 
+  const listSearchQuery = listSearch.trim().toLowerCase();
+
   /** Collaboratori = destinazione PT di almeno un atleta ceduto. */
   const collaboratorGroups = useMemo(() => {
     type PtGroup = {
@@ -185,6 +188,55 @@ export function PTAppAthleteTransferPage() {
       return an.localeCompare(bn, 'it');
     });
   }, [cededAthletes]);
+
+  const filteredCollaboratorGroups = useMemo(() => {
+    if (!listSearchQuery) return collaboratorGroups;
+    return collaboratorGroups.filter((group) => {
+      const ptLabel =
+        group.pt_user_id === '__unknown__'
+          ? 'pt non disponibile'
+          : formatPtName(group.first_name, group.last_name).toLowerCase();
+      if (ptLabel.includes(listSearchQuery)) return true;
+      return group.athletes.some((athlete) => {
+        const athleteName = getAthleteDisplayName(
+          athlete.first_name,
+          athlete.last_name,
+          athlete.email,
+        ).toLowerCase();
+        return athleteName.includes(listSearchQuery);
+      });
+    });
+  }, [collaboratorGroups, listSearchQuery]);
+
+  const filteredCededAthletes = useMemo(() => {
+    const items = cededAthletes ?? [];
+    if (!listSearchQuery) return items;
+    return items.filter((item) => {
+      const athleteName = getAthleteDisplayName(
+        item.first_name,
+        item.last_name,
+        item.email,
+      ).toLowerCase();
+      const destinationPt = formatPtName(
+        item.current_pt_first_name,
+        item.current_pt_last_name,
+      ).toLowerCase();
+      return athleteName.includes(listSearchQuery) || destinationPt.includes(listSearchQuery);
+    });
+  }, [cededAthletes, listSearchQuery]);
+
+  const filteredReceivedAthletes = useMemo(() => {
+    const items = receivedAthletes ?? [];
+    if (!listSearchQuery) return items;
+    return items.filter((item) => {
+      const athleteName = getAthleteDisplayName(
+        item.first_name,
+        item.last_name,
+      ).toLowerCase();
+      const fromPt = formatPtName(item.from_pt_first_name, item.from_pt_last_name).toLowerCase();
+      return athleteName.includes(listSearchQuery) || fromPt.includes(listSearchQuery);
+    });
+  }, [receivedAthletes, listSearchQuery]);
 
   const filteredAthletes = useMemo(() => {
     const q = athleteSearch.trim().toLowerCase();
@@ -337,6 +389,17 @@ export function PTAppAthleteTransferPage() {
           </TabsTrigger>
         </TabsList>
 
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-app-muted-foreground" />
+          <Input
+            placeholder="Cerca per nome…"
+            value={listSearch}
+            onChange={(e) => setListSearch(e.target.value)}
+            className="pl-9 bg-app-background border-app-border"
+            aria-label="Cerca per nome"
+          />
+        </div>
+
         {/* ── COLLABORATORI (PT destinazione delle cessioni) ── */}
         <TabsContent value="collaboratori" className="space-y-3 mt-0">
           <p className="text-xs text-app-muted-foreground">
@@ -362,8 +425,14 @@ export function PTAppAthleteTransferPage() {
                 </Button>
               </CardContent>
             </Card>
+          ) : filteredCollaboratorGroups.length === 0 ? (
+            <Card className="bg-app-card border-app-border">
+              <CardContent className="p-6 text-center text-sm text-app-muted-foreground">
+                Nessun risultato
+              </CardContent>
+            </Card>
           ) : (
-            collaboratorGroups.map((group) => {
+            filteredCollaboratorGroups.map((group) => {
               const expanded = expandedCollabIds.includes(group.pt_user_id);
               const ptLabel =
                 group.pt_user_id === '__unknown__'
@@ -450,8 +519,14 @@ export function PTAppAthleteTransferPage() {
                 </Button>
               </CardContent>
             </Card>
+          ) : filteredCededAthletes.length === 0 ? (
+            <Card className="bg-app-card border-app-border">
+              <CardContent className="p-6 text-center text-sm text-app-muted-foreground">
+                Nessun risultato
+              </CardContent>
+            </Card>
           ) : (
-            (cededAthletes ?? []).map((item) => (
+            filteredCededAthletes.map((item) => (
               <CededAthleteCard
                 key={item.atleta_user_id}
                 item={item}
@@ -478,8 +553,14 @@ export function PTAppAthleteTransferPage() {
                 Nessun atleta ricevuto da altri PT.
               </CardContent>
             </Card>
+          ) : filteredReceivedAthletes.length === 0 ? (
+            <Card className="bg-app-card border-app-border">
+              <CardContent className="p-6 text-center text-sm text-app-muted-foreground">
+                Nessun risultato
+              </CardContent>
+            </Card>
           ) : (
-            (receivedAthletes ?? []).map((item) => (
+            filteredReceivedAthletes.map((item) => (
               <Card key={item.id} className="bg-app-card border-app-border">
                 <CardContent className="p-4 flex items-center gap-3">
                   <Avatar className="h-11 w-11">
