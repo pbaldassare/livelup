@@ -40,6 +40,7 @@ import {
   type CededAthlete,
   type PtTransferTarget,
 } from '@/lib/api/connections';
+import { listOwnedAthleteIds } from '@/lib/api/collaborators';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
 import {
   TRAINING_MODALITIES,
@@ -112,13 +113,16 @@ export function PTAppAthleteTransferPage() {
     queryKey: ['pt-transfer-my-athletes', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
+      // Solo atleti di cui sei titolare possono essere ceduti (non i ricevuti in coaching)
+      const ownedIds = new Set(await listOwnedAthleteIds(user.id));
       const connections = await getPTConnectionsWithPtActive(user.id, {
         status: 'active',
         columns: 'list',
         orderByCreatedAt: true,
       });
+      const cedable = connections.filter((conn) => ownedIds.has(conn.atleta_user_id));
       const withProfiles = await Promise.all(
-        connections.map(async (conn) => {
+        cedable.map(async (conn) => {
           const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name, avatar_url, email')
@@ -355,7 +359,7 @@ export function PTAppAthleteTransferPage() {
   return (
     <PTAppPageShell
       title="Assegna atleta"
-      description="Cedi atleti a un altro PT, consulta chi li ha ricevuti e riprendili quando possibile."
+      description="Cedi atleti a un altro PT restando titolare: entrambi potete coachare; solo tu gestisci ripresa e abbonamenti."
       showBack
       backTo="/pt/app/athletes"
       actions={
@@ -859,16 +863,19 @@ export function PTAppAthleteTransferPage() {
             <AlertDialogDescription>
               {selectedAthletes.length === 1 ? (
                 <>
-                  L&apos;atleta uscirà dalla tua lista attiva e apparirà nel profilo di{' '}
+                  L&apos;atleta resterà nella tua lista (resti titolare) e potrà essere seguito anche
+                  da{' '}
                   <strong>{formatPtName(selectedPt?.first_name, selectedPt?.last_name)}</strong>.
-                  Potrai comunque consultarlo in Ceduti e Collaboratori.
+                  Comparirà in Ceduti e Collaboratori; solo tu potrai riprenderlo o gestire
+                  abbonamenti.
                 </>
               ) : (
                 <>
-                  Gli atleti selezionati usciranno dalla tua lista attiva e appariranno nel profilo
-                  di{' '}
+                  Gli atleti resteranno nella tua lista (resti titolare) e potranno essere seguiti
+                  anche da{' '}
                   <strong>{formatPtName(selectedPt?.first_name, selectedPt?.last_name)}</strong>.
-                  Resteranno visibili in Ceduti e Collaboratori.
+                  Compariranno in Ceduti e Collaboratori; solo tu potrai riprenderli o gestire
+                  abbonamenti.
                 </>
               )}
             </AlertDialogDescription>

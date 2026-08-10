@@ -29,6 +29,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { listOwnedAthleteIds } from '@/lib/api/collaborators';
 import { toast } from 'sonner';
 import { format, addDays, addMonths } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -90,11 +91,13 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
   const [couponError, setCouponError] = useState<string>('');
   const [verifyingCoupon, setVerifyingCoupon] = useState(false);
 
-  // Fetch connected athletes
+  // Solo atleti di cui sei titolare (non ricevuti via cessione)
   const { data: athletes = [] } = useQuery({
-    queryKey: ['pt-connected-athletes', user?.id],
+    queryKey: ['pt-owned-connected-athletes', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
+
+      const ownedIds = new Set(await listOwnedAthleteIds(user.id));
 
       const { data, error } = await supabase
         .from('pt_atleta_connections')
@@ -104,9 +107,10 @@ export function CreateSubscriptionDialog({ open, onOpenChange }: CreateSubscript
 
       if (error) throw error;
 
-      // Fetch profiles
+      const ownedConns = (data || []).filter((conn) => ownedIds.has(conn.atleta_user_id));
+
       const athletesWithProfiles = await Promise.all(
-        (data || []).map(async (conn) => {
+        ownedConns.map(async (conn) => {
           const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name, avatar_url, email')

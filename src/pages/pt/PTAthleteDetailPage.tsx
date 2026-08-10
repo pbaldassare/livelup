@@ -43,6 +43,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
+import { useAthleteOwner } from '@/hooks/useAthleteOwner';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 
 // =====================================================
@@ -57,6 +58,7 @@ export function PTAthleteDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isOwner, isLoading: ownershipLoading } = useAthleteOwner(atletaId);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignTemplateId, setAssignTemplateId] = useState<string | undefined>();
   const [runningWorkoutId, setRunningWorkoutId] = useState<string | null>(null);
@@ -208,6 +210,11 @@ export function PTAthleteDetailPage() {
                   label={connection?.status === 'active' ? (isPtActive ? 'Attivo' : 'Disattivo') : undefined}
                 />
               )}
+              {!ownershipLoading && connection?.status === 'active' && (
+                <Badge variant={isOwner ? 'default' : 'secondary'}>
+                  {isOwner ? 'Titolare' : 'In coaching'}
+                </Badge>
+              )}
               {atletaProfile?.level && (
                 <Badge variant="outline" className="capitalize">
                   {atletaProfile.level}
@@ -219,6 +226,12 @@ export function PTAthleteDetailPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {!ownershipLoading && !isOwner && connection?.status === 'active' && (
+              <p className="text-xs text-muted-foreground rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-left">
+                Coaching condiviso: puoi gestire schede, appuntamenti e progressi. Cessione,
+                ripresa, abbonamenti e azioni commerciali restano del PT titolare.
+              </p>
+            )}
             {isApp && connection?.status === 'active' && connection.id && atletaId && (
               <AthletePtActiveToggle
                 connectionId={connection.id}
@@ -245,6 +258,16 @@ export function PTAthleteDetailPage() {
               <MessageSquare className="h-4 w-4 mr-2" />
               Chat
             </Button>
+
+            {isOwner && atletaId && routes.athleteTransfer && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate(routes.athleteTransfer!)}
+              >
+                Cedi / Riprendi
+              </Button>
+            )}
 
             <Separator />
 
