@@ -22,6 +22,7 @@ import {
   UsersRound,
   Search,
   GraduationCap,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -40,6 +41,7 @@ interface PTDashboardLayoutProps {
 const navigationItems = [
   { label: 'Dashboard', href: '/pt', icon: LayoutDashboard, exact: true },
   { label: 'Atleti', href: '/pt/athletes', icon: Users },
+  { label: 'Assegna atleta', href: '/pt/athlete-transfer', icon: ArrowRightLeft },
   { label: 'Allenamenti', href: '/pt/workouts', icon: Dumbbell },
   { label: 'Assistente', href: '/pt/assistant', icon: Bot },
   { label: 'Archivio Esercizi', href: '/pt/exercises', icon: Library },

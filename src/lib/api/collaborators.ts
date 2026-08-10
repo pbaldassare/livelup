@@ -320,6 +320,34 @@ export async function getAthleteOwnerPt(atletaUserId: string): Promise<string | 
   return (data as string | null) ?? null;
 }
 
+/** True if PT is titolare in pt_athlete_owners (RPC is_athlete_owner when available). */
+export async function isAthleteOwner(
+  atletaUserId: string,
+  ptUserId: string,
+): Promise<boolean> {
+  const { data, error } = await db().rpc('is_athlete_owner', {
+    _atleta_user_id: atletaUserId,
+    _pt_user_id: ptUserId,
+  });
+
+  if (!error) {
+    return Boolean(data);
+  }
+
+  const msg = (error.message ?? '').toLowerCase();
+  const missing =
+    error.code === 'PGRST202' ||
+    msg.includes('is_athlete_owner') ||
+    msg.includes('could not find the function');
+
+  if (!missing) {
+    throw new Error(error.message);
+  }
+
+  const owner = await getAthleteOwnerPt(atletaUserId);
+  return owner != null && owner === ptUserId;
+}
+
 export async function assignAthleteToCollaborators(params: {
   atletaUserId: string;
   collaboratorPtIds: string[];
