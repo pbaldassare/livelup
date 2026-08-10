@@ -1,84 +1,73 @@
 // =====================================================
-// Categorie cliente atleta (sistema + catalogo PT)
+// Categorie cliente — schema Lovable Cloud:
+// id, pt_user_id, name, slug, is_system (+ updated_at)
 // =====================================================
-
-export const SYSTEM_CATEGORY_IDS = {
-  in_presenza: 'a1111111-1111-4111-8111-111111111101',
-  online: 'a1111111-1111-4111-8111-111111111102',
-  mix: 'a1111111-1111-4111-8111-111111111103',
-} as const;
-
-export type SystemCategorySlug = keyof typeof SYSTEM_CATEGORY_IDS;
 
 export interface AthleteCategory {
   id: string;
   pt_user_id: string | null;
   name: string;
-  slug: string | null;
-  color: string | null;
-  sort_order: number;
+  slug: string;
   is_system: boolean;
-  is_active: boolean;
 }
 
-/** Sempre disponibili in UI anche se la migration non è ancora su Cloud. */
-export const SYSTEM_BASE_CATEGORIES: AthleteCategory[] = [
-  {
-    id: SYSTEM_CATEGORY_IDS.in_presenza,
-    pt_user_id: null,
-    name: 'In presenza',
-    slug: 'in_presenza',
-    color: null,
-    sort_order: 10,
-    is_system: true,
-    is_active: true,
-  },
-  {
-    id: SYSTEM_CATEGORY_IDS.online,
-    pt_user_id: null,
-    name: 'Online',
-    slug: 'online',
-    color: null,
-    sort_order: 20,
-    is_system: true,
-    is_active: true,
-  },
-  {
-    id: SYSTEM_CATEGORY_IDS.mix,
-    pt_user_id: null,
-    name: 'Mix',
-    slug: 'mix',
-    color: null,
-    sort_order: 30,
-    is_system: true,
-    is_active: true,
-  },
+export const SYSTEM_CATEGORY_SLUGS = ['in_presenza', 'online', 'mix'] as const;
+export type SystemCategorySlug = (typeof SYSTEM_CATEGORY_SLUGS)[number];
+
+export const SYSTEM_CATEGORY_LABELS: Record<SystemCategorySlug, string> = {
+  in_presenza: 'In presenza',
+  online: 'Online',
+  mix: 'Mix',
+};
+
+/** Solo UI se il backend non risponde; gli id non sono usati per write. */
+export const SYSTEM_BASE_CATEGORIES_FALLBACK: AthleteCategory[] = [
+  { id: 'fallback-in_presenza', pt_user_id: null, name: 'In presenza', slug: 'in_presenza', is_system: true },
+  { id: 'fallback-online', pt_user_id: null, name: 'Online', slug: 'online', is_system: true },
+  { id: 'fallback-mix', pt_user_id: null, name: 'Mix', slug: 'mix', is_system: true },
 ];
 
-export const ATHLETE_CATEGORIES_MIGRATION_HINT =
-  'Categorie non disponibili sul backend: applica su Lovable la migration 20260810150000_pt_athlete_categories.sql';
+/** @deprecated alias — prefer SYSTEM_BASE_CATEGORIES_FALLBACK */
+export const SYSTEM_BASE_CATEGORIES = SYSTEM_BASE_CATEGORIES_FALLBACK;
 
-export function mergeWithSystemCategories(rows: AthleteCategory[]): AthleteCategory[] {
-  const byId = new Map<string, AthleteCategory>();
-  for (const sys of SYSTEM_BASE_CATEGORIES) byId.set(sys.id, sys);
-  for (const row of rows) {
-    byId.set(row.id, {
-      ...row,
-      is_system: Boolean(row.is_system),
-      is_active: row.is_active !== false,
-    });
-  }
-  return Array.from(byId.values()).sort((a, b) => {
-    if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;
-    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
-    return a.name.localeCompare(b.name, 'it');
-  });
+export const ATHLETE_CATEGORIES_MIGRATION_HINT =
+  'Categorie non disponibili sul backend. Controlla che la tabella pt_athlete_categories sia presente su Lovable Cloud.';
+
+export function isSystemCategorySlug(value: unknown): value is SystemCategorySlug {
+  return value === 'in_presenza' || value === 'online' || value === 'mix';
 }
 
-export function systemCategoryIdFromSlug(slug: string | null | undefined): string {
-  if (slug === 'in_presenza') return SYSTEM_CATEGORY_IDS.in_presenza;
-  if (slug === 'online') return SYSTEM_CATEGORY_IDS.online;
-  return SYSTEM_CATEGORY_IDS.mix;
+export function slugifyCategoryName(name: string): string {
+  const base =
+    name
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 40) || 'categoria';
+  return `${base}_${Date.now().toString(36).slice(-5)}`;
+}
+
+export function resolveCategoryId(
+  categoryId: string | null | undefined,
+  trainingModality: string | null | undefined,
+  categories: AthleteCategory[],
+): string | null {
+  if (categoryId) return categoryId;
+  const slug = isSystemCategorySlug(trainingModality) ? trainingModality : 'mix';
+  return categories.find((c) => c.is_system && c.slug === slug)?.id ?? null;
+}
+
+/** Compat: risolve id di sistema da slug usando la lista caricata (o fallback UI). */
+export function systemCategoryIdFromSlug(
+  slug: string | null | undefined,
+  categories?: AthleteCategory[],
+): string {
+  const list = categories?.length ? categories : SYSTEM_BASE_CATEGORIES_FALLBACK;
+  const key = isSystemCategorySlug(slug) ? slug : 'mix';
+  return list.find((c) => c.is_system && c.slug === key)?.id ?? SYSTEM_BASE_CATEGORIES_FALLBACK[2].id;
 }
 
 export function categoryDisplayName(
@@ -87,4 +76,14 @@ export function categoryDisplayName(
 ): string {
   const name = category?.name?.trim();
   return name || fallback;
+}
+
+export function sortAthleteCategories(rows: AthleteCategory[]): AthleteCategory[] {
+  return [...rows].sort((a, b) => {
+    if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;
+    const ai = SYSTEM_CATEGORY_SLUGS.indexOf(a.slug as SystemCategorySlug);
+    const bi = SYSTEM_CATEGORY_SLUGS.indexOf(b.slug as SystemCategorySlug);
+    if (a.is_system && b.is_system && ai !== -1 && bi !== -1) return ai - bi;
+    return a.name.localeCompare(b.name, 'it');
+  });
 }

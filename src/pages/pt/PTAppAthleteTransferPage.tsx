@@ -45,7 +45,7 @@ import {
 import { listOwnedAthleteIds } from '@/lib/api/collaborators';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
 import { listAthleteCategories } from '@/lib/api/athleteCategories';
-import { systemCategoryIdFromSlug } from '@/lib/athleteCategories';
+import { resolveCategoryId } from '@/lib/athleteCategories';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
@@ -253,7 +253,7 @@ export function PTAppAthleteTransferPage() {
     const q = athleteSearch.trim().toLowerCase();
     return (myAthletes ?? []).filter((a) => {
       if (categoryFilter !== 'all') {
-        const id = a.category_id || systemCategoryIdFromSlug(a.training_modality);
+        const id = resolveCategoryId(a.category_id, a.training_modality, athleteCategories);
         if (id !== categoryFilter) return false;
       }
       if (!q) return true;
@@ -264,7 +264,7 @@ export function PTAppAthleteTransferPage() {
       ).toLowerCase();
       return name.includes(q);
     });
-  }, [myAthletes, athleteSearch, categoryFilter]);
+  }, [myAthletes, athleteSearch, categoryFilter, athleteCategories]);
 
   const selectedAthletes = useMemo(
     () => (myAthletes ?? []).filter((a) => selectedAthleteIds.includes(a.atleta_user_id)),
@@ -833,8 +833,11 @@ export function PTAppAthleteTransferPage() {
                                   athleteCategories.find(
                                     (c) =>
                                       c.id ===
-                                      (a.category_id ||
-                                        systemCategoryIdFromSlug(a.training_modality)),
+                                      resolveCategoryId(
+                                        a.category_id,
+                                        a.training_modality,
+                                        athleteCategories,
+                                      ),
                                   )?.name ||
                                   'Mix'}
                                 )

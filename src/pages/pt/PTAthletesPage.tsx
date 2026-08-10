@@ -46,7 +46,7 @@ import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
 import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCategoriesDialog';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
 import { listAthleteCategories } from '@/lib/api/athleteCategories';
-import { systemCategoryIdFromSlug } from '@/lib/athleteCategories';
+import { resolveCategoryId } from '@/lib/athleteCategories';
 
 // =====================================================
 // PT ATHLETES PAGE - CRM Atleti con paginazione
@@ -116,7 +116,7 @@ export function PTAthletesPage() {
       const withCategory = await (supabase.from('pt_atleta_connections') as any)
         .select(
           `id, atleta_user_id, status, requested_at, accepted_at, training_modality, category_id,
-           athlete_category:pt_athlete_categories(id, name, slug, color, is_system)`,
+           athlete_category:pt_athlete_categories(id, name, slug, is_system)`,
         )
         .eq('pt_user_id', user.id)
         .order('created_at', { ascending: false });
@@ -233,8 +233,11 @@ export function PTAthletesPage() {
                             conn.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
       if (activeTab === 'active' && categoryFilter !== 'all') {
-        const connCategoryId =
-          conn.category_id || systemCategoryIdFromSlug(conn.training_modality);
+        const connCategoryId = resolveCategoryId(
+          conn.category_id,
+          conn.training_modality,
+          athleteCategories,
+        );
         if (connCategoryId !== categoryFilter) return false;
       }
       
@@ -243,7 +246,7 @@ export function PTAthletesPage() {
       if (activeTab === 'terminated') return (conn.status === 'terminated' || conn.status === 'terminato') && matchesSearch;
       return matchesSearch;
     });
-  }, [connections, searchTerm, activeTab, categoryFilter]);
+  }, [connections, searchTerm, activeTab, categoryFilter, athleteCategories]);
 
   const totalPages = Math.ceil(filteredConnections.length / pageSize);
   const paginatedConnections = useMemo(() => {

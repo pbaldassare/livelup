@@ -152,7 +152,7 @@ export async function sendMessage(params: {
 // =====================================================
 
 export async function markMessagesAsRead(chatId: string, userId: string) {
-  // RPC SECURITY DEFINER: RLS allows only sender UPDATE, so direct update cannot mark received msgs.
+  // RPC SECURITY DEFINER: RLS permette UPDATE solo al mittente.
   const { error: rpcError } = await (supabase.rpc as any)('mark_messages_as_read', {
     _chat_id: chatId,
   });
@@ -169,21 +169,19 @@ export async function markMessagesAsRead(chatId: string, userId: string) {
     throw new Error('Errore aggiornamento lettura: ' + rpcError.message);
   }
 
-  // Fallback (pre-migration): will no-op under current RLS, but keeps clients from crashing
-  const { error } = await supabase
+  // Fallback legacy (no-op sotto RLS attuale se la RPC manca)
+  const { error: updateError } = await supabase
     .from('messages')
-    .update({
-      is_read: true,
-      read_at: new Date().toISOString(),
-    })
+    .update({ is_read: true, read_at: new Date().toISOString() })
     .eq('chat_id', chatId)
     .neq('sender_user_id', userId)
     .eq('is_read', false);
 
-  if (error) {
-    throw new Error('Errore aggiornamento lettura: ' + error.message);
+  if (updateError) {
+    throw new Error('Errore aggiornamento lettura: ' + updateError.message);
   }
 }
+
 
 // =====================================================
 // CONTA MESSAGGI NON LETTI

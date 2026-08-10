@@ -12,7 +12,7 @@ import {
   listAthleteCategories,
   setAthleteCategory,
 } from '@/lib/api/athleteCategories';
-import { systemCategoryIdFromSlug } from '@/lib/athleteCategories';
+import { resolveCategoryId } from '@/lib/athleteCategories';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -39,7 +39,7 @@ export function AthleteCategorySelect({
     queryFn: () => listAthleteCategories(),
   });
 
-  const value = categoryId || systemCategoryIdFromSlug(modality);
+  const value = resolveCategoryId(categoryId, modality, categories) ?? undefined;
 
   const mutation = useMutation({
     mutationFn: (nextId: string) =>

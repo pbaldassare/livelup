@@ -2078,6 +2078,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pt_athlete_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_system: boolean
+          name: string
+          pt_user_id: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name: string
+          pt_user_id?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          pt_user_id?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pt_athlete_collaborator_assignments: {
         Row: {
           assigned_at: string
@@ -2178,6 +2208,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           atleta_user_id: string
+          category_id: string | null
           created_at: string
           id: string
           is_primary: boolean
@@ -2193,6 +2224,7 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           atleta_user_id: string
+          category_id?: string | null
           created_at?: string
           id?: string
           is_primary?: boolean
@@ -2208,6 +2240,7 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           atleta_user_id?: string
+          category_id?: string | null
           created_at?: string
           id?: string
           is_primary?: boolean
@@ -2220,7 +2253,15 @@ export type Database = {
           training_modality?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pt_atleta_connections_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "pt_athlete_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pt_atleta_transfers: {
         Row: {
@@ -4229,6 +4270,10 @@ export type Database = {
         }
         Returns: string
       }
+      _ensure_athlete_owner: {
+        Args: { _atleta_user_id: string; _owner_pt_user_id: string }
+        Returns: string
+      }
       admin_set_group_official: {
         Args: { _group_id: string; _is_official: boolean }
         Returns: undefined
@@ -4399,6 +4444,8 @@ export type Database = {
         Returns: {
           atleta_user_id: string
           avatar_url: string
+          category_id: string
+          category_name: string
           current_pt_first_name: string
           current_pt_last_name: string
           current_pt_user_id: string
@@ -4470,6 +4517,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_athlete_owner: {
+        Args: { _atleta_user_id: string; _pt_user_id: string }
+        Returns: boolean
+      }
       is_atleta: { Args: { _user_id: string }; Returns: boolean }
       is_chat_group_participant: {
         Args: { _group_id: string; _user_id: string }
@@ -4527,6 +4578,7 @@ export type Database = {
           owner_pt_user_id: string
         }[]
       }
+      mark_messages_as_read: { Args: { _chat_id: string }; Returns: undefined }
       move_athlete_to_collaborator: {
         Args: {
           _atleta_user_id: string
@@ -4582,6 +4634,10 @@ export type Database = {
           rating_avg: number
           user_id: string
         }[]
+      }
+      set_athlete_category: {
+        Args: { _category_id: string; _connection_id: string }
+        Returns: undefined
       }
       set_atleta_primary_pt: {
         Args: { _pt_user_id: string }

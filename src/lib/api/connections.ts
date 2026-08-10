@@ -4,11 +4,11 @@
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';
-import { SYSTEM_CATEGORY_IDS } from '@/lib/athleteCategories';
 import {
   isTrainingModality,
   type TrainingModality,
 } from '@/lib/trainingModality';
+import { getSystemCategoryIdBySlug } from '@/lib/api/athleteCategories';
 
 export interface PtConnectionCategory {
   id: string;
@@ -130,8 +130,8 @@ export async function getPTConnectionsWithPtActive(
   const status = options?.status;
   const withAll =
     options?.columns === 'list'
-      ? 'id, atleta_user_id, status, is_pt_active, training_modality, category_id, created_at, accepted_at, athlete_category:pt_athlete_categories(id, name, slug, color, is_system)'
-      : 'atleta_user_id, is_pt_active, training_modality, category_id, athlete_category:pt_athlete_categories(id, name, slug, color, is_system)';
+      ? 'id, atleta_user_id, status, is_pt_active, training_modality, category_id, created_at, accepted_at, athlete_category:pt_athlete_categories(id, name, slug, is_system)'
+      : 'atleta_user_id, is_pt_active, training_modality, category_id, athlete_category:pt_athlete_categories(id, name, slug, is_system)';
   const withoutCategory =
     options?.columns === 'list'
       ? 'id, atleta_user_id, status, is_pt_active, training_modality, created_at, accepted_at'
@@ -396,24 +396,26 @@ export async function setAthleteTrainingModality(
     throw new Error('Modalità non valida');
   }
 
-  // Prefer category_id (system) when available; keep training_modality sync via trigger
-  const categoryId = SYSTEM_CATEGORY_IDS[modality];
+  // Prefer category_id (system, lookup by slug) when available
+  const categoryId = await getSystemCategoryIdBySlug(modality);
 
-  const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('set_athlete_category', {
-    _connection_id: connectionId,
-    _category_id: categoryId,
-  });
+  if (categoryId) {
+    const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('set_athlete_category', {
+      _connection_id: connectionId,
+      _category_id: categoryId,
+    });
 
-  if (!rpcError) return rpcData;
+    if (!rpcError) return rpcData;
 
-  const rpcMsg = (rpcError.message ?? '').toLowerCase();
-  const missingRpc =
-    rpcError.code === 'PGRST202' ||
-    rpcMsg.includes('set_athlete_category') ||
-    rpcMsg.includes('could not find the function');
+    const rpcMsg = (rpcError.message ?? '').toLowerCase();
+    const missingRpc =
+      rpcError.code === 'PGRST202' ||
+      rpcMsg.includes('set_athlete_category') ||
+      rpcMsg.includes('could not find the function');
 
-  if (!missingRpc) {
-    throw new Error(rpcError.message || 'Errore durante l\'aggiornamento modalità');
+    if (!missingRpc) {
+      throw new Error(rpcError.message || 'Errore durante l\'aggiornamento modalità');
+    }
   }
 
   const { data, error } = await (supabase.from('pt_atleta_connections') as any)

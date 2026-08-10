@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  archiveAthleteCategory,
   createAthleteCategory,
   deleteAthleteCategory,
   listAthleteCategories,
@@ -22,7 +21,7 @@ import {
 } from '@/lib/api/athleteCategories';
 import {
   ATHLETE_CATEGORIES_MIGRATION_HINT,
-  SYSTEM_BASE_CATEGORIES,
+  SYSTEM_BASE_CATEGORIES_FALLBACK,
 } from '@/lib/athleteCategories';
 
 interface Props {
@@ -37,13 +36,11 @@ export function ManageAthleteCategoriesDialog({ open, onOpenChange }: Props) {
   const [editingName, setEditingName] = useState('');
 
   const {
-    data: categories = SYSTEM_BASE_CATEGORIES,
+    data: categories = SYSTEM_BASE_CATEGORIES_FALLBACK,
     isLoading,
-    isError,
-    error,
   } = useQuery({
     queryKey: ['pt-athlete-categories', 'manage'],
-    queryFn: () => listAthleteCategories({ includeInactive: true }),
+    queryFn: () => listAthleteCategories(),
     enabled: open,
   });
 
@@ -74,13 +71,7 @@ export function ManageAthleteCategoriesDialog({ open, onOpenChange }: Props) {
   });
 
   const removeMutation = useMutation({
-    mutationFn: async (id: string) => {
-      try {
-        await deleteAthleteCategory(id);
-      } catch {
-        await archiveAthleteCategory(id);
-      }
-    },
+    mutationFn: (id: string) => deleteAthleteCategory(id),
     onSuccess: async () => {
       toast.success('Categoria rimossa');
       await invalidate();
@@ -88,16 +79,18 @@ export function ManageAthleteCategoriesDialog({ open, onOpenChange }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const systemFromDb = categories.filter((c) => c.is_system && !c.id.startsWith('fallback-'));
   const system =
-    categories.filter((c) => Boolean(c.is_system) && c.is_active !== false).length > 0
-      ? categories.filter((c) => Boolean(c.is_system) && c.is_active !== false)
-      : SYSTEM_BASE_CATEGORIES;
+    systemFromDb.length > 0
+      ? systemFromDb
+      : categories.filter((c) => c.is_system).length > 0
+        ? categories.filter((c) => c.is_system)
+        : SYSTEM_BASE_CATEGORIES_FALLBACK;
   const custom = categories.filter((c) => !c.is_system);
-  const migrationHint =
-    (createMutation.error?.message?.includes('20260810150000') ?? false) ||
-    (isError &&
-      error instanceof Error &&
-      error.message.includes('20260810150000'));
+  const showMigrationHint =
+    createMutation.isError ||
+    systemFromDb.length === 0 ||
+    (createMutation.error?.message?.includes('backend') ?? false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -161,9 +154,6 @@ export function ManageAthleteCategoriesDialog({ open, onOpenChange }: Props) {
                         }}
                       >
                         {c.name}
-                        {!c.is_active && (
-                          <span className="ml-2 text-xs text-muted-foreground">(archiviata)</span>
-                        )}
                       </button>
                     )}
                     {editingId === c.id ? (
@@ -193,7 +183,7 @@ export function ManageAthleteCategoriesDialog({ open, onOpenChange }: Props) {
             )}
           </div>
 
-          {migrationHint && (
+          {showMigrationHint && systemFromDb.length === 0 && (
             <p className="text-xs text-amber-700 dark:text-amber-300 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-2">
               {ATHLETE_CATEGORIES_MIGRATION_HINT}
             </p>

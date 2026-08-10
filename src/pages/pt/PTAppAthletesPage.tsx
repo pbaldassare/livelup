@@ -29,7 +29,7 @@ import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
 import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCategoriesDialog';
 import { listAthleteCategories } from '@/lib/api/athleteCategories';
-import { systemCategoryIdFromSlug } from '@/lib/athleteCategories';
+import { isSystemCategorySlug, resolveCategoryId } from '@/lib/athleteCategories';
 import { isTrainingModality } from '@/lib/trainingModality';
 import { 
   Users, 
@@ -78,11 +78,6 @@ export function PTAppAthletesPage() {
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
 
   const categoryFilterParam = searchParams.get('category') ?? searchParams.get('modality');
-  const activeCategoryId: string | 'all' = categoryFilterParam
-    ? isTrainingModality(categoryFilterParam)
-      ? systemCategoryIdFromSlug(categoryFilterParam)
-      : categoryFilterParam
-    : 'all';
 
   const setCategoryFilter = (value: string | 'all') => {
     const next = new URLSearchParams(searchParams);
@@ -96,6 +91,14 @@ export function PTAppAthletesPage() {
     queryKey: ['pt-athlete-categories'],
     queryFn: () => listAthleteCategories(),
   });
+
+  const activeCategoryId: string | 'all' = (() => {
+    if (!categoryFilterParam) return 'all';
+    if (isTrainingModality(categoryFilterParam) || isSystemCategorySlug(categoryFilterParam)) {
+      return resolveCategoryId(null, categoryFilterParam, athleteCategories) ?? 'all';
+    }
+    return categoryFilterParam;
+  })();
 
   // Tab -> URL
   const handleTabChange = (value: string) => {
@@ -233,15 +236,18 @@ export function PTAppAthletesPage() {
     if (!connections) return [];
     return connections.filter((conn) => {
       if (activeTab === 'active' && activeCategoryId !== 'all') {
-        const connCategoryId =
-          conn.category_id || systemCategoryIdFromSlug(conn.training_modality);
+        const connCategoryId = resolveCategoryId(
+          conn.category_id,
+          conn.training_modality,
+          athleteCategories,
+        );
         if (connCategoryId !== activeCategoryId) return false;
       }
       if (!searchQuery) return true;
       const name = `${conn.profiles?.first_name || ''} ${conn.profiles?.last_name || ''}`.toLowerCase();
       return name.includes(searchQuery.toLowerCase());
     });
-  }, [connections, searchQuery, activeCategoryId, activeTab]);
+  }, [connections, searchQuery, activeCategoryId, activeTab, athleteCategories]);
 
   const activeCount = connections?.length || 0;
 
