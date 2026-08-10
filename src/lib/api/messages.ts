@@ -152,20 +152,27 @@ export async function sendMessage(params: {
 // =====================================================
 
 export async function markMessagesAsRead(chatId: string, userId: string) {
-  const { error } = await supabase
-    .from('messages')
-    .update({
-      is_read: true,
-      read_at: new Date().toISOString(),
-    })
-    .eq('chat_id', chatId)
-    .neq('sender_user_id', userId)
-    .eq('is_read', false);
+  // RPC SECURITY DEFINER: le policy RLS permettono l'UPDATE solo al mittente,
+  // quindi senza questa RPC il badge "non letto" non sparirebbe mai.
+  const { error } = await supabase.rpc('mark_messages_as_read', {
+    _chat_id: chatId,
+  } as never);
 
   if (error) {
-    throw new Error('Errore aggiornamento lettura: ' + error.message);
+    // Fallback legacy (se la RPC non è ancora disponibile)
+    const { error: updateError } = await supabase
+      .from('messages')
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq('chat_id', chatId)
+      .neq('sender_user_id', userId)
+      .eq('is_read', false);
+
+    if (updateError) {
+      throw new Error('Errore aggiornamento lettura: ' + updateError.message);
+    }
   }
 }
+
 
 // =====================================================
 // CONTA MESSAGGI NON LETTI
