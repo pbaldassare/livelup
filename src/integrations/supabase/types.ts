@@ -4229,6 +4229,10 @@ export type Database = {
         }
         Returns: string
       }
+      _ensure_athlete_owner: {
+        Args: { _atleta_user_id: string; _owner_pt_user_id: string }
+        Returns: string
+      }
       admin_set_group_official: {
         Args: { _group_id: string; _is_official: boolean }
         Returns: undefined
@@ -4470,6 +4474,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_athlete_owner: {
+        Args: { _atleta_user_id: string; _pt_user_id: string }
+        Returns: boolean
+      }
       is_atleta: { Args: { _user_id: string }; Returns: boolean }
       is_chat_group_participant: {
         Args: { _group_id: string; _user_id: string }
