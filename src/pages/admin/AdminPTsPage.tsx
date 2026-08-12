@@ -1139,21 +1139,28 @@ export function AdminPTsPage() {
                       />
                     </div>
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Modalità di servizio *</Label>
+                    <Select
+                      value={(editingPTData.service_modality as string) || 'mix'}
+                      onValueChange={(value) => setEditingPTData(prev => ({
+                        ...prev,
+                        service_modality: value,
+                        offers_online: value !== 'in_presenza',
+                        offers_in_person: value !== 'online',
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleziona modalità" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SERVICE_MODALITY_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex items-center gap-6">
-                    <label className="flex items-center gap-2 text-sm">
-                      <Switch
-                        checked={(editingPTData.offers_online as boolean) ?? true}
-                        onCheckedChange={(checked) => setEditingPTData(prev => ({ ...prev, offers_online: checked }))}
-                      />
-                      Online
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <Switch
-                        checked={(editingPTData.offers_in_person as boolean) ?? true}
-                        onCheckedChange={(checked) => setEditingPTData(prev => ({ ...prev, offers_in_person: checked }))}
-                      />
-                      In persona
-                    </label>
                     <label className="flex items-center gap-2 text-sm">
                       <Switch
                         checked={(editingPTData.is_discoverable as boolean) ?? true}
