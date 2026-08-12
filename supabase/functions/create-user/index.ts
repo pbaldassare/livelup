@@ -21,6 +21,7 @@ interface CreateUserRequest {
     location_lng?: number
     specializations?: string[]
     status?: string
+    service_modality?: 'in_presenza' | 'online' | 'mix'
     bio?: string
     // Atleta specific
     fitness_level?: string
@@ -216,7 +217,11 @@ serve(async (req) => {
           location_lat: profileData.location_lat || null,
           location_lng: profileData.location_lng || null,
           specializations: profileData.specializations || [],
-          bio: profileData.bio || null
+          bio: profileData.bio || null,
+          service_modality: profileData.service_modality || 'mix',
+          offers_online: profileData.service_modality !== 'in_presenza',
+          offers_in_person: profileData.service_modality !== 'online',
+          online_only: profileData.service_modality === 'online'
         })
 
       if (ptError) {
