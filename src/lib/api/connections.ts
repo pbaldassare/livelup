@@ -239,8 +239,9 @@ export async function requestConnection(params: {
   atletaUserId: string;
   requestedBy: string;
   origin?: 'ricerca' | 'invito' | 'referral' | 'qr';
+  categoryId?: string;
 }) {
-  const { ptUserId, atletaUserId, requestedBy, origin = 'ricerca' } = params;
+  const { ptUserId, atletaUserId, requestedBy, origin = 'ricerca', categoryId } = params;
 
   // Multi-PT: blocco solo se esiste già active/pending con QUESTO PT
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
