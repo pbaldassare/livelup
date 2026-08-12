@@ -314,6 +314,16 @@ serve(async (req) => {
       })
     }
 
+    const { error: setCatError } = await supabaseAdmin.rpc('set_athlete_category', {
+      _connection_id: connection.id,
+      _category_id: category.id,
+    })
+    if (setCatError) {
+      console.warn('set_athlete_category skipped:', setCatError.message)
+    }
+
+
+
     // Ownership: creating PT becomes owner (collaborator assignments / cedi rules)
     const { error: ownerError } = await supabaseAdmin
       .from('pt_athlete_owners')
