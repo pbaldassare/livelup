@@ -8,7 +8,10 @@ import {
   isTrainingModality,
   type TrainingModality,
 } from '@/lib/trainingModality';
-import { getSystemCategoryIdBySlug } from '@/lib/api/athleteCategories';
+import {
+  getSystemCategoryIdBySlug,
+  setAthleteCategory,
+} from '@/lib/api/athleteCategories';
 
 export interface PtConnectionCategory {
   id: string;
@@ -239,8 +242,10 @@ export async function requestConnection(params: {
   atletaUserId: string;
   requestedBy: string;
   origin?: 'ricerca' | 'invito' | 'referral' | 'qr';
+  /** Categoria cliente (system In presenza/Online/Mix o custom PT) */
+  categoryId?: string;
 }) {
-  const { ptUserId, atletaUserId, requestedBy, origin = 'ricerca' } = params;
+  const { ptUserId, atletaUserId, requestedBy, origin = 'ricerca', categoryId } = params;
 
   // Multi-PT: blocco solo se esiste già active/pending con QUESTO PT
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -279,23 +284,85 @@ export async function requestConnection(params: {
     throw new Error('Il Personal Trainer ha raggiunto il numero massimo di atleti.');
   }
 
-  // Crea richiesta connessione
-  const { data, error } = await supabase
-    .from('pt_atleta_connections')
-    .insert({
-      pt_user_id: ptUserId,
-      atleta_user_id: atletaUserId,
-      requested_by: requestedBy,
-      status: 'pending',
-    })
+  let trainingModality: TrainingModality = 'mix';
+  let resolvedCategoryId: string | null = categoryId?.trim() || null;
+
+  if (resolvedCategoryId) {
+    if (resolvedCategoryId.startsWith('fallback-')) {
+      throw new Error(
+        'Categorie non disponibili sul backend. Controlla che pt_athlete_categories sia presente su Lovable Cloud.',
+      );
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: cat, error: catError } = await (supabase.from('pt_athlete_categories') as any)
+      .select('id, slug, is_system, pt_user_id')
+      .eq('id', resolvedCategoryId)
+      .maybeSingle();
+
+    if (catError || !cat) {
+      throw new Error('Categoria cliente non valida');
+    }
+    if (!cat.is_system && cat.pt_user_id !== ptUserId) {
+      throw new Error('Categoria non autorizzata');
+    }
+    if (cat.is_system && isTrainingModality(cat.slug)) {
+      trainingModality = cat.slug;
+    }
+  }
+
+  // Crea richiesta connessione (con categoria se disponibile)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let insertPayload: Record<string, unknown> = {
+    pt_user_id: ptUserId,
+    atleta_user_id: atletaUserId,
+    requested_by: requestedBy,
+    status: 'pending',
+  };
+
+  if (resolvedCategoryId) {
+    insertPayload = {
+      ...insertPayload,
+      category_id: resolvedCategoryId,
+      training_modality: trainingModality,
+    };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let { data, error } = await (supabase.from('pt_atleta_connections') as any)
+    .insert(insertPayload)
     .select()
     .single();
+
+  // Fallback se colonne categoria non ancora su Cloud
+  if (error && resolvedCategoryId && isMissingCategoryColumn(error)) {
+    ({ data, error } = await supabase
+      .from('pt_atleta_connections')
+      .insert({
+        pt_user_id: ptUserId,
+        atleta_user_id: atletaUserId,
+        requested_by: requestedBy,
+        status: 'pending',
+      })
+      .select()
+      .single());
+  }
 
   if (error) {
     if (error.code === '23505') {
       throw new Error('Esiste già una richiesta di connessione tra questo PT e atleta.');
     }
     throw new Error('Errore durante la richiesta: ' + error.message);
+  }
+
+  if (resolvedCategoryId && data?.id) {
+    try {
+      await setAthleteCategory({
+        connectionId: data.id,
+        categoryId: resolvedCategoryId,
+      });
+    } catch {
+      // non bloccare l'invito se RPC non disponibile: insert ha già category_id
+    }
   }
 
   void origin; // reserved for analytics

@@ -5,6 +5,32 @@ import { getCededAthletes, type CededAthlete } from '@/lib/api/connections';
 export type OwnershipFilter = 'all' | 'mine' | 'coaching';
 export type CededFilter = 'all' | 'ceded' | 'not_ceded';
 
+/** Filtro UI unificato Relazione (niente doppia barra Cessione). */
+export type RosterRelationFilter = 'all' | 'mine' | 'coaching' | 'ceded';
+
+export const ROSTER_RELATION_FILTERS: { value: RosterRelationFilter; label: string }[] = [
+  { value: 'all', label: 'Tutti' },
+  { value: 'mine', label: 'Titolare' },
+  { value: 'coaching', label: 'In coaching' },
+  { value: 'ceded', label: 'Ceduti' },
+];
+
+export function relationFilterToParts(filter: RosterRelationFilter): {
+  ownership: OwnershipFilter;
+  ceded: CededFilter;
+} {
+  switch (filter) {
+    case 'mine':
+      return { ownership: 'mine', ceded: 'all' };
+    case 'coaching':
+      return { ownership: 'coaching', ceded: 'all' };
+    case 'ceded':
+      return { ownership: 'all', ceded: 'ceded' };
+    default:
+      return { ownership: 'all', ceded: 'all' };
+  }
+}
+
 export type AthleteRosterRole = 'owner' | 'coaching' | 'unknown';
 
 export interface CededMeta {
@@ -88,6 +114,14 @@ export function usePTAthleteRosterMeta(ptUserId: string | undefined) {
     return true;
   }
 
+  function matchesRelationFilter(
+    atletaUserId: string,
+    relation: RosterRelationFilter,
+  ): boolean {
+    const { ownership, ceded } = relationFilterToParts(relation);
+    return matchesFilters(atletaUserId, ownership, ceded);
+  }
+
   return {
     ownedIds,
     cededByAthlete,
@@ -95,6 +129,7 @@ export function usePTAthleteRosterMeta(ptUserId: string | undefined) {
     isCeded,
     getCededMeta,
     matchesFilters,
+    matchesRelationFilter,
     isLoading: ownedQuery.isLoading || cededQuery.isLoading,
     refetch: async () => {
       await Promise.all([ownedQuery.refetch(), cededQuery.refetch()]);

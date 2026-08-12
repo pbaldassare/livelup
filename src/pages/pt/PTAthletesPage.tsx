@@ -51,9 +51,9 @@ import { AthleteRosterBadges } from '@/components/pt/AthleteRosterBadges';
 import { listAthleteCategories } from '@/lib/api/athleteCategories';
 import { resolveCategoryId } from '@/lib/athleteCategories';
 import {
+  ROSTER_RELATION_FILTERS,
   usePTAthleteRosterMeta,
-  type CededFilter,
-  type OwnershipFilter,
+  type RosterRelationFilter,
 } from '@/hooks/usePTAthleteRosterMeta';
 import { recallAthleteFromTransfer } from '@/lib/api/connections';
 import { ptRoutes } from '@/lib/pt/routes';
@@ -104,8 +104,7 @@ export function PTAthletesPage() {
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
-  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
-  const [cededFilter, setCededFilter] = useState<CededFilter>('all');
+  const [relationFilter, setRelationFilter] = useState<RosterRelationFilter>('all');
   const [recallingId, setRecallingId] = useState<string | null>(null);
   
   // Pagination state
@@ -257,7 +256,7 @@ export function PTAthletesPage() {
           );
           if (connCategoryId !== categoryFilter) return false;
         }
-        if (!roster.matchesFilters(conn.atleta_user_id, ownershipFilter, cededFilter)) {
+        if (!roster.matchesRelationFilter(conn.atleta_user_id, relationFilter)) {
           return false;
         }
         return true;
@@ -272,8 +271,7 @@ export function PTAthletesPage() {
     activeTab,
     categoryFilter,
     athleteCategories,
-    ownershipFilter,
-    cededFilter,
+    relationFilter,
     roster,
   ]);
 
@@ -289,8 +287,7 @@ export function PTAthletesPage() {
     setCurrentPage(1);
     if (tab !== 'active') {
       setCategoryFilter('all');
-      setOwnershipFilter('all');
-      setCededFilter('all');
+      setRelationFilter('all');
     }
   };
 
@@ -299,13 +296,8 @@ export function PTAthletesPage() {
     setCurrentPage(1);
   };
 
-  const handleOwnershipFilter = (value: OwnershipFilter) => {
-    setOwnershipFilter(value);
-    setCurrentPage(1);
-  };
-
-  const handleCededFilter = (value: CededFilter) => {
-    setCededFilter(value);
+  const handleRelationFilter = (value: RosterRelationFilter) => {
+    setRelationFilter(value);
     setCurrentPage(1);
   };
 
@@ -375,7 +367,7 @@ export function PTAthletesPage() {
     <div className="space-y-6 animate-in">
       <DashboardPageHeader
         title="I Miei Atleti"
-        subtitle="Miei e in coaching, ceduti e non ceduti — tutto da qui"
+        subtitle="Filtra per relazione (Titolare, In coaching, Ceduti) e categoria cliente"
         icon={<Users className="h-6 w-6" />}
         breadcrumbs={[
           { label: 'Dashboard', href: '/pt' },
@@ -482,40 +474,14 @@ export function PTAthletesPage() {
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-xs text-muted-foreground mr-1">Relazione</span>
-                {(
-                  [
-                    ['all', 'Tutti'],
-                    ['mine', 'Miei'],
-                    ['coaching', 'In coaching'],
-                  ] as const
-                ).map(([value, label]) => (
+                {ROSTER_RELATION_FILTERS.map(({ value, label }) => (
                   <Button
                     key={value}
                     type="button"
                     size="sm"
-                    variant={ownershipFilter === value ? 'default' : 'outline'}
+                    variant={relationFilter === value ? 'default' : 'outline'}
                     className="h-8 text-xs"
-                    onClick={() => handleOwnershipFilter(value)}
-                  >
-                    {label}
-                  </Button>
-                ))}
-                <span className="text-xs text-muted-foreground mx-1">|</span>
-                <span className="text-xs text-muted-foreground mr-1">Cessione</span>
-                {(
-                  [
-                    ['all', 'Tutti'],
-                    ['not_ceded', 'Non ceduti'],
-                    ['ceded', 'Ceduti'],
-                  ] as const
-                ).map(([value, label]) => (
-                  <Button
-                    key={value}
-                    type="button"
-                    size="sm"
-                    variant={cededFilter === value ? 'default' : 'outline'}
-                    className="h-8 text-xs"
-                    onClick={() => handleCededFilter(value)}
+                    onClick={() => handleRelationFilter(value)}
                   >
                     {label}
                   </Button>

@@ -17,6 +17,8 @@ export type CreateAthleteInput = {
   phone?: string;
   fitnessLevel?: string;
   goals?: string[];
+  /** Categoria cliente (system o custom PT) — obbligatoria */
+  categoryId: string;
 };
 
 export type CreateAthleteResult = {
@@ -40,18 +42,24 @@ export async function findAtletaByEmail(email: string): Promise<AtletaLookupResu
 export async function inviteExistingAtleta(
   ptUserId: string,
   atletaUserId: string,
+  categoryId: string,
 ): Promise<void> {
   await requestConnection({
     ptUserId,
     atletaUserId,
     requestedBy: ptUserId,
     origin: 'invito',
+    categoryId,
   });
 }
 
 export async function createAndConnectAtleta(
   input: CreateAthleteInput,
 ): Promise<CreateAthleteResult> {
+  if (!input.categoryId?.trim()) {
+    throw new Error('Seleziona la categoria cliente');
+  }
+
   const { data, error } = await supabase.functions.invoke('pt-create-athlete', {
     body: {
       email: input.email,
@@ -60,6 +68,7 @@ export async function createAndConnectAtleta(
       phone: input.phone,
       fitnessLevel: input.fitnessLevel,
       goals: input.goals ?? [],
+      categoryId: input.categoryId,
     },
   });
 

@@ -38,9 +38,9 @@ import { listAthleteCategories } from '@/lib/api/athleteCategories';
 import { isSystemCategorySlug, resolveCategoryId } from '@/lib/athleteCategories';
 import { isTrainingModality } from '@/lib/trainingModality';
 import {
+  ROSTER_RELATION_FILTERS,
   usePTAthleteRosterMeta,
-  type CededFilter,
-  type OwnershipFilter,
+  type RosterRelationFilter,
   type AthleteRosterRole,
   type CededMeta,
 } from '@/hooks/usePTAthleteRosterMeta';
@@ -93,8 +93,7 @@ export function PTAppAthletesPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string } | null>(null);
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
-  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
-  const [cededFilter, setCededFilter] = useState<CededFilter>('all');
+  const [relationFilter, setRelationFilter] = useState<RosterRelationFilter>('all');
   const [recallingId, setRecallingId] = useState<string | null>(null);
 
   const roster = usePTAthleteRosterMeta(user?.id);
@@ -130,8 +129,7 @@ export function PTAppAthletesPage() {
     else next.set('tab', value);
     setSearchParams(next, { replace: true });
     if (value !== 'active') {
-      setOwnershipFilter('all');
-      setCededFilter('all');
+      setRelationFilter('all');
     }
   };
 
@@ -287,7 +285,7 @@ export function PTAppAthletesPage() {
           );
           if (connCategoryId !== activeCategoryId) return false;
         }
-        if (!roster.matchesFilters(conn.atleta_user_id, ownershipFilter, cededFilter)) {
+        if (!roster.matchesRelationFilter(conn.atleta_user_id, relationFilter)) {
           return false;
         }
       }
@@ -301,8 +299,7 @@ export function PTAppAthletesPage() {
     activeCategoryId,
     activeTab,
     athleteCategories,
-    ownershipFilter,
-    cededFilter,
+    relationFilter,
     roster,
   ]);
 
@@ -354,40 +351,14 @@ export function PTAppAthletesPage() {
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-xs text-muted-foreground mr-1">Relazione</span>
-              {(
-                [
-                  ['all', 'Tutti'],
-                  ['mine', 'Miei'],
-                  ['coaching', 'In coaching'],
-                ] as const
-              ).map(([value, label]) => (
+              {ROSTER_RELATION_FILTERS.map(({ value, label }) => (
                 <Button
                   key={value}
                   type="button"
                   size="sm"
-                  variant={ownershipFilter === value ? 'default' : 'outline'}
+                  variant={relationFilter === value ? 'default' : 'outline'}
                   className="h-8 text-xs"
-                  onClick={() => setOwnershipFilter(value)}
-                >
-                  {label}
-                </Button>
-              ))}
-              <span className="text-xs text-muted-foreground mx-1">|</span>
-              <span className="text-xs text-muted-foreground mr-1">Cessione</span>
-              {(
-                [
-                  ['all', 'Tutti'],
-                  ['not_ceded', 'Non ceduti'],
-                  ['ceded', 'Ceduti'],
-                ] as const
-              ).map(([value, label]) => (
-                <Button
-                  key={value}
-                  type="button"
-                  size="sm"
-                  variant={cededFilter === value ? 'default' : 'outline'}
-                  className="h-8 text-xs"
-                  onClick={() => setCededFilter(value)}
+                  onClick={() => setRelationFilter(value)}
                 >
                   {label}
                 </Button>
