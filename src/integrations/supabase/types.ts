@@ -3186,6 +3186,7 @@ export type Database = {
           pt_type_id: string | null
           rating_avg: number | null
           review_count: number | null
+          service_modality: string
           specializations: string[] | null
           status: Database["public"]["Enums"]["pt_status"]
           updated_at: string
@@ -3219,6 +3220,7 @@ export type Database = {
           pt_type_id?: string | null
           rating_avg?: number | null
           review_count?: number | null
+          service_modality?: string
           specializations?: string[] | null
           status?: Database["public"]["Enums"]["pt_status"]
           updated_at?: string
@@ -3252,6 +3254,7 @@ export type Database = {
           pt_type_id?: string | null
           rating_avg?: number | null
           review_count?: number | null
+          service_modality?: string
           specializations?: string[] | null
           status?: Database["public"]["Enums"]["pt_status"]
           updated_at?: string
