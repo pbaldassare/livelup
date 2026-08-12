@@ -422,7 +422,18 @@ export function PTAthletesPage() {
           </div>
 
           {activeTab === 'active' && (
+            <AthleteRelationFilter
+              value={relationFilter}
+              onChange={(v) => {
+                setRelationFilter(v);
+                setCurrentPage(1);
+              }}
+            />
+          )}
+
+          {activeTab === 'active' && (
             <div className="flex flex-wrap gap-2 items-center">
+
               <Button
                 type="button"
                 size="sm"
