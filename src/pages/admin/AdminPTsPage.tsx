@@ -123,6 +123,7 @@ interface PTListItem {
   currency: string | null;
   offers_online: boolean | null;
   offers_in_person: boolean | null;
+  service_modality: string | null;
   is_discoverable: boolean | null;
   max_athletes: number | null;
   gallery_photos: string[] | null;
@@ -143,6 +144,12 @@ interface PTType {
   name: string;
   is_active: boolean;
 }
+
+const SERVICE_MODALITY_OPTIONS = [
+  { value: 'in_presenza', label: 'In presenza' },
+  { value: 'online', label: 'Online' },
+  { value: 'mix', label: 'Mix (online + in presenza)' },
+];
 
 type PTStatus = 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium';
 
@@ -205,8 +212,10 @@ export function AdminPTsPage() {
     location_lat: null as number | null,
     location_lng: null as number | null,
     specializations: [] as string[],
-    status: 'attivo' as 'registrato' | 'attivo'
+    status: 'attivo' as 'registrato' | 'attivo',
+    service_modality: 'mix' as 'in_presenza' | 'online' | 'mix'
   });
+  const [modalityFilter, setModalityFilter] = useState('all');
 
   // Fetch PT types
   const { data: ptTypes = [] } = useQuery({
@@ -298,11 +307,13 @@ export function AdminPTsPage() {
   const filteredPTs = useMemo(() => {
     return pts.filter((pt) => {
       const fullName = `${pt.profiles?.first_name || ''} ${pt.profiles?.last_name || ''}`.toLowerCase();
-      return fullName.includes(searchTerm.toLowerCase()) || 
+      const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
              pt.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
              pt.location_city?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesModality = modalityFilter === 'all' || (pt.service_modality || 'mix') === modalityFilter;
+      return matchesSearch && matchesModality;
     });
-  }, [pts, searchTerm]);
+  }, [pts, searchTerm, modalityFilter]);
 
   const totalPages = Math.ceil(filteredPTs.length / pageSize);
   const paginatedPTs = useMemo(() => {
@@ -425,7 +436,8 @@ export function AdminPTsPage() {
             location_lat: newPT.location_lat,
             location_lng: newPT.location_lng,
             specializations: newPT.specializations,
-            status: newPT.status
+            status: newPT.status,
+            service_modality: newPT.service_modality
           }
         }
       });
@@ -518,6 +530,10 @@ export function AdminPTsPage() {
       toast.error('Compila tutti i campi obbligatori');
       return;
     }
+    if (!newPT.service_modality) {
+      toast.error('Seleziona la modalità di servizio');
+      return;
+    }
     if (newPT.password.length < 8) {
       toast.error('La password deve avere almeno 8 caratteri');
       return;
@@ -537,6 +553,7 @@ export function AdminPTsPage() {
         hourly_rate: selectedPT.hourly_rate || 0,
         currency: selectedPT.currency || 'EUR',
         max_athletes: selectedPT.max_athletes || 50,
+        service_modality: selectedPT.service_modality || 'mix',
         offers_online: selectedPT.offers_online ?? true,
         offers_in_person: selectedPT.offers_in_person ?? true,
         is_discoverable: selectedPT.is_discoverable ?? true,
@@ -590,6 +607,7 @@ export function AdminPTsPage() {
           hourly_rate: editingPTData.hourly_rate as number || null,
           currency: editingPTData.currency as string,
           max_athletes: editingPTData.max_athletes as number,
+          service_modality: editingPTData.service_modality as string,
           offers_online: editingPTData.offers_online as boolean,
           offers_in_person: editingPTData.offers_in_person as boolean,
           is_discoverable: editingPTData.is_discoverable as boolean,
@@ -733,6 +751,22 @@ export function AdminPTsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pt-modality">Modalità di servizio *</Label>
+                  <Select
+                    value={newPT.service_modality}
+                    onValueChange={(value) => setNewPT({ ...newPT, service_modality: value as 'in_presenza' | 'online' | 'mix' })}
+                  >
+                    <SelectTrigger id="pt-modality">
+                      <SelectValue placeholder="Seleziona modalità" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SERVICE_MODALITY_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               </div>
               <DialogFooter className="pt-4 border-t">
@@ -792,6 +826,20 @@ export function AdminPTsPage() {
                 <SelectItem value="attivo">Attivi</SelectItem>
                 <SelectItem value="sospeso">Sospesi</SelectItem>
                 <SelectItem value="premium">Premium</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={modalityFilter}
+              onValueChange={(value) => { setModalityFilter(value); setCurrentPage(1); }}
+            >
+              <SelectTrigger className="w-full sm:w-[220px]">
+                <SelectValue placeholder="Filtra per modalità" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutte le modalità</SelectItem>
+                {SERVICE_MODALITY_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
