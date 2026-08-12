@@ -4317,6 +4317,10 @@ export type Database = {
         Args: { _atleta_user_id: string; _pt_user_id: string }
         Returns: boolean
       }
+      can_chat_with: {
+        Args: { _atleta_user_id: string; _pt_user_id: string }
+        Returns: boolean
+      }
       can_pt_accept_athletes: {
         Args: { _pt_user_id: string }
         Returns: boolean
