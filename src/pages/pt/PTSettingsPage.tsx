@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -51,6 +52,7 @@ interface PTProfile {
   location_lat: number | null;
   location_lng: number | null;
   is_discoverable: boolean | null;
+  service_modality: string | null;
   status: string;
 }
 
@@ -733,14 +735,25 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
           <Card>
             <CardHeader><CardTitle>Modalità di Servizio</CardTitle><CardDescription>Come offri i tuoi servizi</CardDescription></CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5"><Label>Allenamento Online</Label><p className="text-sm text-muted-foreground">Offri sessioni online</p></div>
-                <Switch checked={formData.offers_online ?? true} onCheckedChange={(checked) => setFormData({ ...formData, offers_online: checked })} />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5"><Label>Allenamento di Persona</Label><p className="text-sm text-muted-foreground">Offri sessioni in presenza</p></div>
-                <Switch checked={formData.offers_in_person ?? true} onCheckedChange={(checked) => setFormData({ ...formData, offers_in_person: checked })} />
+              <div className="space-y-2">
+                <Label>Modalità di servizio *</Label>
+                <Select
+                  value={formData.service_modality || 'mix'}
+                  onValueChange={(value) => setFormData({
+                    ...formData,
+                    service_modality: value,
+                    offers_online: value !== 'in_presenza',
+                    offers_in_person: value !== 'online',
+                  })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Seleziona modalità" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="in_presenza">In presenza</SelectItem>
+                    <SelectItem value="online">Online</SelectItem>
+                    <SelectItem value="mix">Mix (online + in presenza)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">Definisce come vieni mostrato agli atleti nella ricerca.</p>
               </div>
             </CardContent>
           </Card>

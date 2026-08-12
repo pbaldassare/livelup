@@ -54,8 +54,9 @@ export function PTOnboardingPage() {
   const [certifications, setCertifications] = useState('');
   const [experienceYears, setExperienceYears] = useState('');
   const [locationCity, setLocationCity] = useState('');
-  const [offersOnline, setOffersOnline] = useState(true);
-  const [offersInPerson, setOffersInPerson] = useState(true);
+  const [serviceModality, setServiceModality] = useState<'in_presenza' | 'online' | 'mix'>('mix');
+  const offersOnline = serviceModality !== 'in_presenza';
+  const offersInPerson = serviceModality !== 'online';
   const [hourlyRate, setHourlyRate] = useState('');
 
   const totalSteps = 4;
@@ -91,6 +92,7 @@ export function PTOnboardingPage() {
         certifications: certifications ? certifications.split(',').map(c => c.trim()) : null,
         experience_years: experienceYears ? parseInt(experienceYears) : null,
         location_city: locationCity || null,
+        service_modality: serviceModality,
         offers_online: offersOnline,
         offers_in_person: offersInPerson,
         hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
@@ -207,33 +209,27 @@ export function PTOnboardingPage() {
                   <Input value={locationCity} onChange={(e) => setLocationCity(e.target.value)} placeholder="Milano" className="bg-app-muted border-app-border text-app-foreground" />
                 </div>
                 <div className="space-y-3">
-                  <Label className="text-app-foreground">Modalità</Label>
-                  <Card
-                    className={cn('cursor-pointer transition-all border-2', offersInPerson ? 'border-app-accent bg-app-accent/10' : 'border-app-border bg-app-card')}
-                    onClick={() => setOffersInPerson(!offersInPerson)}
-                  >
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <Users className="h-5 w-5 text-app-accent" />
-                      <div className="flex-1">
-                        <p className="font-medium text-app-foreground">Di persona</p>
-                        <p className="text-sm text-app-muted-foreground">Sessioni in palestra o a domicilio</p>
-                      </div>
-                      <Checkbox checked={offersInPerson} className="border-app-accent data-[state=checked]:bg-app-accent" />
-                    </CardContent>
-                  </Card>
-                  <Card
-                    className={cn('cursor-pointer transition-all border-2', offersOnline ? 'border-app-accent bg-app-accent/10' : 'border-app-border bg-app-card')}
-                    onClick={() => setOffersOnline(!offersOnline)}
-                  >
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <Globe className="h-5 w-5 text-app-accent" />
-                      <div className="flex-1">
-                        <p className="font-medium text-app-foreground">Online</p>
-                        <p className="text-sm text-app-muted-foreground">Coaching via videochiamata</p>
-                      </div>
-                      <Checkbox checked={offersOnline} className="border-app-accent data-[state=checked]:bg-app-accent" />
-                    </CardContent>
-                  </Card>
+                  <Label className="text-app-foreground">Modalità di servizio *</Label>
+                  {([
+                    { value: 'in_presenza', label: 'In presenza', desc: 'Sessioni in palestra o a domicilio', Icon: Users },
+                    { value: 'online', label: 'Online', desc: 'Coaching via videochiamata', Icon: Globe },
+                    { value: 'mix', label: 'Mix', desc: 'Sia online che in presenza', Icon: Briefcase },
+                  ] as const).map(({ value, label, desc, Icon }) => (
+                    <Card
+                      key={value}
+                      className={cn('cursor-pointer transition-all border-2', serviceModality === value ? 'border-app-accent bg-app-accent/10' : 'border-app-border bg-app-card')}
+                      onClick={() => setServiceModality(value)}
+                    >
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <Icon className="h-5 w-5 text-app-accent" />
+                        <div className="flex-1">
+                          <p className="font-medium text-app-foreground">{label}</p>
+                          <p className="text-sm text-app-muted-foreground">{desc}</p>
+                        </div>
+                        <Checkbox checked={serviceModality === value} className="border-app-accent data-[state=checked]:bg-app-accent" />
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </div>
             </motion.div>
