@@ -469,7 +469,8 @@ export function AdminPTsPage() {
         location_lat: null,
         location_lng: null,
         specializations: [],
-        status: 'attivo'
+        status: 'attivo',
+        service_modality: 'mix'
       });
     },
     onError: (error) => toast.error('Errore: ' + error.message)
