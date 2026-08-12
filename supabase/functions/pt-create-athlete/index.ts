@@ -300,6 +300,8 @@ serve(async (req) => {
         requested_at: now,
         accepted_at: now,
         is_pt_active: true,
+        category_id: category.id,
+        training_modality: resolvedTrainingModality,
       })
       .select('id')
       .single()
