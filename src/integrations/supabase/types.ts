@@ -4082,6 +4082,7 @@ export type Database = {
       workout_templates: {
         Row: {
           category: string | null
+          cooldown_exercise_id: string | null
           cooldown_template_id: string | null
           created_at: string
           description: string | null
@@ -4098,10 +4099,12 @@ export type Database = {
           template_role: string
           title: string
           updated_at: string
+          warmup_exercise_id: string | null
           warmup_template_id: string | null
         }
         Insert: {
           category?: string | null
+          cooldown_exercise_id?: string | null
           cooldown_template_id?: string | null
           created_at?: string
           description?: string | null
@@ -4118,10 +4121,12 @@ export type Database = {
           template_role?: string
           title: string
           updated_at?: string
+          warmup_exercise_id?: string | null
           warmup_template_id?: string | null
         }
         Update: {
           category?: string | null
+          cooldown_exercise_id?: string | null
           cooldown_template_id?: string | null
           created_at?: string
           description?: string | null
@@ -4138,14 +4143,29 @@ export type Database = {
           template_role?: string
           title?: string
           updated_at?: string
+          warmup_exercise_id?: string | null
           warmup_template_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "workout_templates_cooldown_exercise_id_fkey"
+            columns: ["cooldown_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workout_templates_cooldown_template_id_fkey"
             columns: ["cooldown_template_id"]
             isOneToOne: false
             referencedRelation: "workout_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_templates_warmup_exercise_id_fkey"
+            columns: ["warmup_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
             referencedColumns: ["id"]
           },
           {

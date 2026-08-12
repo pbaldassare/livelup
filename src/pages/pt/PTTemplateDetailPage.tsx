@@ -228,6 +228,9 @@ export function PTTemplateDetailPage() {
                 includeCooldown={!!(template as any).include_cooldown}
                 warmupTemplateId={(template as any).warmup_template_id ?? null}
                 cooldownTemplateId={(template as any).cooldown_template_id ?? null}
+                warmupExerciseId={(template as any).warmup_exercise_id ?? null}
+                cooldownExerciseId={(template as any).cooldown_exercise_id ?? null}
+
               />
             )}
 

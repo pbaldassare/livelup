@@ -132,22 +132,37 @@ export async function loadTemplateWithRoutinesForWorkoutCreate(templateId: strin
   const { data: tpl, error } = await supabase
     .from('workout_templates')
     .select(
-      'id, template_kind, include_warmup, include_cooldown, warmup_template_id, cooldown_template_id, template_role',
+      'id, template_kind, include_warmup, include_cooldown, warmup_template_id, cooldown_template_id, warmup_exercise_id, cooldown_exercise_id, template_role',
     )
     .eq('id', templateId)
     .single();
 
   if (error) throw error;
 
+  const t = tpl as any;
   const blocks: LoadedTemplateBlock[] = [];
   const exercises: LoadedTemplateExercise[] = [];
   let offset = 0;
 
-  if (tpl.include_warmup && tpl.warmup_template_id) {
-    const warm = await loadSingleTemplate(tpl.warmup_template_id, 'warmup', offset);
+  const pushSingleExercise = (exerciseId: string, phase: WorkoutPhase) => {
+    exercises.push({
+      exerciseId,
+      orderIndex: offset,
+      prescribedSets: 1,
+      protocolType: 'SET',
+      protocolParams: {},
+      phase,
+    });
+    offset += 1;
+  };
+
+  if (t.include_warmup && t.warmup_template_id) {
+    const warm = await loadSingleTemplate(t.warmup_template_id, 'warmup', offset);
     blocks.push(...warm.blocks);
     exercises.push(...warm.exercises);
     offset = warm.nextOffset;
+  } else if (t.include_warmup && t.warmup_exercise_id) {
+    pushSingleExercise(t.warmup_exercise_id, 'warmup');
   }
 
   const main = await loadSingleTemplate(templateId, 'main', offset);
@@ -155,11 +170,14 @@ export async function loadTemplateWithRoutinesForWorkoutCreate(templateId: strin
   exercises.push(...main.exercises);
   offset = main.nextOffset;
 
-  if (tpl.include_cooldown && tpl.cooldown_template_id) {
-    const cool = await loadSingleTemplate(tpl.cooldown_template_id, 'cooldown', offset);
+  if (t.include_cooldown && t.cooldown_template_id) {
+    const cool = await loadSingleTemplate(t.cooldown_template_id, 'cooldown', offset);
     blocks.push(...cool.blocks);
     exercises.push(...cool.exercises);
+  } else if (t.include_cooldown && t.cooldown_exercise_id) {
+    pushSingleExercise(t.cooldown_exercise_id, 'cooldown');
   }
+
 
   return {
     blocks,
