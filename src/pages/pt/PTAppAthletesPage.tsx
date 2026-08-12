@@ -31,6 +31,8 @@ import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCate
 import { listAthleteCategories } from '@/lib/api/athleteCategories';
 import { isSystemCategorySlug, resolveCategoryId } from '@/lib/athleteCategories';
 import { isTrainingModality } from '@/lib/trainingModality';
+import { AthleteRelationFilter } from '@/components/pt/AthleteRelationFilter';
+import { useAthleteRelations, type AthleteRelationFilterValue } from '@/hooks/useAthleteRelations';
 import { 
   Users, 
   Search, 
@@ -76,6 +78,8 @@ export function PTAppAthletesPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string } | null>(null);
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
+  const [relationFilter, setRelationFilter] = useState<AthleteRelationFilterValue>('all');
+  const { matchesRelation } = useAthleteRelations();
 
   const categoryFilterParam = searchParams.get('category') ?? searchParams.get('modality');
 
@@ -243,11 +247,14 @@ export function PTAppAthletesPage() {
         );
         if (connCategoryId !== activeCategoryId) return false;
       }
+      if (activeTab === 'active' && !matchesRelation(conn.atleta_user_id, relationFilter)) {
+        return false;
+      }
       if (!searchQuery) return true;
       const name = `${conn.profiles?.first_name || ''} ${conn.profiles?.last_name || ''}`.toLowerCase();
       return name.includes(searchQuery.toLowerCase());
     });
-  }, [connections, searchQuery, activeCategoryId, activeTab, athleteCategories]);
+  }, [connections, searchQuery, activeCategoryId, activeTab, athleteCategories, matchesRelation, relationFilter]);
 
   const activeCount = connections?.length || 0;
 
@@ -292,6 +299,10 @@ export function PTAppAthletesPage() {
             className="pl-9"
           />
         </div>
+
+        {activeTab === 'active' && (
+          <AthleteRelationFilter value={relationFilter} onChange={setRelationFilter} />
+        )}
 
         {activeTab === 'active' && (
           <div className="flex flex-wrap gap-2 items-center">
