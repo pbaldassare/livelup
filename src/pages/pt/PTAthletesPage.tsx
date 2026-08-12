@@ -97,7 +97,10 @@ export function PTAthletesPage() {
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
-  
+  const [relationFilter, setRelationFilter] = useState<AthleteRelationFilterValue>('all');
+  const { matchesRelation } = useAthleteRelations();
+
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -243,13 +246,18 @@ export function PTAthletesPage() {
         );
         if (connCategoryId !== categoryFilter) return false;
       }
+
+      if (activeTab === 'active' && !matchesRelation(conn.atleta_user_id, relationFilter)) {
+        return false;
+      }
       
       if (activeTab === 'active') return conn.status === 'active' && matchesSearch;
       if (activeTab === 'pending') return conn.status === 'pending' && matchesSearch;
       if (activeTab === 'terminated') return (conn.status === 'terminated' || conn.status === 'terminato') && matchesSearch;
       return matchesSearch;
     });
-  }, [connections, searchTerm, activeTab, categoryFilter, athleteCategories]);
+  }, [connections, searchTerm, activeTab, categoryFilter, athleteCategories, matchesRelation, relationFilter]);
+
 
   const totalPages = Math.ceil(filteredConnections.length / pageSize);
   const paginatedConnections = useMemo(() => {
