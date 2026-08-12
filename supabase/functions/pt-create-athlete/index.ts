@@ -17,6 +17,7 @@ interface CreateAthleteRequest {
   phone?: string
   fitnessLevel?: string
   goals?: string[]
+  categoryId?: string
 }
 
 const VALID_FITNESS_LEVELS = new Set([
