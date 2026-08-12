@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import {
   type AtletaLookupResult,
 } from '@/lib/api/ptAthletes';
 import { getAthleteDisplayName } from '@/lib/athleteName';
+import { listAthleteCategories } from '@/lib/api/athleteCategories';
 import { Loader2, Search, UserPlus, UserRoundPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -74,6 +75,13 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
   const [lookupEmail, setLookupEmail] = useState('');
   const [lookupResult, setLookupResult] = useState<AtletaLookupResult | null>(null);
   const [createForm, setCreateForm] = useState(defaultCreateForm);
+  const [categoryId, setCategoryId] = useState<string>('');
+
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+    queryKey: ['pt-athlete-categories'],
+    queryFn: () => listAthleteCategories(),
+    enabled: open,
+  });
 
   useEffect(() => {
     if (open) setTab(defaultTab);
@@ -84,6 +92,7 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
     setLookupEmail('');
     setLookupResult(null);
     setCreateForm(defaultCreateForm);
+    setCategoryId('');
   };
 
   const handleOpenChange = (next: boolean) => {
@@ -107,7 +116,8 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
   const inviteMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id || !lookupResult?.user_id) throw new Error('Dati mancanti');
-      await inviteExistingAtleta(user.id, lookupResult.user_id);
+      if (!categoryId) throw new Error('Seleziona la categoria cliente');
+      await inviteExistingAtleta(user.id, lookupResult.user_id, categoryId);
     },
     onSuccess: () => {
       invalidateAthleteLists(queryClient, user?.id);
@@ -128,6 +138,7 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
         phone: createForm.phone || undefined,
         fitnessLevel: createForm.fitnessLevel || undefined,
         goals: createForm.selectedGoals,
+        categoryId,
       }),
     onSuccess: (created) => {
       invalidateAthleteLists(queryClient, user?.id);
@@ -153,12 +164,32 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
     }));
   };
 
+  const categorySelect = (idSuffix: string) => (
+    <div className="space-y-2">
+      <Label htmlFor={`athlete-category-${idSuffix}`}>Categoria cliente *</Label>
+      <Select value={categoryId || undefined} onValueChange={setCategoryId}>
+        <SelectTrigger id={`athlete-category-${idSuffix}`}>
+          <SelectValue placeholder={categoriesLoading ? 'Caricamento…' : 'Seleziona categoria'} />
+        </SelectTrigger>
+        <SelectContent>
+          {categories.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   const canCreate =
+    Boolean(categoryId) &&
     createForm.firstName.trim().length >= 2 &&
     createForm.lastName.trim().length >= 2 &&
     createForm.email.trim().length > 0;
 
   const canInvite =
+    Boolean(categoryId) &&
     lookupResult?.found &&
     !lookupResult.has_active_pt &&
     lookupResult.connection_with_me !== 'active' &&
@@ -256,6 +287,8 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
               </p>
             )}
 
+            {categorySelect('link')}
+
             <DialogFooter className="sm:justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 Annulla
@@ -322,6 +355,8 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
                 onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
               />
             </div>
+
+            {categorySelect('create')}
 
             <div className="space-y-2">
               <Label>Livello</Label>
