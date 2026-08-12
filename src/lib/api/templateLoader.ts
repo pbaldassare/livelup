@@ -124,30 +124,77 @@ export async function loadTemplateForWorkoutCreate(templateId: string) {
   return { blocks, exercises };
 }
 
+function singleExerciseAsLoaded(
+  exerciseId: string,
+  phase: WorkoutPhase,
+  orderOffset: number,
+): LoadedTemplateExercise {
+  return {
+    exerciseId,
+    orderIndex: orderOffset,
+    prescribedSets: 1,
+    prescribedRepsMin: 10,
+    restSeconds: 30,
+    protocolType: 'SET',
+    protocolParams: {},
+    phase,
+  };
+}
+
 /**
  * Carica scheda main + eventuali warmup/cooldown collegati (flag + FK).
+ * Supporta template dedicati oppure singolo esercizio (warmup_exercise_id / cooldown_exercise_id).
  * Gli esercizi di fase warmup/cooldown sono esclusi dal riepilogo sessione lato completeWorkout.
  */
 export async function loadTemplateWithRoutinesForWorkoutCreate(templateId: string) {
-  const { data: tpl, error } = await supabase
-    .from('workout_templates')
-    .select(
-      'id, template_kind, include_warmup, include_cooldown, warmup_template_id, cooldown_template_id, template_role',
-    )
-    .eq('id', templateId)
-    .single();
+  // Prefer select with exercise columns; fallback se migration non ancora su Cloud
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let tpl: any = null;
+  {
+    const withEx = await (supabase.from('workout_templates') as any)
+      .select(
+        'id, template_kind, include_warmup, include_cooldown, warmup_template_id, cooldown_template_id, warmup_exercise_id, cooldown_exercise_id, template_role',
+      )
+      .eq('id', templateId)
+      .single();
 
-  if (error) throw error;
+    if (withEx.error) {
+      const msg = (withEx.error.message || '').toLowerCase();
+      const missingCol =
+        msg.includes('warmup_exercise') ||
+        msg.includes('cooldown_exercise') ||
+        withEx.error.code === '42703' ||
+        withEx.error.code === 'PGRST204';
+      if (!missingCol) throw withEx.error;
+
+      const legacy = await supabase
+        .from('workout_templates')
+        .select(
+          'id, template_kind, include_warmup, include_cooldown, warmup_template_id, cooldown_template_id, template_role',
+        )
+        .eq('id', templateId)
+        .single();
+      if (legacy.error) throw legacy.error;
+      tpl = { ...legacy.data, warmup_exercise_id: null, cooldown_exercise_id: null };
+    } else {
+      tpl = withEx.data;
+    }
+  }
 
   const blocks: LoadedTemplateBlock[] = [];
   const exercises: LoadedTemplateExercise[] = [];
   let offset = 0;
 
-  if (tpl.include_warmup && tpl.warmup_template_id) {
-    const warm = await loadSingleTemplate(tpl.warmup_template_id, 'warmup', offset);
-    blocks.push(...warm.blocks);
-    exercises.push(...warm.exercises);
-    offset = warm.nextOffset;
+  if (tpl.include_warmup) {
+    if (tpl.warmup_exercise_id) {
+      exercises.push(singleExerciseAsLoaded(tpl.warmup_exercise_id, 'warmup', offset));
+      offset += 1;
+    } else if (tpl.warmup_template_id) {
+      const warm = await loadSingleTemplate(tpl.warmup_template_id, 'warmup', offset);
+      blocks.push(...warm.blocks);
+      exercises.push(...warm.exercises);
+      offset = warm.nextOffset;
+    }
   }
 
   const main = await loadSingleTemplate(templateId, 'main', offset);
@@ -155,10 +202,14 @@ export async function loadTemplateWithRoutinesForWorkoutCreate(templateId: strin
   exercises.push(...main.exercises);
   offset = main.nextOffset;
 
-  if (tpl.include_cooldown && tpl.cooldown_template_id) {
-    const cool = await loadSingleTemplate(tpl.cooldown_template_id, 'cooldown', offset);
-    blocks.push(...cool.blocks);
-    exercises.push(...cool.exercises);
+  if (tpl.include_cooldown) {
+    if (tpl.cooldown_exercise_id) {
+      exercises.push(singleExerciseAsLoaded(tpl.cooldown_exercise_id, 'cooldown', offset));
+    } else if (tpl.cooldown_template_id) {
+      const cool = await loadSingleTemplate(tpl.cooldown_template_id, 'cooldown', offset);
+      blocks.push(...cool.blocks);
+      exercises.push(...cool.exercises);
+    }
   }
 
   return {

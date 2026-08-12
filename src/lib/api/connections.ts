@@ -425,6 +425,26 @@ export async function rejectConnection(connectionId: string) {
   return data;
 }
 
+/** Atleta (o PT) annulla una richiesta ancora in pending. */
+export async function cancelPendingConnection(connectionId: string) {
+  const { data, error } = await supabase
+    .from('pt_atleta_connections')
+    .update({
+      status: 'terminated',
+      terminated_at: new Date().toISOString(),
+    })
+    .eq('id', connectionId)
+    .eq('status', 'pending')
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error('Errore durante l\'annullamento: ' + error.message);
+  }
+
+  return data;
+}
+
 // =====================================================
 // ATTIVA / DISATTIVA ATLETA (controllo manuale PT)
 // =====================================================

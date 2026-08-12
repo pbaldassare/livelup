@@ -367,7 +367,7 @@ export function PTAthletesPage() {
     <div className="space-y-6 animate-in">
       <DashboardPageHeader
         title="I Miei Atleti"
-        subtitle="Filtra per relazione (Titolare, In coaching, Ceduti) e categoria cliente"
+        subtitle="Filtra per relazione (Titolare, Ricevuti, Ceduti) e categoria cliente"
         icon={<Users className="h-6 w-6" />}
         breadcrumbs={[
           { label: 'Dashboard', href: '/pt' },

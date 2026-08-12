@@ -62,7 +62,6 @@ import {
   TEMPLATE_KIND_BADGE_CLASS,
   TEMPLATE_KIND_DESCRIPTION,
   TEMPLATE_KIND_LABEL,
-  canAthleteReorder,
   allowsAthleteReorder,
   normalizeTemplateKind,
   requiresFullCompletion,
@@ -234,24 +233,6 @@ export function AtletaWorkoutDetailPage() {
       return data || [];
     },
     enabled: !!workoutId && !!workout,
-  });
-
-  // Reorder mutation (solo per schede 'libera')
-  const reorderMutation = useMutation({
-    mutationFn: async (orderedIds: string[]) => {
-      if (!workoutId) throw new Error('Workout id mancante');
-      const { error } = await supabase.rpc('atleta_reorder_workout_exercises', {
-        _workout_id: workoutId,
-        _ordered_exercise_ids: orderedIds,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success('Ordine aggiornato');
-      queryClient.invalidateQueries({ queryKey: ['workout-detail', workoutId] });
-      setReorderOpen(false);
-    },
-    onError: (e: any) => toast.error(e?.message || 'Errore riordino'),
   });
 
   // Pre-populate completed sets and stats from existing logs
@@ -469,11 +450,20 @@ export function AtletaWorkoutDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workout-detail', workoutId] });
       toast.success('Ordine aggiornato');
+      setReorderOpen(false);
     },
     onError: (e: Error) => {
       toast.error(e.message || 'Impossibile riordinare');
     },
   });
+
+  /** Nasconde marker interni (es. course_step:uuid) — non utili all'atleta. */
+  const visibleDescription = (() => {
+    const d = (workout as { description?: string | null } | undefined)?.description?.trim();
+    if (!d) return null;
+    if (/^course_step:/i.test(d)) return null;
+    return d;
+  })();
 
   const moveFreeExercise = (exerciseId: string, direction: -1 | 1) => {
     const idx = freeExerciseIds.indexOf(exerciseId);
@@ -937,7 +927,9 @@ export function AtletaWorkoutDetailPage() {
         <div className="p-4 space-y-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-center space-y-2">
             <h2 className="text-2xl font-bold text-app-foreground">{workout.title}</h2>
-            {workout.description && <p className="text-app-muted-foreground">{workout.description}</p>}
+            {visibleDescription && (
+              <p className="text-app-muted-foreground">{visibleDescription}</p>
+            )}
             <div className="flex justify-center gap-4 pt-2">
               <div className="flex items-center gap-1 text-sm text-app-muted-foreground">
                 <Dumbbell className="h-4 w-4" />
@@ -1012,15 +1004,15 @@ export function AtletaWorkoutDetailPage() {
                 )}
               </div>
               <div className='flex items-center gap-2 shrink-0'>
-                {canAthleteReorder((workout as any).template_kind) &&
-                  !hasExistingLogs &&
-                  !isWorkoutStarted &&
-                  !isReadOnlyHistory && (
+                {canReorder && freeExerciseIds.length > 1 && !isReadOnlyHistory && (
                   <Button
                     variant='outline'
                     size='sm'
                     onClick={() => {
-                      setReorderList([...exercises]);
+                      const freeOnly = (exercises as WorkoutExercise[])
+                        .filter((e) => !e.block_id)
+                        .sort((a, b) => a.order_index - b.order_index);
+                      setReorderList(freeOnly);
                       setReorderOpen(true);
                     }}
                     className='h-8 gap-1.5'
@@ -1386,11 +1378,11 @@ export function AtletaWorkoutDetailPage() {
                 Annulla
               </Button>
               <Button
-                onClick={() => reorderMutation.mutate(reorderList.map((e) => e.id))}
-                disabled={reorderMutation.isPending}
+                onClick={() => reorderFreeMutation.mutate(reorderList.map((e) => e.id))}
+                disabled={reorderFreeMutation.isPending || reorderList.length < 2}
                 className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
               >
-                {reorderMutation.isPending ? 'Salvataggio…' : 'Salva ordine'}
+                {reorderFreeMutation.isPending ? 'Salvataggio…' : 'Salva ordine'}
               </Button>
             </DialogFooter>
           </DialogContent>

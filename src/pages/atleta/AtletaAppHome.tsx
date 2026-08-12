@@ -198,7 +198,12 @@ export function AtletaAppHome() {
               // ───────── ALLENAMENTO IN CORSO / DI OGGI ─────────
               <FocusWorkoutHero
                 title={focusWorkout.workout.title}
-                description={focusWorkout.workout.description}
+                description={
+                  focusWorkout.workout.description &&
+                  !/^course_step:/i.test(focusWorkout.workout.description.trim())
+                    ? focusWorkout.workout.description
+                    : null
+                }
                 coachName={ptName || 'Il tuo Coach'}
                 mode={focusWorkout.mode}
                 completedSets={progressData?.completed || 0}

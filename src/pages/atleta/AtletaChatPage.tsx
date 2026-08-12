@@ -37,17 +37,20 @@ export function AtletaChatPage() {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      // 1. Connessioni attive (coach collegati)
+      // 1. Connessioni active + pending (chat consentita anche in attesa)
       const { data: connections, error: connErr } = await supabase
         .from('pt_atleta_connections')
-        .select('pt_user_id')
+        .select('pt_user_id, status')
         .eq('atleta_user_id', user.id)
-        .eq('status', 'active');
+        .in('status', ['active', 'pending']);
 
       if (connErr) throw connErr;
 
-      const ptIds = (connections || []).map((c) => c.pt_user_id);
+      const ptIds = [...new Set((connections || []).map((c) => c.pt_user_id))];
       if (ptIds.length === 0) return [];
+      const pendingPtIds = new Set(
+        (connections || []).filter((c) => c.status === 'pending').map((c) => c.pt_user_id),
+      );
 
       // 2. Chat esistenti per queste connessioni
       const { data: existingChats } = await supabase
@@ -104,15 +107,23 @@ export function AtletaChatPage() {
             unreadCount = count || 0;
           }
 
+          const isPendingConnection = pendingPtIds.has(ptId);
           return {
             id: chat?.id ?? `pending-${ptId}`,
             recipientUserId: ptId,
             name: realName ?? profile?.email ?? 'Il tuo Coach',
             avatarUrl: profile?.avatar_url,
-            lastMessage: lastMessage ?? (chat ? undefined : 'Nessuna conversazione'),
+            lastMessage:
+              lastMessage ??
+              (isPendingConnection
+                ? 'Richiesta in attesa · puoi chattare'
+                : chat
+                  ? undefined
+                  : 'Nessuna conversazione'),
             lastMessageAt,
             unreadCount,
             _hasChat: !!chat,
+            isPendingConnection,
           };
         }),
       );

@@ -864,7 +864,10 @@ export function isMissingCourseStepWorkoutRpc(error: unknown): boolean {
       : error && typeof error === 'object' && 'message' in error
         ? String((error as { message?: unknown }).message || '')
         : '';
-  return /schema cache|Could not find the function|PGRST202|start_course_step_workout/i.test(msg);
+  // RPC assente, schema cache, o Cloud senza colonna step_type (hotfix migration pending)
+  return /schema cache|Could not find the function|PGRST202|start_course_step_workout|step_type does not exist|column s\.step_type/i.test(
+    msg,
+  );
 }
 
 /**

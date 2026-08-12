@@ -19,7 +19,7 @@ export function AthleteRosterBadges({ role, ceded, cededMeta, className }: Props
       )}
       {role === 'coaching' && (
         <Badge variant="secondary" className="text-[10px] sm:text-xs">
-          In coaching
+          Ricevuto
         </Badge>
       )}
       {ceded && (

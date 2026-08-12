@@ -186,9 +186,9 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
     createForm.email.trim().length > 0 &&
     hasCategory;
 
+  // Multi-PT: si può invitare anche se ha già altri coach; blocco solo se già con te
   const canInvite =
     lookupResult?.found &&
-    !lookupResult.has_active_pt &&
     lookupResult.connection_with_me !== 'active' &&
     lookupResult.connection_with_me !== 'pending' &&
     hasCategory;
@@ -197,7 +197,6 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
     if (!lookupResult?.found) return null;
     if (lookupResult.connection_with_me === 'active') return 'Già collegato a te.';
     if (lookupResult.connection_with_me === 'pending') return 'Invito già in attesa di conferma.';
-    if (lookupResult.has_active_pt) return 'Ha già un altro Personal Trainer attivo.';
     return null;
   })();
 
