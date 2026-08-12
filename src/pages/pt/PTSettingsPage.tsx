@@ -29,6 +29,21 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCategoriesDialog';
+import {
+  PT_SERVICE_MODALITIES,
+  PT_SERVICE_MODALITY_LABELS,
+  flagsToServiceModality,
+  normalizePtServiceModality,
+  serviceModalityToFlags,
+  type PtServiceModality,
+} from '@/lib/ptServiceModality';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyA76iVcQpSnl76_G6bJVnEeOUmWVd7278I';
 
@@ -45,6 +60,7 @@ interface PTProfile {
   price_max: number | null;
   offers_online: boolean | null;
   offers_in_person: boolean | null;
+  service_modality?: string | null;
   location_city: string | null;
   location_country: string | null;
   location_address: string | null;
@@ -173,7 +189,10 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
   useEffect(() => {
     if (ptProfile) {
       const { status, ...rest } = ptProfile;
-      setFormData(rest);
+      setFormData({
+        ...rest,
+        service_modality: flagsToServiceModality(ptProfile),
+      });
     }
   }, [ptProfile]);
 
@@ -211,9 +230,15 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
         .eq('user_id', user.id);
       if (profileError) throw profileError;
 
-      const { error } = await supabase
-        .from('pt_profiles')
-        .update(payload.ptData)
+      const modality = normalizePtServiceModality(
+        (payload.ptData as { service_modality?: string | null }).service_modality,
+      );
+      const { error } = await (supabase.from('pt_profiles') as any)
+        .update({
+          ...payload.ptData,
+          service_modality: modality,
+          ...serviceModalityToFlags(modality),
+        })
         .eq('user_id', user.id);
       if (error) throw error;
     },
@@ -731,17 +756,37 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle>Modalità di Servizio</CardTitle><CardDescription>Come offri i tuoi servizi</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5"><Label>Allenamento Online</Label><p className="text-sm text-muted-foreground">Offri sessioni online</p></div>
-                <Switch checked={formData.offers_online ?? true} onCheckedChange={(checked) => setFormData({ ...formData, offers_online: checked })} />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5"><Label>Allenamento di Persona</Label><p className="text-sm text-muted-foreground">Offri sessioni in presenza</p></div>
-                <Switch checked={formData.offers_in_person ?? true} onCheckedChange={(checked) => setFormData({ ...formData, offers_in_person: checked })} />
-              </div>
+            <CardHeader>
+              <CardTitle>Modalità di Servizio</CardTitle>
+              <CardDescription>Come offri i tuoi servizi (obbligatorio)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Label htmlFor="pt-service-modality">Modalità *</Label>
+              <Select
+                value={normalizePtServiceModality(formData.service_modality as PtServiceModality | undefined)}
+                onValueChange={(value) => {
+                  const modality = normalizePtServiceModality(value);
+                  setFormData({
+                    ...formData,
+                    service_modality: modality,
+                    ...serviceModalityToFlags(modality),
+                  });
+                }}
+              >
+                <SelectTrigger id="pt-service-modality">
+                  <SelectValue placeholder="Seleziona modalità" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PT_SERVICE_MODALITIES.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {PT_SERVICE_MODALITY_LABELS[m]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                In presenza, solo online, oppure entrambe (Mix).
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

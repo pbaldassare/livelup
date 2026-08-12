@@ -22,6 +22,8 @@ interface CreateUserRequest {
     specializations?: string[]
     status?: string
     bio?: string
+    /** in_presenza | online | mix */
+    service_modality?: string
     // Atleta specific
     fitness_level?: string
     goals?: string[]
@@ -205,6 +207,15 @@ serve(async (req) => {
 
     // 4. Create role-specific profile
     if (role === 'pt') {
+      const modalityRaw = (profileData.service_modality || 'mix').toLowerCase()
+      const service_modality =
+        modalityRaw === 'in_presenza' || modalityRaw === 'online' || modalityRaw === 'mix'
+          ? modalityRaw
+          : 'mix'
+      const offers_online = service_modality === 'online' || service_modality === 'mix'
+      const offers_in_person = service_modality === 'in_presenza' || service_modality === 'mix'
+      const online_only = service_modality === 'online'
+
       const { error: ptError } = await supabaseAdmin
         .from('pt_profiles')
         .insert({
@@ -216,7 +227,11 @@ serve(async (req) => {
           location_lat: profileData.location_lat || null,
           location_lng: profileData.location_lng || null,
           specializations: profileData.specializations || [],
-          bio: profileData.bio || null
+          bio: profileData.bio || null,
+          service_modality,
+          offers_online,
+          offers_in_person,
+          online_only,
         })
 
       if (ptError) {

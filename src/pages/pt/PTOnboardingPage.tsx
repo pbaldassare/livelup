@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -19,9 +18,15 @@ import {
   Check,
   Briefcase,
   Globe,
-  Users
+  Users,
+  Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  PT_SERVICE_MODALITY_LABELS,
+  serviceModalityToFlags,
+  type PtServiceModality,
+} from '@/lib/ptServiceModality';
 
 // =====================================================
 // PT ONBOARDING - Multi-step wizard for Personal Trainers
@@ -54,8 +59,7 @@ export function PTOnboardingPage() {
   const [certifications, setCertifications] = useState('');
   const [experienceYears, setExperienceYears] = useState('');
   const [locationCity, setLocationCity] = useState('');
-  const [offersOnline, setOffersOnline] = useState(true);
-  const [offersInPerson, setOffersInPerson] = useState(true);
+  const [serviceModality, setServiceModality] = useState<PtServiceModality>('mix');
   const [hourlyRate, setHourlyRate] = useState('');
 
   const totalSteps = 4;
@@ -84,15 +88,16 @@ export function PTOnboardingPage() {
         last_name: lastName,
       }).eq('user_id', user.id);
 
+      const flags = serviceModalityToFlags(serviceModality);
       // Update pt_profiles
-      const { error } = await supabase.from('pt_profiles').update({
+      const { error } = await (supabase.from('pt_profiles') as any).update({
         bio: bio || null,
         specializations: specializations.length > 0 ? specializations : null,
         certifications: certifications ? certifications.split(',').map(c => c.trim()) : null,
         experience_years: experienceYears ? parseInt(experienceYears) : null,
         location_city: locationCity || null,
-        offers_online: offersOnline,
-        offers_in_person: offersInPerson,
+        service_modality: serviceModality,
+        ...flags,
         hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
         status: 'in_attesa_approvazione',
         is_discoverable: true,
@@ -207,33 +212,50 @@ export function PTOnboardingPage() {
                   <Input value={locationCity} onChange={(e) => setLocationCity(e.target.value)} placeholder="Milano" className="bg-app-muted border-app-border text-app-foreground" />
                 </div>
                 <div className="space-y-3">
-                  <Label className="text-app-foreground">Modalità</Label>
-                  <Card
-                    className={cn('cursor-pointer transition-all border-2', offersInPerson ? 'border-app-accent bg-app-accent/10' : 'border-app-border bg-app-card')}
-                    onClick={() => setOffersInPerson(!offersInPerson)}
-                  >
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <Users className="h-5 w-5 text-app-accent" />
-                      <div className="flex-1">
-                        <p className="font-medium text-app-foreground">Di persona</p>
-                        <p className="text-sm text-app-muted-foreground">Sessioni in palestra o a domicilio</p>
-                      </div>
-                      <Checkbox checked={offersInPerson} className="border-app-accent data-[state=checked]:bg-app-accent" />
-                    </CardContent>
-                  </Card>
-                  <Card
-                    className={cn('cursor-pointer transition-all border-2', offersOnline ? 'border-app-accent bg-app-accent/10' : 'border-app-border bg-app-card')}
-                    onClick={() => setOffersOnline(!offersOnline)}
-                  >
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <Globe className="h-5 w-5 text-app-accent" />
-                      <div className="flex-1">
-                        <p className="font-medium text-app-foreground">Online</p>
-                        <p className="text-sm text-app-muted-foreground">Coaching via videochiamata</p>
-                      </div>
-                      <Checkbox checked={offersOnline} className="border-app-accent data-[state=checked]:bg-app-accent" />
-                    </CardContent>
-                  </Card>
+                  <Label className="text-app-foreground">Modalità *</Label>
+                  {(
+                    [
+                      {
+                        value: 'in_presenza' as const,
+                        icon: Users,
+                        hint: 'Sessioni in palestra o a domicilio',
+                      },
+                      {
+                        value: 'online' as const,
+                        icon: Globe,
+                        hint: 'Coaching via videochiamata',
+                      },
+                      {
+                        value: 'mix' as const,
+                        icon: Layers,
+                        hint: 'Sia in presenza che online',
+                      },
+                    ] as const
+                  ).map(({ value, icon: Icon, hint }) => (
+                    <Card
+                      key={value}
+                      className={cn(
+                        'cursor-pointer transition-all border-2',
+                        serviceModality === value
+                          ? 'border-app-accent bg-app-accent/10'
+                          : 'border-app-border bg-app-card',
+                      )}
+                      onClick={() => setServiceModality(value)}
+                    >
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <Icon className="h-5 w-5 text-app-accent" />
+                        <div className="flex-1">
+                          <p className="font-medium text-app-foreground">
+                            {PT_SERVICE_MODALITY_LABELS[value]}
+                          </p>
+                          <p className="text-sm text-app-muted-foreground">{hint}</p>
+                        </div>
+                        {serviceModality === value && (
+                          <Check className="h-5 w-5 text-app-accent" />
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </div>
             </motion.div>
