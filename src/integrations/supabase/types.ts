@@ -2855,8 +2855,11 @@ export type Database = {
           description: string | null
           id: string
           order_index: number
+          step_type: string
           title: string
           updated_at: string
+          video_duration_minutes: number | null
+          video_url: string | null
         }
         Insert: {
           completion_threshold?: number
@@ -2865,8 +2868,11 @@ export type Database = {
           description?: string | null
           id?: string
           order_index?: number
+          step_type?: string
           title: string
           updated_at?: string
+          video_duration_minutes?: number | null
+          video_url?: string | null
         }
         Update: {
           completion_threshold?: number
@@ -2875,8 +2881,11 @@ export type Database = {
           description?: string | null
           id?: string
           order_index?: number
+          step_type?: string
           title?: string
           updated_at?: string
+          video_duration_minutes?: number | null
+          video_url?: string | null
         }
         Relationships: [
           {
