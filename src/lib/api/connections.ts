@@ -239,8 +239,9 @@ export async function requestConnection(params: {
   atletaUserId: string;
   requestedBy: string;
   origin?: 'ricerca' | 'invito' | 'referral' | 'qr';
+  categoryId?: string;
 }) {
-  const { ptUserId, atletaUserId, requestedBy, origin = 'ricerca' } = params;
+  const { ptUserId, atletaUserId, requestedBy, origin = 'ricerca', categoryId } = params;
 
   // Multi-PT: blocco solo se esiste già active/pending con QUESTO PT
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -279,6 +280,26 @@ export async function requestConnection(params: {
     throw new Error('Il Personal Trainer ha raggiunto il numero massimo di atleti.');
   }
 
+  // Categoria cliente (opzionale): risolve slug per training_modality
+  let categoryFields: Record<string, unknown> = {};
+  if (categoryId && !categoryId.startsWith('fallback-')) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: category } = await (supabase as any)
+      .from('pt_athlete_categories')
+      .select('id, slug, is_system')
+      .eq('id', categoryId)
+      .maybeSingle();
+    if (category) {
+      categoryFields = {
+        category_id: category.id,
+        training_modality:
+          category.is_system && ['in_presenza', 'online', 'mix'].includes(category.slug)
+            ? category.slug
+            : 'mix',
+      };
+    }
+  }
+
   // Crea richiesta connessione
   const { data, error } = await supabase
     .from('pt_atleta_connections')
@@ -287,6 +308,7 @@ export async function requestConnection(params: {
       atleta_user_id: atletaUserId,
       requested_by: requestedBy,
       status: 'pending',
+      ...categoryFields,
     })
     .select()
     .single();

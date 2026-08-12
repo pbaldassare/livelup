@@ -17,6 +17,7 @@ export type CreateAthleteInput = {
   phone?: string;
   fitnessLevel?: string;
   goals?: string[];
+  categoryId: string;
 };
 
 export type CreateAthleteResult = {
@@ -40,12 +41,14 @@ export async function findAtletaByEmail(email: string): Promise<AtletaLookupResu
 export async function inviteExistingAtleta(
   ptUserId: string,
   atletaUserId: string,
+  categoryId?: string,
 ): Promise<void> {
   await requestConnection({
     ptUserId,
     atletaUserId,
     requestedBy: ptUserId,
     origin: 'invito',
+    categoryId,
   });
 }
 
@@ -60,6 +63,7 @@ export async function createAndConnectAtleta(
       phone: input.phone,
       fitnessLevel: input.fitnessLevel,
       goals: input.goals ?? [],
+      categoryId: input.categoryId,
     },
   });
 

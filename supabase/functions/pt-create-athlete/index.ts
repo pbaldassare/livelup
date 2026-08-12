@@ -17,6 +17,7 @@ interface CreateAthleteRequest {
   phone?: string
   fitnessLevel?: string
   goals?: string[]
+  categoryId?: string
 }
 
 const VALID_FITNESS_LEVELS = new Set([
@@ -78,7 +79,7 @@ serve(async (req) => {
     }
 
     const body: CreateAthleteRequest = await req.json()
-    const { email, firstName, lastName, phone, fitnessLevel, goals = [] } = body
+    const { email, firstName, lastName, phone, fitnessLevel, goals = [], categoryId } = body
 
     if (!email?.trim() || !firstName?.trim() || !lastName?.trim()) {
       return new Response(JSON.stringify({ error: 'Nome, cognome ed email sono obbligatori' }), {
@@ -86,6 +87,38 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    if (!categoryId?.trim()) {
+      return new Response(JSON.stringify({ error: 'Categoria cliente obbligatoria' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { data: category } = await supabaseAdmin
+      .from('pt_athlete_categories')
+      .select('id, slug, is_system, pt_user_id')
+      .eq('id', categoryId.trim())
+      .maybeSingle()
+
+    if (!category) {
+      return new Response(JSON.stringify({ error: 'Categoria cliente non valida' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!category.is_system && category.pt_user_id !== ptUserId) {
+      return new Response(JSON.stringify({ error: 'Categoria cliente non disponibile' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const resolvedTrainingModality =
+      category.is_system && ['in_presenza', 'online', 'mix'].includes(category.slug)
+        ? category.slug
+        : 'mix'
 
     if (fitnessLevel && !VALID_FITNESS_LEVELS.has(fitnessLevel)) {
       return new Response(JSON.stringify({ error: 'Seleziona un livello di allenamento valido' }), {
@@ -267,6 +300,8 @@ serve(async (req) => {
         requested_at: now,
         accepted_at: now,
         is_pt_active: true,
+        category_id: category.id,
+        training_modality: resolvedTrainingModality,
       })
       .select('id')
       .single()
@@ -278,6 +313,16 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    const { error: setCatError } = await supabaseAdmin.rpc('set_athlete_category', {
+      _connection_id: connection.id,
+      _category_id: category.id,
+    })
+    if (setCatError) {
+      console.warn('set_athlete_category skipped:', setCatError.message)
+    }
+
+
 
     // Ownership: creating PT becomes owner (collaborator assignments / cedi rules)
     const { error: ownerError } = await supabaseAdmin
