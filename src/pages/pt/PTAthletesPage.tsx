@@ -47,6 +47,9 @@ import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCate
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
 import { listAthleteCategories } from '@/lib/api/athleteCategories';
 import { resolveCategoryId } from '@/lib/athleteCategories';
+import { AthleteRelationFilter } from '@/components/pt/AthleteRelationFilter';
+import { useAthleteRelations, type AthleteRelationFilterValue } from '@/hooks/useAthleteRelations';
+
 
 // =====================================================
 // PT ATHLETES PAGE - CRM Atleti con paginazione
