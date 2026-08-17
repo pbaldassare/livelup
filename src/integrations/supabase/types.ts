@@ -2860,6 +2860,7 @@ export type Database = {
           updated_at: string
           video_duration_minutes: number | null
           video_url: string | null
+          video_urls: string[] | null
         }
         Insert: {
           completion_threshold?: number
@@ -2873,6 +2874,7 @@ export type Database = {
           updated_at?: string
           video_duration_minutes?: number | null
           video_url?: string | null
+          video_urls?: string[] | null
         }
         Update: {
           completion_threshold?: number
@@ -2886,6 +2888,7 @@ export type Database = {
           updated_at?: string
           video_duration_minutes?: number | null
           video_url?: string | null
+          video_urls?: string[] | null
         }
         Relationships: [
           {
