@@ -17,6 +17,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { useAuth } from '@/hooks/useAuth';
 import { buildCoachFullName, getCoachInitials } from '@/lib/coachName';
+import {
+  fetchJunctionSpecializationNames,
+  mergeSpecializationNames,
+} from '@/lib/api/discovery';
 import { PTMapView } from '@/components/app/PTMapView';
 import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { PublicEventCard } from '@/components/app/PublicEventCard';
@@ -404,15 +408,28 @@ function PTSearchSection({
 
       if (error) throw error;
 
-      // Fetch profiles for each PT
+      const rows = data || [];
+      const junctionByUser = await fetchJunctionSpecializationNames(
+        rows.map((pt) => pt.user_id),
+      );
+
+      // Fetch profiles for each PT + merge specialization sources
       const ptsWithProfiles = await Promise.all(
-        (data || []).map(async (pt) => {
+        rows.map(async (pt) => {
           const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name, avatar_url')
             .eq('user_id', pt.user_id)
             .single();
-          return { ...pt, profiles: profile };
+          const specializations = mergeSpecializationNames(
+            pt.specializations,
+            junctionByUser.get(pt.user_id),
+          );
+          return {
+            ...pt,
+            specializations: specializations.length > 0 ? specializations : null,
+            profiles: profile,
+          };
         })
       );
 
@@ -424,7 +441,12 @@ function PTSearchSection({
   const filteredPts = useMemo((): PTWithDistance[] => {
     if (!pts) return [];
 
-    let filtered: PTWithDistance[] = pts.map(pt => ({ ...pt, distance: undefined }));
+    // Nascondi profili incompleti (nome mancante / placeholder)
+    let filtered: PTWithDistance[] = pts
+      .filter((pt) =>
+        buildCoachFullName(pt.profiles?.first_name, pt.profiles?.last_name) != null,
+      )
+      .map((pt) => ({ ...pt, distance: undefined }));
 
     // Search filter
     if (searchQuery) {
@@ -437,7 +459,7 @@ function PTSearchSection({
       });
     }
 
-    // Specialization filter
+    // Specialization filter (merged array ∪ junction names)
     if (selectedSpecs.length > 0) {
       filtered = filtered.filter(pt => 
         selectedSpecs.some(spec => 

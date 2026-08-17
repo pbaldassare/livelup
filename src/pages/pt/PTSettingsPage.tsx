@@ -254,7 +254,7 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
   const handleSave = () =>
     updateProfileMutation.mutate({ ptData: formData, basic: basicInfo });
 
-  // Save specializations
+  // Save specializations (junction + denormalized name array for Discover)
   const saveSpecsMutation = useMutation({
     mutationFn: async (specIds: string[]) => {
       if (!user?.id) return;
@@ -265,9 +265,21 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
         const { error } = await supabase.from('pt_profile_specializations').insert(rows);
         if (error) throw error;
       }
+
+      // Keep pt_profiles.specializations in sync (Discover / search still filter on TEXT[])
+      const nameById = new Map(specCatalog.map((s) => [s.id, s.name]));
+      const specNames = specIds
+        .map((id) => nameById.get(id))
+        .filter((name): name is string => !!name?.trim());
+      const { error: arrayError } = await supabase
+        .from('pt_profiles')
+        .update({ specializations: specNames.length > 0 ? specNames : [] })
+        .eq('user_id', user.id);
+      if (arrayError) throw arrayError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-profile-specializations'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-profile'] });
       toast.success('Specializzazioni aggiornate');
     },
     onError: () => toast.error('Errore aggiornamento specializzazioni'),

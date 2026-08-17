@@ -97,6 +97,8 @@ import PTAppChatPage from "./pages/pt/PTAppChatPage";
 import PTAppChatDetailPage from "./pages/pt/PTAppChatDetailPage";
 import PTAppChatGroupDetailPage from "./pages/pt/PTAppChatGroupDetailPage";
 import PTAppCalendarPage from "./pages/pt/PTAppCalendarPage";
+import PTAppEventsPage from "./pages/pt/PTAppEventsPage";
+import PTAppEventDetailPage from "./pages/pt/PTAppEventDetailPage";
 import PTAppProfilePage from "./pages/pt/PTAppProfilePage";
 import PTAppExercisesPage from "./pages/pt/PTAppExercisesPage";
 import PTAppCoursesPage from "./pages/pt/PTAppCoursesPage";
@@ -575,6 +577,20 @@ const App = () => {
                   </AppLayout>
                 </PTAppRoute>
               } />
+              <Route path="/pt/app/events" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppEventsPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/events/:eventId" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppEventDetailPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
               <Route path="/pt/app/profile" element={
                 <PTAppRoute>
                   <AppLayout>
@@ -711,7 +727,7 @@ const App = () => {
                 </PTAppRoute>
               } />
               <Route path="/pt/app/messages" element={<Navigate to="/pt/app/chat" replace />} />
-              <Route path="/pt/app/calendar/eventi" element={<Navigate to="/pt/app/calendar" replace />} />
+              <Route path="/pt/app/calendar/eventi" element={<Navigate to="/pt/app/events" replace />} />
               <Route path="/pt/app/calendar/appuntamenti" element={<Navigate to="/pt/app/calendar?view=appuntamenti" replace />} />
 
 

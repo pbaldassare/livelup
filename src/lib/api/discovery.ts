@@ -4,7 +4,54 @@
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';
-import type { PTProfile } from '@/types/database';
+import { buildCoachFullName } from '@/lib/coachName';
+
+/**
+ * Unisce nomi specializzazione da TEXT[] e junction, dedupe case-insensitive.
+ */
+export function mergeSpecializationNames(
+  arrayNames: string[] | null | undefined,
+  junctionNames: string[] | null | undefined,
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of [...(arrayNames || []), ...(junctionNames || [])]) {
+    const name = raw?.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(name);
+  }
+  return result;
+}
+
+/** Carica nomi specializzazione dalla junction per un set di PT. */
+export async function fetchJunctionSpecializationNames(
+  ptUserIds: string[],
+): Promise<Map<string, string[]>> {
+  const byUser = new Map<string, string[]>();
+  if (ptUserIds.length === 0) return byUser;
+
+  const { data, error } = await supabase
+    .from('pt_profile_specializations')
+    .select('pt_user_id, pt_specializations(name)')
+    .in('pt_user_id', ptUserIds);
+
+  if (error) {
+    console.warn('[discovery] junction specializations:', error.message);
+    return byUser;
+  }
+
+  for (const row of data || []) {
+    const name = (row as { pt_specializations?: { name?: string } | null }).pt_specializations?.name;
+    if (!name?.trim()) continue;
+    const list = byUser.get(row.pt_user_id) || [];
+    list.push(name.trim());
+    byUser.set(row.pt_user_id, list);
+  }
+  return byUser;
+}
 
 // =====================================================
 // TIPI FILTRI
@@ -84,10 +131,8 @@ export async function searchPTs(filters: PTSearchFilters = {}): Promise<PTSearch
     .eq('is_discoverable', true)
     .eq('status', 'attivo');
 
-  // Filtro specializzazioni
-  if (filters.specializations && filters.specializations.length > 0) {
-    query = query.overlaps('specializations', filters.specializations);
-  }
+  // Non filtrare specializzazioni in SQL: arricchiamo da junction e filtriamo client-side
+  // così funzionano sia TEXT[] sia pt_profile_specializations.
 
   // Filtro rating
   if (filters.minRating) {
@@ -132,36 +177,62 @@ export async function searchPTs(filters: PTSearchFilters = {}): Promise<PTSearch
     throw new Error('Errore ricerca PT: ' + error.message);
   }
 
-  // Trasforma risultati
-  let results: PTSearchResult[] = (data || []).map((pt: any) => ({
-    id: pt.id,
-    user_id: pt.user_id,
-    bio: pt.bio,
-    specializations: pt.specializations,
-    certifications: pt.certifications,
-    experience_years: pt.experience_years,
-    hourly_rate: pt.hourly_rate,
-    currency: pt.currency,
-    location_city: pt.location_city,
-    location_country: pt.location_country,
-    offers_online: pt.offers_online,
-    offers_in_person: pt.offers_in_person,
-    rating_avg: pt.rating_avg || 0,
-    review_count: pt.review_count || 0,
-    level: pt.level,
-    first_name: pt.profiles?.first_name,
-    last_name: pt.profiles?.last_name,
-    avatar_url: pt.profiles?.avatar_url,
-    // Calcolo distanza se coordinate disponibili
-    distance_km: filters.userLat && filters.userLng && pt.location_lat && pt.location_lng
-      ? calculateDistance(
-          filters.userLat,
-          filters.userLng,
-          pt.location_lat,
-          pt.location_lng
-        )
-      : undefined,
-  }));
+  const rows = data || [];
+  const junctionByUser = await fetchJunctionSpecializationNames(
+    rows.map((pt: { user_id: string }) => pt.user_id),
+  );
+
+  // Trasforma risultati (specializzazioni = array ∪ junction)
+  let results: PTSearchResult[] = rows
+    .map((pt: any) => {
+      const specializations = mergeSpecializationNames(
+        pt.specializations,
+        junctionByUser.get(pt.user_id),
+      );
+      return {
+        id: pt.id,
+        user_id: pt.user_id,
+        bio: pt.bio,
+        specializations: specializations.length > 0 ? specializations : null,
+        certifications: pt.certifications,
+        experience_years: pt.experience_years,
+        hourly_rate: pt.hourly_rate,
+        currency: pt.currency,
+        location_city: pt.location_city,
+        location_country: pt.location_country,
+        offers_online: pt.offers_online,
+        offers_in_person: pt.offers_in_person,
+        rating_avg: pt.rating_avg || 0,
+        review_count: pt.review_count || 0,
+        level: pt.level,
+        first_name: pt.profiles?.first_name,
+        last_name: pt.profiles?.last_name,
+        avatar_url: pt.profiles?.avatar_url,
+        // Calcolo distanza se coordinate disponibili
+        distance_km: filters.userLat && filters.userLng && pt.location_lat && pt.location_lng
+          ? calculateDistance(
+              filters.userLat,
+              filters.userLng,
+              pt.location_lat,
+              pt.location_lng
+            )
+          : undefined,
+      };
+    })
+    // Nascondi profili incompleti (nome placeholder / mancante)
+    .filter(
+      (pt) => buildCoachFullName(pt.first_name, pt.last_name) != null,
+    );
+
+  // Filtro specializzazioni (array ∪ junction, match case-insensitive)
+  if (filters.specializations && filters.specializations.length > 0) {
+    const wanted = filters.specializations.map((s) => s.toLowerCase());
+    results = results.filter((pt) =>
+      (pt.specializations || []).some((s) =>
+        wanted.some((w) => s.toLowerCase().includes(w) || w.includes(s.toLowerCase())),
+      ),
+    );
+  }
 
   // Filtro distanza (post-query)
   if (filters.maxDistance && filters.userLat && filters.userLng) {
