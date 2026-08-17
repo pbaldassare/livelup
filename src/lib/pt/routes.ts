@@ -19,6 +19,8 @@ export const ptRoutes = {
       atletaId ? `/pt/messages?athleteId=${atletaId}` : '/pt/messages',
     calendar: '/pt/events',
     appointments: '/pt/calendar/appuntamenti',
+    events: '/pt/events',
+    event: (id: string) => `/pt/events/${id}`,
     payments: '/pt/payments',
     athleteTransfer: '/pt/athlete-transfer',
   },
@@ -37,6 +39,8 @@ export const ptRoutes = {
       atletaId ? `/pt/app/chat/${atletaId}` : '/pt/app/chat',
     calendar: '/pt/app/calendar',
     appointments: '/pt/app/calendar?view=appuntamenti',
+    events: '/pt/app/events',
+    event: (id: string) => `/pt/app/events/${id}`,
     payments: '/pt/app/payments',
     athleteTransfer: '/pt/app/athlete-transfer',
   },
@@ -56,6 +60,8 @@ export type PTRouteSet = {
   chat: (atletaId?: string) => string;
   calendar: string;
   appointments: string;
+  events: string;
+  event: (id: string) => string;
   payments: string;
   athleteTransfer: string;
 };

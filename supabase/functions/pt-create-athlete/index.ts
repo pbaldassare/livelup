@@ -17,6 +17,7 @@ interface CreateAthleteRequest {
   phone?: string
   fitnessLevel?: string
   goals?: string[]
+  /** Categoria cliente (system o custom del PT) — obbligatoria */
   categoryId?: string
 }
 
@@ -89,36 +90,36 @@ serve(async (req) => {
     }
 
     if (!categoryId?.trim()) {
-      return new Response(JSON.stringify({ error: 'Categoria cliente obbligatoria' }), {
+      return new Response(JSON.stringify({ error: 'Seleziona la categoria cliente' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const { data: category } = await supabaseAdmin
+    const resolvedCategoryId = categoryId.trim()
+    const { data: categoryRow, error: categoryError } = await supabaseAdmin
       .from('pt_athlete_categories')
       .select('id, slug, is_system, pt_user_id')
-      .eq('id', categoryId.trim())
+      .eq('id', resolvedCategoryId)
       .maybeSingle()
 
-    if (!category) {
+    if (categoryError || !categoryRow) {
       return new Response(JSON.stringify({ error: 'Categoria cliente non valida' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    if (!category.is_system && category.pt_user_id !== ptUserId) {
-      return new Response(JSON.stringify({ error: 'Categoria cliente non disponibile' }), {
+    if (!categoryRow.is_system && categoryRow.pt_user_id !== ptUserId) {
+      return new Response(JSON.stringify({ error: 'Categoria non autorizzata' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const resolvedTrainingModality =
-      category.is_system && ['in_presenza', 'online', 'mix'].includes(category.slug)
-        ? category.slug
-        : 'mix'
+    const systemSlugs = new Set(['in_presenza', 'online', 'mix'])
+    const trainingModality =
+      categoryRow.is_system && systemSlugs.has(categoryRow.slug) ? categoryRow.slug : 'mix'
 
     if (fitnessLevel && !VALID_FITNESS_LEVELS.has(fitnessLevel)) {
       return new Response(JSON.stringify({ error: 'Seleziona un livello di allenamento valido' }), {
@@ -290,39 +291,73 @@ serve(async (req) => {
     }
 
     const now = new Date().toISOString()
-    const { data: connection, error: connError } = await supabaseAdmin
-      .from('pt_atleta_connections')
-      .insert({
-        pt_user_id: ptUserId,
-        atleta_user_id: newUserId,
-        status: 'active',
-        requested_by: ptUserId,
-        requested_at: now,
-        accepted_at: now,
-        is_pt_active: true,
-        category_id: category.id,
-        training_modality: resolvedTrainingModality,
-      })
-      .select('id')
-      .single()
+    let connection: { id: string } | null = null
+    let connError: { message: string } | null = null
 
-    if (connError) {
+    {
+      const withCategory = await supabaseAdmin
+        .from('pt_atleta_connections')
+        .insert({
+          pt_user_id: ptUserId,
+          atleta_user_id: newUserId,
+          status: 'active',
+          requested_by: ptUserId,
+          requested_at: now,
+          accepted_at: now,
+          is_pt_active: true,
+          category_id: resolvedCategoryId,
+          training_modality: trainingModality,
+        })
+        .select('id')
+        .single()
+
+      connection = withCategory.data
+      connError = withCategory.error
+
+      // Fallback se colonne categoria non ancora presenti
+      if (connError) {
+        const msg = (connError.message || '').toLowerCase()
+        const missingCategory =
+          msg.includes('category_id') ||
+          msg.includes('training_modality') ||
+          msg.includes('schema cache')
+        if (missingCategory) {
+          const fallback = await supabaseAdmin
+            .from('pt_atleta_connections')
+            .insert({
+              pt_user_id: ptUserId,
+              atleta_user_id: newUserId,
+              status: 'active',
+              requested_by: ptUserId,
+              requested_at: now,
+              accepted_at: now,
+              is_pt_active: true,
+            })
+            .select('id')
+            .single()
+          connection = fallback.data
+          connError = fallback.error
+        }
+      }
+    }
+
+    if (connError || !connection) {
       await cleanup()
-      return new Response(JSON.stringify({ error: 'Errore collegamento: ' + connError.message }), {
+      return new Response(JSON.stringify({ error: 'Errore collegamento: ' + (connError?.message || 'unknown') }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const { error: setCatError } = await supabaseAdmin.rpc('set_athlete_category', {
-      _connection_id: connection.id,
-      _category_id: category.id,
-    })
-    if (setCatError) {
-      console.warn('set_athlete_category skipped:', setCatError.message)
+    // Allinea training_modality / category via RPC se disponibile
+    try {
+      await supabaseAdmin.rpc('set_athlete_category', {
+        _connection_id: connection.id,
+        _category_id: resolvedCategoryId,
+      })
+    } catch (e) {
+      console.warn('set_athlete_category skipped:', e)
     }
-
-
 
     // Ownership: creating PT becomes owner (collaborator assignments / cedi rules)
     const { error: ownerError } = await supabaseAdmin

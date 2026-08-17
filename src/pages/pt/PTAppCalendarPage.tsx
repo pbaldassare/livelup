@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
@@ -11,6 +11,7 @@ import {
   Video,
   Plus,
   X,
+  ChevronRight,
 } from 'lucide-react';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 import {
@@ -31,6 +32,7 @@ import { GoogleCalendarConnectButton } from '@/components/pt/GoogleCalendarConne
 import { syncAppointmentToGoogleCalendar } from '@/lib/api/googleCalendarSync';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { ptRoutes } from '@/lib/pt/routes';
 
 // =====================================================
 // PT APP CALENDAR PAGE - Calendario (Mobile)
@@ -232,6 +234,7 @@ function EventCard({
   event: PtCalendarEvent;
   onCancel: (id: string) => void;
 }) {
+  const navigate = useNavigate();
   const config =
     EVENT_TYPE_CONFIG[event.event_type as keyof typeof EVENT_TYPE_CONFIG] ||
     EVENT_TYPE_CONFIG.altro;
@@ -241,9 +244,22 @@ function EventCard({
     : null;
   const isBookedByAthlete =
     event.creator_user_id !== event.pt_user_id && event.atleta_user_id;
+  const isPublicEvent = event.category === 'evento';
+
+  const handleOpen = () => {
+    if (isPublicEvent) {
+      navigate(ptRoutes.app.event(event.id));
+    }
+  };
 
   return (
-    <Card className="bg-app-card border-app-border">
+    <Card
+      className={cn(
+        'bg-app-card border-app-border',
+        isPublicEvent && 'cursor-pointer active:scale-[0.99] transition-transform',
+      )}
+      onClick={isPublicEvent ? handleOpen : undefined}
+    >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <div
@@ -289,14 +305,21 @@ function EventCard({
             )}
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-app-muted-foreground hover:text-destructive"
-            onClick={() => onCancel(event.id)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          {isPublicEvent ? (
+            <ChevronRight className="h-5 w-5 text-app-muted-foreground shrink-0 mt-1" />
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-app-muted-foreground hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancel(event.id);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { getHomeRoute, getRoleLabel, type AppRole } from '@/types/roles';
+import { getRoleLabel, type AppRole } from '@/types/roles';
+import {
+  consumePostUpdatePath,
+  resolvePostAuthRedirect,
+} from '@/lib/lastAppPath';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +37,7 @@ const passwordSchema = z.string().min(6, 'La password deve avere almeno 6 caratt
 
 export function AuthPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { signIn, signUp, resetPassword, isAuthenticated, role, isLoading: authLoading, isRoleLoading, user } = useAuth();
   
@@ -102,9 +107,18 @@ export function AuthPage() {
           }
         })();
       }
-      const homeRoute = getHomeRoute(role);
+      const from = (location.state as { from?: { pathname: string; search?: string } } | null)?.from;
+      // Prefer path saved around PWA update / deep-link bounce
+      const postUpdate = consumePostUpdatePath();
+      const target = postUpdate || resolvePostAuthRedirect(role, from);
+      const current = `${location.pathname}${location.search}${location.hash}`;
+      // Skip if already on target — avoids redirect loop / blank hang
+      if (target === current || target === `${location.pathname}${location.search}`) {
+        didRedirectRef.current = true;
+        return;
+      }
       didRedirectRef.current = true;
-      navigate(homeRoute, { replace: true });
+      navigate(target, { replace: true });
       return;
     }
 
@@ -119,7 +133,7 @@ export function AuthPage() {
       }, 3000);
       return () => clearTimeout(timeout);
     }
-  }, [isAuthenticated, role, authLoading, isRoleLoading]);
+  }, [isAuthenticated, role, authLoading, isRoleLoading, location.state, navigate, user]);
 
   // Handle redirect back from confirmation email link
   useEffect(() => {

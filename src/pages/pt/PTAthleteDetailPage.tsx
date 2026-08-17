@@ -240,7 +240,7 @@ export function PTAthleteDetailPage() {
               )}
               {!ownershipLoading && connection?.status === 'active' && (
                 <Badge variant={isOwner ? 'default' : 'secondary'}>
-                  {isOwner ? 'Titolare' : 'In coaching'}
+                  {isOwner ? 'Titolare' : 'Ricevuto'}
                 </Badge>
               )}
               {atletaProfile?.level && (

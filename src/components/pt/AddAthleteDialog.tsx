@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -27,8 +27,8 @@ import {
   inviteExistingAtleta,
   type AtletaLookupResult,
 } from '@/lib/api/ptAthletes';
-import { getAthleteDisplayName } from '@/lib/athleteName';
 import { listAthleteCategories } from '@/lib/api/athleteCategories';
+import { getAthleteDisplayName } from '@/lib/athleteName';
 import { Loader2, Search, UserPlus, UserRoundPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -75,7 +75,7 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
   const [lookupEmail, setLookupEmail] = useState('');
   const [lookupResult, setLookupResult] = useState<AtletaLookupResult | null>(null);
   const [createForm, setCreateForm] = useState(defaultCreateForm);
-  const [categoryId, setCategoryId] = useState<string>('');
+  const [categoryId, setCategoryId] = useState('');
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ['pt-athlete-categories'],
@@ -83,16 +83,28 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
     enabled: open,
   });
 
+  const defaultMixId = useMemo(
+    () => categories.find((c) => c.is_system && c.slug === 'mix')?.id ?? '',
+    [categories],
+  );
+
   useEffect(() => {
     if (open) setTab(defaultTab);
   }, [open, defaultTab]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!categoryId && defaultMixId) {
+      setCategoryId(defaultMixId);
+    }
+  }, [open, categoryId, defaultMixId]);
 
   const reset = () => {
     setTab(defaultTab);
     setLookupEmail('');
     setLookupResult(null);
     setCreateForm(defaultCreateForm);
-    setCategoryId('');
+    setCategoryId(defaultMixId);
   };
 
   const handleOpenChange = (next: boolean) => {
@@ -121,17 +133,18 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
     },
     onSuccess: () => {
       invalidateAthleteLists(queryClient, user?.id);
-      toast.success('Invito inviato — l\'atleta dovrà confermare dall\'app');
+      toast.success("Invito inviato — l'atleta dovrà confermare dall'app");
       handleOpenChange(false);
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Impossibile inviare l\'invito');
+      toast.error(err.message || "Impossibile inviare l'invito");
     },
   });
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      createAndConnectAtleta({
+    mutationFn: () => {
+      if (!categoryId) throw new Error('Seleziona la categoria cliente');
+      return createAndConnectAtleta({
         email: createForm.email,
         firstName: createForm.firstName,
         lastName: createForm.lastName,
@@ -139,12 +152,13 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
         fitnessLevel: createForm.fitnessLevel || undefined,
         goals: createForm.selectedGoals,
         categoryId,
-      }),
+      });
+    },
     onSuccess: (created) => {
       invalidateAthleteLists(queryClient, user?.id);
       const emailDescription = created.emailSent
-        ? 'Riceverà un\'email con la password temporanea Leone123! — chiedigli di cambiarla subito.'
-        : 'Account creato e collegato. L\'email di benvenuto verrà inviata appena il servizio email è attivo.';
+        ? "Riceverà un'email con la password temporanea Leone123! — chiedigli di cambiarla subito."
+        : "Account creato e collegato. L'email di benvenuto verrà inviata appena il servizio email è attivo.";
       toast.success(`${created.firstName} ${created.lastName} aggiunto tra i tuoi atleti attivi`, {
         description: emailDescription,
       });
@@ -159,49 +173,58 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
     setCreateForm((f) => ({
       ...f,
       selectedGoals: f.selectedGoals.includes(goalId)
-        ? f.selectedGoals.filter((g) => g !== goalId)
+        ? f.selectedGoals.filter((id) => id !== goalId)
         : [...f.selectedGoals, goalId],
     }));
   };
 
-  const categorySelect = (idSuffix: string) => (
-    <div className="space-y-2">
-      <Label htmlFor={`athlete-category-${idSuffix}`}>Categoria cliente *</Label>
-      <Select value={categoryId || undefined} onValueChange={setCategoryId}>
-        <SelectTrigger id={`athlete-category-${idSuffix}`}>
-          <SelectValue placeholder={categoriesLoading ? 'Caricamento…' : 'Seleziona categoria'} />
-        </SelectTrigger>
-        <SelectContent>
-          {categories.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
-              {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+  const hasCategory = Boolean(categoryId) && !categoryId.startsWith('fallback-');
 
   const canCreate =
-    Boolean(categoryId) &&
     createForm.firstName.trim().length >= 2 &&
     createForm.lastName.trim().length >= 2 &&
-    createForm.email.trim().length > 0;
+    createForm.email.trim().length > 0 &&
+    hasCategory;
 
+  // Multi-PT: si può invitare anche se ha già altri coach; blocco solo se già con te
   const canInvite =
-    Boolean(categoryId) &&
     lookupResult?.found &&
-    !lookupResult.has_active_pt &&
     lookupResult.connection_with_me !== 'active' &&
-    lookupResult.connection_with_me !== 'pending';
+    lookupResult.connection_with_me !== 'pending' &&
+    hasCategory;
 
   const inviteBlockedReason = (() => {
     if (!lookupResult?.found) return null;
     if (lookupResult.connection_with_me === 'active') return 'Già collegato a te.';
     if (lookupResult.connection_with_me === 'pending') return 'Invito già in attesa di conferma.';
-    if (lookupResult.has_active_pt) return 'Ha già un altro Personal Trainer attivo.';
     return null;
   })();
+
+  const categorySelect = (
+    <div className="space-y-2">
+      <Label htmlFor={`athlete-category-${tab}`}>Categoria cliente *</Label>
+      <Select
+        value={categoryId || undefined}
+        onValueChange={setCategoryId}
+        disabled={categoriesLoading || categories.length === 0}
+      >
+        <SelectTrigger id={`athlete-category-${tab}`}>
+          <SelectValue placeholder="Seleziona categoria" />
+        </SelectTrigger>
+        <SelectContent>
+          {categories.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+              {c.is_system ? '' : ' (tua)'}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-xs text-muted-foreground">
+        In presenza, Online, Mix oppure una tua categoria. Puoi cambiarla dopo dalla scheda atleta.
+      </p>
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -287,7 +310,7 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
               </p>
             )}
 
-            {categorySelect('link')}
+            {categorySelect}
 
             <DialogFooter className="sm:justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
@@ -356,7 +379,7 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
               />
             </div>
 
-            {categorySelect('create')}
+            {categorySelect}
 
             <div className="space-y-2">
               <Label>Livello</Label>

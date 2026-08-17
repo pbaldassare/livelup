@@ -20,7 +20,11 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { supabase } from '@/integrations/supabase/client';
-import { requestConnection, terminateConnection } from '@/lib/api/connections';
+import {
+  cancelPendingConnection,
+  requestConnection,
+  terminateConnection,
+} from '@/lib/api/connections';
 import { PTPackagesSection } from '@/components/atleta/PTPackagesSection';
 import { FollowStarButton } from '@/components/app/FollowStarButton';
 import { toast } from 'sonner';
@@ -39,6 +43,7 @@ import {
   Loader2,
   MessageCircle,
   Unlink,
+  XCircle,
 } from 'lucide-react';
 
 // =====================================================
@@ -51,7 +56,7 @@ export function AtletaPTProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isConnected, refetch: refetchStatus } = useAtletaStatus();
+  const { connections, refetch: refetchStatus } = useAtletaStatus();
   const queryClient = useQueryClient();
 
   // Fetch PT profile
@@ -206,8 +211,28 @@ export function AtletaPTProfilePage() {
     },
   });
 
+  const cancelPendingMutation = useMutation({
+    mutationFn: async () => {
+      if (!existingRequest?.id || existingRequest.status !== 'pending') {
+        throw new Error('Nessuna richiesta in attesa');
+      }
+      return cancelPendingConnection(existingRequest.id);
+    },
+    onSuccess: () => {
+      toast.success('Richiesta annullata');
+      refetchStatus();
+      queryClient.invalidateQueries({ queryKey: ['atleta-connection'] });
+      queryClient.invalidateQueries({ queryKey: ['connection-request', user?.id, userId] });
+      queryClient.invalidateQueries({ queryKey: ['atleta-chats', user?.id] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const isPendingThisPT = existingRequest?.status === 'pending';
   const isConnectedToThisPT = existingRequest?.status === 'active';
+  const hasOtherActiveCoaches = connections.some((c) => c.pt_user_id !== userId);
   const ptDisplayName = buildCoachFullName(pt?.profiles?.first_name, pt?.profiles?.last_name);
 
   if (isLoading) {
@@ -492,31 +517,105 @@ export function AtletaPTProfilePage() {
               </AlertDialog>
             </>
           ) : isPendingThisPT ? (
-            <Button className="w-full bg-app-muted text-app-muted-foreground" disabled>
-              <Clock className="h-4 w-4 mr-2" />
-              Richiesta in attesa
-            </Button>
-          ) : isConnected ? (
-            <Button className="w-full bg-app-muted text-app-muted-foreground" disabled>
-              Sei già collegato a un altro PT
-            </Button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-2 rounded-lg bg-app-muted/60 px-3 py-2 text-sm text-app-muted-foreground">
+                <Clock className="h-4 w-4 shrink-0" />
+                Richiesta in attesa di conferma
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 font-semibold">
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Chatta ora
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-app-card border-app-border">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-app-foreground">
+                      Aprire la chat?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-app-muted-foreground">
+                      Puoi messaggiarti con{' '}
+                      {ptDisplayName || 'questo Professionista'} anche mentre la richiesta è in
+                      attesa. Continuare?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="bg-app-muted text-app-foreground border-app-border">
+                      Annulla
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+                      onClick={() => navigate(`/app/chat/${userId}`)}
+                    >
+                      Apri chat
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent border-app-border text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                    disabled={cancelPendingMutation.isPending}
+                  >
+                    {cancelPendingMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <XCircle className="h-4 w-4 mr-2" />
+                    )}
+                    Annulla richiesta
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-app-card border-app-border">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-app-foreground">
+                      Annullare la richiesta?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-app-muted-foreground">
+                      La richiesta a {ptDisplayName || 'questo Professionista'} verrà cancellata.
+                      Potrai inviarne una nuova in seguito.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="bg-app-muted text-app-foreground border-app-border">
+                      Mantieni
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-red-500 text-white hover:bg-red-600"
+                      onClick={() => cancelPendingMutation.mutate()}
+                    >
+                      Annulla richiesta
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           ) : !user ? (
             <Button className="w-full bg-app-accent text-app-accent-foreground" asChild>
               <a href="/auth">Accedi per richiedere connessione</a>
             </Button>
           ) : (
-            <Button 
-              className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90" 
-              onClick={() => requestMutation.mutate()}
-              disabled={requestMutation.isPending}
-            >
-              {requestMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
+            <div className="space-y-2">
+              {hasOtherActiveCoaches && (
+                <p className="text-xs text-center text-app-muted-foreground px-1">
+                  Hai già altri coach: puoi collegarti anche a questo e chattare con tutti.
+                </p>
               )}
-              Richiedi connessione
-            </Button>
+              <Button
+                className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+                onClick={() => requestMutation.mutate()}
+                disabled={requestMutation.isPending}
+              >
+                {requestMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                Richiedi connessione
+              </Button>
+            </div>
           )}
         </div>
       </div>

@@ -97,6 +97,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import {
+  PT_SERVICE_MODALITIES,
+  PT_SERVICE_MODALITY_LABELS,
+  flagsToServiceModality,
+  normalizePtServiceModality,
+  serviceModalityToFlags,
+  type PtServiceModality,
+} from '@/lib/ptServiceModality';
 
 // =====================================================
 // ADMIN PTS PAGE - Gestione Personal Trainers
@@ -123,7 +131,7 @@ interface PTListItem {
   currency: string | null;
   offers_online: boolean | null;
   offers_in_person: boolean | null;
-  service_modality: string | null;
+  service_modality?: string | null;
   is_discoverable: boolean | null;
   max_athletes: number | null;
   gallery_photos: string[] | null;
@@ -144,12 +152,6 @@ interface PTType {
   name: string;
   is_active: boolean;
 }
-
-const SERVICE_MODALITY_OPTIONS = [
-  { value: 'in_presenza', label: 'In presenza' },
-  { value: 'online', label: 'Online' },
-  { value: 'mix', label: 'Mix (online + in presenza)' },
-];
 
 type PTStatus = 'registrato' | 'in_attesa_approvazione' | 'attivo' | 'sospeso' | 'premium';
 
@@ -179,6 +181,7 @@ export function AdminPTsPage() {
   const statusFilter = searchParams.get('status') || 'all';
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [modalityFilter, setModalityFilter] = useState<PtServiceModality | 'all'>('all');
   const [selectedPT, setSelectedPT] = useState<PTListItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   
@@ -213,9 +216,8 @@ export function AdminPTsPage() {
     location_lng: null as number | null,
     specializations: [] as string[],
     status: 'attivo' as 'registrato' | 'attivo',
-    service_modality: 'mix' as 'in_presenza' | 'online' | 'mix'
+    service_modality: 'mix' as PtServiceModality,
   });
-  const [modalityFilter, setModalityFilter] = useState('all');
 
   // Fetch PT types
   const { data: ptTypes = [] } = useQuery({
@@ -307,11 +309,13 @@ export function AdminPTsPage() {
   const filteredPTs = useMemo(() => {
     return pts.filter((pt) => {
       const fullName = `${pt.profiles?.first_name || ''} ${pt.profiles?.last_name || ''}`.toLowerCase();
-      const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
-             pt.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-             pt.location_city?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesModality = modalityFilter === 'all' || (pt.service_modality || 'mix') === modalityFilter;
-      return matchesSearch && matchesModality;
+      const matchesSearch =
+        fullName.includes(searchTerm.toLowerCase()) ||
+        pt.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        pt.location_city?.toLowerCase().includes(searchTerm.toLowerCase());
+      if (!matchesSearch) return false;
+      if (modalityFilter === 'all') return true;
+      return flagsToServiceModality(pt) === modalityFilter;
     });
   }, [pts, searchTerm, modalityFilter]);
 
@@ -386,9 +390,17 @@ export function AdminPTsPage() {
   // Inline field update mutation
   const updateFieldMutation = useMutation({
     mutationFn: async ({ userId, field, value }: { userId: string; field: string; value: unknown }) => {
-      const { error } = await supabase
-        .from('pt_profiles')
-        .update({ [field]: value })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const patch: Record<string, unknown> =
+        field === 'service_modality'
+          ? {
+              service_modality: normalizePtServiceModality(value),
+              ...serviceModalityToFlags(normalizePtServiceModality(value)),
+            }
+          : { [field]: value };
+
+      const { error } = await (supabase.from('pt_profiles') as any)
+        .update(patch)
         .eq('user_id', userId);
       if (error) throw error;
     },
@@ -437,7 +449,7 @@ export function AdminPTsPage() {
             location_lng: newPT.location_lng,
             specializations: newPT.specializations,
             status: newPT.status,
-            service_modality: newPT.service_modality
+            service_modality: newPT.service_modality,
           }
         }
       });
@@ -470,7 +482,7 @@ export function AdminPTsPage() {
         location_lng: null,
         specializations: [],
         status: 'attivo',
-        service_modality: 'mix'
+        service_modality: 'mix',
       });
     },
     onError: (error) => toast.error('Errore: ' + error.message)
@@ -554,9 +566,9 @@ export function AdminPTsPage() {
         hourly_rate: selectedPT.hourly_rate || 0,
         currency: selectedPT.currency || 'EUR',
         max_athletes: selectedPT.max_athletes || 50,
-        service_modality: selectedPT.service_modality || 'mix',
         offers_online: selectedPT.offers_online ?? true,
         offers_in_person: selectedPT.offers_in_person ?? true,
+        service_modality: flagsToServiceModality(selectedPT),
         is_discoverable: selectedPT.is_discoverable ?? true,
         location_city: selectedPT.location_city || '',
         location_address: selectedPT.location_address || '',
@@ -599,8 +611,7 @@ export function AdminPTsPage() {
   const savePTDetailMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPT) return;
-      const { error } = await supabase
-        .from('pt_profiles')
+      const { error } = await (supabase.from('pt_profiles') as any)
         .update({
           bio: editingPTData.bio as string || null,
           method_description: editingPTData.method_description as string || null,
@@ -608,13 +619,12 @@ export function AdminPTsPage() {
           hourly_rate: editingPTData.hourly_rate as number || null,
           currency: editingPTData.currency as string,
           max_athletes: editingPTData.max_athletes as number,
-          service_modality: editingPTData.service_modality as string,
-          offers_online: editingPTData.offers_online as boolean,
-          offers_in_person: editingPTData.offers_in_person as boolean,
           is_discoverable: editingPTData.is_discoverable as boolean,
           location_city: editingPTData.location_city as string || null,
           location_address: editingPTData.location_address as string || null,
           location_country: editingPTData.location_country as string || null,
+          service_modality: normalizePtServiceModality(editingPTData.service_modality),
+          ...serviceModalityToFlags(normalizePtServiceModality(editingPTData.service_modality)),
         })
         .eq('user_id', selectedPT.user_id);
       if (error) throw error;
@@ -737,36 +747,42 @@ export function AdminPTsPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pt-status">Stato iniziale</Label>
-                  <Select
-                    value={newPT.status}
-                    onValueChange={(value) => setNewPT({ ...newPT, status: value as 'registrato' | 'attivo' })}
-                  >
-                    <SelectTrigger id="pt-status">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="registrato">Registrato (da approvare)</SelectItem>
-                      <SelectItem value="attivo">Attivo (già approvato)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pt-modality">Modalità di servizio *</Label>
-                  <Select
-                    value={newPT.service_modality}
-                    onValueChange={(value) => setNewPT({ ...newPT, service_modality: value as 'in_presenza' | 'online' | 'mix' })}
-                  >
-                    <SelectTrigger id="pt-modality">
-                      <SelectValue placeholder="Seleziona modalità" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SERVICE_MODALITY_OPTIONS.map(o => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pt-service-modality">Modalità *</Label>
+                    <Select
+                      value={newPT.service_modality}
+                      onValueChange={(value) =>
+                        setNewPT({ ...newPT, service_modality: normalizePtServiceModality(value) })
+                      }
+                    >
+                      <SelectTrigger id="pt-service-modality">
+                        <SelectValue placeholder="Seleziona modalità" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PT_SERVICE_MODALITIES.map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {PT_SERVICE_MODALITY_LABELS[m]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pt-status">Stato iniziale</Label>
+                    <Select
+                      value={newPT.status}
+                      onValueChange={(value) => setNewPT({ ...newPT, status: value as 'registrato' | 'attivo' })}
+                    >
+                      <SelectTrigger id="pt-status">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="registrato">Registrato (da approvare)</SelectItem>
+                        <SelectItem value="attivo">Attivo (già approvato)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               </div>
@@ -831,15 +847,20 @@ export function AdminPTsPage() {
             </Select>
             <Select
               value={modalityFilter}
-              onValueChange={(value) => { setModalityFilter(value); setCurrentPage(1); }}
+              onValueChange={(value) => {
+                setModalityFilter(value === 'all' ? 'all' : normalizePtServiceModality(value));
+                setCurrentPage(1);
+              }}
             >
-              <SelectTrigger className="w-full sm:w-[220px]">
-                <SelectValue placeholder="Filtra per modalità" />
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filtra modalità" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tutte le modalità</SelectItem>
-                {SERVICE_MODALITY_OPTIONS.map(o => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                {PT_SERVICE_MODALITIES.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {PT_SERVICE_MODALITY_LABELS[m]}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -881,6 +902,7 @@ export function AdminPTsPage() {
                   </TableHead>
                   <TableHead>Personal Trainer</TableHead>
                   <TableHead>Stato</TableHead>
+                  <TableHead>Modalità</TableHead>
                   <TableHead>Tipologia</TableHead>
                   <TableHead>Città</TableHead>
                   <TableHead>Specializzazioni</TableHead>
@@ -891,13 +913,13 @@ export function AdminPTsPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="p-0 border-0">
+                    <TableCell colSpan={9} className="p-0 border-0">
                       <DataTableSkeleton rows={5} columns={5} showSearch={false} />
                     </TableCell>
                   </TableRow>
                 ) : paginatedPTs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       Nessun Personal Trainer trovato
                     </TableCell>
                   </TableRow>
@@ -932,6 +954,17 @@ export function AdminPTsPage() {
                         <DashboardStatusBadge 
                           status={pt.status === 'in_attesa_approvazione' ? 'pending' : pt.status} 
                           size="sm" 
+                        />
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <InlineEditSelect
+                          value={flagsToServiceModality(pt)}
+                          options={PT_SERVICE_MODALITIES.map((m) => ({
+                            value: m,
+                            label: PT_SERVICE_MODALITY_LABELS[m],
+                          }))}
+                          onSave={(value) => handleUpdateField(pt.user_id, 'service_modality', value)}
+                          placeholder="Modalità"
                         />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -1140,29 +1173,33 @@ export function AdminPTsPage() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Modalità di servizio *</Label>
-                    <Select
-                      value={(editingPTData.service_modality as string) || 'mix'}
-                      onValueChange={(value) => setEditingPTData(prev => ({
-                        ...prev,
-                        service_modality: value,
-                        offers_online: value !== 'in_presenza',
-                        offers_in_person: value !== 'online',
-                      }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleziona modalità" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SERVICE_MODALITY_OPTIONS.map(o => (
-                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <label className="flex items-center gap-2 text-sm">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Modalità *</Label>
+                      <Select
+                        value={normalizePtServiceModality(editingPTData.service_modality)}
+                        onValueChange={(value) => {
+                          const modality = normalizePtServiceModality(value);
+                          setEditingPTData((prev) => ({
+                            ...prev,
+                            service_modality: modality,
+                            ...serviceModalityToFlags(modality),
+                          }));
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PT_SERVICE_MODALITIES.map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {PT_SERVICE_MODALITY_LABELS[m]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm pt-5">
                       <Switch
                         checked={(editingPTData.is_discoverable as boolean) ?? true}
                         onCheckedChange={(checked) => setEditingPTData(prev => ({ ...prev, is_discoverable: checked }))}

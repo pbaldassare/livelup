@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { registerServiceWorker } from "@/lib/pwa/registerSW";
+import { redirectIfColdStartNeedsRestore } from "@/lib/lastAppPath";
 
 /**
  * Emergency recovery: if the URL contains ?reset=1 we wipe all local
@@ -31,11 +32,12 @@ async function emergencyReset() {
 // Check for reset flag
 if (new URLSearchParams(window.location.search).has('reset')) {
   emergencyReset();
+} else if (redirectIfColdStartNeedsRestore()) {
+  // Navigating away — skip React mount on this document
 } else {
   void registerServiceWorker();
 
   const root = document.getElementById("root")!;
-
 
   try {
     createRoot(root).render(<App />);

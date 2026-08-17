@@ -27,6 +27,7 @@ import {
   Monitor,
   Combine,
   GraduationCap,
+  PartyPopper,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -44,6 +45,7 @@ const SECTIONS: Array<{ label: string; href: string; icon: typeof Calendar; grou
   { group: 'Community', label: 'Gruppi', href: '/pt/app/groups', icon: UsersRound },
   { group: 'Community', label: 'Cerca PT e professionisti', href: '/pt/app/cerca-professionisti', icon: Search },
   { group: 'Lavoro', label: 'Calendario', href: '/pt/app/calendar', icon: Calendar },
+  { group: 'Lavoro', label: 'Eventi', href: '/pt/app/events', icon: PartyPopper },
   { group: 'Lavoro', label: 'Esercizi', href: '/pt/app/exercises', icon: Library },
   { group: 'Lavoro', label: 'Template', href: '/pt/app/templates', icon: ClipboardList },
   { group: 'Lavoro', label: 'Corsi', href: '/pt/app/courses', icon: GraduationCap },

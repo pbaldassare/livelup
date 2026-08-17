@@ -8,7 +8,10 @@ import {
   isTrainingModality,
   type TrainingModality,
 } from '@/lib/trainingModality';
-import { getSystemCategoryIdBySlug } from '@/lib/api/athleteCategories';
+import {
+  getSystemCategoryIdBySlug,
+  setAthleteCategory,
+} from '@/lib/api/athleteCategories';
 
 export interface PtConnectionCategory {
   id: string;
@@ -239,6 +242,7 @@ export async function requestConnection(params: {
   atletaUserId: string;
   requestedBy: string;
   origin?: 'ricerca' | 'invito' | 'referral' | 'qr';
+  /** Categoria cliente (system In presenza/Online/Mix o custom PT) */
   categoryId?: string;
 }) {
   const { ptUserId, atletaUserId, requestedBy, origin = 'ricerca', categoryId } = params;
@@ -280,44 +284,170 @@ export async function requestConnection(params: {
     throw new Error('Il Personal Trainer ha raggiunto il numero massimo di atleti.');
   }
 
-  // Categoria cliente (opzionale): risolve slug per training_modality
-  let categoryFields: Record<string, unknown> = {};
-  if (categoryId && !categoryId.startsWith('fallback-')) {
+  let trainingModality: TrainingModality = 'mix';
+  let resolvedCategoryId: string | null = categoryId?.trim() || null;
+
+  if (resolvedCategoryId) {
+    if (resolvedCategoryId.startsWith('fallback-')) {
+      throw new Error(
+        'Categorie non disponibili sul backend. Controlla che pt_athlete_categories sia presente su Lovable Cloud.',
+      );
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: category } = await (supabase as any)
-      .from('pt_athlete_categories')
-      .select('id, slug, is_system')
-      .eq('id', categoryId)
+    const { data: cat, error: catError } = await (supabase.from('pt_athlete_categories') as any)
+      .select('id, slug, is_system, pt_user_id')
+      .eq('id', resolvedCategoryId)
       .maybeSingle();
-    if (category) {
-      categoryFields = {
-        category_id: category.id,
-        training_modality:
-          category.is_system && ['in_presenza', 'online', 'mix'].includes(category.slug)
-            ? category.slug
-            : 'mix',
-      };
+
+    if (catError || !cat) {
+      throw new Error('Categoria cliente non valida');
+    }
+    if (!cat.is_system && cat.pt_user_id !== ptUserId) {
+      throw new Error('Categoria non autorizzata');
+    }
+    if (cat.is_system && isTrainingModality(cat.slug)) {
+      trainingModality = cat.slug;
     }
   }
 
-  // Crea richiesta connessione
-  const { data, error } = await supabase
+  const now = new Date().toISOString();
+
+  // UNIQUE(pt_user_id, atleta_user_id): dopo terminate/reject la riga resta.
+  // Riusa UPDATE → pending invece di INSERT (evita 23505 sul reconnect).
+  const { data: existingRow, error: existingLookupError } = await supabase
     .from('pt_atleta_connections')
-    .insert({
-      pt_user_id: ptUserId,
-      atleta_user_id: atletaUserId,
-      requested_by: requestedBy,
+    .select('id, status')
+    .eq('pt_user_id', ptUserId)
+    .eq('atleta_user_id', atletaUserId)
+    .maybeSingle();
+
+  if (existingLookupError) {
+    throw new Error('Errore durante la richiesta: ' + existingLookupError.message);
+  }
+
+  if (existingRow) {
+    const status = (existingRow.status ?? '').toLowerCase();
+    if (status === 'active' || status === 'pending') {
+      throw new Error('Esiste già una connessione o richiesta con questo Professionista.');
+    }
+
+    // terminated / rifiutato / rejected / altri stati inattivi → riattiva ciclo richiesta
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let updatePayload: Record<string, unknown> = {
       status: 'pending',
-      ...categoryFields,
-    })
+      requested_by: requestedBy,
+      requested_at: now,
+      terminated_at: null,
+      accepted_at: null,
+      updated_at: now,
+    };
+
+    if (resolvedCategoryId) {
+      updatePayload = {
+        ...updatePayload,
+        category_id: resolvedCategoryId,
+        training_modality: trainingModality,
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let { data, error } = await (supabase.from('pt_atleta_connections') as any)
+      .update(updatePayload)
+      .eq('id', existingRow.id)
+      .select()
+      .single();
+
+    if (error && resolvedCategoryId && isMissingCategoryColumn(error)) {
+      ({ data, error } = await supabase
+        .from('pt_atleta_connections')
+        .update({
+          status: 'pending',
+          requested_by: requestedBy,
+          requested_at: now,
+          terminated_at: null,
+          accepted_at: null,
+          updated_at: now,
+        })
+        .eq('id', existingRow.id)
+        .select()
+        .single());
+    }
+
+    if (error) {
+      throw new Error('Errore durante la richiesta: ' + error.message);
+    }
+
+    if (resolvedCategoryId && data?.id) {
+      try {
+        await setAthleteCategory({
+          connectionId: data.id,
+          categoryId: resolvedCategoryId,
+        });
+      } catch {
+        // non bloccare l'invito se RPC non disponibile: update ha già category_id
+      }
+    }
+
+    void origin; // reserved for analytics
+    return data;
+  }
+
+  // Nessuna riga storica: INSERT come prima
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let insertPayload: Record<string, unknown> = {
+    pt_user_id: ptUserId,
+    atleta_user_id: atletaUserId,
+    requested_by: requestedBy,
+    status: 'pending',
+  };
+
+  if (resolvedCategoryId) {
+    insertPayload = {
+      ...insertPayload,
+      category_id: resolvedCategoryId,
+      training_modality: trainingModality,
+    };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let { data, error } = await (supabase.from('pt_atleta_connections') as any)
+    .insert(insertPayload)
     .select()
     .single();
 
+  // Fallback se colonne categoria non ancora su Cloud
+  if (error && resolvedCategoryId && isMissingCategoryColumn(error)) {
+    ({ data, error } = await supabase
+      .from('pt_atleta_connections')
+      .insert({
+        pt_user_id: ptUserId,
+        atleta_user_id: atletaUserId,
+        requested_by: requestedBy,
+        status: 'pending',
+      })
+      .select()
+      .single());
+  }
+
   if (error) {
     if (error.code === '23505') {
-      throw new Error('Esiste già una richiesta di connessione tra questo PT e atleta.');
+      // Race raro: riga creata tra lookup e INSERT
+      throw new Error(
+        'Esiste già una connessione con questo Professionista. Ricarica la pagina e riprova.',
+      );
     }
     throw new Error('Errore durante la richiesta: ' + error.message);
+  }
+
+  if (resolvedCategoryId && data?.id) {
+    try {
+      await setAthleteCategory({
+        connectionId: data.id,
+        categoryId: resolvedCategoryId,
+      });
+    } catch {
+      // non bloccare l'invito se RPC non disponibile: insert ha già category_id
+    }
   }
 
   void origin; // reserved for analytics
@@ -375,6 +505,26 @@ export async function rejectConnection(connectionId: string) {
 
   if (error) {
     throw new Error('Errore durante il rifiuto: ' + error.message);
+  }
+
+  return data;
+}
+
+/** Atleta (o PT) annulla una richiesta ancora in pending. */
+export async function cancelPendingConnection(connectionId: string) {
+  const { data, error } = await supabase
+    .from('pt_atleta_connections')
+    .update({
+      status: 'terminated',
+      terminated_at: new Date().toISOString(),
+    })
+    .eq('id', connectionId)
+    .eq('status', 'pending')
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error('Errore durante l\'annullamento: ' + error.message);
   }
 
   return data;

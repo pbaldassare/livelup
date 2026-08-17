@@ -230,7 +230,6 @@ export function PTTemplateDetailPage() {
                 cooldownTemplateId={(template as any).cooldown_template_id ?? null}
                 warmupExerciseId={(template as any).warmup_exercise_id ?? null}
                 cooldownExerciseId={(template as any).cooldown_exercise_id ?? null}
-
               />
             )}
 

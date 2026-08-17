@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { LastAppPathTracker } from "@/components/pwa/LastAppPathTracker";
+import { PostUpdatePathRestorer } from "@/components/pwa/PostUpdatePathRestorer";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SplashScreen } from "@/components/common/SplashScreen";
 // InstallBanner is mounted inside AppLayout (PWA-only), not globally.
@@ -97,6 +98,8 @@ import PTAppChatPage from "./pages/pt/PTAppChatPage";
 import PTAppChatDetailPage from "./pages/pt/PTAppChatDetailPage";
 import PTAppChatGroupDetailPage from "./pages/pt/PTAppChatGroupDetailPage";
 import PTAppCalendarPage from "./pages/pt/PTAppCalendarPage";
+import PTAppEventsPage from "./pages/pt/PTAppEventsPage";
+import PTAppEventDetailPage from "./pages/pt/PTAppEventDetailPage";
 import PTAppProfilePage from "./pages/pt/PTAppProfilePage";
 import PTAppExercisesPage from "./pages/pt/PTAppExercisesPage";
 import PTAppCoursesPage from "./pages/pt/PTAppCoursesPage";
@@ -190,12 +193,12 @@ const App = () => {
         {/* PWA Install Banner is mounted only inside the mobile AppLayout
             (Atleta PWA & PT PWA), not on web dashboards or public pages. */}
         
-        {/* PWA Update Prompt */}
-        <PWAUpdatePrompt />
-        
         <BrowserRouter>
           <AuthProvider>
+            {/* Inside Router+Auth: uses useLocation / useAuth for post-update restore */}
+            <PWAUpdatePrompt />
             <LastAppPathTracker />
+            <PostUpdatePathRestorer />
             <TourProvider>
             <AppTour />
             <AppTourPrompt />
@@ -575,6 +578,20 @@ const App = () => {
                   </AppLayout>
                 </PTAppRoute>
               } />
+              <Route path="/pt/app/events" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppEventsPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/events/:eventId" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppEventDetailPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
               <Route path="/pt/app/profile" element={
                 <PTAppRoute>
                   <AppLayout>
@@ -711,7 +728,7 @@ const App = () => {
                 </PTAppRoute>
               } />
               <Route path="/pt/app/messages" element={<Navigate to="/pt/app/chat" replace />} />
-              <Route path="/pt/app/calendar/eventi" element={<Navigate to="/pt/app/calendar" replace />} />
+              <Route path="/pt/app/calendar/eventi" element={<Navigate to="/pt/app/events" replace />} />
               <Route path="/pt/app/calendar/appuntamenti" element={<Navigate to="/pt/app/calendar?view=appuntamenti" replace />} />
 
 

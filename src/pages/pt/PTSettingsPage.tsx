@@ -18,7 +18,6 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -30,6 +29,21 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCategoriesDialog';
+import {
+  PT_SERVICE_MODALITIES,
+  PT_SERVICE_MODALITY_LABELS,
+  flagsToServiceModality,
+  normalizePtServiceModality,
+  serviceModalityToFlags,
+  type PtServiceModality,
+} from '@/lib/ptServiceModality';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyA76iVcQpSnl76_G6bJVnEeOUmWVd7278I';
 
@@ -46,13 +60,13 @@ interface PTProfile {
   price_max: number | null;
   offers_online: boolean | null;
   offers_in_person: boolean | null;
+  service_modality?: string | null;
   location_city: string | null;
   location_country: string | null;
   location_address: string | null;
   location_lat: number | null;
   location_lng: number | null;
   is_discoverable: boolean | null;
-  service_modality: string | null;
   status: string;
 }
 
@@ -175,7 +189,10 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
   useEffect(() => {
     if (ptProfile) {
       const { status, ...rest } = ptProfile;
-      setFormData(rest);
+      setFormData({
+        ...rest,
+        service_modality: flagsToServiceModality(ptProfile),
+      });
     }
   }, [ptProfile]);
 
@@ -213,9 +230,15 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
         .eq('user_id', user.id);
       if (profileError) throw profileError;
 
-      const { error } = await supabase
-        .from('pt_profiles')
-        .update(payload.ptData)
+      const modality = normalizePtServiceModality(
+        (payload.ptData as { service_modality?: string | null }).service_modality,
+      );
+      const { error } = await (supabase.from('pt_profiles') as any)
+        .update({
+          ...payload.ptData,
+          service_modality: modality,
+          ...serviceModalityToFlags(modality),
+        })
         .eq('user_id', user.id);
       if (error) throw error;
     },
@@ -231,7 +254,7 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
   const handleSave = () =>
     updateProfileMutation.mutate({ ptData: formData, basic: basicInfo });
 
-  // Save specializations
+  // Save specializations (junction + denormalized name array for Discover)
   const saveSpecsMutation = useMutation({
     mutationFn: async (specIds: string[]) => {
       if (!user?.id) return;
@@ -242,9 +265,21 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
         const { error } = await supabase.from('pt_profile_specializations').insert(rows);
         if (error) throw error;
       }
+
+      // Keep pt_profiles.specializations in sync (Discover / search still filter on TEXT[])
+      const nameById = new Map(specCatalog.map((s) => [s.id, s.name]));
+      const specNames = specIds
+        .map((id) => nameById.get(id))
+        .filter((name): name is string => !!name?.trim());
+      const { error: arrayError } = await supabase
+        .from('pt_profiles')
+        .update({ specializations: specNames.length > 0 ? specNames : [] })
+        .eq('user_id', user.id);
+      if (arrayError) throw arrayError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-profile-specializations'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-profile'] });
       toast.success('Specializzazioni aggiornate');
     },
     onError: () => toast.error('Errore aggiornamento specializzazioni'),
@@ -733,28 +768,37 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle>Modalità di Servizio</CardTitle><CardDescription>Come offri i tuoi servizi</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Modalità di servizio *</Label>
-                <Select
-                  value={formData.service_modality || 'mix'}
-                  onValueChange={(value) => setFormData({
+            <CardHeader>
+              <CardTitle>Modalità di Servizio</CardTitle>
+              <CardDescription>Come offri i tuoi servizi (obbligatorio)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Label htmlFor="pt-service-modality">Modalità *</Label>
+              <Select
+                value={normalizePtServiceModality(formData.service_modality as PtServiceModality | undefined)}
+                onValueChange={(value) => {
+                  const modality = normalizePtServiceModality(value);
+                  setFormData({
                     ...formData,
-                    service_modality: value,
-                    offers_online: value !== 'in_presenza',
-                    offers_in_person: value !== 'online',
-                  })}
-                >
-                  <SelectTrigger><SelectValue placeholder="Seleziona modalità" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="in_presenza">In presenza</SelectItem>
-                    <SelectItem value="online">Online</SelectItem>
-                    <SelectItem value="mix">Mix (online + in presenza)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">Definisce come vieni mostrato agli atleti nella ricerca.</p>
-              </div>
+                    service_modality: modality,
+                    ...serviceModalityToFlags(modality),
+                  });
+                }}
+              >
+                <SelectTrigger id="pt-service-modality">
+                  <SelectValue placeholder="Seleziona modalità" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PT_SERVICE_MODALITIES.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {PT_SERVICE_MODALITY_LABELS[m]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                In presenza, solo online, oppure entrambe (Mix).
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
