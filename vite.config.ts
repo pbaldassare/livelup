@@ -18,7 +18,8 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      registerType: "autoUpdate",
+      // prompt: SW waits until client posts SKIP_WAITING (no auto-reload races)
+      registerType: "prompt",
       devOptions: { enabled: false },
       // La registrazione avviene solo da src/lib/pwa/registerSW.ts (guardata
       // per dev/iframe/preview/?sw=off): il plugin non deve iniettarne una sua.
@@ -113,7 +114,9 @@ export default defineConfig(({ mode }) => ({
         // Handler push/notificationclick (file dedicato, non generato)
         importScripts: ["/push-sw.js"],
         cleanupOutdatedCaches: true,
+        // clientsClaim without skipWaiting: new SW controls pages after SKIP_WAITING
         clientsClaim: true,
+        skipWaiting: false,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api/, /^\/functions\//],
         runtimeCaching: [

@@ -27,7 +27,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
-import { PWAUpdatePrompt } from '@/components/pwa/PWAUpdatePrompt';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeBlogPost, BLOG_POST_TYPE_LABELS, type BlogPost } from '@/types/database';
 import { resolveBlogCoverUrl } from '@/lib/blogCover';
@@ -129,8 +128,6 @@ export function LandingPage() {
 
   return (
     <div className="flex flex-col bg-[hsl(220_33%_98%)] text-[hsl(222_33%_12%)] font-[Manrope,system-ui,sans-serif]">
-      <PWAUpdatePrompt />
-
       {/* Hero — Stitch structure */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(359_79%_55%/0.12),transparent_55%)]" />
