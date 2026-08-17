@@ -58,13 +58,43 @@ export interface PtCourseStep {
   title: string;
   description: string | null;
   step_type: CourseStepType;
+  /** URL video primario (primo di video_urls) — compatibilità legacy */
   video_url: string | null;
+  /** Elenco URL video per step_type = video */
+  video_urls: string[] | null;
   video_duration_minutes: number | null;
   completion_threshold: number;
   order_index: number;
   created_at?: string;
   updated_at?: string;
   pt_course_step_exercises?: PtCourseStepExercise[];
+}
+
+/** Normalizza video_urls + video_url legacy in un array pulito. */
+export function resolveStepVideoUrls(step: {
+  video_url?: string | null;
+  video_urls?: string[] | null;
+}): string[] {
+  const fromArray = (step.video_urls || [])
+    .map((u) => (typeof u === 'string' ? u.trim() : ''))
+    .filter(Boolean);
+  if (fromArray.length > 0) return fromArray;
+  const single = step.video_url?.trim();
+  return single ? [single] : [];
+}
+
+/** Allinea video_url (primo) e video_urls per scrittura DB. */
+export function syncStepVideoFields(urls: string[] | null | undefined): {
+  video_url: string | null;
+  video_urls: string[] | null;
+} {
+  const cleaned = (urls || [])
+    .map((u) => (typeof u === 'string' ? u.trim() : ''))
+    .filter(Boolean);
+  return {
+    video_url: cleaned[0] ?? null,
+    video_urls: cleaned.length > 0 ? cleaned : null,
+  };
 }
 
 export interface PtCourseWithSteps extends PtCourse {
@@ -158,6 +188,7 @@ export type AddStepInput = {
   description?: string | null;
   step_type?: CourseStepType;
   video_url?: string | null;
+  video_urls?: string[] | null;
   video_duration_minutes?: number | null;
   completion_threshold?: number;
   order_index?: number;
@@ -168,6 +199,7 @@ export type UpdateStepInput = {
   description?: string | null;
   step_type?: CourseStepType;
   video_url?: string | null;
+  video_urls?: string[] | null;
   video_duration_minutes?: number | null;
   completion_threshold?: number;
   order_index?: number;
@@ -273,15 +305,19 @@ export async function getCourseWithSteps(courseId: string): Promise<PtCourseWith
   if (!data) return null;
 
   const steps = ((data.pt_course_steps || []) as PtCourseStep[])
-    .map((step) => ({
-      ...step,
-      step_type: (step.step_type as CourseStepType) || 'exercises',
-      video_url: step.video_url ?? null,
-      video_duration_minutes: step.video_duration_minutes ?? null,
-      pt_course_step_exercises: [...(step.pt_course_step_exercises || [])].sort(
-        (a, b) => a.order_index - b.order_index,
-      ),
-    }))
+    .map((step) => {
+      const videoUrls = resolveStepVideoUrls(step);
+      return {
+        ...step,
+        step_type: (step.step_type as CourseStepType) || 'exercises',
+        video_url: videoUrls[0] ?? null,
+        video_urls: videoUrls.length > 0 ? videoUrls : null,
+        video_duration_minutes: step.video_duration_minutes ?? null,
+        pt_course_step_exercises: [...(step.pt_course_step_exercises || [])].sort(
+          (a, b) => a.order_index - b.order_index,
+        ),
+      };
+    })
     .sort((a, b) => a.order_index - b.order_index);
 
   return {
@@ -391,30 +427,43 @@ export async function addStep(input: AddStepInput): Promise<PtCourseStep> {
 
   const stepType = input.step_type ?? 'exercises';
   const threshold = Math.min(100, Math.max(0, input.completion_threshold ?? 100));
+  const videoFields =
+    stepType === 'video'
+      ? syncStepVideoFields(
+          input.video_urls ??
+            (input.video_url?.trim() ? [input.video_url.trim()] : null),
+        )
+      : { video_url: null, video_urls: null };
 
-  const { data, error } = await db()
-    .from('pt_course_steps')
-    .insert({
-      course_id: input.courseId,
-      title,
-      description: input.description?.trim() || null,
-      step_type: stepType,
-      video_url: stepType === 'video' ? input.video_url?.trim() || null : null,
-      video_duration_minutes:
-        stepType === 'video' && input.video_duration_minutes != null
-          ? Math.max(1, Math.round(input.video_duration_minutes))
-          : null,
-      completion_threshold: threshold,
-      order_index: orderIndex,
-    })
-    .select()
-    .single();
+  const insertPayload: Record<string, unknown> = {
+    course_id: input.courseId,
+    title,
+    description: input.description?.trim() || null,
+    step_type: stepType,
+    video_url: videoFields.video_url,
+    video_urls: videoFields.video_urls,
+    video_duration_minutes:
+      stepType === 'video' && input.video_duration_minutes != null
+        ? Math.max(1, Math.round(input.video_duration_minutes))
+        : null,
+    completion_threshold: threshold,
+    order_index: orderIndex,
+  };
+
+  let { data, error } = await db().from('pt_course_steps').insert(insertPayload).select().single();
+
+  // Finché Lovable Cloud non ha video_urls, ripiega sul solo video_url.
+  if (error && /video_urls/i.test(error.message)) {
+    const { video_urls: _omit, ...legacyPayload } = insertPayload;
+    ({ data, error } = await db().from('pt_course_steps').insert(legacyPayload).select().single());
+  }
 
   if (error) throw new Error('Errore creazione step: ' + error.message);
   return {
     ...(data as PtCourseStep),
     step_type: stepType,
-    video_url: stepType === 'video' ? input.video_url?.trim() || null : null,
+    video_url: videoFields.video_url,
+    video_urls: videoFields.video_urls,
     video_duration_minutes:
       stepType === 'video' && input.video_duration_minutes != null
         ? Math.max(1, Math.round(input.video_duration_minutes))
@@ -434,10 +483,21 @@ export async function updateStep(stepId: string, input: UpdateStepInput): Promis
     payload.step_type = input.step_type;
     if (input.step_type === 'exercises') {
       payload.video_url = null;
+      payload.video_urls = null;
       payload.video_duration_minutes = null;
     }
   }
-  if (input.video_url !== undefined) payload.video_url = input.video_url?.trim() || null;
+  if (input.video_urls !== undefined) {
+    const synced = syncStepVideoFields(input.video_urls);
+    payload.video_url = synced.video_url;
+    payload.video_urls = synced.video_urls;
+  } else if (input.video_url !== undefined) {
+    const synced = syncStepVideoFields(
+      input.video_url?.trim() ? [input.video_url.trim()] : null,
+    );
+    payload.video_url = synced.video_url;
+    payload.video_urls = synced.video_urls;
+  }
   if (input.video_duration_minutes !== undefined) {
     payload.video_duration_minutes =
       input.video_duration_minutes == null
@@ -449,12 +509,23 @@ export async function updateStep(stepId: string, input: UpdateStepInput): Promis
   }
   if (input.order_index !== undefined) payload.order_index = input.order_index;
 
-  const { data, error } = await db()
+  let { data, error } = await db()
     .from('pt_course_steps')
     .update(payload)
     .eq('id', stepId)
     .select()
     .single();
+
+  // Finché Lovable Cloud non ha video_urls, ripiega sul solo video_url.
+  if (error && /video_urls/i.test(error.message) && 'video_urls' in payload) {
+    const { video_urls: _omit, ...legacyPayload } = payload;
+    ({ data, error } = await db()
+      .from('pt_course_steps')
+      .update(legacyPayload)
+      .eq('id', stepId)
+      .select()
+      .single());
+  }
 
   if (error) throw new Error('Errore aggiornamento step: ' + error.message);
   return data as PtCourseStep;

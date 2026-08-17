@@ -1,11 +1,16 @@
-import { useState } from 'react';
-import { Check, ChevronDown, Clock, Dumbbell, Lock, Loader2, Video } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Dumbbell, Lock, Loader2, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CourseProgressBar } from '@/components/app/CourseProgressBar';
 import { VideoEmbed } from '@/components/common/VideoEmbed';
 import { cn } from '@/lib/utils';
-import type { PtCourseStep, PtCourseStepExercise, PtCourseStepProgress } from '@/lib/api/courses';
+import {
+  resolveStepVideoUrls,
+  type PtCourseStep,
+  type PtCourseStepExercise,
+  type PtCourseStepProgress,
+} from '@/lib/api/courses';
 
 interface CourseStepCardProps {
   step: PtCourseStep;
@@ -27,11 +32,16 @@ export function CourseStepCard({
   isStartingWorkout,
 }: CourseStepCardProps) {
   const [open, setOpen] = useState(false);
+  const [videoIndex, setVideoIndex] = useState(0);
   const status = progress?.status ?? 'locked';
   const isLocked = status === 'locked';
   const isCompleted = status === 'completed';
   const progressPct = progress?.progress_pct ?? 0;
   const isVideoStep = (step.step_type || 'exercises') === 'video';
+  const videoUrls = useMemo(() => resolveStepVideoUrls(step), [step]);
+  const hasVideos = videoUrls.length > 0;
+  const safeVideoIndex = Math.min(videoIndex, Math.max(0, videoUrls.length - 1));
+  const currentVideoUrl = hasVideos ? videoUrls[safeVideoIndex] : null;
   const exercises = [...(step.pt_course_step_exercises || [])].sort(
     (a, b) => a.order_index - b.order_index,
   );
@@ -76,7 +86,11 @@ export function CourseStepCard({
                 <div className="min-w-0">
                   <p className="text-xs text-app-muted-foreground">
                     Step {stepNumber}
-                    {isVideoStep ? ' · Video' : null}
+                    {isVideoStep
+                      ? videoUrls.length > 1
+                        ? ` · ${videoUrls.length} video`
+                        : ' · Video'
+                      : null}
                   </p>
                   <h3 className="font-semibold text-app-foreground truncate">{step.title}</h3>
                   {step.description ? (
@@ -111,8 +125,47 @@ export function CourseStepCard({
           <div className="px-4 pb-4 space-y-3 border-t border-app-border pt-3">
             {isVideoStep ? (
               <>
-                {step.video_url ? (
-                  <VideoEmbed url={step.video_url} title={step.title} className="rounded-xl" />
+                {currentVideoUrl ? (
+                  <div className="space-y-2">
+                    {videoUrls.length > 1 ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-app-muted-foreground">
+                          Video {safeVideoIndex + 1} di {videoUrls.length}
+                        </p>
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 border-app-border"
+                            disabled={safeVideoIndex === 0}
+                            onClick={() => setVideoIndex((i) => Math.max(0, i - 1))}
+                            aria-label="Video precedente"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 border-app-border"
+                            disabled={safeVideoIndex >= videoUrls.length - 1}
+                            onClick={() =>
+                              setVideoIndex((i) => Math.min(videoUrls.length - 1, i + 1))
+                            }
+                            aria-label="Video successivo"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                    <VideoEmbed
+                      url={currentVideoUrl}
+                      title={`${step.title} — video ${safeVideoIndex + 1}`}
+                      className="rounded-xl"
+                    />
+                  </div>
                 ) : (
                   <p className="text-sm text-app-muted-foreground">
                     Video non ancora disponibile per questo step.
@@ -123,7 +176,7 @@ export function CourseStepCard({
                   <Button
                     type="button"
                     className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
-                    disabled={isLocked || isCompleting || !onComplete || !step.video_url}
+                    disabled={isLocked || isCompleting || !onComplete || !hasVideos}
                     onClick={() => onComplete?.()}
                   >
                     {isCompleting ? (
@@ -131,7 +184,7 @@ export function CourseStepCard({
                     ) : (
                       <Check className="h-4 w-4 mr-2" />
                     )}
-                    Ho visto il video
+                    {videoUrls.length > 1 ? 'Ho visto i video' : 'Ho visto il video'}
                   </Button>
                 )}
               </>

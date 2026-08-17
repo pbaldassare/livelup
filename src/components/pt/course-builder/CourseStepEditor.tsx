@@ -12,7 +12,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { GripVertical, Loader2, Plus, Trash2, Upload, Video, X } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  GripVertical,
+  Loader2,
+  Plus,
+  Trash2,
+  Upload,
+  Video,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,6 +31,7 @@ import {
   courseQueryKeys,
   deleteStep,
   removeExerciseFromStep,
+  resolveStepVideoUrls,
   updateStep,
   updateStepExercise,
   type CourseStepType,
@@ -36,6 +47,11 @@ const STEP_TYPE_OPTIONS: { value: CourseStepType; label: string }[] = [
   { value: 'exercises', label: 'Esercizi' },
   { value: 'video', label: 'Video' },
 ];
+
+function sameUrlList(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((url, i) => url === b[i]);
+}
 
 interface CourseStepEditorProps {
   courseId: string;
@@ -57,7 +73,8 @@ export function CourseStepEditor({
   const [title, setTitle] = useState(step.title);
   const [description, setDescription] = useState(step.description || '');
   const [stepType, setStepType] = useState<CourseStepType>(step.step_type || 'exercises');
-  const [videoUrl, setVideoUrl] = useState(step.video_url || '');
+  const [videoUrls, setVideoUrls] = useState<string[]>(() => resolveStepVideoUrls(step));
+  const [linkDraft, setLinkDraft] = useState('');
   const [videoDuration, setVideoDuration] = useState(
     step.video_duration_minutes != null ? String(step.video_duration_minutes) : '',
   );
@@ -69,7 +86,7 @@ export function CourseStepEditor({
     setTitle(step.title);
     setDescription(step.description || '');
     setStepType(step.step_type || 'exercises');
-    setVideoUrl(step.video_url || '');
+    setVideoUrls(resolveStepVideoUrls(step));
     setVideoDuration(step.video_duration_minutes != null ? String(step.video_duration_minutes) : '');
     setThreshold(step.completion_threshold ?? 100);
   }, [step]);
@@ -83,25 +100,27 @@ export function CourseStepEditor({
       title?: string;
       description?: string;
       step_type?: CourseStepType;
-      video_url?: string | null;
+      video_urls?: string[] | null;
       video_duration_minutes?: number | null;
       completion_threshold?: number;
-    }) =>
-      updateStep(step.id, {
+    }) => {
+      const nextType = patch?.step_type ?? stepType;
+      return updateStep(step.id, {
         title: patch?.title ?? title,
         description: patch?.description ?? description,
-        step_type: patch?.step_type ?? stepType,
-        video_url:
-          (patch?.step_type ?? stepType) === 'video'
-            ? (patch?.video_url ?? videoUrl).trim() || null
+        step_type: nextType,
+        video_urls:
+          nextType === 'video'
+            ? (patch?.video_urls !== undefined ? patch.video_urls : videoUrls)
             : null,
         video_duration_minutes:
-          (patch?.step_type ?? stepType) === 'video'
+          nextType === 'video'
             ? patch?.video_duration_minutes ??
               (videoDuration.trim() === '' ? null : Number(videoDuration))
             : null,
         completion_threshold: patch?.completion_threshold ?? threshold,
-      }),
+      });
+    },
     onSuccess: () => {
       invalidate();
       toast.success('Step aggiornato');
@@ -149,28 +168,40 @@ export function CourseStepEditor({
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const handleVideoUpload = async (file: File) => {
+  const persistVideos = (next: string[]) => {
+    setVideoUrls(next);
+    saveStepMutation.mutate({ video_urls: next.length > 0 ? next : null });
+  };
+
+  const handleVideoUpload = async (files: FileList | File[]) => {
     if (!user?.id) return;
-    if (!file.type.startsWith('video/')) {
-      toast.error('Seleziona un file video (MP4, WebM, MOV)');
-      return;
-    }
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error('Il video deve essere inferiore a 100MB');
-      return;
+    const list = Array.from(files);
+    if (list.length === 0) return;
+
+    for (const file of list) {
+      if (!file.type.startsWith('video/')) {
+        toast.error(`"${file.name}" non è un video (MP4, WebM, MOV)`);
+        return;
+      }
+      if (file.size > 100 * 1024 * 1024) {
+        toast.error(`"${file.name}" supera i 100MB`);
+        return;
+      }
     }
 
     setIsUploadingVideo(true);
     try {
-      const ext = file.name.split('.').pop() || 'mp4';
-      const path = `${user.id}/course-steps/${step.id}/${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('exercise-videos').upload(path, file);
-      if (error) throw error;
-
-      const { data: urlData } = supabase.storage.from('exercise-videos').getPublicUrl(path);
-      const url = urlData.publicUrl;
-      setVideoUrl(url);
-      saveStepMutation.mutate({ video_url: url });
+      const uploaded: string[] = [];
+      for (const file of list) {
+        const ext = file.name.split('.').pop() || 'mp4';
+        const path = `${user.id}/course-steps/${step.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error } = await supabase.storage.from('exercise-videos').upload(path, file);
+        if (error) throw error;
+        const { data: urlData } = supabase.storage.from('exercise-videos').getPublicUrl(path);
+        uploaded.push(urlData.publicUrl);
+      }
+      persistVideos([...videoUrls, ...uploaded]);
+      toast.success(uploaded.length === 1 ? 'Video caricato' : `${uploaded.length} video caricati`);
     } catch {
       toast.error('Errore upload video');
     } finally {
@@ -178,11 +209,40 @@ export function CourseStepEditor({
     }
   };
 
+  const addLinkFromDraft = () => {
+    const raw = linkDraft.trim();
+    if (!raw) return;
+    const parts = raw
+      .split(/[\n,]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const next = [...videoUrls];
+    for (const url of parts) {
+      if (!next.includes(url)) next.push(url);
+    }
+    setLinkDraft('');
+    persistVideos(next);
+  };
+
+  const removeVideoAt = (index: number) => {
+    persistVideos(videoUrls.filter((_, i) => i !== index));
+  };
+
+  const moveVideo = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= videoUrls.length) return;
+    const next = [...videoUrls];
+    const tmp = next[index];
+    next[index] = next[target];
+    next[target] = tmp;
+    persistVideos(next);
+  };
+
   const handleStepTypeChange = (next: CourseStepType) => {
     setStepType(next);
     saveStepMutation.mutate({
       step_type: next,
-      video_url: next === 'video' ? videoUrl.trim() || null : null,
+      video_urls: next === 'video' ? (videoUrls.length > 0 ? videoUrls : null) : null,
       video_duration_minutes:
         next === 'video' && videoDuration.trim() !== '' ? Number(videoDuration) : null,
     });
@@ -190,11 +250,12 @@ export function CourseStepEditor({
 
   const commitMeta = () => {
     const nextDuration = videoDuration.trim() === '' ? null : Number(videoDuration);
+    const savedVideos = resolveStepVideoUrls(step);
     const changed =
       title.trim() !== step.title ||
       (description || '') !== (step.description || '') ||
       stepType !== (step.step_type || 'exercises') ||
-      (stepType === 'video' && (videoUrl || '') !== (step.video_url || '')) ||
+      (stepType === 'video' && !sameUrlList(videoUrls, savedVideos)) ||
       (stepType === 'video' &&
         (nextDuration ?? null) !== (step.video_duration_minutes ?? null)) ||
       threshold !== (step.completion_threshold ?? 100);
@@ -203,7 +264,7 @@ export function CourseStepEditor({
       saveStepMutation.mutate({
         title,
         description,
-        video_url: stepType === 'video' ? videoUrl.trim() || null : null,
+        video_urls: stepType === 'video' ? (videoUrls.length > 0 ? videoUrls : null) : null,
         video_duration_minutes: stepType === 'video' ? nextDuration : null,
         completion_threshold: threshold,
       });
@@ -287,7 +348,7 @@ export function CourseStepEditor({
               rows={2}
               placeholder={
                 isVideoStep
-                  ? 'Breve introduzione al video per l\'atleta'
+                  ? 'Breve introduzione ai video per l\'atleta'
                   : 'Obiettivo e indicazioni dello step'
               }
             />
@@ -296,66 +357,121 @@ export function CourseStepEditor({
           {isVideoStep ? (
             <div className="space-y-3 rounded-lg border border-border bg-background/50 p-3">
               <div className="space-y-2">
-                <Label htmlFor={`step-video-url-${step.id}`}>Video</Label>
+                <Label>Video dello step</Label>
                 <p className="text-xs text-muted-foreground">
-                  Carica un file o incolla un link (YouTube, Vimeo, URL diretto)
+                  Puoi caricare più file insieme o incollare più link (uno per riga o separati da
+                  virgola). YouTube, Vimeo o URL diretto.
                 </p>
-                {videoUrl ? (
-                  <div className="space-y-2">
-                    <VideoEmbed url={videoUrl} title={title || 'Anteprima video'} />
-                    <div className="flex gap-2">
-                      <Input
-                        id={`step-video-url-${step.id}`}
-                        value={videoUrl}
-                        onChange={(e) => setVideoUrl(e.target.value)}
-                        onBlur={commitMeta}
-                        placeholder="https://..."
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          setVideoUrl('');
-                          saveStepMutation.mutate({ video_url: null });
-                        }}
+
+                {videoUrls.length > 0 ? (
+                  <ul className="space-y-3">
+                    {videoUrls.map((url, index) => (
+                      <li
+                        key={`${url}-${index}`}
+                        className="rounded-md border border-border bg-card p-2 space-y-2"
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Input
-                      id={`step-video-url-${step.id}`}
-                      value={videoUrl}
-                      onChange={(e) => setVideoUrl(e.target.value)}
-                      onBlur={commitMeta}
-                      placeholder="https://youtube.com/... o URL video"
-                    />
-                    <label className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-6 cursor-pointer hover:bg-muted/40 transition-colors">
-                      <input
-                        type="file"
-                        accept="video/mp4,video/webm,video/quicktime"
-                        className="hidden"
-                        disabled={isUploadingVideo}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) void handleVideoUpload(file);
-                          e.target.value = '';
-                        }}
-                      />
-                      {isUploadingVideo ? (
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                      ) : (
-                        <Upload className="h-5 w-5 text-muted-foreground" />
-                      )}
-                      <span className="text-sm text-muted-foreground">
-                        {isUploadingVideo ? 'Caricamento...' : 'Carica video (max 100MB)'}
-                      </span>
-                    </label>
-                  </div>
-                )}
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Video {index + 1} di {videoUrls.length}
+                          </p>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={index === 0 || saveStepMutation.isPending}
+                              onClick={() => moveVideo(index, -1)}
+                              title="Sposta su"
+                            >
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={
+                                index === videoUrls.length - 1 || saveStepMutation.isPending
+                              }
+                              onClick={() => moveVideo(index, 1)}
+                              title="Sposta giù"
+                            >
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              disabled={saveStepMutation.isPending}
+                              onClick={() => removeVideoAt(index)}
+                              title="Rimuovi video"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <VideoEmbed url={url} title={`${title || 'Video'} ${index + 1}`} />
+                        <Input
+                          value={url}
+                          readOnly
+                          className="text-xs"
+                          title={url}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+
+                <div className="flex gap-2">
+                  <Input
+                    id={`step-video-link-${step.id}`}
+                    value={linkDraft}
+                    onChange={(e) => setLinkDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addLinkFromDraft();
+                      }
+                    }}
+                    placeholder="Incolla URL video e premi Invio"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addLinkFromDraft}
+                    disabled={!linkDraft.trim() || saveStepMutation.isPending}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Aggiungi
+                  </Button>
+                </div>
+
+                <label className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-6 cursor-pointer hover:bg-muted/40 transition-colors">
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    className="hidden"
+                    multiple
+                    disabled={isUploadingVideo}
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files?.length) void handleVideoUpload(files);
+                      e.target.value = '';
+                    }}
+                  />
+                  {isUploadingVideo ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <span className="text-sm text-muted-foreground">
+                    {isUploadingVideo
+                      ? 'Caricamento...'
+                      : 'Carica uno o più video (max 100MB ciascuno)'}
+                  </span>
+                </label>
               </div>
 
               <div className="space-y-2">
@@ -436,7 +552,10 @@ export function CourseStepEditor({
       ) : (
         <div className="pl-7 flex items-center gap-2 text-xs text-muted-foreground">
           <Video className="h-3.5 w-3.5" />
-          Step video — l&apos;atleta visualizza il contenuto e lo segna come completato
+          Step video
+          {videoUrls.length > 0
+            ? ` — ${videoUrls.length} video: l'atleta li visualizza e segna lo step come completato`
+            : " — l'atleta visualizza i contenuti e li segna come completati"}
         </div>
       )}
 

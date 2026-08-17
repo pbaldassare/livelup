@@ -16,6 +16,7 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
+  Play,
   Plus,
   Trash2,
   Eye,
@@ -27,6 +28,7 @@ import {
 import { toast } from 'sonner';
 import { CourseBuilder } from '@/components/pt/course-builder/CourseBuilder';
 import { AssignCourseDialog } from '@/components/pt/course-builder/AssignCourseDialog';
+import { CoursePreviewDialog } from '@/components/pt/course-builder/CoursePreviewDialog';
 import {
   courseQueryKeys,
   deleteCourse,
@@ -54,6 +56,7 @@ export default function PTCoursesPage({ embedded = false }: { embedded?: boolean
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [assignCourse, setAssignCourse] = useState<PtCourseListItem | null>(null);
+  const [previewCourseId, setPreviewCourseId] = useState<string | null>(null);
 
   const {
     data: courses = [],
@@ -225,6 +228,10 @@ export default function PTCoursesPage({ embedded = false }: { embedded?: boolean
                           <Pencil className="h-4 w-4 mr-2" />
                           Modifica
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setPreviewCourseId(course.id)}>
+                          <Play className="h-4 w-4 mr-2" />
+                          Avvia corso
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setAssignCourse(course)}>
                           <UserPlus className="h-4 w-4 mr-2" />
                           Assegna ad atleti
@@ -304,6 +311,16 @@ export default function PTCoursesPage({ embedded = false }: { embedded?: boolean
                     <Button
                       size="sm"
                       variant="outline"
+                      className="min-w-[6.5rem]"
+                      onClick={() => setPreviewCourseId(course.id)}
+                      title="Collauda il corso in anteprima prima di pubblicarlo"
+                    >
+                      <Play className="h-3.5 w-3.5 mr-1" />
+                      Avvia corso
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => setAssignCourse(course)}
                       disabled={course.status === 'archived'}
                     >
@@ -369,6 +386,12 @@ export default function PTCoursesPage({ embedded = false }: { embedded?: boolean
           }
         }}
         course={assignCourse}
+      />
+
+      <CoursePreviewDialog
+        courseId={previewCourseId}
+        open={!!previewCourseId}
+        onOpenChange={(open) => !open && setPreviewCourseId(null)}
       />
     </div>
   );
