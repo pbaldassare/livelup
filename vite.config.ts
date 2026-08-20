@@ -18,8 +18,9 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      // prompt: SW waits until client posts SKIP_WAITING (no auto-reload races)
-      registerType: "prompt",
+      // autoUpdate: il nuovo SW si attiva da solo; il client ricarica una sola
+      // volta al controllerchange (vedi usePWAUpdate).
+      registerType: "autoUpdate",
       devOptions: { enabled: false },
       // La registrazione avviene solo da src/lib/pwa/registerSW.ts (guardata
       // per dev/iframe/preview/?sw=off): il plugin non deve iniettarne una sua.
