@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.get_group_by_invite_token(uuid) TO anon; GRANT EXECUTE ON FUNCTION public.get_group_by_invite_token(uuid) TO authenticated;
