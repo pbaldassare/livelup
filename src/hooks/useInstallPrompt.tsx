@@ -30,10 +30,12 @@ export function useInstallPrompt() {
       setIsInstalled(isStandalone || isIOSStandalone);
     };
 
-    // Check if iOS
+    // Check if iOS (iPadOS 13+ si presenta come "Macintosh" con touch)
     const checkIOS = () => {
       const userAgent = window.navigator.userAgent.toLowerCase();
-      const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+      const isIPadOS =
+        /macintosh/.test(userAgent) && typeof document !== 'undefined' && 'ontouchend' in document;
+      const isIOSDevice = /iphone|ipad|ipod/.test(userAgent) || isIPadOS;
       setIsIOS(isIOSDevice);
     };
 
