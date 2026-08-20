@@ -1052,6 +1052,4 @@ export async function adminSetGroupOfficial(groupId: string, isOfficial: boolean
   if (error) throw new Error(error.message);
 }
 
-export function getGroupInviteUrl(inviteToken: string, basePath = '/app/groups') {
-  return `${window.location.origin}${basePath}/join/${inviteToken}`;
-}
+export { getGroupInviteUrl } from '@/lib/groupInvite';

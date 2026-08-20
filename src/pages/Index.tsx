@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { resolvePostAuthRedirect } from '@/lib/lastAppPath';
+import { peekPendingGroupInvite } from '@/lib/groupInvite';
 import { PublicLayout } from '@/components/layouts/PublicLayout';
 import { LandingPage } from './public/LandingPage';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -20,6 +21,11 @@ const Index = () => {
 
   useEffect(() => {
     if (isAuthenticated && role) {
+      const pending = peekPendingGroupInvite();
+      if (pending) {
+        navigate(`/g/${pending}`, { replace: true });
+        return;
+      }
       // No `state.from` on `/`; last-path (PWA/mobile) then home.
       const target = resolvePostAuthRedirect(role);
       const current = `${location.pathname}${location.search}`;

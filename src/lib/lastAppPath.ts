@@ -1,4 +1,5 @@
 import { safeGet, safeSet, safeRemove } from '@/lib/safeStorage';
+import { isGroupInvitePath } from '@/lib/groupInvite';
 import { getHomeRoute, type AppRole } from '@/types/roles';
 
 /**
@@ -160,6 +161,10 @@ export function resolvePostAuthRedirect(
   options?: { preferLastPath?: boolean },
 ): string {
   const fromPath = normalizeFromPath(from);
+  // Deep link pubblico gruppo: dopo login si torna a /g/:token
+  if (fromPath && isGroupInvitePath(fromPath)) {
+    return pathnameOnly(fromPath);
+  }
   if (fromPath && isRestorableAppPath(fromPath, role)) {
     return fromPath;
   }

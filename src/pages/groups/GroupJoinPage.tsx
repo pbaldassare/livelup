@@ -5,7 +5,8 @@ import { getGroupByInviteToken, joinGroup } from '@/lib/api/groups';
 import { OfficialBadge } from '@/components/groups/OfficialBadge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Users, Loader2 } from 'lucide-react';
+import { MapPin, Users, Loader2, Lock, Globe } from 'lucide-react';
+import { consumePendingGroupInvite } from '@/lib/groupInvite';
 import { toast } from 'sonner';
 
 interface GroupJoinPageProps {
@@ -25,8 +26,9 @@ export function GroupJoinPage({ basePath }: GroupJoinPageProps) {
 
   const joinMutation = useMutation({
     mutationFn: () => joinGroup(data!.id!),
-    onSuccess: () => {
-      toast.success('Benvenuto nel gruppo!');
+    onSuccess: (res) => {
+      consumePendingGroupInvite();
+      toast.success(res.already_member ? 'Sei già nel gruppo' : 'Benvenuto nel gruppo!');
       navigate(`${basePath}/${data!.id}`);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -65,7 +67,14 @@ export function GroupJoinPage({ basePath }: GroupJoinPageProps) {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-bold text-app-foreground">{data.name}</h1>
             {data.is_official && <OfficialBadge />}
-            <Badge variant="secondary">Privato</Badge>
+            <Badge variant="secondary" className="gap-1">
+              {data.visibility === 'private' ? (
+                <Lock className="h-3 w-3" />
+              ) : (
+                <Globe className="h-3 w-3" />
+              )}
+              {data.visibility === 'private' ? 'Privato' : 'Pubblico'}
+            </Badge>
           </div>
           {data.location_name && (
             <p className="text-sm text-app-muted-foreground flex items-center gap-1">

@@ -6,6 +6,7 @@ import { Logo } from '@/components/common/Logo';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { isGroupInvitePath, parseGroupInviteTokenFromPath, savePendingGroupInvite } from '@/lib/groupInvite';
 
 type DeviceType = 'ios' | 'android' | 'desktop' | 'unknown';
 
@@ -80,12 +81,19 @@ export function InstallPage() {
 
   const rawRef = searchParams.get('ref');
   const refPt = rawRef && UUID_RE.test(rawRef) ? rawRef : null;
+  const nextParam = searchParams.get('next');
+  const inviteNext = isGroupInvitePath(nextParam) ? nextParam : null;
 
   useEffect(() => {
     setDeviceType(getDeviceType());
     setInAppBrowser(isIOSInAppBrowser());
     setCurrentUrl(window.location.href);
   }, []);
+
+  useEffect(() => {
+    const token = parseGroupInviteTokenFromPath(inviteNext);
+    if (token) savePendingGroupInvite(token);
+  }, [inviteNext]);
 
   const handleCopyUrl = async () => {
     try {
@@ -108,7 +116,8 @@ export function InstallPage() {
   const handleSignup = () => {
     const params = new URLSearchParams({ mode: 'signup' });
     if (refPt) params.set('ref', refPt);
-    navigate(`/auth?${params.toString()}`);
+    if (inviteNext) params.set('next', inviteNext);
+    navigate(`/auth?${params.toString()}`, inviteNext ? { state: { from: { pathname: inviteNext } } } : undefined);
   };
 
   const steps = deviceType === 'ios' ? iosSteps : androidSteps;
@@ -136,7 +145,9 @@ export function InstallPage() {
             Installa LIVELLAPP
           </h1>
           <p className="text-muted-foreground">
-            Aggiungi l'app alla tua schermata Home per un accesso rapido e un'esperienza migliore
+            {inviteNext
+              ? 'Installa l\'app per iscriverti al gruppo. Dopo l\'accesso verrai portato alla pagina di iscrizione.'
+              : 'Aggiungi l\'app alla tua schermata Home per un accesso rapido e un\'esperienza migliore'}
           </p>
         </div>
 

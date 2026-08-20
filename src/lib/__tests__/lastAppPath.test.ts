@@ -116,5 +116,11 @@ describe('lastAppPath', () => {
         '/app/chat?id=abc',
       );
     });
+
+    it('restores group invite deep links after login', () => {
+      const invite = '/g/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+      expect(resolvePostAuthRedirect('atleta', { pathname: invite })).toBe(invite);
+      expect(resolvePostAuthRedirect('pt', invite, { preferLastPath: false })).toBe(invite);
+    });
   });
 });

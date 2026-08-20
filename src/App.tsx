@@ -50,6 +50,7 @@ import {
   TermsPage,
 } from "./pages/public/PublicInfoPage";
 import InstallPage from "./pages/public/InstallPage";
+import { GroupInviteLandingPage } from "./pages/public/GroupInviteLandingPage";
 import UtenteAppPreviewPage from "./pages/dev/UtenteAppPreviewPage";
 
 // Admin pages
@@ -210,6 +211,7 @@ const App = () => {
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/auth/reset-password" element={<AuthResetPasswordPage />} />
               <Route path="/install" element={<InstallPage />} />
+              <Route path="/g/:token" element={<GroupInviteLandingPage />} />
               {/* Dev: anteprima localhost app atleta (cornice mobile) */}
               <Route path="/utente" element={<UtenteAppPreviewPage />} />
               

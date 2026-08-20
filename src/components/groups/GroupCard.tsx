@@ -7,6 +7,7 @@ import { OfficialBadge } from './OfficialBadge';
 import { formatGroupLocationLine } from '@/lib/groups/location';
 import { cn } from '@/lib/utils';
 import { FollowStarButton } from '@/components/app/FollowStarButton';
+import { GroupShareButton } from './GroupShareButton';
 
 interface GroupCardProps {
   group: GroupWithDetails;
@@ -53,11 +54,18 @@ export function GroupCard({ group, basePath, className, showFollowStar }: GroupC
               </Badge>
             )}
           </div>
-          {showFollowStar && (
-            <div className="absolute top-2 left-2 rounded-full bg-black/50 backdrop-blur">
-              <FollowStarButton targetType="group" targetId={group.id} size="sm" />
-            </div>
-          )}
+          <div className="absolute top-2 left-2 flex items-center gap-1">
+            {showFollowStar && (
+              <div className="rounded-full bg-black/50 backdrop-blur">
+                <FollowStarButton targetType="group" targetId={group.id} size="sm" />
+              </div>
+            )}
+            <GroupShareButton
+              inviteToken={group.invite_token}
+              groupName={group.name}
+              variant="icon"
+            />
+          </div>
         </div>
         <CardContent className="p-3 space-y-2">
           <h3 className="font-semibold text-app-foreground line-clamp-1">{group.name}</h3>

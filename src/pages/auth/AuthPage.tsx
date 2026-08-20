@@ -6,6 +6,7 @@ import {
   consumePostUpdatePath,
   resolvePostAuthRedirect,
 } from '@/lib/lastAppPath';
+import { isGroupInvitePath } from '@/lib/groupInvite';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -108,9 +109,12 @@ export function AuthPage() {
         })();
       }
       const from = (location.state as { from?: { pathname: string; search?: string } } | null)?.from;
+      const nextParam = searchParams.get('next');
+      const fromWithInvite =
+        from || (isGroupInvitePath(nextParam) ? { pathname: nextParam! } : undefined);
       // Prefer path saved around PWA update / deep-link bounce
       const postUpdate = consumePostUpdatePath();
-      const target = postUpdate || resolvePostAuthRedirect(role, from);
+      const target = postUpdate || resolvePostAuthRedirect(role, fromWithInvite);
       const current = `${location.pathname}${location.search}${location.hash}`;
       // Skip if already on target — avoids redirect loop / blank hang
       if (target === current || target === `${location.pathname}${location.search}`) {
@@ -133,7 +137,7 @@ export function AuthPage() {
       }, 3000);
       return () => clearTimeout(timeout);
     }
-  }, [isAuthenticated, role, authLoading, isRoleLoading, location.state, navigate, user]);
+  }, [isAuthenticated, role, authLoading, isRoleLoading, location.state, navigate, user, searchParams]);
 
   // Handle redirect back from confirmation email link
   useEffect(() => {

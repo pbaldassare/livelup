@@ -7,8 +7,8 @@ import {
   getGroupMembers,
   joinGroup,
   leaveGroup,
-  getGroupInviteUrl,
 } from '@/lib/api/groups';
+import { GroupShareButton } from '@/components/groups/GroupShareButton';
 import { GroupChannelPanel } from '@/components/groups/GroupChatPanel';
 import { GroupMembersPanel } from '@/components/groups/GroupMembersPanel';
 import { GroupAnnouncementsDialog } from '@/components/groups/GroupAnnouncementsDialog';
@@ -30,7 +30,6 @@ import {
   MessageCircle,
   Megaphone,
   Shield,
-  Link2,
   LogOut,
   UserPlus,
   Lock,
@@ -142,13 +141,6 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
-  const copyInviteLink = () => {
-    if (!group?.invite_token) return;
-    const url = getGroupInviteUrl(group.invite_token, basePath);
-    navigator.clipboard.writeText(url);
-    toast.success('Link copiato negli appunti');
-  };
 
   if (isLoading) {
     return (
@@ -284,12 +276,7 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
                 Esci
               </Button>
             )}
-            {isAdmin && group.visibility === 'private' && (
-              <Button variant="outline" onClick={copyInviteLink}>
-                <Link2 className="h-4 w-4 mr-1" />
-                Copia link invito
-              </Button>
-            )}
+            <GroupShareButton inviteToken={group.invite_token} groupName={group.name} />
             {isAdmin && (
               <Button
                 variant="outline"
