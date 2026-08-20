@@ -71,6 +71,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export function InstallPage() {
   const [deviceType, setDeviceType] = useState<DeviceType>('unknown');
+  const [inAppBrowser, setInAppBrowser] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState('');
+  const [copied, setCopied] = useState(false);
   const { isInstallable, isInstalled, install } = useInstallPrompt();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -80,7 +83,19 @@ export function InstallPage() {
 
   useEffect(() => {
     setDeviceType(getDeviceType());
+    setInAppBrowser(isIOSInAppBrowser());
+    setCurrentUrl(window.location.href);
   }, []);
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(currentUrl || window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   const handleInstall = async () => {
     await install();
