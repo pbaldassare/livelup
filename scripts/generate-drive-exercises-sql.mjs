@@ -169,12 +169,70 @@ function titleCase(raw) {
     .replace(/\bV-sit\b/gi, 'V-sit');
 }
 
-function sqlStr(s) {
-  return `'${s.replace(/'/g, "''")}'`;
+function normalizePhrase(s) {
+  return s
+    .toLowerCase()
+    .replace(/&amp;/g, '&')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function sqlArr(arr) {
-  return `ARRAY[${arr.map(sqlStr).join(', ')}]`;
+function folderAliases(folder) {
+  const n = normalizePhrase(folder);
+  const set = new Set([n]);
+  if (n.endsWith('s')) set.add(n.slice(0, -1));
+  if (n === 'legs') set.add('leg');
+  if (n === 'push up') {
+    set.add('push ups');
+    set.add('pushup');
+    set.add('pushups');
+  }
+  if (n === 'pull up') {
+    set.add('pull ups');
+    set.add('pullup');
+    set.add('pullups');
+  }
+  if (n === 'hspu') set.add('hspu');
+  if (n === 'l sit') set.add('lsit');
+  if (n === 'v sit') set.add('vsit');
+  if (n === 'bar muscle up' || n === 'ring muscle up') set.add('muscle up');
+  if (n === 'warm up') set.add('warmup');
+  return [...set].sort((a, b) => b.length - a.length);
+}
+
+function stripFolderFromVariant(folder, variant) {
+  const phrases = folderAliases(folder);
+  let v = normalizePhrase(variant);
+  let changed = true;
+  while (changed && v) {
+    changed = false;
+    for (const p of phrases) {
+      if (!p || p.length < 2) continue;
+      if (v === p) return '';
+      if (v.startsWith(`${p} `)) {
+        v = v.slice(p.length).trim();
+        changed = true;
+        break;
+      }
+      if (v.endsWith(` ${p}`)) {
+        v = v.slice(0, v.length - p.length).trim();
+        changed = true;
+        break;
+      }
+    }
+  }
+  return v;
+}
+
+function displayName(folder, variant) {
+  const stripped = stripFolderFromVariant(folder, variant);
+  if (!stripped) return folder;
+  return `${folder} · ${titleCase(stripped)}`;
+}
+
+function sqlStr(s) {
+  return `'${s.replace(/'/g, "''")}'`;
 }
 
 function inferDifficulty(folder, variant) {
@@ -219,7 +277,9 @@ for (const line of lines) {
     variant = stripped || folder;
   }
   variant = variant.replace(/_+$/g, '').trim();
-  const name = `${folder} · ${titleCase(variant)}`;
+  const oldName = `${folder} · ${titleCase(variant)}`;
+  let name = displayName(folder, variant);
+  if (seen.has(name.toLowerCase()) && name !== oldName) name = oldName;
   if (seen.has(name.toLowerCase())) continue;
   seen.add(name.toLowerCase());
   const meta = FOLDER[folder] || {
@@ -230,36 +290,53 @@ for (const line of lines) {
   };
   const difficulty = inferDifficulty(folder, variant);
   const equipment = inferEquipment(folder, variant);
-  const description = `${meta.blurb} Variante: ${titleCase(variant)}.`;
+  const variantLabel = stripFolderFromVariant(folder, variant);
+  const description = `${meta.blurb}${variantLabel ? ` Variante: ${titleCase(variantLabel)}.` : ''}`;
   const instructions = `Esegui ${name} con controllo, scapole attive e core chiuso. Progressione della famiglia ${folder}. Video dimostrativo in arrivo.`;
-  rows.push({ folder, name, description, instructions, difficulty, muscles: meta.muscles, equipment });
+  rows.push({ folder, oldName, name, description, instructions, difficulty, muscles: meta.muscles, equipment });
 }
 
-const inserts = rows.map((r) => {
-  return `(${sqlStr(r.name)}, ${sqlStr(r.description)}, ${sqlStr(r.instructions)}, ${sqlStr(r.folder)}, ${sqlArr(r.muscles)}, ${sqlArr(r.equipment)}, ${sqlStr(r.difficulty)}::public.fitness_level, true, NULL)`;
-});
+const driveCats = Object.keys(FOLDER).map(sqlStr).join(', ');
+const allowedNames = [...new Set(rows.flatMap((r) => [r.name, r.oldName]))].map(sqlStr).join(',\n  ');
+const renames = rows
+  .filter((r) => r.oldName !== r.name)
+  .map(
+    (r) =>
+      `UPDATE public.exercises SET name = ${sqlStr(r.name)}, description = ${sqlStr(r.description)}, instructions = ${sqlStr(r.instructions)} WHERE is_public = true AND name = ${sqlStr(r.oldName)};`,
+  );
 
-const sql = `-- Archivio esercizi allineato alle cartelle Google Drive (solo metadati, no video).
--- Cartella Drive = exercises.category. Nome = "Cartella · Variante".
--- Rimuove gli esercizi pubblici non presenti su Drive. Gli esercizi privati PT restano.
--- pt_course_step_exercises ha ON DELETE RESTRICT: scollegare prima i passi corso.
+const sql = `-- Fix nomi Drive (niente "Back lever · Back Lever Advanced") + pulizia catalogo palestra rimasto.
+-- Non tocca esercizi privati PT (is_public = false).
 
--- Sblocca FK RESTRICT sui corsi
+${renames.join('\n')}
+
+-- Pubblici che non sono nel set Drive (vecchio catalogo Forza/Yoga/Stretching palestra, ecc.)
 DELETE FROM public.pt_course_step_exercises cse
 USING public.exercises e
-WHERE cse.exercise_id = e.id AND e.is_public = true;
+WHERE cse.exercise_id = e.id
+  AND e.is_public = true
+  AND e.name NOT IN (
+  ${allowedNames}
+  );
 
--- Preferiti, cataloghi, template_exercises, workout_exercises: CASCADE
--- warmup/cooldown: SET NULL
-DELETE FROM public.exercises WHERE is_public = true;
+DELETE FROM public.exercises
+WHERE is_public = true
+  AND name NOT IN (
+  ${allowedNames}
+  );
 
-INSERT INTO public.exercises (
-  name, description, instructions, category, muscle_groups, equipment, difficulty_level, is_public, video_url
-) VALUES
-${inserts.join(',\n')};
+DELETE FROM public.pt_course_step_exercises cse
+USING public.exercises e
+WHERE cse.exercise_id = e.id
+  AND e.is_public = true
+  AND e.category NOT IN (${driveCats});
+
+DELETE FROM public.exercises
+WHERE is_public = true
+  AND category NOT IN (${driveCats});
 `;
 
-const outSql = path.join(__dirname, '..', 'supabase', 'migrations', '20260820140000_drive_calisthenics_exercise_archive.sql');
+const outSql = path.join(__dirname, '..', 'supabase', 'migrations', '20260820170000_fix_drive_exercise_names.sql');
 fs.writeFileSync(outSql, sql, 'utf8');
 
 const cats = [...Object.keys(FOLDER), 'Altro'];
@@ -270,4 +347,6 @@ export type ExerciseArchiveCategory = (typeof EXERCISE_ARCHIVE_CATEGORIES)[numbe
 `;
 fs.writeFileSync(path.join(__dirname, '..', 'src', 'lib', 'exerciseArchiveCategories.ts'), ts, 'utf8');
 
-console.log(`Wrote ${rows.length} exercises, ${cats.length} categories -> ${outSql}`);
+console.log(`Wrote ${rows.length} exercises, ${renames.length} renames -> ${outSql}`);
+const samples = rows.filter((r) => /Back lever|Pull up|Push Up|Dip|Handstand/.test(r.folder)).slice(0, 12);
+for (const r of samples) console.log(`  ${r.oldName}  =>  ${r.name}`);
