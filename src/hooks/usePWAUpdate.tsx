@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { savePostUpdatePath } from '@/lib/lastAppPath';
 
 interface ServiceWorkerState {
   isUpdateAvailable: boolean;
@@ -8,11 +9,15 @@ interface ServiceWorkerState {
 }
 
 /**
- * PWA update UX:
- * Activate the waiting SW with SKIP_WAITING, but do NOT force a document
- * reload/replace. Reloading after SW claim was causing blank screens and
- * home redirects. The user stays on the current route; new assets apply on
- * the next natural navigation / cold start (last-path restore handles `/`).
+ * PWA update UX: completamente AUTOMATICO.
+ *
+ * Appena un nuovo service worker è installato:
+ * 1. salviamo il path corrente (ripristinato dopo il reload),
+ * 2. attiviamo il SW con SKIP_WAITING,
+ * 3. al `controllerchange` ricarichiamo la pagina una sola volta.
+ *
+ * L'utente non deve premere nulla. Il controllo aggiornamenti gira
+ * all'avvio, ogni 15 minuti e al ritorno in foreground/online.
  */
 export function usePWAUpdate() {
   const { toast } = useToast();
@@ -21,48 +26,56 @@ export function usePWAUpdate() {
     isOffline: !navigator.onLine,
     registration: null,
   });
+  const applyingRef = useRef(false);
+  const reloadedRef = useRef(false);
 
   const dismissUpdate = useCallback(() => {
     setState((prev) => ({ ...prev, isUpdateAvailable: false }));
   }, []);
 
+  const applyUpdate = useCallback((registration: ServiceWorkerRegistration) => {
+    if (applyingRef.current) return;
+    const waiting = registration.waiting;
+    if (!waiting) return;
+    applyingRef.current = true;
+
+    try {
+      const { pathname, search, hash } = window.location;
+      savePostUpdatePath(`${pathname}${search}${hash}`);
+    } catch {
+      /* noop */
+    }
+
+    waiting.postMessage({ type: 'SKIP_WAITING' });
+  }, []);
+
+  // Manual trigger (retro-compatibile con PWAUpdatePrompt)
   const updateServiceWorker = useCallback(async () => {
     const registration = state.registration;
-
     if (!registration) {
       dismissUpdate();
-      toast({
-        title: 'App aggiornata',
-        description: 'Resti sulla pagina corrente.',
-      });
       return;
     }
-
-    let waiting = registration.waiting;
-    if (!waiting) {
+    if (!registration.waiting) {
       try {
         await registration.update();
-        waiting = registration.waiting;
       } catch {
-        // ignore
+        /* noop */
       }
     }
-
-    if (waiting) {
-      waiting.postMessage({ type: 'SKIP_WAITING' });
-    }
-
+    applyUpdate(registration);
     dismissUpdate();
-    toast({
-      title: 'App aggiornata',
-      description: 'Puoi continuare da questa pagina. Le novità saranno attive subito.',
-    });
-  }, [state.registration, dismissUpdate, toast]);
+  }, [state.registration, dismissUpdate, applyUpdate]);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
 
-    // Intentionally NO controllerchange → reload. That path caused blank UI.
+    const handleControllerChange = () => {
+      if (reloadedRef.current) return;
+      reloadedRef.current = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
     const handleOnline = () => {
       setState((prev) => ({ ...prev, isOffline: false }));
@@ -85,18 +98,16 @@ export function usePWAUpdate() {
     window.addEventListener('offline', handleOffline);
 
     let intervalId: ReturnType<typeof setInterval> | undefined;
-
-    const markUpdateAvailable = (registration: ServiceWorkerRegistration) => {
-      setState((prev) => ({ ...prev, isUpdateAvailable: true, registration }));
-    };
+    let cleanupExtra: (() => void) | undefined;
 
     const init = async () => {
       try {
         const registration = await navigator.serviceWorker.ready;
         setState((prev) => ({ ...prev, registration }));
 
+        // SW già in attesa al primo load → attiva subito
         if (registration.waiting && navigator.serviceWorker.controller) {
-          markUpdateAvailable(registration);
+          applyUpdate(registration);
         }
 
         registration.addEventListener('updatefound', () => {
@@ -105,14 +116,29 @@ export function usePWAUpdate() {
 
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              markUpdateAvailable(registration);
+              applyUpdate(registration);
             }
           });
         });
 
-        intervalId = setInterval(() => {
+        const checkForUpdate = () => {
           registration.update().catch(() => {});
-        }, 60 * 60 * 1000);
+        };
+
+        checkForUpdate();
+        intervalId = setInterval(checkForUpdate, 15 * 60 * 1000);
+
+        const onVisible = () => {
+          if (document.visibilityState === 'visible') checkForUpdate();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        window.addEventListener('focus', checkForUpdate);
+        window.addEventListener('online', checkForUpdate);
+        cleanupExtra = () => {
+          document.removeEventListener('visibilitychange', onVisible);
+          window.removeEventListener('focus', checkForUpdate);
+          window.removeEventListener('online', checkForUpdate);
+        };
       } catch (error) {
         console.error('Error checking for SW updates:', error);
       }
@@ -121,11 +147,13 @@ export function usePWAUpdate() {
     void init();
 
     return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       if (intervalId) clearInterval(intervalId);
+      cleanupExtra?.();
     };
-  }, [toast]);
+  }, [toast, applyUpdate]);
 
   return {
     ...state,
