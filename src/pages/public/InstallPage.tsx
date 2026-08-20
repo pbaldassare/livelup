@@ -11,8 +11,10 @@ type DeviceType = 'ios' | 'android' | 'desktop' | 'unknown';
 
 function getDeviceType(): DeviceType {
   const userAgent = window.navigator.userAgent.toLowerCase();
-  
-  if (/iphone|ipad|ipod/.test(userAgent)) {
+  const isIPadOS =
+    /macintosh/.test(userAgent) && typeof document !== 'undefined' && 'ontouchend' in document;
+
+  if (/iphone|ipad|ipod/.test(userAgent) || isIPadOS) {
     return 'ios';
   }
   if (/android/.test(userAgent)) {
@@ -22,6 +24,16 @@ function getDeviceType(): DeviceType {
     return 'desktop';
   }
   return 'unknown';
+}
+
+/**
+ * Su iPhone/iPad l'installazione è possibile SOLO da Safari: i browser in-app
+ * (Instagram, Facebook, WhatsApp, Messenger, TikTok) e Chrome/Firefox iOS non
+ * espongono "Aggiungi alla schermata Home".
+ */
+function isIOSInAppBrowser(): boolean {
+  const ua = window.navigator.userAgent;
+  return /FBAN|FBAV|Instagram|Line|Messenger|Twitter|TikTok|WhatsApp|CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
 }
 
 const iosSteps = [
