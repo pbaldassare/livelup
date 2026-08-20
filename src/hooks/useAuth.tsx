@@ -195,11 +195,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (authError) return { error: new Error(authError.message) };
       if (!authData.user) return { error: new Error('Errore durante la registrazione') };
 
-      // Bypass temporaneo conferma email: se non arriva la sessione, accedi subito
-      if (!authData.session) {
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) return { error: new Error(signInError.message) };
-      }
+      // Con conferma email attiva non c'è sessione subito: registrazione OK,
+      // l'utente deve confermare tramite il link ricevuto per email.
       return { error: null };
     } catch (error) {
       return { error: error as Error };
