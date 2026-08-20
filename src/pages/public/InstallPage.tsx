@@ -11,8 +11,10 @@ type DeviceType = 'ios' | 'android' | 'desktop' | 'unknown';
 
 function getDeviceType(): DeviceType {
   const userAgent = window.navigator.userAgent.toLowerCase();
-  
-  if (/iphone|ipad|ipod/.test(userAgent)) {
+  const isIPadOS =
+    /macintosh/.test(userAgent) && typeof document !== 'undefined' && 'ontouchend' in document;
+
+  if (/iphone|ipad|ipod/.test(userAgent) || isIPadOS) {
     return 'ios';
   }
   if (/android/.test(userAgent)) {
@@ -22,6 +24,16 @@ function getDeviceType(): DeviceType {
     return 'desktop';
   }
   return 'unknown';
+}
+
+/**
+ * Su iPhone/iPad l'installazione è possibile SOLO da Safari: i browser in-app
+ * (Instagram, Facebook, WhatsApp, Messenger, TikTok) e Chrome/Firefox iOS non
+ * espongono "Aggiungi alla schermata Home".
+ */
+function isIOSInAppBrowser(): boolean {
+  const ua = window.navigator.userAgent;
+  return /FBAN|FBAV|Instagram|Line|Messenger|Twitter|TikTok|WhatsApp|CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
 }
 
 const iosSteps = [
@@ -59,6 +71,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export function InstallPage() {
   const [deviceType, setDeviceType] = useState<DeviceType>('unknown');
+  const [inAppBrowser, setInAppBrowser] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState('');
+  const [copied, setCopied] = useState(false);
   const { isInstallable, isInstalled, install } = useInstallPrompt();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -68,7 +83,19 @@ export function InstallPage() {
 
   useEffect(() => {
     setDeviceType(getDeviceType());
+    setInAppBrowser(isIOSInAppBrowser());
+    setCurrentUrl(window.location.href);
   }, []);
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(currentUrl || window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   const handleInstall = async () => {
     await install();
@@ -123,6 +150,25 @@ export function InstallPage() {
           <UserPlus className="w-5 h-5" />
           Crea il tuo account
         </Button>
+
+        {/* iOS: browser in-app → l'installazione non è possibile */}
+        {deviceType === 'ios' && inAppBrowser && !isInstalled && (
+          <Card className="mb-6 border-warning/50 bg-warning/10">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-sm text-warning-foreground">
+                <strong>Apri questa pagina in Safari.</strong> Stai usando il browser interno di
+                un'altra app: da qui iPhone non permette di aggiungere l'app alla schermata Home.
+                Tocca il menù «…» in alto e scegli «Apri in Safari», oppure copia il link e incollalo
+                in Safari.
+              </p>
+              <Button variant="outline" size="sm" className="w-full gap-2" onClick={handleCopyUrl}>
+                {copied ? <Check className="w-4 h-4" /> : <Share className="w-4 h-4" />}
+                {copied ? 'Link copiato' : 'Copia link'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
 
         {/* Already Installed */}
         {isInstalled && (

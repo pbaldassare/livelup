@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => ({
         icons: [
           {
             src: "/livelapp-icon.png",
-            sizes: "any",
+            sizes: "512x512",
             type: "image/png",
             purpose: "any",
           },
