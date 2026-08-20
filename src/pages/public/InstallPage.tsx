@@ -151,6 +151,25 @@ export function InstallPage() {
           Crea il tuo account
         </Button>
 
+        {/* iOS: browser in-app → l'installazione non è possibile */}
+        {deviceType === 'ios' && inAppBrowser && !isInstalled && (
+          <Card className="mb-6 border-warning/50 bg-warning/10">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-sm text-warning-foreground">
+                <strong>Apri questa pagina in Safari.</strong> Stai usando il browser interno di
+                un'altra app: da qui iPhone non permette di aggiungere l'app alla schermata Home.
+                Tocca il menù «…» in alto e scegli «Apri in Safari», oppure copia il link e incollalo
+                in Safari.
+              </p>
+              <Button variant="outline" size="sm" className="w-full gap-2" onClick={handleCopyUrl}>
+                {copied ? <Check className="w-4 h-4" /> : <Share className="w-4 h-4" />}
+                {copied ? 'Link copiato' : 'Copia link'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+
         {/* Already Installed */}
         {isInstalled && (
           <Card className="mb-6 border-success/50 bg-success/10">
