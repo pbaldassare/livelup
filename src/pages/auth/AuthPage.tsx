@@ -227,11 +227,11 @@ export function AuthPage() {
         }
       }
       toast.success('Registrazione completata', {
-        description: 'Puoi accedere subito.',
+        description: "Controlla la tua email per confermare l'account.",
       });
       setPassword('');
       setConfirmPassword('');
-
+      setSignupEmailSent(true);
     }
   };
 
