@@ -15,7 +15,7 @@ echo "==> 1/3 Schema public (tabelle, tipi, funzioni, trigger, policy, grant)"
 pg_dump "$SRC_DB_URL" \
   --schema=public \
   --schema-only \
-  --no-owner --no-privileges=false \
+  --no-owner \
   --quote-all-identifiers \
   -f "$OUT/schema.sql"
 
