@@ -112,13 +112,15 @@ export function GroupChannelPanel({
   const canPost = channel === 'announcements' ? admin : true;
 
   return (
-    <ChannelThread
-      groupId={groupId}
-      userId={userId}
-      channel={channel}
-      canPost={canPost}
-      emptyHint={CHANNEL_HINTS[channel]}
-    />
+    <div className="h-full min-h-0">
+      <ChannelThread
+        groupId={groupId}
+        userId={userId}
+        channel={channel}
+        canPost={canPost}
+        emptyHint={CHANNEL_HINTS[channel]}
+      />
+    </div>
   );
 }
 
@@ -136,8 +138,8 @@ export function GroupChatPanel({
   const cols = admin ? 'grid-cols-2' : 'grid-cols-1';
 
   return (
-    <Tabs defaultValue="general" className="w-full">
-      <TabsList className={cn('w-full grid bg-app-muted border border-app-border p-1', cols)}>
+    <Tabs defaultValue="general" className="flex h-full min-h-0 w-full flex-col">
+      <TabsList className={cn('w-full grid shrink-0 bg-app-muted border border-app-border p-1', cols)}>
         <TabsTrigger
           value="general"
           className="gap-1 text-xs sm:text-sm data-[state=active]:bg-app-card data-[state=active]:text-app-foreground text-app-muted-foreground"
@@ -155,11 +157,11 @@ export function GroupChatPanel({
           </TabsTrigger>
         )}
       </TabsList>
-      <TabsContent value="general">
+      <TabsContent value="general" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col data-[state=inactive]:hidden">
         <GroupChannelPanel groupId={groupId} userId={userId} channel="general" myRole={myRole} />
       </TabsContent>
       {admin && (
-        <TabsContent value="admins">
+        <TabsContent value="admins" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col data-[state=inactive]:hidden">
           <GroupChannelPanel groupId={groupId} userId={userId} channel="admins" myRole={myRole} />
         </TabsContent>
       )}
@@ -188,7 +190,7 @@ function ChannelThread({
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ['group-messages', groupId, channel, userId],
@@ -230,7 +232,9 @@ function ChannelThread({
   }, [groupId, channel, queryClient]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   const sendMutation = useMutation({
@@ -332,8 +336,8 @@ function ChannelThread({
   const canSend = !!input.trim() || !!pendingFile || !!pendingYoutubeUrl;
 
   return (
-    <div className="flex flex-col h-[min(60vh,480px)]">
-      <div className="flex-1 overflow-y-auto space-y-3 p-2">
+    <div className="flex h-full min-h-0 flex-col">
+      <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 p-2">
         {isLoading && (
           <p className="text-sm text-app-muted-foreground text-center py-8">
             Caricamento messaggi…
@@ -486,11 +490,10 @@ function ChannelThread({
             </div>
           );
         })}
-        <div ref={endRef} />
       </div>
 
       {canPost ? (
-        <div className="border-t border-app-border p-2 space-y-2">
+        <div className="shrink-0 border-t border-app-border p-2 space-y-2 bg-app-background">
           {pendingFile && (
             <div className="flex items-center gap-2 text-xs text-app-muted-foreground bg-app-muted/50 rounded-lg px-2 py-1.5">
               <Paperclip className="h-3.5 w-3.5 shrink-0" />

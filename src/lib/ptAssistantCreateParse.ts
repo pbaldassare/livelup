@@ -3,6 +3,7 @@
 // =====================================================
 
 import type { PTCatalog } from '@/lib/api/ptCatalog';
+import { EXERCISE_ARCHIVE_CATEGORIES } from '@/lib/exerciseArchiveCategories';
 import {
   PROTOCOL_REGISTRY,
   getDefaultParamsForProtocol,
@@ -90,10 +91,7 @@ export type ParsedCreateResult = {
   valid: boolean;
 };
 
-const CATEGORIES = [
-  'Forza', 'Cardio', 'Mobilità', 'Funzionale', 'Calisthenics',
-  'Kettlebell', 'Stretching', 'Posturale', 'Pilates', 'Yoga', 'HIIT', 'Altro',
-];
+const CATEGORIES = [...EXERCISE_ARCHIVE_CATEGORIES];
 
 const MUSCLE_MAP: Record<string, string> = {
   petto: 'Petto', schiena: 'Schiena', spalle: 'Spalle', spalla: 'Spalle',
@@ -190,13 +188,15 @@ function parseMuscleGroups(n: string): { groups: string[]; fromText: boolean } {
 }
 
 function parseCategory(n: string): { value: string; fromText: boolean } {
-  const m = n.match(/\bcategoria\s+([a-zàèéìòù]+)/i);
+  const m = n.match(/\bcategoria\s+([a-zàèéìòù0-9\s\-]+)/i);
   if (m) {
-    const c = CATEGORIES.find((x) => normalize(x) === normalize(m[1]));
+    const c = CATEGORIES.find((x) => normalize(x) === normalize(m[1].trim()));
     if (c) return { value: c, fromText: true };
   }
-  for (const c of CATEGORIES) {
-    if (new RegExp(`\\b${normalize(c)}\\b`).test(n)) return { value: c, fromText: true };
+  const byLen = [...CATEGORIES].sort((a, b) => b.length - a.length);
+  for (const c of byLen) {
+    const escaped = normalize(c).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(`\\b${escaped}\\b`).test(n)) return { value: c, fromText: true };
   }
   return { value: 'Altro', fromText: false };
 }

@@ -415,7 +415,7 @@ Supabase Secrets (Edge Functions):
 
 ### Pending
 - ⏳ **Stripe real payments** — currently mocked
-- ⏳ **Transactional emails** — auth + notifications via SMTP/Resend
+- ✅ **Transactional emails** — Resend via Edge Functions (`auth-send-email`, welcome PT/atleta). Serve `RESEND_API_KEY` nei secret Cloud.
 - ⏳ **Push notification auto-triggers** — manual fan-out only; need server-side trigger on new messages/connections/badges
 - ⏳ **End-to-end tests** — Playwright coverage of critical flows
 

@@ -16,6 +16,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:sim": "playwright test e2e/full-simulation.spec.ts --headed --workers=1",
+    "screenshots:mobile": "playwright test e2e/mobile-screenshots.spec.ts --workers=1",
     "playwright:install": "playwright install chromium"
   },
   "dependencies": {

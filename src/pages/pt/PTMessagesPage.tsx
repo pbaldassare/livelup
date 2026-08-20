@@ -798,7 +798,7 @@ export function PTMessagesPage() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="flex min-h-0 flex-1 flex-col p-4 overflow-y-auto">
+              <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
                 <GroupChatPanel
                   groupId={selectedCommunity.id}
                   userId={user.id}

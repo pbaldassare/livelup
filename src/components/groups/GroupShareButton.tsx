@@ -10,8 +10,8 @@ interface GroupShareButtonProps {
   inviteToken?: string | null;
   groupName: string;
   className?: string;
-  /** icon = solo icona (liste); default = bottone con etichetta */
-  variant?: 'button' | 'icon';
+  /** icon = overlay liste; toolbar = header chat */
+  variant?: 'button' | 'icon' | 'toolbar';
 }
 
 export function GroupShareButton({
@@ -44,6 +44,22 @@ export function GroupShareButton({
       setSending(false);
     }
   };
+
+  if (variant === 'toolbar') {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={handleShare}
+        disabled={sending}
+        aria-label="Condividi gruppo"
+        className={cn('h-9 w-9 shrink-0 text-app-foreground', className)}
+      >
+        <Share2 className="h-4 w-4" />
+      </Button>
+    );
+  }
 
   if (variant === 'icon') {
     return (

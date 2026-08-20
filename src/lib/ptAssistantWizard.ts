@@ -14,6 +14,7 @@ import {
   type ProtocolFormState,
   type TemplateFormState,
 } from '@/lib/ptAssistantForm';
+import { EXERCISE_ARCHIVE_CATEGORIES } from '@/lib/exerciseArchiveCategories';
 import type {
   AssignIntent,
   AssignProgramFormState,
@@ -92,7 +93,7 @@ export function getWizardSteps(intent: AssistantIntent, catalog?: PTCatalog): Wi
     case 'exercise':
       return [
         { key: 'name', label: 'Nome', prompt: 'Come si chiama l\'esercizio?', type: 'text', required: true },
-        { key: 'category', label: 'Categoria', prompt: 'In quale categoria rientra?', type: 'select', options: CATEGORIES.map((c) => ({ value: c, label: c })), required: true },
+        { key: 'category', label: 'Categoria', prompt: 'In quale famiglia (cartella) rientra?', type: 'select', options: EXERCISE_ARCHIVE_CATEGORIES.map((c) => ({ value: c, label: c })), required: true },
         { key: 'muscleGroups', label: 'Gruppi muscolari', prompt: 'Quali muscoli coinvolge?', type: 'multiselect', options: MUSCLE_GROUPS.map((m) => ({ value: m, label: m })), skipAllowed: true },
         { key: 'difficultyLevel', label: 'Difficoltà', prompt: 'Che difficoltà ha?', type: 'select', options: FITNESS_LEVELS, skipAllowed: true },
         { key: 'description', label: 'Descrizione', prompt: 'Breve descrizione dell\'esercizio', type: 'textarea', skipAllowed: true },

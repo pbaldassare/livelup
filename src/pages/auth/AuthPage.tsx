@@ -226,9 +226,12 @@ export function AuthPage() {
           console.warn('Could not save referral info', e);
         }
       }
-      toast.success('Registrazione completata', {
-        description: "Controlla la tua email per confermare l'account.",
-      });
+      toast.success(
+        selectedRole === 'pt' ? 'Account Personal Trainer creato' : 'Registrazione completata',
+        {
+          description: 'Controlla la tua email per confermare l’account (vale anche per il reset password).',
+        },
+      );
       setPassword('');
       setConfirmPassword('');
       setSignupEmailSent(true);

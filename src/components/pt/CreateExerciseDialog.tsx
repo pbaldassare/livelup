@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, Link2, Film, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { EXERCISE_ARCHIVE_CATEGORIES } from '@/lib/exerciseArchiveCategories';
 
 interface ExerciseFormData {
   id?: string;
@@ -34,10 +35,7 @@ interface CreateExerciseDialogProps {
   exercise?: ExerciseFormData | null;
 }
 
-const CATEGORIES = [
-  'Forza', 'Cardio', 'Mobilità', 'Funzionale', 'Calisthenics',
-  'Kettlebell', 'Stretching', 'Posturale', 'Pilates', 'Yoga', 'HIIT', 'Altro'
-];
+const CATEGORIES = [...EXERCISE_ARCHIVE_CATEGORIES];
 
 const MUSCLE_GROUPS = [
   'Petto', 'Schiena', 'Spalle', 'Bicipiti', 'Tricipiti',

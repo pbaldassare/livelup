@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { sendCredentialsWelcomeEmail } from '../_shared/emailCopy.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -303,9 +304,20 @@ serve(async (req) => {
 
     console.log(`Successfully created ${role}: ${email}`)
 
+    const emailResult = await sendCredentialsWelcomeEmail({
+      to: email.trim().toLowerCase(),
+      firstName,
+      lastName,
+      role,
+      temporaryPassword: password,
+      kind: 'created_by_admin',
+    })
+
     return new Response(
       JSON.stringify({
         success: true,
+        emailSent: emailResult.sent,
+        emailStatus: emailResult.sent ? 'sent' : emailResult.reason || 'pending',
         user: {
           id: newUserId,
           email,

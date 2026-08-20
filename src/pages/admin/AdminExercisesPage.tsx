@@ -41,6 +41,7 @@ import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader'
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { EXERCISE_ARCHIVE_CATEGORIES } from '@/lib/exerciseArchiveCategories';
 
 type Exercise = {
   id: string;
@@ -57,10 +58,7 @@ type Exercise = {
   created_at: string;
 };
 
-const CATEGORIES = [
-  'Forza', 'Cardio', 'Mobilità', 'Funzionale', 'Calisthenics',
-  'Kettlebell', 'Stretching', 'Posturale', 'Pilates', 'Yoga',
-];
+const CATEGORIES = [...EXERCISE_ARCHIVE_CATEGORIES];
 
 const MUSCLE_GROUPS = [
   'Petto', 'Schiena', 'Spalle', 'Bicipiti', 'Tricipiti',
@@ -78,7 +76,7 @@ const DIFFICULTY_LEVELS = [
 const emptyForm = {
   name: '',
   description: '',
-  category: 'Forza',
+  category: 'Pull up',
   muscle_groups: [] as string[],
   difficulty_level: 'nessuno',
   video_url: '',

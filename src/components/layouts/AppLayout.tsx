@@ -61,15 +61,27 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   const roleClass = isPT ? 'pt' : 'atleta';
+  // Chat gruppo: viewport fissa (header + messaggi + composer, schema WhatsApp)
+  const lockViewport = /\/groups\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    location.pathname,
+  );
 
   return (
     <div
-      className="min-h-screen bg-app-background flex flex-col overflow-x-hidden"
+      className={cn(
+        'bg-app-background flex flex-col overflow-x-hidden',
+        lockViewport ? 'h-[100dvh] overflow-hidden' : 'min-h-screen',
+      )}
       data-role={roleClass}
     >
       {/* Main content — no opacity page transitions (causavano pagina bianca al remount route) */}
-      <main className="flex-1 pb-20 safe-top text-app-foreground min-h-0 overflow-x-hidden">
-        <div className="h-full">
+      <main
+        className={cn(
+          'flex-1 pb-20 safe-top text-app-foreground min-h-0 overflow-x-hidden',
+          lockViewport && 'overflow-hidden',
+        )}
+      >
+        <div className="h-full min-h-0">
           <RequireUserName>{children}</RequireUserName>
         </div>
       </main>

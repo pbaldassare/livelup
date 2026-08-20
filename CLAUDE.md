@@ -342,7 +342,7 @@ Secrets Edge Functions: `SUPABASE_*`, `LOVABLE_API_KEY` — `SERVICE_ROLE_KEY` n
 ### Pending piattaforma
 
 - Stripe pagamenti reali (attualmente mock)
-- Email transazionali (SMTP/Resend)
+- Email transazionali via Resend (hook Auth + welcome PT/atleta; secret `RESEND_API_KEY`)
 - Trigger push automatici (solo fan-out manuale)
 - Test E2E Playwright su flussi critici
 
