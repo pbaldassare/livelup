@@ -4686,7 +4686,6 @@ export type Database = {
         Args: { _enrollment_id: string; _step_id: string }
         Returns: string
       }
-      tmp_export_auth: { Args: never; Returns: string[] }
       transfer_athlete_to_pt: {
         Args: {
           _atleta_user_id: string
