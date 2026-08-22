@@ -3,7 +3,7 @@
 Incolla questo blocco in Lovable **dopo** che il file di migration è su `main` (sync repo).
 
 ```text
-Sei Lovable Cloud per Livelapp (project ref uiowzycolsmgcsvihmhy).
+Sei Lovable Cloud per Livelapp (project ref kxgaqnksylntokyrpaxp).
 
 ARCHIVIO ESERCIZI CALISTHENICS (metadati only, NESSUN video da Drive):
 

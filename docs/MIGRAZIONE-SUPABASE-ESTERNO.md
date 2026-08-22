@@ -2,7 +2,7 @@
 
 Guida completa e ordinata per trasportare **tutto** il backend (schema, dati, storage,
 auth, edge functions, secret, configurazioni) dal progetto Lovable Cloud
-(`uiowzycolsmgcsvihmhy`) a un progetto **Supabase self-managed / account proprio**.
+(`kxgaqnksylntokyrpaxp`) a un progetto **Supabase self-managed / account proprio**.
 
 > Regola d'oro: esegui i passi **nell'ordine indicato**. Ogni passo ha una verifica.
 > Non cancellare nulla sul progetto sorgente finché il passo 10 (collaudo) non è verde.
@@ -51,8 +51,8 @@ Serve `pg_dump`/`psql` **versione ≥ 15** (allineata al Postgres di Supabase).
 
 ```bash
 # SORGENTE (Lovable Cloud) — chiedi l'export/credenziali dalla dashboard Cloud
-SRC_DB_URL="postgresql://postgres:PASSWORD@db.uiowzycolsmgcsvihmhy.supabase.co:5432/postgres"
-SRC_URL="https://uiowzycolsmgcsvihmhy.supabase.co"
+SRC_DB_URL="postgresql://postgres:PASSWORD@db.kxgaqnksylntokyrpaxp.supabase.co:5432/postgres"
+SRC_URL="https://kxgaqnksylntokyrpaxp.supabase.co"
 SRC_SERVICE_KEY="..."
 
 # DESTINAZIONE

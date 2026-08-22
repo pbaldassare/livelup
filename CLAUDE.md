@@ -33,7 +33,7 @@ npx vitest run       # oppure: bunx vitest run
 | Produzione | https://elevate-roles-hub.lovable.app |
 | Dominio custom | https://livelapp.iaconnect.it |
 | Lovable project ID | `05f7b58c-39e8-4ba3-a7bf-bd051bc56040` |
-| Supabase project ref | `uiowzycolsmgcsvihmhy` |
+| Supabase project ref | `kxgaqnksylntokyrpaxp` |
 | Branch principale | `main` (sync bidirezionale con Lovable) |
 
 ---

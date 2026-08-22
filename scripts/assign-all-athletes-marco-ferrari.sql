@@ -3,7 +3,7 @@
 -- PT user_id: 76c207f5-ba7d-48d7-a7f2-c95f4819aebd
 -- PT email:    marco.ferrari.pt@gmail.com
 --
--- Run in Lovable Cloud SQL editor or via Supabase CLI against project uiowzycolsmgcsvihmhy
+-- Run in Lovable Cloud SQL editor or via Supabase CLI against project kxgaqnksylntokyrpaxp
 -- Safe to re-run (idempotent).
 -- =============================================================================
 

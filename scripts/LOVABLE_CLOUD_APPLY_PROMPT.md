@@ -6,7 +6,7 @@
 > 3. Non modificare `src/integrations/supabase/client.ts`, `types.ts`, `.env`.
 > 4. Dopo le migration: **rigenera i TypeScript types** del backend e synca il frontend.
 >
-> **Project ref backend:** `uiowzycolsmgcsvihmhy`  
+> **Project ref backend:** `kxgaqnksylntokyrpaxp`  
 > **Dominio app:** `https://livelapp.iaconnect.it`  
 > **Branch:** `main` (sync bidirezionale Lovable ↔ GitHub)
 
@@ -15,7 +15,7 @@
 ## PROMPT DA INCOLLARE IN LOVABLE
 
 ```text
-Sei Lovable Cloud per il progetto LIVELLAPP (repo elevate-roles-hub, project ref uiowzycolsmgcsvihmhy).
+Sei Lovable Cloud per il progetto LIVELLAPP (repo elevate-roles-hub, project ref kxgaqnksylntokyrpaxp).
 
 OBIETTIVO
 Applica TUTTO il lavoro backend del 17–18 luglio 2026 ancora mancante sul Cloud:
@@ -227,7 +227,7 @@ Imposta nei secrets delle Edge Functions (Lovable Cloud → Secrets / Edge Funct
 GOOGLE CALENDAR (obbligatori per connect/sync):
 - GOOGLE_CLIENT_ID          = <OAuth Web Client ID da Google Cloud Console>
 - GOOGLE_CLIENT_SECRET      = <OAuth Client Secret>
-- GOOGLE_REDIRECT_URI       = https://uiowzycolsmgcsvihmhy.supabase.co/functions/v1/google-calendar-oauth?action=callback
+- GOOGLE_REDIRECT_URI       = https://kxgaqnksylntokyrpaxp.supabase.co/functions/v1/google-calendar-oauth?action=callback
   (opzionale: se omesso, la function usa questo default da SUPABASE_URL)
 - APP_ORIGIN                = https://livelapp.iaconnect.it
   (opzionale: destinazione post-OAuth; default nello stesso codice)
@@ -247,7 +247,7 @@ FASE E — GOOGLE CLOUD CONSOLE (manuale, fuori da Lovable SQL)
 1. Abilita Google Calendar API sul progetto GCP.
 2. Crea OAuth Client tipo “Web application”.
 3. Authorized redirect URI (match ESATTO):
-   https://uiowzycolsmgcsvihmhy.supabase.co/functions/v1/google-calendar-oauth?action=callback
+   https://kxgaqnksylntokyrpaxp.supabase.co/functions/v1/google-calendar-oauth?action=callback
 4. Authorized JavaScript origins (se richiesti):
    https://livelapp.iaconnect.it
    https://elevate-roles-hub.lovable.app
@@ -431,7 +431,7 @@ Secrets Google: prima del primo “Connetti Google Calendar” in UI
 Redirect URI Google (copia esatta):
 
 ```
-https://uiowzycolsmgcsvihmhy.supabase.co/functions/v1/google-calendar-oauth?action=callback
+https://kxgaqnksylntokyrpaxp.supabase.co/functions/v1/google-calendar-oauth?action=callback
 ```
 
 ---

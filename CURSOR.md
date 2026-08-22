@@ -487,7 +487,7 @@ Supabase Secrets (Edge Functions):
 - **Development**: VS Code + Claude Code / Cursor (locally) **or** Lovable web editor
 - **Repo**: https://github.com/pbaldassare/elevate-roles-hub.git
 - **Lovable project ID**: `05f7b58c-39e8-4ba3-a7bf-bd051bc56040`
-- **Supabase project ref**: `uiowzycolsmgcsvihmhy`
+- **Supabase project ref**: `kxgaqnksylntokyrpaxp`
 - **Preview URL**: https://id-preview--05f7b58c-39e8-4ba3-a7bf-bd051bc56040.lovable.app
 - **Published URL**: https://elevate-roles-hub.lovable.app
 - **Custom domain**: https://livelapp.iaconnect.it
