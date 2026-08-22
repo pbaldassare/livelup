@@ -3,7 +3,7 @@
 Incolla questo blocco in Lovable. **Non committare la API key nel repo.**
 
 ```text
-Sei Lovable Cloud per Livelapp (project ref uiowzycolsmgcsvihmhy).
+Sei Lovable Cloud per Livelapp (project ref kxgaqnksylntokyrpaxp).
 
 EMAIL / RESEND — applica solo questo:
 
@@ -15,7 +15,7 @@ EMAIL / RESEND — applica solo questo:
    - SEND_EMAIL_HOOK_SECRET = il secret dell’hook Auth “Send Email” (formato whsec_… / v1,…)
 
 2) Auth Hook “Send Email”:
-   Punta a https://uiowzycolsmgcsvihmhy.supabase.co/functions/v1/auth-send-email
+   Punta a https://kxgaqnksylntokyrpaxp.supabase.co/functions/v1/auth-send-email
    verify_jwt = false su quella function (già in config.toml).
 
 3) Deploy Edge Functions (con _shared):
