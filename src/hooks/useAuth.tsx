@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { publicAppOrigin } from '@/lib/publicOrigin';
+import { clearPasswordRecovery, markPasswordRecovery } from '@/lib/passwordRecovery';
 import type { AppRole } from '@/types/roles';
 
 interface AuthContextType {
@@ -79,7 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         console.log('[Auth] event:', event, 'user:', newSession?.user?.email ?? 'none');
 
+        if (event === 'PASSWORD_RECOVERY') {
+          markPasswordRecovery();
+        }
+
         if (event === 'SIGNED_OUT') {
+          clearPasswordRecovery();
           setUser(null);
           setSession(null);
           setRole(null);
@@ -188,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth?confirmed=1`,
+          emailRedirectTo: `${publicAppOrigin()}/auth?confirmed=1`,
           data: { role: selectedRole },
         },
       });
@@ -214,7 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${publicAppOrigin()}/auth?type=recovery`,
       });
       return { error: error ? new Error(error.message) : null };
     } catch (error) {
@@ -225,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updatePassword = async (newPassword: string) => {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (!error) clearPasswordRecovery();
       return { error: error ? new Error(error.message) : null };
     } catch (error) {
       return { error: error as Error };

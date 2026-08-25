@@ -30,12 +30,15 @@ export function AuthResetPasswordPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [linkExpired, setLinkExpired] = useState(false);
 
-  // Se dopo il caricamento iniziale non c'è una sessione, il link
-  // di recupero non è valido o è scaduto.
+  // Attendi che il client Auth applichi i token del link (#access_token&type=recovery)
   useEffect(() => {
-    if (!authLoading && !session) {
-      setLinkExpired(true);
+    if (authLoading) return;
+    if (session) {
+      setLinkExpired(false);
+      return;
     }
+    const timeout = window.setTimeout(() => setLinkExpired(true), 2500);
+    return () => window.clearTimeout(timeout);
   }, [authLoading, session]);
 
   const validate = () => {

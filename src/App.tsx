@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { LastAppPathTracker } from "@/components/pwa/LastAppPathTracker";
 import { PostUpdatePathRestorer } from "@/components/pwa/PostUpdatePathRestorer";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -153,6 +153,14 @@ import PTOnboardingPage from "./pages/pt/PTOnboardingPage";
 
 const queryClient = new QueryClient();
 
+function RedirectAuthAtleta() {
+  const [params] = useSearchParams();
+  const next = new URLSearchParams(params);
+  if (!next.get('mode')) next.set('mode', 'signup');
+  const qs = next.toString();
+  return <Navigate to={qs ? `/auth?${qs}` : '/auth?mode=signup'} replace />;
+}
+
 function RedirectPTCalendarEventToManage() {
   const { eventId } = useParams<{ eventId: string }>();
   return <Navigate to={`/pt/events/${eventId}`} replace />;
@@ -211,6 +219,7 @@ const App = () => {
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/auth/reset-password" element={<AuthResetPasswordPage />} />
+              <Route path="/auth/atleta" element={<RedirectAuthAtleta />} />
               <Route path="/install" element={<InstallPage />} />
               <Route path="/g/:token" element={<GroupInviteLandingPage />} />
               {/* Dev: anteprima localhost app atleta (cornice mobile) */}

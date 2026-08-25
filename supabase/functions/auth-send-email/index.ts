@@ -2,6 +2,7 @@
 // Vale per PT, atleta e admin: il testo dipende da user_metadata.role
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { buildAuthLinkEmail, parseMailRole } from '../_shared/emailCopy.ts'
+import { publicAuthRedirectTo } from '../_shared/emailLayout.ts'
 import { sendResendEmail } from '../_shared/resendMail.ts'
 
 const HOOK_SECRET = Deno.env.get('SEND_EMAIL_HOOK_SECRET')
@@ -112,7 +113,7 @@ Deno.serve(async (req) => {
     const url = new URL(`${base}/auth/v1/verify`)
     url.searchParams.set('token', data.token_hash)
     url.searchParams.set('type', actionType)
-    if (data.redirect_to) url.searchParams.set('redirect_to', data.redirect_to)
+    url.searchParams.set('redirect_to', publicAuthRedirectTo(data.redirect_to, actionType))
     const confirmationUrl = url.toString()
 
     const mail = buildAuthLinkEmail({ actionType, confirmationUrl, email, role })

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { peekPostUpdatePath, consumePostUpdatePath, isSafePostUpdatePath } from '@/lib/lastAppPath';
+import { isAuthColdStartEntry } from '@/lib/passwordRecovery';
 
 /**
  * If we somehow landed on `/` or `/auth` while a post-update path is saved
@@ -25,9 +26,7 @@ export function PostUpdatePathRestorer() {
       return;
     }
 
-    const onEntry =
-      location.pathname === '/' || location.pathname.startsWith('/auth');
-    if (!onEntry) return;
+    if (!isAuthColdStartEntry(location.pathname, location.search, location.hash)) return;
 
     didRestoreRef.current = true;
     consumePostUpdatePath();

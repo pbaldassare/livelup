@@ -1,5 +1,6 @@
 import { safeGet, safeSet, safeRemove } from '@/lib/safeStorage';
 import { isGroupInvitePath } from '@/lib/groupInvite';
+import { isAuthColdStartEntry } from '@/lib/passwordRecovery';
 import { getHomeRoute, type AppRole } from '@/types/roles';
 
 /**
@@ -86,7 +87,7 @@ export function redirectIfColdStartNeedsRestore(): boolean {
   if (typeof window === 'undefined') return false;
   const { pathname, search, hash } = window.location;
   const current = `${pathname}${search}${hash}`;
-  if (pathname !== '/' && !pathname.startsWith('/auth')) return false;
+  if (!isAuthColdStartEntry(pathname, search, hash)) return false;
 
   let target: string | null = null;
   try {

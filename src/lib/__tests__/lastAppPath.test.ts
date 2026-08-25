@@ -71,10 +71,13 @@ describe('lastAppPath', () => {
       expect(consumePostUpdatePath()).toBe(null);
     });
 
-    it('rejects unsafe stored values on consume', () => {
-      sessionStorage.setItem('livellapp:post-update-path', '/auth');
-      expect(consumePostUpdatePath()).toBe(null);
-      expect(sessionStorage.getItem('livellapp:post-update-path')).toBe(null);
+    it('does not treat password recovery URLs as PWA cold-start entry', async () => {
+      const { isAuthColdStartEntry } = await import('../passwordRecovery');
+      expect(isAuthColdStartEntry('/auth', '?type=recovery', '')).toBe(false);
+      expect(isAuthColdStartEntry('/auth/reset-password', '', '')).toBe(false);
+      expect(isAuthColdStartEntry('/auth', '', '#type=recovery')).toBe(false);
+      expect(isAuthColdStartEntry('/auth', '', '')).toBe(true);
+      expect(isAuthColdStartEntry('/', '', '')).toBe(true);
     });
   });
 

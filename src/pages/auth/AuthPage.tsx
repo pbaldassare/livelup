@@ -28,6 +28,8 @@ import { Logo } from '@/components/common/Logo';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { isPasswordRecoveryLocation } from '@/lib/passwordRecovery';
+import AuthResetPasswordPage from '@/pages/auth/AuthResetPasswordPage';
 
 // =====================================================
 // AUTH PAGE - Login e Registrazione
@@ -41,6 +43,7 @@ export function AuthPage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { signIn, signUp, resetPassword, isAuthenticated, role, isLoading: authLoading, isRoleLoading, user } = useAuth();
+  const isRecovery = isPasswordRecoveryLocation(location.pathname, location.search, location.hash);
   
   const rawRef = searchParams.get('ref');
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -84,6 +87,7 @@ export function AuthPage() {
 
   // Redirect if already authenticated, handle referral connection
   useEffect(() => {
+    if (isRecovery) return;
     if (didRedirectRef.current) return;
 
     if (isAuthenticated && role) {
@@ -137,7 +141,7 @@ export function AuthPage() {
       }, 3000);
       return () => clearTimeout(timeout);
     }
-  }, [isAuthenticated, role, authLoading, isRoleLoading, location.state, navigate, user, searchParams]);
+  }, [isAuthenticated, role, authLoading, isRoleLoading, location.state, navigate, user, searchParams, isRecovery]);
 
   // Handle redirect back from confirmation email link
   useEffect(() => {
@@ -261,6 +265,10 @@ export function AuthPage() {
     setForgotPasswordOpen(false);
     setForgotPasswordEmail('');
   };
+
+  if (isRecovery) {
+    return <AuthResetPasswordPage />;
+  }
 
   if (authLoading) {
     return (

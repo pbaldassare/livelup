@@ -7,12 +7,36 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
+const DEFAULT_APP_ORIGIN = 'https://livelapp.iaconnect.it'
+
 export function resolveAppOrigin(): string {
   const fromEnv =
     Deno.env.get('SITE_URL') ||
     Deno.env.get('APP_ORIGIN') ||
-    'https://livelapp.it'
+    DEFAULT_APP_ORIGIN
   return fromEnv.replace(/\/$/, '')
+}
+
+function isLocalOrLoopback(url: URL): boolean {
+  const host = url.hostname.toLowerCase()
+  return host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '[::1]'
+}
+
+/** Auth Site URL di default è localhost:3000: riscrive i link email verso il sito pubblico. */
+export function publicAuthRedirectTo(redirectTo: string | undefined, actionType: string): string {
+  const origin = resolveAppOrigin()
+  if (actionType === 'recovery') return `${origin}/auth?type=recovery`
+  const fallbackPath = '/auth'
+  if (!redirectTo) return `${origin}${fallbackPath}`
+  try {
+    const parsed = new URL(redirectTo)
+    if (isLocalOrLoopback(parsed)) {
+      return `${origin}${parsed.pathname}${parsed.search}${parsed.hash}`
+    }
+    return redirectTo
+  } catch {
+    return `${origin}${fallbackPath}`
+  }
 }
 
 export function loginUrl(): string {
