@@ -20,7 +20,7 @@ Also available automatically: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SER
 3. Authorized redirect URI (exact match):
 
 ```
-https://uiowzycolsmgcsvihmhy.supabase.co/functions/v1/google-calendar-oauth?action=callback
+https://kxgaqnksylntokyrpaxp.supabase.co/functions/v1/google-calendar-oauth?action=callback
 ```
 
 4. Authorized JavaScript origins (if prompted): your app origins (`https://livelapp.iaconnect.it`, preview URLs).
