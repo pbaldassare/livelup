@@ -1,26 +1,39 @@
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
-import { safeSet, safeGet, safeRemove } from "@/lib/safeStorage";
+import { safeGetAny, safeRemoveBoth, safeSetBoth } from "@/lib/safeStorage";
 import { supabase } from "@/integrations/supabase/client";
 
 export const TOUR_DONE_KEY = "livellapp_tour_done";
 export const TOUR_DISMISSED_KEY = "livellapp_tour_dismissed";
 
-export function isTourDismissedLocally(): boolean {
-  return safeGet(TOUR_DONE_KEY) === "1" || safeGet(TOUR_DISMISSED_KEY) === "1";
+function tourKeys(userId?: string | null): string[] {
+  const keys = [TOUR_DONE_KEY, TOUR_DISMISSED_KEY];
+  if (userId) {
+    keys.push(`${TOUR_DONE_KEY}:${userId}`, `${TOUR_DISMISSED_KEY}:${userId}`);
+  }
+  return keys;
 }
 
-export function clearTourDismissedLocally() {
-  safeRemove(TOUR_DONE_KEY);
-  safeRemove(TOUR_DISMISSED_KEY);
+export function isTourDismissedLocally(userId?: string | null): boolean {
+  return tourKeys(userId).some((key) => safeGetAny(key) === "1");
 }
 
-function markTourDismissedLocally() {
-  safeSet(TOUR_DONE_KEY, "1");
-  safeSet(TOUR_DISMISSED_KEY, "1");
+export function clearTourDismissedLocally(userId?: string | null) {
+  tourKeys(userId).forEach((key) => safeRemoveBoth(key));
+}
+
+function markTourDismissedLocally(userId?: string | null) {
+  tourKeys(userId).forEach((key) => safeSetBoth(key, "1"));
+}
+
+function asPrefsObject(raw: unknown): Record<string, unknown> {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    return { ...(raw as Record<string, unknown>) };
+  }
+  return {};
 }
 
 export async function persistTourDismissed(userId?: string) {
-  markTourDismissedLocally();
+  markTourDismissedLocally(userId);
   try {
     let uid = userId;
     if (!uid) {
@@ -28,23 +41,31 @@ export async function persistTourDismissed(userId?: string) {
       uid = user?.id;
     }
     if (!uid) return;
-    const { data } = await supabase
+    markTourDismissedLocally(uid);
+    const { data, error: readError } = await supabase
       .from("profiles")
       .select("notification_preferences")
       .eq("user_id", uid)
       .maybeSingle();
-    const current = (data?.notification_preferences as Record<string, unknown> | null) ?? {};
-    await supabase
+    if (readError) {
+      console.warn("[AppTour] failed to read prefs", readError);
+      return;
+    }
+    const current = asPrefsObject(data?.notification_preferences);
+    const { error: writeError } = await supabase
       .from("profiles")
       .update({ notification_preferences: { ...current, tour_dismissed: true } })
       .eq("user_id", uid);
+    if (writeError) {
+      console.warn("[AppTour] failed to persist tour_dismissed", writeError);
+    }
   } catch (e) {
     console.warn("[AppTour] failed to persist tour_dismissed", e);
   }
 }
 
 export async function isTourDismissed(userId?: string): Promise<boolean> {
-  if (isTourDismissedLocally()) return true;
+  if (isTourDismissedLocally(userId)) return true;
   try {
     let uid = userId;
     if (!uid) {
@@ -52,14 +73,15 @@ export async function isTourDismissed(userId?: string): Promise<boolean> {
       uid = user?.id;
     }
     if (!uid) return false;
+    if (isTourDismissedLocally(uid)) return true;
     const { data } = await supabase
       .from("profiles")
       .select("notification_preferences")
       .eq("user_id", uid)
       .maybeSingle();
-    const prefs = (data?.notification_preferences as Record<string, unknown> | null) ?? {};
+    const prefs = asPrefsObject(data?.notification_preferences);
     if (prefs.tour_dismissed === true) {
-      markTourDismissedLocally();
+      markTourDismissedLocally(uid);
       return true;
     }
   } catch (e) {

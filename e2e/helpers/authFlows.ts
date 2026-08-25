@@ -118,8 +118,7 @@ export async function dismissWelcomeTourIfPresent(page: Page): Promise<boolean> 
   const present = await waitVisible(heading, 2500);
   if (!present) return false;
 
-  await page.getByLabel('Non mostrare più').click().catch(() => {});
-  await page.getByRole('button', { name: 'Salta' }).click();
+  await page.getByRole('button', { name: 'Non mostrare più' }).click();
   await heading.waitFor({ state: 'detached', timeout: 8000 }).catch(() => {});
   return true;
 }

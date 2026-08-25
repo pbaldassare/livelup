@@ -1,5 +1,5 @@
 /** Origine usata nei link email (reset, conferma) quando si è su localhost o preview. */
-export const PUBLIC_APP_ORIGIN = 'https://livelapp.iaconnect.it'
+export const PUBLIC_APP_ORIGIN = 'https://livelapp.it'
 
 function isNonPublicHost(host: string): boolean {
   return (

@@ -4,10 +4,22 @@ import { requestConnection } from '@/lib/api/connections';
 export type AtletaLookupResult = {
   found: boolean;
   user_id?: string;
+  email?: string | null;
   first_name?: string | null;
   last_name?: string | null;
   has_active_pt?: boolean;
+  has_other_pts?: boolean;
   connection_with_me?: string | null;
+};
+
+export type AtletaSearchHit = {
+  user_id: string;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  has_active_pt: boolean;
+  has_other_pts: boolean;
+  connection_with_me: string | null;
 };
 
 export type CreateAthleteInput = {
@@ -37,6 +49,19 @@ export async function findAtletaByEmail(email: string): Promise<AtletaLookupResu
 
   if (error) throw error;
   return (data ?? { found: false }) as AtletaLookupResult;
+}
+
+export async function searchAtletiForPt(query: string): Promise<AtletaSearchHit[]> {
+  const q = query.trim();
+  if (q.length < 3) return [];
+
+  const { data, error } = await (supabase.rpc as any)('search_atleti_for_pt', {
+    _query: q,
+  });
+
+  if (error) throw error;
+  if (!Array.isArray(data)) return [];
+  return data as AtletaSearchHit[];
 }
 
 export async function inviteExistingAtleta(

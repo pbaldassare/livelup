@@ -7,7 +7,7 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
-const DEFAULT_APP_ORIGIN = 'https://livelapp.iaconnect.it'
+const DEFAULT_APP_ORIGIN = 'https://livelapp.it'
 
 export function resolveAppOrigin(): string {
   const fromEnv =
@@ -17,26 +17,15 @@ export function resolveAppOrigin(): string {
   return fromEnv.replace(/\/$/, '')
 }
 
-function isLocalOrLoopback(url: URL): boolean {
-  const host = url.hostname.toLowerCase()
-  return host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '[::1]'
-}
-
-/** Auth Site URL di default è localhost:3000: riscrive i link email verso il sito pubblico. */
-export function publicAuthRedirectTo(redirectTo: string | undefined, actionType: string): string {
+export function authActionAppUrl(actionType: string, tokenHash: string): string {
   const origin = resolveAppOrigin()
-  if (actionType === 'recovery') return `${origin}/auth?type=recovery`
-  const fallbackPath = '/auth'
-  if (!redirectTo) return `${origin}${fallbackPath}`
-  try {
-    const parsed = new URL(redirectTo)
-    if (isLocalOrLoopback(parsed)) {
-      return `${origin}${parsed.pathname}${parsed.search}${parsed.hash}`
-    }
-    return redirectTo
-  } catch {
-    return `${origin}${fallbackPath}`
+  const url = new URL(`${origin}/auth`)
+  url.searchParams.set('type', actionType)
+  url.searchParams.set('token_hash', tokenHash)
+  if (actionType === 'signup' || actionType === 'invite' || actionType === 'email_change') {
+    url.searchParams.set('confirmed', '1')
   }
+  return url.toString()
 }
 
 export function loginUrl(): string {

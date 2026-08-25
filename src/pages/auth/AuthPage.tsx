@@ -28,7 +28,8 @@ import { Logo } from '@/components/common/Logo';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { isPasswordRecoveryLocation } from '@/lib/passwordRecovery';
+import { getAuthEmailOtpFromLocation, isPasswordRecoveryLocation } from '@/lib/passwordRecovery';
+import type { EmailOtpType } from '@supabase/supabase-js';
 import AuthResetPasswordPage from '@/pages/auth/AuthResetPasswordPage';
 
 // =====================================================
@@ -63,6 +64,7 @@ export function AuthPage() {
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [emailOtpBusy, setEmailOtpBusy] = useState(false);
   const didRedirectRef = useRef(false);
   const didHandleConfirmedRef = useRef(false);
   const loginSafetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -266,6 +268,29 @@ export function AuthPage() {
     setForgotPasswordEmail('');
   };
 
+  const pendingEmailOtp = getAuthEmailOtpFromLocation(location.search, location.hash);
+  const needsEmailConfirmTap =
+    !isAuthenticated &&
+    !!pendingEmailOtp &&
+    pendingEmailOtp.type !== 'recovery';
+
+  const confirmEmailFromLink = async () => {
+    if (!pendingEmailOtp) return;
+    setEmailOtpBusy(true);
+    const { error } = await supabase.auth.verifyOtp({
+      type: pendingEmailOtp.type as EmailOtpType,
+      token_hash: pendingEmailOtp.tokenHash,
+    });
+    setEmailOtpBusy(false);
+    if (error) {
+      toast.error('Link non valido o scaduto', { description: error.message });
+      return;
+    }
+    toast.success('Email confermata', { description: 'Ora puoi accedere al tuo account.' });
+    navigate('/auth?confirmed=1', { replace: true });
+    setActiveTab('login');
+  };
+
   if (isRecovery) {
     return <AuthResetPasswordPage />;
   }
@@ -293,6 +318,23 @@ export function AuthPage() {
           <p className="text-muted-foreground">La tua piattaforma per allenarti</p>
         </div>
 
+        {needsEmailConfirmTap ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Conferma il tuo account</CardTitle>
+              <CardDescription>
+                Tocca il pulsante per attivare l’account. Così il link non viene consumato in anteprima
+                (WhatsApp, Gmail).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" onClick={() => void confirmEmailFromLink()} disabled={emailOtpBusy}>
+                {emailOtpBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Continua
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
         <Card>
           <CardHeader className="pb-4">
             <Tabs
@@ -560,6 +602,7 @@ export function AuthPage() {
             </p>
           </CardFooter>
         </Card>
+        )}
       </div>
 
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>

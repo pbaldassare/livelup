@@ -72,12 +72,15 @@ describe('lastAppPath', () => {
     });
 
     it('does not treat password recovery URLs as PWA cold-start entry', async () => {
-      const { isAuthColdStartEntry } = await import('../passwordRecovery');
+      const { isAuthColdStartEntry, getAuthEmailOtpFromLocation } = await import('../passwordRecovery');
       expect(isAuthColdStartEntry('/auth', '?type=recovery', '')).toBe(false);
       expect(isAuthColdStartEntry('/auth/reset-password', '', '')).toBe(false);
       expect(isAuthColdStartEntry('/auth', '', '#type=recovery')).toBe(false);
       expect(isAuthColdStartEntry('/auth', '', '')).toBe(true);
       expect(isAuthColdStartEntry('/', '', '')).toBe(true);
+      expect(
+        getAuthEmailOtpFromLocation('?type=recovery&token_hash=abc123', ''),
+      ).toEqual({ tokenHash: 'abc123', type: 'recovery' });
     });
   });
 

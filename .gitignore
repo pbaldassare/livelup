@@ -35,5 +35,6 @@ e2e/artifacts/*.json
 # Migrazione backend (chiavi service_role, dump Auth)
 scripts/migrate/.env.migrate
 scripts/migrate/.env.resend
+scripts/migrate/.env.kimi
 scripts/migrate/*.sql
 scripts/migrate/dumps/

@@ -23,13 +23,15 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import {
   createAndConnectAtleta,
-  findAtletaByEmail,
   inviteExistingAtleta,
+  searchAtletiForPt,
   type AtletaLookupResult,
+  type AtletaSearchHit,
 } from '@/lib/api/ptAthletes';
 import { listAthleteCategories } from '@/lib/api/athleteCategories';
 import { getAthleteDisplayName } from '@/lib/athleteName';
 import { Loader2, Search, UserPlus, UserRoundPlus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 type Props = {
@@ -73,6 +75,7 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'link' | 'create'>(defaultTab);
   const [lookupEmail, setLookupEmail] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [lookupResult, setLookupResult] = useState<AtletaLookupResult | null>(null);
   const [createForm, setCreateForm] = useState(defaultCreateForm);
   const [categoryId, setCategoryId] = useState('');
@@ -93,6 +96,11 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
   }, [open, defaultTab]);
 
   useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedQuery(lookupEmail.trim()), 300);
+    return () => window.clearTimeout(handle);
+  }, [lookupEmail]);
+
+  useEffect(() => {
     if (!open) return;
     if (!categoryId && defaultMixId) {
       setCategoryId(defaultMixId);
@@ -102,28 +110,37 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
   const reset = () => {
     setTab(defaultTab);
     setLookupEmail('');
+    setDebouncedQuery('');
     setLookupResult(null);
     setCreateForm(defaultCreateForm);
     setCategoryId(defaultMixId);
+  };
+
+  const searchQuery = useQuery({
+    queryKey: ['pt-search-atleti', debouncedQuery],
+    queryFn: () => searchAtletiForPt(debouncedQuery),
+    enabled: open && tab === 'link' && debouncedQuery.length >= 3,
+    placeholderData: (previous) => previous,
+  });
+
+  const selectHit = (hit: AtletaSearchHit) => {
+    setLookupEmail(hit.email ?? '');
+    setLookupResult({
+      found: true,
+      user_id: hit.user_id,
+      email: hit.email,
+      first_name: hit.first_name,
+      last_name: hit.last_name,
+      has_active_pt: hit.has_active_pt,
+      has_other_pts: hit.has_other_pts,
+      connection_with_me: hit.connection_with_me,
+    });
   };
 
   const handleOpenChange = (next: boolean) => {
     if (!next) reset();
     onOpenChange(next);
   };
-
-  const lookupMutation = useMutation({
-    mutationFn: () => findAtletaByEmail(lookupEmail),
-    onSuccess: (result) => {
-      setLookupResult(result);
-      if (!result.found) {
-        toast.message('Nessun atleta trovato', {
-          description: 'Puoi crearne uno nuovo con "Crea atleta".',
-        });
-      }
-    },
-    onError: () => toast.error('Errore durante la ricerca'),
-  });
 
   const inviteMutation = useMutation({
     mutationFn: async () => {
@@ -200,6 +217,12 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
     return null;
   })();
 
+  const relationHint = (hit: Pick<AtletaSearchHit, 'connection_with_me'>) => {
+    if (hit.connection_with_me === 'active') return { label: 'Già tuo', blocked: true };
+    if (hit.connection_with_me === 'pending') return { label: 'Invito in attesa', blocked: true };
+    return { label: 'Non collegato a te', blocked: false };
+  };
+
   const categorySelect = (
     <div className="space-y-2">
       <Label htmlFor={`athlete-category-${tab}`}>Categoria cliente *</Label>
@@ -249,32 +272,84 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
 
           <TabsContent value="link" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="lookup-email">Email atleta</Label>
-              <div className="flex gap-2">
+              <Label htmlFor="lookup-email">Cerca atleta registrato</Label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="lookup-email"
-                  type="email"
-                  placeholder="atleta@email.com"
+                  type="search"
+                  autoComplete="off"
+                  placeholder="Email o nome (almeno 3 caratteri)"
+                  className="pl-9"
                   value={lookupEmail}
                   onChange={(e) => {
                     setLookupEmail(e.target.value);
                     setLookupResult(null);
                   }}
-                  onKeyDown={(e) => e.key === 'Enter' && lookupEmail.trim() && lookupMutation.mutate()}
                 />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={!lookupEmail.trim() || lookupMutation.isPending}
-                  onClick={() => lookupMutation.mutate()}
-                >
-                  {lookupMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                </Button>
+                {searchQuery.isFetching && (
+                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                )}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Cerca per email o nome tra gli atleti già registrati.
+              </p>
+
+              {lookupEmail.trim().length > 0 && lookupEmail.trim().length < 3 && (
+                <p className="text-xs text-muted-foreground">Scrivi almeno 3 caratteri per cercare.</p>
+              )}
+
+              {searchQuery.isError && (
+                <p className="text-sm text-destructive">Errore durante la ricerca. Riprova.</p>
+              )}
+
+              {!lookupResult?.found && debouncedQuery.length >= 3 && (
+                <div className="max-h-56 overflow-y-auto rounded-lg border">
+                  {searchQuery.isFetching && !searchQuery.data ? (
+                    <p className="p-3 text-sm text-muted-foreground">Ricerca in corso…</p>
+                  ) : (searchQuery.data ?? []).length === 0 ? (
+                    <p className="p-3 text-sm text-muted-foreground">
+                      Nessun atleta trovato. Usa{' '}
+                      <button
+                        type="button"
+                        className="text-primary underline"
+                        onClick={() => {
+                          setTab('create');
+                          setCreateForm((f) => ({ ...f, email: lookupEmail }));
+                        }}
+                      >
+                        Crea nuovo
+                      </button>
+                      .
+                    </p>
+                  ) : (
+                    <ul className="divide-y">
+                      {(searchQuery.data ?? []).map((hit) => {
+                        const hint = relationHint(hit);
+                        return (
+                          <li key={hit.user_id}>
+                            <button
+                              type="button"
+                              className="flex w-full items-start justify-between gap-2 p-3 text-left text-sm hover:bg-muted/60"
+                              onClick={() => selectHit(hit)}
+                            >
+                              <span>
+                                <span className="block font-medium">
+                                  {getAthleteDisplayName(hit.first_name, hit.last_name, hit.email)}
+                                </span>
+                                <span className="block text-muted-foreground">{hit.email}</span>
+                              </span>
+                              <Badge variant={hint.blocked ? 'secondary' : 'outline'} className="shrink-0">
+                                {hint.label}
+                              </Badge>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
 
             {lookupResult?.found && (
@@ -283,31 +358,21 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
                   {getAthleteDisplayName(
                     lookupResult.first_name,
                     lookupResult.last_name,
-                    lookupEmail,
+                    lookupResult.email ?? lookupEmail,
                   )}
                 </p>
-                <p className="text-muted-foreground">{lookupEmail}</p>
+                <p className="text-muted-foreground">{lookupResult.email ?? lookupEmail}</p>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <Badge variant="outline">
+                    {relationHint({
+                      connection_with_me: lookupResult.connection_with_me ?? null,
+                    }).label}
+                  </Badge>
+                </div>
                 {inviteBlockedReason && (
                   <p className="text-amber-600 dark:text-amber-400 pt-1">{inviteBlockedReason}</p>
                 )}
               </div>
-            )}
-
-            {lookupResult && !lookupResult.found && (
-              <p className="text-sm text-muted-foreground">
-                Nessun atleta con questa email. Usa{' '}
-                <button
-                  type="button"
-                  className="text-primary underline"
-                  onClick={() => {
-                    setTab('create');
-                    setCreateForm((f) => ({ ...f, email: lookupEmail }));
-                  }}
-                >
-                  Crea nuovo
-                </button>
-                .
-              </p>
             )}
 
             {categorySelect}

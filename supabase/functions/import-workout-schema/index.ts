@@ -1,5 +1,11 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import {
+  kimiApiKey,
+  kimiChatCompletion,
+  kimiDeleteFile,
+  kimiUploadForExtract,
+} from '../_shared/kimiAi.ts';
 
 const PROMPT = `You are an expert fitness assistant parsing Italian Personal Trainer workout sheets.
 Your job is to extract exercises and return structured JSON.
@@ -123,10 +129,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('LOVABLE_API_KEY');
+    const apiKey = kimiApiKey();
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }),
+        JSON.stringify({ error: 'KIMI_API_KEY not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -141,61 +147,55 @@ Deno.serve(async (req) => {
       );
     }
 
-    const dataUrl = `data:${mime_type};base64,${file_base64}`;
-
-    let gatewayRes: Response;
+    let fileId: string | null = null;
+    let textOutput: string;
     try {
-      gatewayRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'image_url', image_url: { url: dataUrl } },
-                { type: 'text', text: PROMPT },
-              ],
-            },
-          ],
-          response_format: { type: 'json_object' },
-        }),
+      const uploaded = await kimiUploadForExtract({
+        apiKey,
+        fileBase64: file_base64,
+        mimeType: mime_type,
+        filename: isPdf ? 'scheda.pdf' : 'scheda.xlsx',
       });
+      fileId = uploaded.fileId;
+
+      const chat = await kimiChatCompletion({
+        apiKey,
+        jsonObject: true,
+        messages: [
+          {
+            role: 'system',
+            content: uploaded.extractedText,
+          },
+          {
+            role: 'user',
+            content: PROMPT,
+          },
+        ],
+      });
+
+      if (!chat.ok) {
+        console.error('Kimi API error:', chat.status, chat.detail);
+        if (chat.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        return new Response(
+          JSON.stringify({ error: 'API call failed', details: chat.detail, status: chat.status }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      textOutput = chat.content;
     } catch (err) {
-      console.error('Gateway fetch failed:', err);
+      console.error('Kimi fetch failed:', err);
       return new Response(
         JSON.stringify({ error: 'API call failed', details: err instanceof Error ? err.message : String(err) }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    } finally {
+      if (fileId) await kimiDeleteFile(apiKey, fileId);
     }
-
-    if (!gatewayRes.ok) {
-      const errText = await gatewayRes.text();
-      console.error('Gateway API error:', gatewayRes.status, errText);
-      if (gatewayRes.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (gatewayRes.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required, please add credits to your Lovable workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      return new Response(
-        JSON.stringify({ error: 'API call failed', details: errText, status: gatewayRes.status }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const data = await gatewayRes.json();
-    const textOutput: string = data?.choices?.[0]?.message?.content ?? '';
 
     console.log('Raw gateway response content:', textOutput);
 

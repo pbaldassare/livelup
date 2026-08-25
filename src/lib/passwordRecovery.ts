@@ -30,6 +30,18 @@ function hashType(hash: string): string | null {
   return new URLSearchParams(raw).get('type')
 }
 
+export function getAuthEmailOtpFromLocation(
+  search = typeof window !== 'undefined' ? window.location.search : '',
+  hash = typeof window !== 'undefined' ? window.location.hash : '',
+): { tokenHash: string; type: string } | null {
+  const query = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash)
+  const tokenHash = query.get('token_hash') || hashParams.get('token_hash')
+  const type = query.get('type') || hashParams.get('type')
+  if (!tokenHash || !type) return null
+  return { tokenHash, type }
+}
+
 /** Link email / sessione recovery: non reindirizzare a home o ultima pagina PWA. */
 export function isPasswordRecoveryLocation(
   pathname: string,

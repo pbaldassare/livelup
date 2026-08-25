@@ -33,7 +33,7 @@
 | PWA | Workbox (precache, offline support, in-app update prompt) |
 | Maps | Google Maps JS API + Places API |
 | Push | Web Push API + Service Worker + Supabase Edge Function `send-push-notification` |
-| AI | Lovable AI Gateway (BeeBot assistant) |
+| AI | Kimi (Moonshot) per import schede; BeeBot UI non collegata |
 | Testing | Vitest + React Testing Library; Playwright (driven via shell) |
 | Icons | lucide-react |
 
@@ -397,7 +397,7 @@ Frontend (`.env` — Lovable-managed, never edit):
 Supabase Secrets (Edge Functions):
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`
 - `SUPABASE_JWKS`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`
-- `LOVABLE_API_KEY` (AI Gateway)
+- `KIMI_API_KEY` (Moonshot / Kimi)
 
 > `SUPABASE_SERVICE_ROLE_KEY` and the DB password are **not accessible** to users on Lovable Cloud.
 

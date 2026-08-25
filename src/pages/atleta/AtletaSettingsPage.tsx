@@ -204,7 +204,7 @@ export function AtletaSettingsPage() {
           <div className="bg-app-card rounded-xl overflow-hidden">
             <button
               onClick={async () => {
-                clearTourDismissedLocally();
+                clearTourDismissedLocally(user?.id);
 
                 if (user?.id) {
                   const { data } = await supabase

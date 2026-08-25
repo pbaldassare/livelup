@@ -67,7 +67,7 @@ npx vitest run       # oppure: bunx vitest run
 | PWA | Workbox (precache, offline, prompt aggiornamento) |
 | Maps | Google Maps JS API + Places API |
 | Push | Web Push API + Service Worker + Edge Function `send-push-notification` |
-| AI | Lovable AI Gateway (BeeBot assistant) |
+| AI | Kimi (Moonshot) — import schede PT; BeeBot in UI non è ancora collegato |
 | Testing | Vitest + React Testing Library; Playwright (via shell) |
 | Icons | lucide-react |
 
@@ -326,7 +326,7 @@ Frontend (`.env` — gestito da Lovable, **non modificare**):
 
 - `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`
 
-Secrets Edge Functions: `SUPABASE_*`, `LOVABLE_API_KEY` — `SERVICE_ROLE_KEY` non accessibile agli utenti Lovable Cloud.
+Secrets Edge Functions: `SUPABASE_*`, `KIMI_API_KEY` / `RESEND_API_KEY` — `SERVICE_ROLE_KEY` non accessibile agli utenti Lovable Cloud.
 
 ---
 

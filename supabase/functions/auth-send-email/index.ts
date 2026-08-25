@@ -2,11 +2,10 @@
 // Vale per PT, atleta e admin: il testo dipende da user_metadata.role
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { buildAuthLinkEmail, parseMailRole } from '../_shared/emailCopy.ts'
-import { publicAuthRedirectTo } from '../_shared/emailLayout.ts'
+import { authActionAppUrl } from '../_shared/emailLayout.ts'
 import { sendResendEmail } from '../_shared/resendMail.ts'
 
 const HOOK_SECRET = Deno.env.get('SEND_EMAIL_HOOK_SECRET')
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64)
@@ -80,11 +79,6 @@ Deno.serve(async (req) => {
       return json({ error: { http_code: 500, message: 'RESEND_API_KEY not configured' } }, 500)
     }
 
-    if (!SUPABASE_URL) {
-      console.error('auth-send-email: SUPABASE_URL missing')
-      return json({ error: { http_code: 500, message: 'SUPABASE_URL not configured' } }, 500)
-    }
-
     const payload = JSON.parse(body) as {
       user?: {
         email?: string
@@ -109,12 +103,7 @@ Deno.serve(async (req) => {
       return json({ error: { http_code: 400, message: 'Invalid hook payload' } }, 400)
     }
 
-    const base = SUPABASE_URL.replace(/\/$/, '')
-    const url = new URL(`${base}/auth/v1/verify`)
-    url.searchParams.set('token', data.token_hash)
-    url.searchParams.set('type', actionType)
-    url.searchParams.set('redirect_to', publicAuthRedirectTo(data.redirect_to, actionType))
-    const confirmationUrl = url.toString()
+    const confirmationUrl = authActionAppUrl(actionType, data.token_hash)
 
     const mail = buildAuthLinkEmail({ actionType, confirmationUrl, email, role })
     const result = await sendResendEmail({

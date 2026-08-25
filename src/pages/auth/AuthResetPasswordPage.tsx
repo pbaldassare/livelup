@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { EmailOtpType } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,10 +13,7 @@ import { z } from 'zod';
 import { Logo } from '@/components/common/Logo';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { cn } from '@/lib/utils';
-
-// =====================================================
-// RESET PASSWORD PAGE - Link di recupero password
-// =====================================================
+import { getAuthEmailOtpFromLocation, markPasswordRecovery } from '@/lib/passwordRecovery';
 
 const passwordSchema = z.string().min(6, 'La password deve avere almeno 6 caratteri');
 
@@ -27,19 +26,64 @@ export function AuthResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [linkExpired, setLinkExpired] = useState(false);
+  const [needsTap, setNeedsTap] = useState(false);
+  const otpConsumedRef = useRef(false);
 
-  // Attendi che il client Auth applichi i token del link (#access_token&type=recovery)
   useEffect(() => {
     if (authLoading) return;
     if (session) {
       setLinkExpired(false);
+      setNeedsTap(false);
       return;
     }
-    const timeout = window.setTimeout(() => setLinkExpired(true), 2500);
+    if (otpConsumedRef.current) return;
+
+    const otp = getAuthEmailOtpFromLocation();
+    if (otp?.tokenHash && otp.type === 'recovery') {
+      setNeedsTap(true);
+      setLinkExpired(false);
+      return;
+    }
+
+    const otp = getAuthEmailOtpFromLocation();
+    if (otp?.tokenHash && otp.type === 'recovery') {
+      setNeedsTap(true);
+      setLinkExpired(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (!session) setLinkExpired(true);
+    }, 8000);
     return () => window.clearTimeout(timeout);
   }, [authLoading, session]);
+
+  const verifyFromLink = async () => {
+    const otp = getAuthEmailOtpFromLocation();
+    if (!otp?.tokenHash) {
+      setLinkExpired(true);
+      return;
+    }
+    setIsVerifying(true);
+    const { data, error } = await supabase.auth.verifyOtp({
+      type: (otp.type as EmailOtpType) || 'recovery',
+      token_hash: otp.tokenHash,
+    });
+    setIsVerifying(false);
+    if (error || !data.session) {
+      setLinkExpired(true);
+      setNeedsTap(false);
+      toast.error('Link non valido o scaduto', { description: error?.message });
+      return;
+    }
+    markPasswordRecovery();
+    otpConsumedRef.current = true;
+    setNeedsTap(false);
+    navigate('/auth?type=recovery', { replace: true });
+  };
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -66,7 +110,7 @@ export function AuthResetPasswordPage() {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error('Errore durante l\'aggiornamento', {
+      toast.error("Errore durante l'aggiornamento", {
         description: error.message,
       });
       return;
@@ -112,6 +156,23 @@ export function AuthResetPasswordPage() {
               <CardContent>
                 <Button className="w-full" onClick={() => navigate('/auth', { replace: true })}>
                   Torna al login
+                </Button>
+              </CardContent>
+            </>
+          ) : needsTap && !session ? (
+            <>
+              <CardHeader className="flex flex-col items-center gap-2 text-center">
+                <KeyRound className="h-8 w-8 text-primary" />
+                <CardTitle>Conferma il reset</CardTitle>
+                <CardDescription>
+                  Tocca il pulsante per sbloccare il cambio password. Così il link non scade se l’email
+                  viene aperta in anteprima (WhatsApp, Gmail).
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button className="w-full" onClick={() => void verifyFromLink()} disabled={isVerifying}>
+                  {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Continua
                 </Button>
               </CardContent>
             </>
