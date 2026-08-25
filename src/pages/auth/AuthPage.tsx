@@ -1,12 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { getRoleLabel, type AppRole } from '@/types/roles';
-import {
-  consumePostUpdatePath,
-  resolvePostAuthRedirect,
-} from '@/lib/lastAppPath';
-import { isGroupInvitePath } from '@/lib/groupInvite';
+import { getHomeRoute, getRoleLabel, type AppRole } from '@/types/roles';
+import { isGroupInvitePath, peekPendingGroupInvite } from '@/lib/groupInvite';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -114,13 +110,15 @@ export function AuthPage() {
           }
         })();
       }
-      const from = (location.state as { from?: { pathname: string; search?: string } } | null)?.from;
+      // Group invite is a public deep link, not last-route restore.
+      const pendingInvite = peekPendingGroupInvite();
       const nextParam = searchParams.get('next');
-      const fromWithInvite =
-        from || (isGroupInvitePath(nextParam) ? { pathname: nextParam! } : undefined);
-      // Prefer path saved around PWA update / deep-link bounce
-      const postUpdate = consumePostUpdatePath();
-      const target = postUpdate || resolvePostAuthRedirect(role, fromWithInvite);
+      const invitePath =
+        (pendingInvite ? `/g/${pendingInvite}` : null) ||
+        (isGroupInvitePath(nextParam) ? nextParam : null);
+      // New login / already-authenticated visit to /auth → role home.
+      // Do not restore location.state.from, generic ?next=, or last-path.
+      const target = invitePath || getHomeRoute(role);
       const current = `${location.pathname}${location.search}${location.hash}`;
       // Skip if already on target — avoids redirect loop / blank hang
       if (target === current || target === `${location.pathname}${location.search}`) {
@@ -143,7 +141,7 @@ export function AuthPage() {
       }, 3000);
       return () => clearTimeout(timeout);
     }
-  }, [isAuthenticated, role, authLoading, isRoleLoading, location.state, navigate, user, searchParams, isRecovery]);
+  }, [isAuthenticated, role, authLoading, isRoleLoading, location.pathname, location.search, location.hash, navigate, user, searchParams, isRecovery]);
 
   // Handle redirect back from confirmation email link
   useEffect(() => {

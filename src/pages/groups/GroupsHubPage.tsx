@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { getMyGroups, searchGroups } from '@/lib/api/groups';
 import { GroupCard } from '@/components/groups/GroupCard';
@@ -35,7 +35,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
     enabled: !!user?.id,
   });
 
-  const { data: discoverGroups = [], isLoading: discoverLoading, refetch } = useQuery({
+  const { data: discoverGroups = [], isLoading: discoverLoading } = useQuery({
     queryKey: ['search-groups', query, disciplineIds, userLocation, maxDistance],
     queryFn: () =>
       searchGroups(
@@ -49,6 +49,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
         user?.id,
       ),
     enabled: tab === 'discover',
+    placeholderData: keepPreviousData,
   });
 
   const requestLocation = () => {
@@ -58,7 +59,6 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
       (pos) => {
         setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setLocating(false);
-        refetch();
       },
       () => setLocating(false),
     );
@@ -146,8 +146,8 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Raggio: {maxDistance} km</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs text-app-foreground">Raggio: {maxDistance} km</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -160,22 +160,29 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
                     ) : (
                       <Navigation className="h-3 w-3" />
                     )}
-                    <span className="ml-1">Usa posizione</span>
+                    <span className="ml-1">{userLocation ? 'Aggiorna posizione' : 'Usa posizione'}</span>
                   </Button>
                 </div>
                 <Slider
                   value={[maxDistance]}
-                  onValueChange={([v]) => setMaxDistance(v)}
+                  onValueChange={([v]) => {
+                    if (typeof v === 'number') setMaxDistance(v);
+                  }}
                   min={5}
                   max={200}
                   step={5}
-                  disabled={!userLocation}
+                  aria-label="Raggio di ricerca in chilometri"
+                  className="py-1"
                 />
-                {!userLocation && (
-                  <p className="text-[10px] text-app-muted-foreground">
-                    Attiva la posizione per filtrare per zona
-                  </p>
-                )}
+                <div className="flex justify-between text-[10px] text-app-muted-foreground">
+                  <span>5 km</span>
+                  <span>200 km</span>
+                </div>
+                <p className="text-[10px] text-app-muted-foreground">
+                  {userLocation
+                    ? `Gruppi entro ${maxDistance} km dalla tua posizione`
+                    : 'Scegli il raggio, poi tocca «Usa posizione» per filtrare i gruppi vicini'}
+                </p>
               </div>
             </div>
 

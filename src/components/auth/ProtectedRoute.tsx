@@ -26,7 +26,7 @@ export function ProtectedRoute({
   redirectTo = '/auth',
   fallback,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, isRoleLoading, role } = useAuth();
+  const { isAuthenticated, isLoading, role } = useAuth();
   const { hasAccess, hasRole } = usePermissions();
   const location = useLocation();
   // Mantiene l'ultimo ruolo "buono" per evitare redirect transitori durante
@@ -49,15 +49,13 @@ export function ProtectedRoute({
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // Role still resolving — mostra spinner, nessun logout automatico
+  // Role still resolving — mostra spinner, nessun logout automatico.
+  // Se la sessione c'è ma il ruolo RPC è lento/fallisce, NON mandare a /auth:
+  // dopo un refresh lastGoodRoleRef è vuoto e sembrava un logout.
   if (!effectiveRole) {
-    if (isRoleLoading) {
-      return (
-        <LoadingSpinner variant="logo" size="lg" text="Caricamento permessi..." fullScreen />
-      );
-    }
-    // Auth ok ma nessun ruolo trovato: reindirizza alla login senza forzare signOut
-    return <Navigate to={redirectTo} state={{ from: location }} replace />;
+    return (
+      <LoadingSpinner variant="logo" size="lg" text="Caricamento permessi..." fullScreen />
+    );
   }
 
   // Check allowed roles — usa effectiveRole per non sbattere fuori durante un refresh token

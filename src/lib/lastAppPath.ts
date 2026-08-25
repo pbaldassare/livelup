@@ -4,9 +4,9 @@ import { isAuthColdStartEntry } from '@/lib/passwordRecovery';
 import { getHomeRoute, type AppRole } from '@/types/roles';
 
 /**
- * Persist the last mobile-app path so a PWA cold start at `/`
- * (start_url, iOS resume after camera/file picker, SW takeover)
- * can restore the screen the user was on instead of forcing home.
+ * Last mobile-app path (localStorage). Previously restored on PWA cold start at `/`.
+ * Post-login / re-entry now always uses getHomeRoute(); this is still written so
+ * existing storage stays consistent, but it is not used as a login redirect.
  */
 
 const KEY_PREFIX = 'livellapp:last-app-path:';
@@ -151,29 +151,23 @@ function normalizeFromPath(from: AuthRedirectFrom): string | null {
 }
 
 /**
- * Post-auth / already-authenticated redirect priority:
- * 1. `state.from` if restorable for role
- * 2. last remembered app path on PWA/mobile
- * 3. role home
+ * Post-login / unauthenticated re-entry destination.
+ * Always role home via getHomeRoute — do not restore last visited route,
+ * location.state.from, returnTo, redirect query, or localStorage last-path.
+ * Exception: public group-invite deep links (`/g/:token`).
+ *
+ * Already-logged-in refresh keeps the current URL (router + session);
+ * PWA SW update restore uses sessionStorage post-update path, not this helper.
  */
 export function resolvePostAuthRedirect(
   role: AppRole,
   from?: AuthRedirectFrom,
-  options?: { preferLastPath?: boolean },
+  _options?: { preferLastPath?: boolean },
 ): string {
   const fromPath = normalizeFromPath(from);
   // Deep link pubblico gruppo: dopo login si torna a /g/:token
   if (fromPath && isGroupInvitePath(fromPath)) {
     return pathnameOnly(fromPath);
-  }
-  if (fromPath && isRestorableAppPath(fromPath, role)) {
-    return fromPath;
-  }
-
-  const preferLast = options?.preferLastPath ?? shouldRestoreLastAppPath();
-  if (preferLast) {
-    const last = getLastAppPath(role);
-    if (last) return last;
   }
 
   return getHomeRoute(role);

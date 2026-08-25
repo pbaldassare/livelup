@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * E2E — base URL allineata a vite.config.ts (port 8084).
+ * E2E — base URL allineata a vite.config.ts (port 8080).
  * Avvio: npm run test:e2e  (avvia Vite se non è già su)
  */
 export default defineConfig({
@@ -13,7 +13,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8084',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8080',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     launchOptions: {
@@ -28,7 +28,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:8084',
+    url: 'http://localhost:8080',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

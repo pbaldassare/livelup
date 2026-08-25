@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 // - useToggleFavorite(): toggle add/remove con optimistic update
 // =====================================================
 
-export function useFavoriteIds() {
+export function useFavoriteIds(options?: { enabled?: boolean }) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ['pt-favorite-exercise-ids', user?.id],
@@ -23,7 +23,7 @@ export function useFavoriteIds() {
       if (error) throw error;
       return new Set<string>((data || []).map((r) => r.exercise_id));
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && (options?.enabled ?? true),
   });
 }
 

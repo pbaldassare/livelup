@@ -3,7 +3,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  ExternalLink,
   Video as VideoIcon,
   Image as ImageIcon,
   Star,
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
+import { VideoEmbed } from '@/components/common/VideoEmbed';
 import { cn } from '@/lib/utils';
 
 interface ExerciseLite {
@@ -42,28 +42,6 @@ interface ExerciseDetailDialogProps {
   showFavoriteToggle?: boolean;
 }
 
-function getYouTubeVideoId(url: string): string | null {
-  const match = url.match(
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&?/\s]+)/
-  );
-  return match ? match[1] : null;
-}
-
-function getVimeoVideoId(url: string): string | null {
-  const match = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
-  return match ? match[1] : null;
-}
-
-function isVideoFileUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    const path = parsed.pathname.toLowerCase();
-    return path.includes('/exercise-videos/') || /\.(mp4|mov|webm)$/.test(path);
-  } catch {
-    return false;
-  }
-}
-
 const difficultyColor = (level: string) => {
   switch (level) {
     case 'principiante':
@@ -81,62 +59,6 @@ const formatValue = (value?: string | null) => {
   if (!value) return 'Non definito';
   return value.charAt(0).toUpperCase() + value.slice(1);
 };
-
-function VideoEmbed({ url, title, elevated = false }: { url: string; title: string; elevated?: boolean }) {
-  const youtubeId = getYouTubeVideoId(url);
-  const vimeoId = getVimeoVideoId(url);
-  const frameClass = cn(
-    'relative aspect-video w-full overflow-hidden rounded-2xl border bg-muted shadow-sm',
-    elevated && 'shadow-lg shadow-primary/10'
-  );
-
-  if (youtubeId) {
-    return (
-      <div className={frameClass}>
-        <iframe
-          src={`https://www.youtube.com/embed/${youtubeId}?modestbranding=1&rel=0`}
-          title={title}
-          className="absolute inset-0 h-full w-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
-  if (vimeoId) {
-    return (
-      <div className={frameClass}>
-        <iframe
-          src={`https://player.vimeo.com/video/${vimeoId}`}
-          title={title}
-          className="absolute inset-0 h-full w-full"
-          allow="autoplay; fullscreen; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
-  if (isVideoFileUrl(url)) {
-    return (
-      <div className={frameClass}>
-        <video src={url} title={title} controls className="absolute inset-0 h-full w-full bg-muted object-contain" />
-      </div>
-    );
-  }
-
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border bg-muted/40 p-5 text-sm font-medium text-primary transition-colors hover:bg-muted hover:underline"
-    >
-      <VideoIcon className="h-4 w-4" /> Apri video tutorial <ExternalLink className="h-3 w-3" />
-    </a>
-  );
-}
 
 function SectionCard({
   icon: Icon,
@@ -188,7 +110,7 @@ export function ExerciseDetailDialog({
   onOpenChange,
   showFavoriteToggle = false,
 }: ExerciseDetailDialogProps) {
-  const { data: favIds } = useFavoriteIds();
+  const { data: favIds } = useFavoriteIds({ enabled: showFavoriteToggle });
   const toggleFav = useToggleFavorite();
 
   if (!exercise) return null;
@@ -344,12 +266,6 @@ export function ExerciseDetailDialog({
                   <p className="text-sm text-muted-foreground">Gruppi muscolari non specificati.</p>
                 )}
               </SectionCard>
-
-              {hasVideo && (
-                <SectionCard icon={VideoIcon} title="Media / Tutorial" className="xl:hidden">
-                  <VideoEmbed url={exercise.video_url!} title={exercise.name} />
-                </SectionCard>
-              )}
 
               <SectionCard icon={CheckCircle2} title="Uso nelle schede" className="bg-primary/5">
                 <p className="text-sm leading-6 text-muted-foreground">

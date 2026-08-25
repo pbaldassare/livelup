@@ -85,7 +85,7 @@ describe('lastAppPath', () => {
   });
 
   describe('resolvePostAuthRedirect', () => {
-    it('prefers safe state.from over last path and home', () => {
+    it('always lands on role home, ignoring last path and state.from', () => {
       rememberAppPath('/app/profile', '', 'atleta');
       expect(
         resolvePostAuthRedirect(
@@ -93,37 +93,20 @@ describe('lastAppPath', () => {
           { pathname: '/app/workout/123', search: '?x=1' },
           { preferLastPath: true },
         ),
-      ).toBe('/app/workout/123?x=1');
+      ).toBe('/app');
+      expect(resolvePostAuthRedirect('atleta', null, { preferLastPath: true })).toBe('/app');
+      expect(resolvePostAuthRedirect('pt', { pathname: '/pt/app/settings' })).toBe('/pt');
+      expect(resolvePostAuthRedirect('admin')).toBe('/admin');
     });
 
-    it('ignores unsafe from and uses last path when preferLastPath', () => {
+    it('ignores last path even when preferLastPath is true', () => {
       rememberAppPath('/pt/app/settings', '', 'pt');
       expect(
         resolvePostAuthRedirect('pt', { pathname: '/auth' }, { preferLastPath: true }),
-      ).toBe('/pt/app/settings');
-      expect(
-        resolvePostAuthRedirect('pt', { pathname: '/pt/athletes' }, { preferLastPath: true }),
-      ).toBe('/pt/app/settings');
+      ).toBe('/pt');
     });
 
-    it('falls back to home when no from and no last path', () => {
-      expect(resolvePostAuthRedirect('atleta', null, { preferLastPath: true })).toBe('/app');
-      expect(resolvePostAuthRedirect('pt', undefined, { preferLastPath: false })).toBe('/pt');
-    });
-
-    it('skips last path when preferLastPath is false', () => {
-      rememberAppPath('/app/profile', '', 'atleta');
-      expect(resolvePostAuthRedirect('atleta', null, { preferLastPath: false })).toBe('/app');
-    });
-
-    it('restores full path with query via last path', () => {
-      rememberAppPath('/app/chat', '?id=abc', 'atleta');
-      expect(resolvePostAuthRedirect('atleta', null, { preferLastPath: true })).toBe(
-        '/app/chat?id=abc',
-      );
-    });
-
-    it('restores group invite deep links after login', () => {
+    it('still restores group invite deep links after login', () => {
       const invite = '/g/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
       expect(resolvePostAuthRedirect('atleta', { pathname: invite })).toBe(invite);
       expect(resolvePostAuthRedirect('pt', invite, { preferLastPath: false })).toBe(invite);

@@ -366,7 +366,11 @@ export default function AdminExercisesPage() {
 
       const { error } = await supabase.storage
         .from('exercise-videos')
-        .upload(path, file, { upsert: true, contentType: file.type || 'video/mp4' });
+        .upload(path, file, {
+          upsert: true,
+          contentType: file.type || 'video/mp4',
+          cacheControl: '31536000',
+        });
       window.clearInterval(progressTimer);
       if (error) throw error;
 

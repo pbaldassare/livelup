@@ -3,6 +3,13 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { publicAppOrigin } from '@/lib/publicOrigin';
 import { clearPasswordRecovery, markPasswordRecovery } from '@/lib/passwordRecovery';
+import {
+  clearLastGoodRole,
+  isValidRole,
+  mergeResolvedRole,
+  readLastGoodRole,
+  writeLastGoodRole,
+} from '@/lib/lastGoodRole';
 import type { AppRole } from '@/types/roles';
 
 interface AuthContextType {
@@ -22,13 +29,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const VALID_ROLES: AppRole[] = ['admin', 'pt', 'atleta'];
-
-function isValidRole(r: unknown): r is AppRole {
-  return typeof r === 'string' && VALID_ROLES.includes(r as AppRole);
-}
-
-async function resolveRole(userId: string): Promise<AppRole | null> {
+async function resolveRoleOnce(userId: string): Promise<AppRole | null> {
   // 1) RPC (SECURITY DEFINER, bypasses RLS)
   try {
     const { data, error } = await supabase.rpc('get_my_role' as any);
@@ -54,6 +55,13 @@ async function resolveRole(userId: string): Promise<AppRole | null> {
   return null;
 }
 
+async function resolveRole(userId: string): Promise<AppRole | null> {
+  const first = await resolveRoleOnce(userId);
+  if (first) return first;
+  await new Promise((r) => setTimeout(r, 500));
+  return resolveRoleOnce(userId);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -62,14 +70,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isRoleLoading, setIsRoleLoading] = useState(false);
 
   const roleRef = useRef<AppRole | null>(null);
+  const lastGoodRoleRef = useRef<AppRole | null>(null);
   const isMountedRef = useRef(true);
   const inFlightRef = useRef(false);
   const resolvedForUserRef = useRef<string | null>(null);
 
   const setRole = useCallback((r: AppRole | null) => {
     roleRef.current = r;
+    if (r) lastGoodRoleRef.current = r;
     setRoleState(r);
   }, []);
+
+  const hydrateLastGoodRole = useCallback((userId: string) => {
+    if (roleRef.current) return;
+    const cached = readLastGoodRole(userId);
+    if (cached) setRole(cached);
+  }, [setRole]);
 
   // 1) onAuthStateChange — ONLY synchronous state updates
   useEffect(() => {
@@ -87,10 +103,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (event === 'SIGNED_OUT') {
           clearPasswordRecovery();
+          clearLastGoodRole();
           setUser(null);
           setSession(null);
           setRole(null);
           roleRef.current = null;
+          lastGoodRoleRef.current = null;
           inFlightRef.current = false;
           resolvedForUserRef.current = null;
           setIsRoleLoading(false);
@@ -98,16 +116,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // Empty payload is only "logged out" after storage restore or an explicit sign-out.
+        // Ignore other empty events so a refresh/token race cannot wipe a live session.
         if (!newSession?.user) {
-          // INITIAL_SESSION senza utente
-          setUser(null);
-          setSession(null);
-          setIsLoading(false);
+          if (event === 'INITIAL_SESSION') {
+            setUser(null);
+            setSession(null);
+            setIsLoading(false);
+          }
           return;
         }
 
         setSession(newSession);
         setUser(newSession.user);
+        hydrateLastGoodRole(newSession.user.id);
+        if (roleRef.current) setIsLoading(false);
         // Do NOT call resolveRole here — it causes deadlock
       }
     );
@@ -118,6 +141,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.session?.user) {
         setSession(data.session);
         setUser(data.session.user);
+        hydrateLastGoodRole(data.session.user.id);
+        if (roleRef.current) setIsLoading(false);
       } else {
         setIsLoading(false);
       }
@@ -129,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const timeout = window.setTimeout(() => {
       if (isMountedRef.current && !roleRef.current) {
         console.warn('[Auth] Safety timeout — forcing loading=false (no role yet)');
+        setIsRoleLoading(false);
         setIsLoading(false);
       }
     }, 10000);
@@ -145,11 +171,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) {
       inFlightRef.current = false;
       resolvedForUserRef.current = null;
-      setIsLoading(false);
+      // Do NOT set isLoading=false here: on mount user is null until
+      // getSession / INITIAL_SESSION restores the persisted session.
       return;
     }
-    if (roleRef.current !== null && resolvedForUserRef.current === user.id) {
+    hydrateLastGoodRole(user.id);
+    if (roleRef.current) {
       setIsLoading(false);
+    }
+    if (roleRef.current !== null && resolvedForUserRef.current === user.id) {
       setIsRoleLoading(false);
       return;
     }
@@ -160,9 +190,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsRoleLoading(true);
     resolveRole(user.id)
       .then((resolved) => {
-        console.log('[Auth] resolved role:', resolved);
+        const next = mergeResolvedRole(resolved, lastGoodRoleRef.current);
+        console.log('[Auth] resolved role:', resolved, 'effective:', next);
         if (isMountedRef.current) {
-          setRole(resolved);
+          setRole(next);
+          if (next) writeLastGoodRole(user.id, next);
           resolvedForUserRef.current = user.id;
           setIsRoleLoading(false);
           setIsLoading(false);
@@ -171,6 +203,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch((err) => {
         console.error('[Auth] role resolution error:', err);
         if (isMountedRef.current) {
+          const fallback = lastGoodRoleRef.current;
+          if (fallback) setRole(fallback);
           setIsRoleLoading(false);
           setIsLoading(false);
         }
@@ -178,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => {
         inFlightRef.current = false;
       });
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, hydrateLastGoodRole, setRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -212,6 +246,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   const signOut = async () => {
+    clearLastGoodRole();
+    lastGoodRoleRef.current = null;
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -244,7 +280,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsRoleLoading(true);
       const newRole = await resolveRole(user.id);
       if (isMountedRef.current) {
-        if (newRole) setRole(newRole);
+        const next = mergeResolvedRole(newRole, lastGoodRoleRef.current);
+        if (next) {
+          setRole(next);
+          writeLastGoodRole(user.id, next);
+        }
         setIsRoleLoading(false);
       }
     }

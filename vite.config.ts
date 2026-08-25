@@ -8,8 +8,8 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig(({ mode }) => ({
   server: {
     host: true,
-    port: 8084,
-    strictPort: false,
+    port: 8080,
+    strictPort: true,
     hmr: {
       overlay: true,
     },

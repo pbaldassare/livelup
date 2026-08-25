@@ -101,7 +101,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
       const path = `${user.id}/${Date.now()}.${ext}`;
       const { error } = await supabase.storage
         .from('exercise-videos')
-        .upload(path, file);
+        .upload(path, file, { upsert: true, cacheControl: '31536000' });
       if (error) throw error;
 
       const { data: urlData } = supabase.storage

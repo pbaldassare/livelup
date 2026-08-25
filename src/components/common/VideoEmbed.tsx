@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ExternalLink, Video as VideoIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +22,70 @@ function isVideoFileUrl(url: string): boolean {
   } catch {
     return /\.(mp4|mov|webm)(\?|$)/i.test(url);
   }
+}
+
+function StorageFileVideo({ url, title }: { url: string; title: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(url, { cache: 'force-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        setSrc(objectUrl);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+
+  if (error) {
+    return (
+      <video
+        src={url}
+        title={title}
+        controls
+        controlsList="nodownload"
+        playsInline
+        preload="metadata"
+        className="absolute inset-0 h-full w-full bg-muted object-contain"
+        onContextMenu={(e) => e.preventDefault()}
+      />
+    );
+  }
+
+  if (!src) {
+    return <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">Caricamento video…</div>;
+  }
+
+  return (
+    <video
+      src={src}
+      title={title}
+      controls
+      controlsList="nodownload"
+      playsInline
+      preload="auto"
+      className="absolute inset-0 h-full w-full bg-muted object-contain [transform:translateZ(0)]"
+      onContextMenu={(e) => e.preventDefault()}
+    />
+  );
 }
 
 interface VideoEmbedProps {
@@ -70,13 +135,7 @@ export function VideoEmbed({ url, title, elevated = false, className }: VideoEmb
   if (isVideoFileUrl(url)) {
     return (
       <div className={frameClass}>
-        <video
-          src={url}
-          title={title}
-          controls
-          playsInline
-          className="absolute inset-0 h-full w-full bg-muted object-contain"
-        />
+        <StorageFileVideo url={url} title={title} />
       </div>
     );
   }

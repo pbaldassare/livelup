@@ -35,8 +35,9 @@ const Index = () => {
     }
   }, [isAuthenticated, role, navigate, location.pathname, location.search]);
 
-  // Loading state
-  if (isLoading) {
+  // Loading state — keep spinner while session/role restore, otherwise a
+  // refresh at `/` flashes the public landing and looks like a logout.
+  if (isLoading || (isAuthenticated && !role)) {
     return (
       <LoadingSpinner 
         variant="logo" 
