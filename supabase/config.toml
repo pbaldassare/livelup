@@ -1,4 +1,4 @@
-project_id = "uiowzycolsmgcsvihmhy"
+project_id = "kxgaqnksylntokyrpaxp"
 
 [functions.send-push-notification]
 verify_jwt = false
@@ -10,9 +10,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.pt-create-athlete]
-verify_jwt = true
-
-[functions.send-athlete-welcome-email]
 verify_jwt = true
 
 [functions.send-athlete-welcome-email]
@@ -43,3 +40,9 @@ verify_jwt = true
 
 [functions.auth-send-email]
 verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.create-pt-checkout]
+verify_jwt = true

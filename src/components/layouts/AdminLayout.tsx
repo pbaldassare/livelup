@@ -18,6 +18,7 @@ import {
   Dumbbell,
   Library,
   Layers,
+  BarChart3,
   ShieldCheck,
   UsersRound,
   BookOpen,
@@ -61,6 +62,11 @@ const navigationItems = [
     href: '/admin/payments', 
     icon: Receipt,
     tourId: 'admin-nav-payments',
+  },
+  { 
+    label: 'Report billing', 
+    href: '/admin/billing', 
+    icon: BarChart3,
   },
   { 
     label: 'Messaggi', 

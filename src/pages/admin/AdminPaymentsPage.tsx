@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/dashboard/PageHeader';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { StatusBadge } from '@/components/dashboard/StatusBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CreditCard } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 
 interface Payment {
   id: string;
@@ -122,7 +123,7 @@ export function AdminPaymentsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Pagamenti"
-        description="Visualizza tutti i pagamenti della piattaforma"
+        description="Pagamenti piattaforma. Report fasce PT e sblocchi in Report billing."
         icon={CreditCard}
       />
 
@@ -179,6 +180,9 @@ export function AdminPaymentsPage() {
             <SelectItem value="refunded">Rimborsati</SelectItem>
           </SelectContent>
         </Select>
+        <Button asChild variant="outline">
+          <Link to="/admin/billing">Report billing PT</Link>
+        </Button>
       </div>
 
       <DataTable

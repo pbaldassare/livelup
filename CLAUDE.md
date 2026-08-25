@@ -33,7 +33,7 @@ npx vitest run       # oppure: bunx vitest run
 | Produzione | https://elevate-roles-hub.lovable.app |
 | Dominio custom | https://livelapp.iaconnect.it |
 | Lovable project ID | `05f7b58c-39e8-4ba3-a7bf-bd051bc56040` |
-| Supabase project ref | `uiowzycolsmgcsvihmhy` |
+| Backend project ref | `kxgaqnksylntokyrpaxp` (Livelapp, eu-central-1). Vecchio: `uiowzycolsmgcsvihmhy` |
 | Branch principale | `main` (sync bidirezionale con Lovable) |
 
 ---
@@ -341,8 +341,8 @@ Secrets Edge Functions: `SUPABASE_*`, `LOVABLE_API_KEY` — `SERVICE_ROLE_KEY` n
 
 ### Pending piattaforma
 
-- Stripe pagamenti reali (attualmente mock)
-- Email transazionali via Resend (hook Auth + welcome PT/atleta; secret `RESEND_API_KEY`)
+- Stripe pagamenti reali (struttura billing PT a fasce pronta; Checkout/webhook da collegare)
+- Email transazionali: Resend su `livelapp.it` (hook Auth `auth-send-email` + welcome PT/atleta; non usare il mailer built-in)
 - Trigger push automatici (solo fan-out manuale)
 - Test E2E Playwright su flussi critici
 
@@ -426,7 +426,9 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-07-18 | Fix tab "Membri" gruppo vuoto: `getGroupMembers` non usa più embed PostgREST `profiles:user_id(...)` (nessun FK diretto group_members↔profiles) ma fetch separata + merge; nuove policy RLS su `profiles` per visibilità membri gruppo; UI mostra errore/retry invece di lista vuota silenziosa |
 | 2026-07-18 | Aggiunta CTA "Invita un atleta" su `PTAppHome` e `AtletaAppHome` (link condivisibile verso `/install`, con `?ref=<ptUserId>` propagato fino al signup per collegare automaticamente il nuovo atleta al PT); nuovi `src/lib/inviteLink.ts` e `src/components/shared/InviteAtletaCTA.tsx` |
 | 2026-07-18 | **Chat PT: invio multiplo, gruppi atleti, allegati media.** Migration `20260718170000_pt_chat_groups_and_attachments.sql` (nuove tabelle `pt_chat_groups`/`pt_chat_group_members`/`pt_chat_group_reads`; `messages.chat_id` ora nullable + nuova `messages.chat_group_id` con CHECK di esclusività; trigger `update_chat_last_message`/`create_message_notification` estesi; bucket storage privato `chat-attachments` con limiti 5MB immagini / 25MB video). Nuove API `src/lib/api/chatGroups.ts` e `src/lib/api/chatAttachments.ts` (queste ultime usano un cast `as any` sulle nuove tabelle finché `types.ts` non viene rigenerato da Lovable — non è un errore, è voluto). `ChatMessages.tsx` ora supporta allegati in tutte le chat (1:1 e gruppo, PT e atleta). `PTAppChatPage` ha modalità "Seleziona" per broadcast multi-atleta e tab "Gruppi" con creazione gruppo (`CreateChatGroupDialog`). Nuove pagine `PTAppChatGroupDetailPage` / `AtletaChatGroupDetailPage` e route `/pt/app/chat/group/:groupId` / `/app/chat/group/:groupId`. |
+| 2026-08-25 | **Email solo Resend.** Mittente `noreply@livelapp.it`; hook Auth `auth-send-email` + SMTP Resend per il resto; niente mailer built-in. |
+| 2026-08-25 | **Billing PT a fasce atleti.** Migration `20260825160000_pt_platform_billing_tiers.sql`: Starter 0-5 gratis, Growth 6-20 19,90, Pro 21-50 49,90, Unlimited 51+ 99,90. Storico, report admin, grazia 7 giorni, blocco nuovi atleti. Stripe IDs vuoti. |
 
 ---
 
-_Ultimo aggiornamento: 2026-07-18_
+_Ultimo aggiornamento: 2026-08-25_

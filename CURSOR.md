@@ -415,7 +415,7 @@ Supabase Secrets (Edge Functions):
 
 ### Pending
 - ⏳ **Stripe real payments** — currently mocked
-- ✅ **Transactional emails** — Resend via Edge Functions (`auth-send-email`, welcome PT/atleta). Serve `RESEND_API_KEY` nei secret Cloud.
+- ✅ **Transactional emails** — Resend su `livelapp.it` (`auth-send-email` + welcome PT/atleta). Non usare il mailer built-in.
 - ⏳ **Push notification auto-triggers** — manual fan-out only; need server-side trigger on new messages/connections/badges
 - ⏳ **End-to-end tests** — Playwright coverage of critical flows
 
@@ -487,7 +487,7 @@ Supabase Secrets (Edge Functions):
 - **Development**: VS Code + Claude Code / Cursor (locally) **or** Lovable web editor
 - **Repo**: https://github.com/pbaldassare/elevate-roles-hub.git
 - **Lovable project ID**: `05f7b58c-39e8-4ba3-a7bf-bd051bc56040`
-- **Supabase project ref**: `uiowzycolsmgcsvihmhy`
+- **Backend project ref**: `kxgaqnksylntokyrpaxp` (Livelapp). Vecchio: `uiowzycolsmgcsvihmhy`
 - **Preview URL**: https://id-preview--05f7b58c-39e8-4ba3-a7bf-bd051bc56040.lovable.app
 - **Published URL**: https://elevate-roles-hub.lovable.app
 - **Custom domain**: https://livelapp.iaconnect.it
@@ -545,4 +545,4 @@ bunx vitest run  # tests
 
 ---
 
-_Last updated: 2026-07-18 — see `CLAUDE.md` §15 Changelog for the latest entries (chat: multi-select broadcast, PT athlete groups, media attachments)._
+_Last updated: 2026-08-25 — billing PT a fasce (vedi `CLAUDE.md` §15)._

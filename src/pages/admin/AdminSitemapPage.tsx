@@ -6,7 +6,7 @@ import {
   Calendar, FileText, Home, Search, Activity, BookOpen,
   Camera, Bell, HelpCircle, Globe, Smartphone, Monitor,
   ClipboardList, ScrollText, TicketIcon, UserCheck, Layers,
-  MapPin, Eye, LogIn
+  MapPin, Eye, LogIn, BarChart3
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -97,6 +97,7 @@ const sections: Section[] = [
       { name: 'Personal Trainers', path: '/admin/pts', icon: UserCog },
       { name: 'Abbonamenti', path: '/admin/subscriptions', icon: CreditCard },
       { name: 'Pagamenti', path: '/admin/payments', icon: Receipt },
+      { name: 'Report billing PT', path: '/admin/billing', icon: BarChart3 },
       { name: 'Messaggi', path: '/admin/messages', icon: MessageSquare },
       { name: 'Coupon', path: '/admin/coupons', icon: Tag },
       { name: 'Corsi', path: '/admin/courses', icon: BookOpen },

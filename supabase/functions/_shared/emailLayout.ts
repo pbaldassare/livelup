@@ -11,7 +11,7 @@ export function resolveAppOrigin(): string {
   const fromEnv =
     Deno.env.get('SITE_URL') ||
     Deno.env.get('APP_ORIGIN') ||
-    'https://livelapp.iaconnect.it'
+    'https://livelapp.it'
   return fromEnv.replace(/\/$/, '')
 }
 

@@ -60,6 +60,8 @@ interface SubscriptionPlan {
   stripe_price_id: string | null;
   sort_order: number | null;
   created_at: string;
+  slug?: string | null;
+  min_athletes?: number | null;
 }
 
 interface SubscriptionStats {
@@ -113,6 +115,7 @@ export function AdminSubscriptionsPage() {
     mutationFn: async (data: SubscriptionPlanFormData) => {
       const { error } = await supabase
         .from('subscription_plans')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .insert({
           name: data.name,
           description: data.description || null,
@@ -123,6 +126,8 @@ export function AdminSubscriptionsPage() {
           trial_days: data.trial_days,
           features: data.features,
           max_athletes: data.max_athletes,
+          min_athletes: data.min_athletes,
+          slug: data.slug || null,
           includes_chat: data.includes_chat,
           includes_video_calls: data.includes_video_calls,
           includes_analytics: data.includes_analytics,
@@ -131,7 +136,7 @@ export function AdminSubscriptionsPage() {
           is_active: data.is_active,
           is_featured: data.is_featured,
           sort_order: data.sort_order,
-        });
+        } as any);
 
       if (error) throw error;
     },
@@ -160,6 +165,8 @@ export function AdminSubscriptionsPage() {
           trial_days: data.trial_days,
           features: data.features,
           max_athletes: data.max_athletes,
+          min_athletes: data.min_athletes,
+          slug: data.slug || null,
           includes_chat: data.includes_chat,
           includes_video_calls: data.includes_video_calls,
           includes_analytics: data.includes_analytics,
@@ -168,7 +175,7 @@ export function AdminSubscriptionsPage() {
           is_active: data.is_active,
           is_featured: data.is_featured,
           sort_order: data.sort_order,
-        })
+        } as any)
         .eq('id', id);
 
       if (error) throw error;
@@ -269,6 +276,17 @@ export function AdminSubscriptionsPage() {
       ),
     },
     {
+      key: 'fascia',
+      header: 'Fascia atleti',
+      cell: (plan) => {
+        const min = plan.min_athletes;
+        const max = plan.max_athletes;
+        if (max == null) return `${min ?? 51}+`;
+        if ((min ?? 0) <= 0) return `0–${max}`;
+        return `${min}–${max}`;
+      },
+    },
+    {
       key: 'price',
       header: 'Prezzo',
       cell: (plan) => (
@@ -280,6 +298,15 @@ export function AdminSubscriptionsPage() {
             </p>
           )}
         </div>
+      ),
+    },
+    {
+      key: 'stripe',
+      header: 'Stripe Price',
+      cell: (plan) => (
+        <span className="text-xs font-mono text-muted-foreground">
+          {plan.stripe_price_id || '—'}
+        </span>
       ),
     },
     {
@@ -330,8 +357,8 @@ export function AdminSubscriptionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Piani PT"
-        description="Gestisci i piani di abbonamento per i Personal Trainer"
+        title="Piani abbonamento PT"
+        description="Modifica fasce, prezzi e Stripe Price ID. I PT pagano in base agli atleti attivi."
         icon={CreditCard}
         actions={
           <Button onClick={handleOpenCreate}>
@@ -418,6 +445,8 @@ export function AdminSubscriptionsPage() {
                       trial_days: editingPlan.trial_days || 14,
                       features: Array.isArray(editingPlan.features) ? editingPlan.features as string[] : [],
                       max_athletes: editingPlan.max_athletes,
+                      min_athletes: (editingPlan as { min_athletes?: number | null }).min_athletes ?? null,
+                      slug: editingPlan.slug || '',
                       includes_chat: editingPlan.includes_chat ?? true,
                       includes_video_calls: editingPlan.includes_video_calls ?? false,
                       includes_analytics: editingPlan.includes_analytics ?? false,

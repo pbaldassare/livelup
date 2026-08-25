@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { PTBillingBanner } from '@/components/pt/PTBillingBanner';
 
 // =====================================================
 // PT APP PAGE SHELL
@@ -82,6 +83,7 @@ export function PTAppPageShell({
       </header>
 
       <div className={cn(flush ? 'px-0' : 'px-3', 'pt-3 pb-24 overflow-x-hidden')}>
+        <PTBillingBanner forceApp />
         {children}
       </div>
     </div>

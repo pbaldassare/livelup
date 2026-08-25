@@ -3,20 +3,20 @@
 Incolla questo blocco in Lovable. **Non committare la API key nel repo.**
 
 ```text
-Sei Lovable Cloud per Livelapp (project ref uiowzycolsmgcsvihmhy).
+Sei Lovable Cloud per Livelapp (project ref kxgaqnksylntokyrpaxp).
 
 EMAIL / RESEND — applica solo questo:
 
 1) Secrets Edge Functions (sostituisci i valori, non stamparli in log):
-   - RESEND_API_KEY = <la chiave Resend re_… che l’utente ti fornisce in chat, non nel git>
+   - RESEND_API_KEY = <chiave Resend re_…, non nel git>
    - RESEND_FROM_EMAIL = Livelapp <noreply@livelapp.it>
-     (usa un mittente su dominio GIÀ verificato in Resend; se livelapp.it non è verificato, usa il dominio verificato)
-   - SITE_URL = https://livelapp.iaconnect.it
-   - SEND_EMAIL_HOOK_SECRET = il secret dell’hook Auth “Send Email” (formato whsec_… / v1,…)
+   - SITE_URL = https://livelapp.it
+   - SEND_EMAIL_HOOK_SECRET = il secret dell’hook Auth “Send Email” (formato v1,whsec_…)
 
 2) Auth Hook “Send Email”:
-   Punta a https://uiowzycolsmgcsvihmhy.supabase.co/functions/v1/auth-send-email
+   Punta a https://kxgaqnksylntokyrpaxp.supabase.co/functions/v1/auth-send-email
    verify_jwt = false su quella function (già in config.toml).
+   Non usare il mailer built-in: SMTP leftover → smtp.resend.com, mittente noreply@livelapp.it
 
 3) Deploy Edge Functions (con _shared):
    - auth-send-email

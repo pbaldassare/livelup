@@ -58,6 +58,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminPTsPage from "./pages/admin/AdminPTsPage";
 import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
 import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
+import AdminPTBillingPage from "./pages/admin/AdminPTBillingPage";
 import AdminCouponsPage from "./pages/admin/AdminCouponsPage";
 import AdminCouponTemplatesPage from "./pages/admin/AdminCouponTemplatesPage";
 import AdminSupportPage from "./pages/admin/AdminSupportPage";
@@ -258,6 +259,13 @@ const App = () => {
                 <AdminRoute>
                   <AdminLayout>
                     <AdminPaymentsPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
+              <Route path="/admin/billing" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminPTBillingPage />
                   </AdminLayout>
                 </AdminRoute>
               } />

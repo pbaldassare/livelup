@@ -1,7 +1,11 @@
 export type MailResult = { sent: boolean; reason?: string }
 
+const DEFAULT_FROM = 'Livelapp <noreply@livelapp.it>'
+
 export function resendFromAddress(): string {
-  return Deno.env.get('RESEND_FROM_EMAIL') || 'Livelapp <noreply@livelapp.it>'
+  const fromEnv = Deno.env.get('RESEND_FROM_EMAIL')?.trim()
+  if (fromEnv && fromEnv.toLowerCase().includes('@livelapp.it')) return fromEnv
+  return DEFAULT_FROM
 }
 
 export async function sendResendEmail(params: {

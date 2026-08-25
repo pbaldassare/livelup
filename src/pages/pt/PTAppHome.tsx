@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/accordion';
 import { AthletePtActiveToggle } from '@/components/pt/AthletePtActiveToggle';
 import { InviteAtletaCTA } from '@/components/shared/InviteAtletaCTA';
+import { PTBillingBanner } from '@/components/pt/PTBillingBanner';
 import {
   CalendarClock,
   ChevronRight,
@@ -94,6 +95,7 @@ export function PTAppHome() {
       </AppHeader>
 
       <main className="px-4 space-y-6 pt-3">
+        <PTBillingBanner forceApp />
         {/* Atleti — lista compatta */}
         <section aria-labelledby="athletes-title">
           <div className="flex items-center justify-between mb-2.5">

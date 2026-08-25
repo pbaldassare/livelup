@@ -91,16 +91,18 @@ export function PricingPage() {
   return (
     <PublicInfoPage
       eyebrow="Prezzi"
-      title="Ancora da definire"
-      lead="I piani saranno basati sul numero di atleti che un Personal Trainer gestisce."
+      title="Paghi in base agli atleti"
+      lead="Il Personal Trainer paga Livelapp in base a quanti atleti attivi gestisce. Fino a 5 è gratis."
       paragraphs={[
-        'Stiamo definendo i pacchetti commerciali. L’idea è semplice: paghi in base alla dimensione del tuo roster — pochi atleti, piano più leggero; tanti atleti, piano proporzionato.',
-        'Nel frattempo puoi registrarti e usare la piattaforma in anteprima. Ti aggiorneremo appena i prezzi ufficiali saranno online.',
+        'Non è l’atleta a pagare la piattaforma: sei tu, in base al roster. I pacchetti che vendi ai tuoi atleti restano un flusso separato.',
+        'Stripe verrà collegato a breve. Nel frattempo puoi registrarti e usare Starter.',
       ]}
       bullets={[
-        'Tariffazione legata al numero di atleti collegati',
-        'Nessun listino definitivo al momento',
-        'Contattaci se gestisci già molti atleti e vuoi un’anteprima',
+        'Starter — fino a 5 atleti: 0 € / mese',
+        'Growth — da 6 a 20 atleti: 19,90 € / mese',
+        'Pro — da 21 a 50 atleti: 49,90 € / mese',
+        'Unlimited — da 51 atleti in poi: 99,90 € / mese',
+        '7 giorni di grazia se un rinnovo fallisce, poi account in sola lettura su nuovi atleti',
       ]}
       ctaLabel="Registrati gratis"
       ctaTo="/auth?mode=signup"
@@ -147,7 +149,7 @@ export function FaqPage() {
       bullets={[
         'Posso essere PT e atleta? No: i ruoli sono separati.',
         'L’app è installabile? Sì, come PWA da mobile.',
-        'I prezzi? Ancora da definire, in base al numero di atleti del PT.',
+        'I prezzi? Il PT paga in base agli atleti attivi (fino a 5 gratis).',
         'Come collego un atleta? Via invito o richiesta di connessione.',
       ]}
       ctaLabel="Vedi i prezzi"

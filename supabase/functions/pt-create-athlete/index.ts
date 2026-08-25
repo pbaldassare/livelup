@@ -137,7 +137,7 @@ serve(async (req) => {
       _pt_user_id: ptUserId,
     })
     if (acceptErr || !canAccept) {
-      return new Response(JSON.stringify({ error: 'Hai raggiunto il numero massimo di atleti' }), {
+      return new Response(JSON.stringify({ error: 'Hai raggiunto il limite del tuo piano. Aggiorna il piano da Pagamenti.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

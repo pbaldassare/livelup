@@ -281,7 +281,9 @@ export async function requestConnection(params: {
   }
 
   if (!canAccept) {
-    throw new Error('Il Personal Trainer ha raggiunto il numero massimo di atleti.');
+    throw new Error(
+      'Hai raggiunto il limite del tuo piano. Aggiorna il piano da Pagamenti per accettare altri atleti.',
+    );
   }
 
   let trainingModality: TrainingModality = 'mix';

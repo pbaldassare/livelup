@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { RequireUserName } from '@/components/auth/RequireUserName';
+import { PTBillingBanner } from '@/components/pt/PTBillingBanner';
 import { usePTSurface, mapPTWebToApp } from '@/hooks/usePTSurface';
 // InstallBanner removed: web dashboard is not an installable PWA surface.
 
@@ -283,7 +284,10 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
           >
-            <RequireUserName>{children}</RequireUserName>
+            <RequireUserName>
+              <PTBillingBanner />
+              {children}
+            </RequireUserName>
           </motion.div>
         </main>
       </div>

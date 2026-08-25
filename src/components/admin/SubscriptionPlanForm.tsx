@@ -28,6 +28,7 @@ export interface SubscriptionPlanFormData {
   trial_days: number;
   features: string[];
   max_athletes: number | null;
+  min_athletes: number | null;
   includes_chat: boolean;
   includes_video_calls: boolean;
   includes_analytics: boolean;
@@ -36,6 +37,7 @@ export interface SubscriptionPlanFormData {
   is_active: boolean;
   is_featured: boolean;
   sort_order: number;
+  slug: string;
 }
 
 interface SubscriptionPlanFormProps {
@@ -55,6 +57,7 @@ const defaultFormData: SubscriptionPlanFormData = {
   trial_days: 14,
   features: [],
   max_athletes: null,
+  min_athletes: null,
   includes_chat: true,
   includes_video_calls: false,
   includes_analytics: false,
@@ -63,6 +66,7 @@ const defaultFormData: SubscriptionPlanFormData = {
   is_active: true,
   is_featured: false,
   sort_order: 0,
+  slug: '',
 };
 
 export function SubscriptionPlanForm({
@@ -132,6 +136,16 @@ export function SubscriptionPlanForm({
             onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
             placeholder="Descrizione del piano..."
             rows={3}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="slug">Slug fascia *</Label>
+          <Input
+            id="slug"
+            value={formData.slug}
+            onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value.trim().toLowerCase() }))}
+            placeholder="starter, growth, pro, unlimited"
           />
         </div>
 
@@ -261,19 +275,35 @@ export function SubscriptionPlanForm({
         <h4 className="font-medium">Limiti e Funzionalità</h4>
 
         {formData.target_role === 'pt' && (
-          <div className="space-y-2">
-            <Label htmlFor="max_athletes">Max Atleti</Label>
-            <Input
-              id="max_athletes"
-              type="number"
-              min="0"
-              value={formData.max_athletes ?? ''}
-              onChange={(e) => setFormData(prev => ({ 
-                ...prev, 
-                max_athletes: e.target.value ? parseInt(e.target.value) : null 
-              }))}
-              placeholder="Illimitati"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="min_athletes">Min Atleti</Label>
+              <Input
+                id="min_athletes"
+                type="number"
+                min="0"
+                value={formData.min_athletes ?? ''}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  min_athletes: e.target.value ? parseInt(e.target.value) : null
+                }))}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="max_athletes">Max Atleti</Label>
+              <Input
+                id="max_athletes"
+                type="number"
+                min="0"
+                value={formData.max_athletes ?? ''}
+                onChange={(e) => setFormData(prev => ({ 
+                  ...prev, 
+                  max_athletes: e.target.value ? parseInt(e.target.value) : null 
+                }))}
+                placeholder="Illimitati"
+              />
+            </div>
           </div>
         )}
 
@@ -354,7 +384,7 @@ export function SubscriptionPlanForm({
           placeholder="price_..."
         />
         <p className="text-xs text-muted-foreground">
-          Per integrazione con Stripe (opzionale)
+          Price ID live da Stripe Dashboard. Vuoto = piano gratis / non acquistabile online.
         </p>
       </div>
 
