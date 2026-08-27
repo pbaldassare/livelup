@@ -228,6 +228,7 @@ const App = () => {
               {/* Public PT Discovery page */}
               <Route path="/pts" element={<PTDiscoveryPage />} />
               <Route path="/pts/:userId" element={<PTProfilePage />} />
+              <Route path="/pt-discovery" element={<Navigate to="/pts" replace />} />
               <Route path="/blog" element={<BlogIndexPage />} />
               <Route path="/blog/:slug" element={<BlogPostPage />} />
               <Route path="/pricing" element={<PricingPage />} />
@@ -615,6 +616,13 @@ const App = () => {
                 <PTAppRoute>
                   <AppLayout>
                     <PTAppProfilePage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/public-profile" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTProfilePage />
                   </AppLayout>
                 </PTAppRoute>
               } />

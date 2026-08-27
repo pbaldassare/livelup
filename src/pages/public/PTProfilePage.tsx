@@ -78,14 +78,16 @@ interface Availability {
 }
 
 export function PTProfilePage() {
-  const { userId } = useParams<{ userId: string }>();
+  const { userId: paramUserId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { user, role, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+  const userId = paramUserId || user?.id;
+  const isOwnPreview = !!user?.id && userId === user.id;
 
   // Fetch PT profile
   const { data: ptData, isLoading: isLoadingProfile } = useQuery({
-    queryKey: ['pt-profile', userId],
+    queryKey: ['pt-public-profile', userId, isOwnPreview],
     queryFn: async () => {
       if (!userId) throw new Error('User ID required');
 
@@ -93,18 +95,20 @@ export function PTProfilePage() {
         .from('pt_profiles')
         .select('*, gallery_photos')
         .eq('user_id', userId)
-        .eq('is_discoverable', true)
-        .single();
+        .maybeSingle();
 
       if (ptError) throw ptError;
+      if (!ptProfile) return null;
+      if (!ptProfile.is_discoverable && !isOwnPreview) return null;
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('first_name, last_name, avatar_url')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (profileError) throw profileError;
+      if (!profile) return null;
 
       return {
         pt: ptProfile as PTProfile & { gallery_photos?: string[] },
@@ -267,9 +271,9 @@ export function PTProfilePage() {
         <Card className="max-w-md text-center">
           <CardContent className="pt-6">
             <p className="text-muted-foreground mb-4">Profilo non trovato o non disponibile.</p>
-            <Button onClick={() => navigate('/pts')}>
+            <Button onClick={() => navigate(isOwnPreview ? '/pt/app/profile' : '/pts')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Torna alla ricerca
+              {isOwnPreview ? 'Torna al tuo profilo' : 'Torna alla ricerca'}
             </Button>
           </CardContent>
         </Card>
@@ -295,11 +299,11 @@ export function PTProfilePage() {
         <div className="container max-w-5xl py-8 space-y-6">
           {/* Back navigation */}
           <Link 
-            to="/pts" 
+            to={isOwnPreview ? '/pt/app/profile' : '/pts'} 
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Torna alla ricerca
+            {isOwnPreview ? 'Torna al tuo profilo' : 'Torna alla ricerca'}
           </Link>
 
           {/* Profile header */}

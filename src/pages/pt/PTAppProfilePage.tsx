@@ -342,8 +342,8 @@ export function PTAppProfilePage() {
 
       {/* View public profile */}
       <div className="px-4 mt-4">
-        <Button variant="outline" className="w-full" asChild>
-          <Link to={`/pts/${user?.id}`}>
+        <Button variant="outline" className="w-full" asChild disabled={!user?.id}>
+          <Link to="/pt/app/public-profile">
             <Eye className="h-4 w-4 mr-2" />
             Vedi profilo pubblico
           </Link>
