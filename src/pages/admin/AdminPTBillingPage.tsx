@@ -61,8 +61,8 @@ export function AdminPTBillingPage() {
 
       if (error) throw error;
 
-      const userIds = [...new Set((rows ?? []).map((r) => r.user_id))];
-      const planIds = [...new Set((rows ?? []).map((r) => r.plan_id).filter(Boolean))] as string[];
+      const userIds = [...new Set((rows ?? []).map((r: any) => r.user_id))] as string[];
+      const planIds = [...new Set((rows ?? []).map((r: any) => r.plan_id).filter(Boolean))] as string[];
 
       const [{ data: profiles }, { data: plans }] = await Promise.all([
         supabase.from('profiles').select('user_id, first_name, last_name, email').in('user_id', userIds),
