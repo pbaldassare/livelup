@@ -164,7 +164,7 @@ export async function fetchOwnPayments(userId: string) {
 
 export async function fetchOwnBillingEvents(userId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('pt_billing_events') as any)
+  const { data, error } = await ((supabase as any).from('pt_billing_events') as any)
     .select('*')
     .eq('pt_user_id', userId)
     .order('created_at', { ascending: false })

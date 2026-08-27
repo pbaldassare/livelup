@@ -150,10 +150,7 @@ export function parseExerciseImportSpreadsheet(data: ArrayBuffer | Uint8Array): 
   return parseExerciseImportGrid(grid);
 }
 
-export async function parseExerciseImportFile(file: File): Promise<{
-  rows: ExerciseImportRow[];
-  issues: ExerciseImportIssue[];
-}> {
+export async function parseExerciseImportFile(file: File): Promise<ExerciseImportParseResult> {
   const name = file.name.toLowerCase();
   if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
     return parseExerciseImportSpreadsheet(await file.arrayBuffer());
