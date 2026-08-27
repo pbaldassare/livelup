@@ -41,7 +41,12 @@ import { toast } from 'sonner';
 import { ListSkeleton } from '@/components/skeletons';
 import { formatGroupLocation } from '@/lib/groups/location';
 import { FollowStarButton } from '@/components/app/FollowStarButton';
-import { cn } from '@/lib/utils';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 
 type GroupDetailTab = 'chat-group' | 'chat-admin';
 
@@ -191,6 +196,52 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
     setAnnouncementsOpen(true);
   };
 
+  const actionBtnClass =
+    'h-12 w-full justify-start rounded-2xl border-border bg-muted/50 font-medium shadow-none';
+
+  const actionGrid = (
+    <div className="grid grid-cols-2 gap-2 pt-1">
+      {group.is_member && group.my_role !== 'owner' && (
+        <Button
+          variant="outline"
+          className={actionBtnClass}
+          onClick={() => leaveMutation.mutate()}
+          disabled={leaveMutation.isPending}
+        >
+          <LogOut className="h-4 w-4 mr-2 shrink-0" />
+          Esci
+        </Button>
+      )}
+      <GroupShareButton
+        inviteToken={group.invite_token}
+        groupName={group.name}
+        variant="grid"
+      />
+      {canViewMembers && (
+        <Button variant="outline" className={actionBtnClass} onClick={openMembers}>
+          <Users className="h-4 w-4 mr-2 shrink-0" />
+          Membri
+        </Button>
+      )}
+      {canUseChat && (
+        <Button variant="outline" className={actionBtnClass} onClick={openAnnouncements}>
+          <Megaphone className="h-4 w-4 mr-2 shrink-0" />
+          Annunci
+        </Button>
+      )}
+      {isAdmin && (
+        <Button
+          variant="outline"
+          className={actionBtnClass}
+          onClick={() => navigate(`${basePath}/${group.id}/edit`)}
+        >
+          <Pencil className="h-4 w-4 mr-2 shrink-0" />
+          Modifica
+        </Button>
+      )}
+    </div>
+  );
+
   const groupMeta = (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -217,17 +268,33 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
           )}
         </div>
       )}
-      <div className="flex flex-wrap gap-1">
-        {group.disciplines.map((d) => (
-          <Badge
-            key={d.id}
-            variant="outline"
-            className="border-app-accent/30 text-app-accent bg-app-accent/10"
-          >
-            {d.name}
-          </Badge>
-        ))}
-      </div>
+      {group.disciplines.length > 0 && (
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="disciplines" className="border-0">
+            <AccordionTrigger className="py-2 text-sm hover:no-underline">
+              <span>
+                Discipline
+                <span className="ml-1 font-normal text-app-muted-foreground">
+                  ({group.disciplines.length})
+                </span>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="flex flex-wrap gap-1">
+                {group.disciplines.map((d) => (
+                  <Badge
+                    key={d.id}
+                    variant="outline"
+                    className="rounded-full border-border bg-muted/40 text-foreground"
+                  >
+                    {d.name}
+                  </Badge>
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      )}
       {group.description && (
         <p className="text-sm text-app-muted-foreground">{group.description}</p>
       )}
@@ -384,30 +451,10 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
               />
             )}
             <div className="space-y-3">{groupMeta}</div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              {isAtletaSurface && (
-                <FollowStarButton targetType="group" targetId={group.id} withLabel />
-              )}
-              {group.is_member && group.my_role !== 'owner' && (
-                <Button
-                  variant="outline"
-                  onClick={() => leaveMutation.mutate()}
-                  disabled={leaveMutation.isPending}
-                >
-                  <LogOut className="h-4 w-4 mr-1" />
-                  Esci
-                </Button>
-              )}
-              {isAdmin && (
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(`${basePath}/${group.id}/edit`)}
-                >
-                  <Pencil className="h-4 w-4 mr-1" />
-                  Modifica
-                </Button>
-              )}
-            </div>
+            {isAtletaSurface && (
+              <FollowStarButton targetType="group" targetId={group.id} withLabel />
+            )}
+            {actionGrid}
           </DialogContent>
         </Dialog>
 
@@ -478,23 +525,17 @@ export function GroupDetailPage({ basePath }: GroupDetailPageProps) {
           {isAtletaSurface && (
             <FollowStarButton targetType="group" targetId={group.id} withLabel />
           )}
-          <div className="flex flex-wrap gap-2 pt-1">
+          {!group.is_member && (
             <Button
-              className="bg-app-accent text-black"
+              className="w-full bg-app-accent text-black"
               onClick={() => joinMutation.mutate()}
               disabled={joinMutation.isPending}
             >
               <UserPlus className="h-4 w-4 mr-1" />
               Unisciti
             </Button>
-            <GroupShareButton inviteToken={group.invite_token} groupName={group.name} />
-            {canViewMembers && (
-              <Button variant="outline" onClick={openMembers}>
-                <Users className="h-4 w-4 mr-1" />
-                Membri
-              </Button>
-            )}
-          </div>
+          )}
+          {actionGrid}
         </div>
         <p className="text-sm text-center text-app-muted-foreground py-6">
           {publicMembersOnly

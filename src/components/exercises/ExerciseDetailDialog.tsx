@@ -22,6 +22,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
 import { VideoEmbed } from '@/components/common/VideoEmbed';
 import { ShareExerciseDialog } from '@/components/pt/ShareExerciseDialog';
@@ -45,7 +46,7 @@ interface ExerciseDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Mostra il bottone preferito (solo PT). Default false. */
   showFavoriteToggle?: boolean;
-  /** Sostituisce "Copia nome" con "Condividi" per consigliare l'esercizio in chat (solo PT). */
+  /** Se true forza Condividi. Il PT lo vede comunque (web + PWA). Admin resta su Copia nome. */
   showShareAction?: boolean;
   /** Vista atleta: prova libera fuori dalla scheda, senza azioni PT. */
   sharedPractice?: boolean;
@@ -130,9 +131,11 @@ export function ExerciseDetailDialog({
   onEdit,
   onDelete,
 }: ExerciseDetailDialogProps) {
+  const { role } = useAuth();
   const { data: favIds } = useFavoriteIds({ enabled: showFavoriteToggle });
   const toggleFav = useToggleFavorite();
   const [shareOpen, setShareOpen] = useState(false);
+  const canShareToAthletes = !sharedPractice && (showShareAction || role === 'pt');
 
   if (!exercise) return null;
 
@@ -239,7 +242,7 @@ export function ExerciseDetailDialog({
                   {isFavorite ? 'Salvato nei preferiti' : 'Aggiungi ai preferiti'}
                 </Button>
               )}
-              {showShareAction && !sharedPractice ? (
+              {canShareToAthletes ? (
                 <Button variant="outline" size="sm" onClick={() => setShareOpen(true)} className="rounded-full">
                   <Share2 className="mr-2 h-4 w-4" /> Condividi
                 </Button>
@@ -346,7 +349,7 @@ export function ExerciseDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
-    {showShareAction && !sharedPractice && (
+    {canShareToAthletes && (
       <ShareExerciseDialog
         open={shareOpen}
         onOpenChange={setShareOpen}

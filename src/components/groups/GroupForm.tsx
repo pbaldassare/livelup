@@ -217,8 +217,11 @@ export function GroupForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Discipline *</Label>
-        <GroupDisciplinePicker value={disciplineIds} onChange={setDisciplineIds} />
+        <GroupDisciplinePicker
+          value={disciplineIds}
+          onChange={setDisciplineIds}
+          required
+        />
       </div>
 
       <div className="space-y-2">

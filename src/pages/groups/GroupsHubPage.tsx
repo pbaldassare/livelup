@@ -140,10 +140,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs">Discipline</Label>
-                <GroupDisciplinePicker value={disciplineIds} onChange={setDisciplineIds} />
-              </div>
+              <GroupDisciplinePicker value={disciplineIds} onChange={setDisciplineIds} />
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">

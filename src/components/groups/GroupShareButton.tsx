@@ -10,8 +10,8 @@ interface GroupShareButtonProps {
   inviteToken?: string | null;
   groupName: string;
   className?: string;
-  /** icon = overlay liste; toolbar = header chat */
-  variant?: 'button' | 'icon' | 'toolbar';
+  /** icon = overlay liste; toolbar = header chat; grid = tasto etichetta 2x2 */
+  variant?: 'button' | 'icon' | 'toolbar' | 'grid';
 }
 
 export function GroupShareButton({
@@ -57,6 +57,24 @@ export function GroupShareButton({
         className={cn('h-9 w-9 shrink-0 text-app-foreground', className)}
       >
         <Share2 className="h-4 w-4" />
+      </Button>
+    );
+  }
+
+  if (variant === 'grid') {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleShare}
+        disabled={sending}
+        className={cn(
+          'h-12 w-full justify-start rounded-2xl border-border bg-muted/50 font-medium shadow-none',
+          className,
+        )}
+      >
+        <Share2 className="h-4 w-4 mr-2 shrink-0" />
+        Condividi
       </Button>
     );
   }
