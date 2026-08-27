@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState } from 'react';
 import {
   Video as VideoIcon,
   Image as ImageIcon,
@@ -16,10 +17,14 @@ import {
   PlayCircle,
   Info,
   Sparkles,
+  Share2,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
 import { VideoEmbed } from '@/components/common/VideoEmbed';
+import { ShareExerciseDialog } from '@/components/pt/ShareExerciseDialog';
 import { cn } from '@/lib/utils';
 
 interface ExerciseLite {
@@ -40,6 +45,16 @@ interface ExerciseDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Mostra il bottone preferito (solo PT). Default false. */
   showFavoriteToggle?: boolean;
+  /** Sostituisce "Copia nome" con "Condividi" per consigliare l'esercizio in chat (solo PT). */
+  showShareAction?: boolean;
+  /** Vista atleta: prova libera fuori dalla scheda, senza azioni PT. */
+  sharedPractice?: boolean;
+  /** All'apertura privilegia il tab video se presente. */
+  preferVideo?: boolean;
+  /** PT: modifica esercizio personale. */
+  onEdit?: () => void;
+  /** PT: elimina esercizio personale. */
+  onDelete?: () => void;
 }
 
 const difficultyColor = (level: string) => {
@@ -109,9 +124,15 @@ export function ExerciseDetailDialog({
   open,
   onOpenChange,
   showFavoriteToggle = false,
+  showShareAction = false,
+  sharedPractice = false,
+  preferVideo = false,
+  onEdit,
+  onDelete,
 }: ExerciseDetailDialogProps) {
   const { data: favIds } = useFavoriteIds({ enabled: showFavoriteToggle });
   const toggleFav = useToggleFavorite();
+  const [shareOpen, setShareOpen] = useState(false);
 
   if (!exercise) return null;
 
@@ -156,7 +177,7 @@ export function ExerciseDetailDialog({
   );
 
   const mediaBlock = hasImage && hasVideo ? (
-    <Tabs defaultValue="image" className="w-full">
+    <Tabs key={preferVideo ? 'video' : 'image'} defaultValue={preferVideo ? 'video' : 'image'} className="w-full">
       <TabsList className="mb-3 grid h-11 w-full grid-cols-2 rounded-2xl bg-muted/70 p-1">
         <TabsTrigger value="image" className="gap-2 rounded-xl">
           <ImageIcon className="h-4 w-4" /> Immagine
@@ -175,13 +196,16 @@ export function ExerciseDetailDialog({
   );
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 max-h-[92vh] w-[calc(100vw-1rem)] max-w-5xl overflow-hidden rounded-3xl border bg-background p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
         <DialogHeader className="sticky top-0 z-20 border-b bg-background/95 px-5 py-4 backdrop-blur sm:px-7">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="rounded-full">Exercise library</Badge>
+                <Badge variant="secondary" className="rounded-full">
+                  {sharedPractice ? 'Prova libera' : 'Exercise library'}
+                </Badge>
                 <Badge variant="outline" className={cn('rounded-full', difficultyColor(exercise.difficulty_level))}>
                   {formatValue(exercise.difficulty_level)}
                 </Badge>
@@ -195,10 +219,15 @@ export function ExerciseDetailDialog({
               <DialogTitle className="pr-8 text-2xl font-bold leading-tight tracking-normal sm:text-3xl">
                 {exercise.name}
               </DialogTitle>
+              {sharedPractice && (
+                <p className="text-sm text-muted-foreground">
+                  Consigliato dal tuo coach. Puoi guardare il video o provare l’esecuzione: non è una scheda assegnata.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row lg:pt-1">
-              {showFavoriteToggle && (
+              {showFavoriteToggle && !sharedPractice && (
                 <Button
                   variant={isFavorite ? 'default' : 'outline'}
                   size="sm"
@@ -210,9 +239,30 @@ export function ExerciseDetailDialog({
                   {isFavorite ? 'Salvato nei preferiti' : 'Aggiungi ai preferiti'}
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={handleCopyName} className="rounded-full">
-                <Clipboard className="mr-2 h-4 w-4" /> Copia nome
-              </Button>
+              {showShareAction && !sharedPractice ? (
+                <Button variant="outline" size="sm" onClick={() => setShareOpen(true)} className="rounded-full">
+                  <Share2 className="mr-2 h-4 w-4" /> Condividi
+                </Button>
+              ) : !sharedPractice ? (
+                <Button variant="outline" size="sm" onClick={handleCopyName} className="rounded-full">
+                  <Clipboard className="mr-2 h-4 w-4" /> Copia nome
+                </Button>
+              ) : null}
+              {onEdit && !sharedPractice && (
+                <Button variant="outline" size="sm" onClick={onEdit} className="rounded-full">
+                  <Pencil className="mr-2 h-4 w-4" /> Modifica
+                </Button>
+              )}
+              {onDelete && !sharedPractice && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onDelete}
+                  className="rounded-full text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Elimina
+                </Button>
+              )}
             </div>
           </div>
         </DialogHeader>
@@ -267,9 +317,11 @@ export function ExerciseDetailDialog({
                 )}
               </SectionCard>
 
-              <SectionCard icon={CheckCircle2} title="Uso nelle schede" className="bg-primary/5">
+              <SectionCard icon={CheckCircle2} title={sharedPractice ? 'Fuori dalla scheda' : 'Uso nelle schede'} className="bg-primary/5">
                 <p className="text-sm leading-6 text-muted-foreground">
-                  Disponibile per essere aggiunto alle tue schede e ai template di allenamento.
+                  {sharedPractice
+                    ? 'Questa è una prova libera: non viene salvata come allenamento, non compare in calendario e non genera log di scheda.'
+                    : 'Disponibile per essere aggiunto alle tue schede e ai template di allenamento.'}
                 </p>
               </SectionCard>
 
@@ -294,6 +346,14 @@ export function ExerciseDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
+    {showShareAction && !sharedPractice && (
+      <ShareExerciseDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        exercise={exercise}
+      />
+    )}
+    </>
   );
 }
 

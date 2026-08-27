@@ -525,7 +525,13 @@ export async function searchGroups(
           ),
         };
       })
-      .filter((g) => g.distance_km == null || g.distance_km <= filters.maxDistanceKm!);
+      .filter(
+        (g) =>
+          g.latitude != null &&
+          g.longitude != null &&
+          g.distance_km != null &&
+          g.distance_km <= filters.maxDistanceKm!,
+      );
   }
 
   return attachMyMembership(results, userId);

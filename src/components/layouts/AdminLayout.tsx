@@ -211,7 +211,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Main content */}
       <div className="pl-64">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-end border-b border-border bg-white px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-end border-b border-border bg-background px-6">
           <div className="flex items-center gap-3">
             <NotificationDropdown />
           </div>

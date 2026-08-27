@@ -27,6 +27,8 @@ import type { GroupWithDetails } from '@/types/groups';
 import { CreateChatGroupDialog } from '@/components/pt/CreateChatGroupDialog';
 import { ManageChatGroupSheet } from '@/components/pt/ManageChatGroupSheet';
 import { GroupChatPanel } from '@/components/groups/GroupChatPanel';
+import { SharedExerciseChatCard } from '@/components/exercises/SharedExerciseChatCard';
+import { isExerciseShareAttachment } from '@/lib/exerciseShare';
 
 // =====================================================
 // PT MESSAGES PAGE - Chat con Atleti e Gruppi (web dashboard)
@@ -71,6 +73,36 @@ type ListItem =
   | { kind: 'athlete'; sortAt: number; row: AthleteRow }
   | { kind: 'chatGroup'; sortAt: number; group: ChatGroupWithMeta }
   | { kind: 'communityGroup'; sortAt: number; group: GroupWithDetails };
+
+function MessageMedia({ message }: { message: Message }) {
+  if (isExerciseShareAttachment(message.attachment_type)) {
+    return (
+      <SharedExerciseChatCard
+        attachmentType={message.attachment_type}
+        attachmentUrl={message.attachment_url}
+        className="mb-1"
+      />
+    );
+  }
+  if (!message.attachment_url) return null;
+  if (message.attachment_type === 'video') {
+    return (
+      <video
+        src={message.attachment_url}
+        controls
+        className="rounded-md max-w-full max-h-64 mb-1"
+      />
+    );
+  }
+  return (
+    <img
+      src={message.attachment_url}
+      alt="Allegato"
+      className="rounded-md max-w-full max-h-64 object-cover mb-1 cursor-pointer"
+      onClick={() => window.open(message.attachment_url!, '_blank')}
+    />
+  );
+}
 
 export function PTMessagesPage() {
   const { user } = useAuth();
@@ -868,23 +900,7 @@ export function PTMessagesPage() {
                                   {message.senderName}
                                 </p>
                               )}
-                              {message.attachment_url &&
-                                (message.attachment_type === 'video' ? (
-                                  <video
-                                    src={message.attachment_url}
-                                    controls
-                                    className="rounded-md max-w-full max-h-64 mb-1"
-                                  />
-                                ) : (
-                                  <img
-                                    src={message.attachment_url}
-                                    alt="Allegato"
-                                    className="rounded-md max-w-full max-h-64 object-cover mb-1 cursor-pointer"
-                                    onClick={() =>
-                                      window.open(message.attachment_url!, '_blank')
-                                    }
-                                  />
-                                ))}
+                              <MessageMedia message={message} />
                               {message.content && <p>{message.content}</p>}
                               <p
                                 className={cn(
@@ -971,23 +987,7 @@ export function PTMessagesPage() {
                                 isOwn ? 'bg-role-pt text-white' : 'bg-muted'
                               )}
                             >
-                              {message.attachment_url &&
-                                (message.attachment_type === 'video' ? (
-                                  <video
-                                    src={message.attachment_url}
-                                    controls
-                                    className="rounded-md max-w-full max-h-64 mb-1"
-                                  />
-                                ) : (
-                                  <img
-                                    src={message.attachment_url}
-                                    alt="Allegato"
-                                    className="rounded-md max-w-full max-h-64 object-cover mb-1 cursor-pointer"
-                                    onClick={() =>
-                                      window.open(message.attachment_url!, '_blank')
-                                    }
-                                  />
-                                ))}
+                              <MessageMedia message={message} />
                               {message.content && <p>{message.content}</p>}
                               <p
                                 className={cn(

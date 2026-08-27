@@ -12,6 +12,8 @@ import {
   validateChatAttachment,
   type ChatAttachmentKind,
 } from '@/lib/api/chatAttachments';
+import { SharedExerciseChatCard } from '@/components/exercises/SharedExerciseChatCard';
+import { isExerciseShareAttachment } from '@/lib/exerciseShare';
 
 // =====================================================
 // CHAT MESSAGES - Conversation view (1:1 e gruppi)
@@ -286,6 +288,7 @@ function AttachmentPreview({ url, type }: { url: string; type: string | null | u
 function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean }) {
   const initials = message.senderName.split(' ').map(n => n[0]).join('').slice(0, 2);
   const time = format(new Date(message.createdAt), 'HH:mm', { locale: it });
+  const isExerciseShare = isExerciseShareAttachment(message.attachmentType);
 
   return (
     <div className={cn('flex gap-2', isOwn && 'flex-row-reverse')}>
@@ -314,22 +317,38 @@ function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean })
           </div>
         )}
 
-        <div
-          className={cn(
-            'px-3 py-2 rounded-2xl',
-            message.attachmentUrl && !message.content && 'p-1.5',
-            isOwn
-              ? 'bg-purple-600 text-white rounded-br-md'
-              : 'bg-app-muted text-app-foreground rounded-bl-md'
-          )}
-        >
-          {message.attachmentUrl && (
-            <AttachmentPreview url={message.attachmentUrl} type={message.attachmentType} />
-          )}
-          {message.content && (
-            <p className="text-sm leading-relaxed whitespace-pre-wrap px-1">{message.content}</p>
-          )}
-        </div>
+        {isExerciseShare ? (
+          <div className="space-y-1.5">
+            {message.content && (
+              <p
+                className="text-sm leading-relaxed px-1 text-app-muted-foreground"
+              >
+                {message.content}
+              </p>
+            )}
+            <SharedExerciseChatCard
+              attachmentType={message.attachmentType}
+              attachmentUrl={message.attachmentUrl}
+            />
+          </div>
+        ) : (
+          <div
+            className={cn(
+              'px-3 py-2 rounded-2xl',
+              message.attachmentUrl && !message.content && 'p-1.5',
+              isOwn
+                ? 'bg-purple-600 text-white rounded-br-md'
+                : 'bg-app-muted text-app-foreground rounded-bl-md'
+            )}
+          >
+            {message.attachmentUrl && (
+              <AttachmentPreview url={message.attachmentUrl} type={message.attachmentType} />
+            )}
+            {message.content && (
+              <p className="text-sm leading-relaxed whitespace-pre-wrap px-1">{message.content}</p>
+            )}
+          </div>
+        )}
 
         {isOwn && (
           <p className="text-xs text-app-muted-foreground text-right">{time}</p>

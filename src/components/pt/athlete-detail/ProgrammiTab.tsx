@@ -21,12 +21,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { isWorkoutStartable } from '@/components/pt/PTAthleteWorkoutRunner';
 import {
   duplicateWorkoutAssignment,
   duplicateWorkoutToAthletes,
   activateWorkoutAssignment,
   transferWorkoutToAthletes,
+  unassignWorkoutAssignment,
+  canUnassignWorkout,
 } from '@/lib/api/workouts';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
@@ -49,6 +61,7 @@ import {
   Play,
   Search,
   UserPlus,
+  Trash2,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -131,6 +144,7 @@ function WorkoutActionsDialog({
   onView,
   onEdit,
   onDuplicate,
+  onUnassign,
 }: {
   workout: WorkoutRow | null;
   open: boolean;
@@ -138,6 +152,7 @@ function WorkoutActionsDialog({
   onView: () => void;
   onEdit: () => void;
   onDuplicate: () => void;
+  onUnassign: () => void;
 }) {
   if (!workout) return null;
 
@@ -161,6 +176,16 @@ function WorkoutActionsDialog({
             <Copy className="h-4 w-4 mr-2" />
             {workout.status === 'completato' ? 'Rifai allenamento' : 'Duplica'}
           </Button>
+          {canUnassignWorkout(workout.status) && (
+            <Button
+              variant="outline"
+              className="justify-start text-destructive hover:text-destructive"
+              onClick={onUnassign}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Togli assegnazione
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -811,11 +836,13 @@ export function ProgrammiTab({
   onAssignWorkout,
 }: Props) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { routes } = usePTRoutes();
   const [actionsWorkout, setActionsWorkout] = useState<WorkoutRow | null>(null);
   const [viewWorkoutId, setViewWorkoutId] = useState<string | null>(null);
   const [activatingWorkout, setActivatingWorkout] = useState<WorkoutRow | null>(null);
   const [duplicateWorkout, setDuplicateWorkout] = useState<WorkoutRow | null>(null);
+  const [unassignWorkout, setUnassignWorkout] = useState<WorkoutRow | null>(null);
 
   const { data: workouts = [], isLoading } = useQuery({
     queryKey: ['pt-athlete-workouts', atletaUserId, ptUserId],
@@ -845,6 +872,21 @@ export function ProgrammiTab({
       toast.info('Questa scheda non ha un template collegato da modificare');
     }
   };
+
+  const unassignMutation = useMutation({
+    mutationFn: async (workoutId: string) => {
+      await unassignWorkoutAssignment(workoutId, ptUserId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-athlete-workouts', atletaUserId, ptUserId] });
+      queryClient.invalidateQueries({ queryKey: ['pt-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-events'] });
+      queryClient.invalidateQueries({ queryKey: ['workout-history', atletaUserId] });
+      setUnassignWorkout(null);
+      toast.success('Assegnazione tolta');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Errore durante la rimozione'),
+  });
 
   if (isLoading) {
     return (
@@ -945,7 +987,36 @@ export function ProgrammiTab({
             setActionsWorkout(null);
           }
         }}
+        onUnassign={() => {
+          if (actionsWorkout) {
+            setUnassignWorkout(actionsWorkout);
+            setActionsWorkout(null);
+          }
+        }}
       />
+
+      <AlertDialog open={!!unassignWorkout} onOpenChange={(o) => !o && setUnassignWorkout(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Togliere l&apos;assegnazione?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {unassignWorkout
+                ? `La scheda "${unassignWorkout.title}" sparirà da questo atleta. Lo storico degli allenamenti completati non viene toccato.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => unassignWorkout && unassignMutation.mutate(unassignWorkout.id)}
+              disabled={unassignMutation.isPending}
+            >
+              Togli assegnazione
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <DuplicateWorkoutDialog
         workout={duplicateWorkout}

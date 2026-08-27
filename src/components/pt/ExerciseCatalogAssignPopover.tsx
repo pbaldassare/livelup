@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CreateCatalogDialog } from '@/components/pt/CreateCatalogDialog';
+import { useAuth } from '@/hooks/useAuth';
 import {
   useExerciseCatalogs,
   useExerciseCatalogItems,
@@ -19,7 +20,9 @@ export function ExerciseCatalogAssignPopover({ exerciseId }: ExerciseCatalogAssi
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const { data: catalogs = [] } = useExerciseCatalogs();
+  const { user } = useAuth();
+  const { data: allCatalogs = [] } = useExerciseCatalogs();
+  const catalogs = allCatalogs.filter((c) => c.pt_user_id === user?.id);
   const { data: assignedCatalogIds = [], isLoading } = useExerciseCatalogItems(exerciseId, open);
   const toggleItem = useToggleCatalogItem();
 

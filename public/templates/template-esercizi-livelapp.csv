@@ -1,0 +1,6 @@
+nome,categoria,muscoli,difficolta,video_url,descrizione,istruzioni,catalogo_pt
+# Categorie: Back lever | Bar muscle up | Core | Dip | Dragon press | Front lever | Handstand | Hspu | Human flag | Iron cross | L-sit | Legs | Maltese | Oap | Planche | Pull up | Push Up | Ring muscle up | Stretching | Ted | V-sit | Victorian assisted | Warm-up | Altro
+# Muscoli: Petto | Schiena | Spalle | Bicipiti | Tricipiti | Quadricipiti | Femorali | Glutei | Polpacci | Addominali | Core | Full Body | Avambracci | Trapezio
+# Difficolta (opzionale): nessuno | principiante | intermedio | avanzato
+# Video: solo YouTube o Vimeo. Piu muscoli: separali con virgola.
+Back lever tuck,Back lever,"Schiena, Core, Spalle",principiante,https://youtu.be/esempio,Skill di leva posteriore,"Scapole attive, core chiuso",Leve

@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, Link2, Film, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { EXERCISE_ARCHIVE_CATEGORIES } from '@/lib/exerciseArchiveCategories';
+import { EXERCISE_ARCHIVE_CATEGORIES, EXERCISE_MUSCLE_GROUPS } from '@/lib/exerciseArchiveCategories';
 
 interface ExerciseFormData {
   id?: string;
@@ -36,12 +36,7 @@ interface CreateExerciseDialogProps {
 }
 
 const CATEGORIES = [...EXERCISE_ARCHIVE_CATEGORIES];
-
-const MUSCLE_GROUPS = [
-  'Petto', 'Schiena', 'Spalle', 'Bicipiti', 'Tricipiti',
-  'Quadricipiti', 'Femorali', 'Glutei', 'Polpacci', 'Addominali',
-  'Core', 'Full Body', 'Avambracci', 'Trapezio'
-];
+const MUSCLE_GROUPS = [...EXERCISE_MUSCLE_GROUPS];
 
 const emptyForm = {
   name: '',
@@ -230,7 +225,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
 
           {/* Muscoli */}
           <div className="space-y-1.5">
-            <Label>Muscoli coinvolti *</Label>
+            <Label>Muscoli coinvolti</Label>
             <div className="flex flex-wrap gap-1.5">
               {MUSCLE_GROUPS.map(m => (
                 <button
@@ -342,7 +337,7 @@ export function CreateExerciseDialog({ open, onOpenChange, exercise }: CreateExe
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annulla</Button>
           <Button
             onClick={() => upsertMutation.mutate()}
-            disabled={!form.name || !form.category || selectedMuscles.length === 0 || upsertMutation.isPending}
+            disabled={!form.name || !form.category || upsertMutation.isPending}
           >
             {upsertMutation.isPending
               ? (isEditMode ? 'Salvataggio...' : 'Creazione...')

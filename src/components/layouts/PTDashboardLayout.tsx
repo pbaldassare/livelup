@@ -264,7 +264,7 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
 
       {/* Main content */}
       <div className="md:pl-64 overflow-x-hidden">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-white px-4 md:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background px-4 md:px-6">
           <button
             className="md:hidden p-2 -ml-2 text-muted-foreground hover:text-foreground"
             onClick={() => setSidebarOpen(true)}

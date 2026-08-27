@@ -54,6 +54,10 @@ import {
   Repeat,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  generateWorkoutRepetitionDates,
+  type WorkoutRepetitionMode,
+} from '@/lib/workoutRepetition';
 
 // =====================================================
 // ASSIGN WORKOUT DIALOG
@@ -80,17 +84,7 @@ interface WorkoutTemplate {
   exerciseCount: number;
 }
 
-type Frequency = 'once' | 'weekly' | 'multi_weekly';
-
-const WEEKDAYS: { idx: number; short: string; label: string }[] = [
-  { idx: 1, short: 'L', label: 'Lun' },
-  { idx: 2, short: 'M', label: 'Mar' },
-  { idx: 3, short: 'M', label: 'Mer' },
-  { idx: 4, short: 'G', label: 'Gio' },
-  { idx: 5, short: 'V', label: 'Ven' },
-  { idx: 6, short: 'S', label: 'Sab' },
-  { idx: 0, short: 'D', label: 'Dom' },
-];
+type Frequency = WorkoutRepetitionMode;
 
 interface AssignWorkoutDialogProps {
   open: boolean;
@@ -122,7 +116,8 @@ export function AssignWorkoutDialog({
 
   // Repetition state
   const [frequency, setFrequency] = useState<Frequency>('once');
-  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [totalCount, setTotalCount] = useState(8);
+  const [timesPerWeek, setTimesPerWeek] = useState(3);
   const [athletePickerOpen, setAthletePickerOpen] = useState(false);
 
   // Sync preselected values when dialog opens
@@ -227,55 +222,14 @@ export function AssignWorkoutDialog({
   // Compute generated dates based on frequency
   const generatedDates = useMemo<Date[]>(() => {
     if (!scheduledDate) return [];
-
-    const startDate = new Date(scheduledDate);
-    startDate.setHours(0, 0, 0, 0);
-    const stop = endDate ? new Date(endDate) : null;
-    if (stop) stop.setHours(23, 59, 59, 999);
-
-    // Cap to avoid runaway generation
-    const MAX_OCCURRENCES = 60;
-
-    if (frequency === 'once') {
-      return [startDate];
-    }
-
-    const dates: Date[] = [startDate];
-
-    if (frequency === 'weekly') {
-      // Weekly = same weekday as startDate, every 7 days
-      let cursor = new Date(startDate);
-      while (dates.length < MAX_OCCURRENCES) {
-        cursor = new Date(cursor);
-        cursor.setDate(cursor.getDate() + 7);
-        if (stop && cursor > stop) break;
-        if (!stop && dates.length >= 8) break; // default 8 settimane se nessuna data fine
-        dates.push(new Date(cursor));
-      }
-      return dates;
-    }
-
-    if (frequency === 'multi_weekly') {
-      if (selectedDays.length === 0) return [startDate];
-      // Walk day by day from startDate, keep matching weekdays
-      const cursor = new Date(startDate);
-      cursor.setDate(cursor.getDate() + 1);
-      const limitDate = stop || (() => {
-        const d = new Date(startDate);
-        d.setDate(d.getDate() + 28); // default 4 settimane
-        return d;
-      })();
-      while (cursor <= limitDate && dates.length < MAX_OCCURRENCES) {
-        if (selectedDays.includes(cursor.getDay())) {
-          dates.push(new Date(cursor));
-        }
-        cursor.setDate(cursor.getDate() + 1);
-      }
-      return dates;
-    }
-
-    return [startDate];
-  }, [scheduledDate, endDate, frequency, selectedDays]);
+    return generateWorkoutRepetitionDates({
+      mode: frequency,
+      startDate: scheduledDate,
+      endDate: frequency === 'once' ? null : endDate,
+      totalCount,
+      timesPerWeek,
+    });
+  }, [scheduledDate, endDate, frequency, totalCount, timesPerWeek]);
 
   // Assign workout mutation (supports multi)
   const assignMutation = useMutation({
@@ -441,13 +395,8 @@ export function AssignWorkoutDialog({
     setEndDate(undefined);
     setNotes('');
     setFrequency('once');
-    setSelectedDays([]);
-  };
-
-  const toggleDay = (idx: number) => {
-    setSelectedDays((prev) =>
-      prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort(),
-    );
+    setTotalCount(8);
+    setTimesPerWeek(3);
   };
 
   const submitDisabled =
@@ -456,7 +405,7 @@ export function AssignWorkoutDialog({
     !scheduledDate ||
     (workoutSource === 'template' && !selectedTemplateId) ||
     (workoutSource === 'custom' && !customTitle) ||
-    (frequency === 'multi_weekly' && selectedDays.length === 0);
+    generatedDates.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -735,36 +684,43 @@ export function AssignWorkoutDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="once">Una volta</SelectItem>
-                  <SelectItem value="weekly">Ogni settimana (stesso giorno)</SelectItem>
-                  <SelectItem value="multi_weekly">X volte a settimana</SelectItem>
+                  <SelectItem value="total">N volte in totale</SelectItem>
+                  <SelectItem value="weekly_count">N volte a settimana</SelectItem>
                 </SelectContent>
               </Select>
 
-              {frequency === 'multi_weekly' && (
-                <div className="space-y-2">
+              {frequency === 'total' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Quante sessioni in tutto</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={totalCount}
+                    onChange={(e) => setTotalCount(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
+                    className="h-10 bg-background"
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Seleziona i giorni della settimana
+                    Senza data fine: un giorno dopo l&apos;altro. Con data fine: spalmate tra inizio e fine.
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {WEEKDAYS.map((d) => {
-                      const active = selectedDays.includes(d.idx);
-                      return (
-                        <button
-                          key={d.idx}
-                          type="button"
-                          onClick={() => toggleDay(d.idx)}
-                          className={cn(
-                            'h-9 px-3 rounded-md text-xs font-medium border transition-all',
-                            active
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-background text-foreground border-border hover:border-primary/50',
-                          )}
-                        >
-                          {d.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                </div>
+              )}
+
+              {frequency === 'weekly_count' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Sessioni ogni settimana</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={7}
+                    value={timesPerWeek}
+                    onChange={(e) => setTimesPerWeek(Math.max(1, Math.min(7, Number(e.target.value) || 1)))}
+                    className="h-10 bg-background"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Non scegli i giorni: partiamo dalla data inizio e le distanziamo nella settimana.
+                    Senza data fine vale 8 settimane.
+                  </p>
                 </div>
               )}
 

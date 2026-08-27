@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
@@ -12,17 +12,36 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Search, Video, Library, Info, Star, Dumbbell, Plus, FolderPlus } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Search, Video, Library, Info, Star, Dumbbell, Plus, FolderPlus, FileSpreadsheet, Pencil, Trash2 } from 'lucide-react';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
+import { TablePagination } from '@/components/dashboard/TablePagination';
+import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
 import { CreateExerciseDialog } from '@/components/pt/CreateExerciseDialog';
+import { ImportExercisesDialog } from '@/components/pt/ImportExercisesDialog';
 import { CreateCatalogDialog } from '@/components/pt/CreateCatalogDialog';
 import { CatalogDetailDialog } from '@/components/pt/CatalogDetailDialog';
 import { ExerciseCatalogAssignPopover } from '@/components/pt/ExerciseCatalogAssignPopover';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
-import { useExerciseCatalogs, type ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
+import { useExerciseCatalogs, getCatalogAccess, type ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
+import { fetchAllRows } from '@/lib/fetchAllRows';
+import { deleteOwnPtExercise } from '@/lib/api/ptExercises';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import livellappIcon from '@/assets/livellapp-icon.svg';
+
+const EXERCISE_COLUMNS =
+  'id, name, description, category, muscle_groups, difficulty_level, video_url, image_url, instructions, is_public, created_by';
 
 type Exercise = {
   id: string;
@@ -70,6 +89,7 @@ const difficultyColor = (level: string) => {
 
 export default function PTExercisesArchivePage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
@@ -77,8 +97,13 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
   const [muscleFilter, setMuscleFilter] = useState<string>('all');
   const [selected, setSelected] = useState<Exercise | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+  const [deleteExercise, setDeleteExercise] = useState<Exercise | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [createCatalogOpen, setCreateCatalogOpen] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const { data: favIds } = useFavoriteIds();
   const { data: catalogs = [] } = useExerciseCatalogs();
@@ -87,22 +112,28 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
   const selectedCatalog: ExerciseCatalog | null =
     catalogs.find((c) => c.id === selectedCatalogId) ?? null;
 
+  const ownedCatalogs = catalogs.filter((c) => getCatalogAccess(c, user?.id) === 'owned');
+  const sharedCatalogs = catalogs.filter((c) => getCatalogAccess(c, user?.id) === 'shared');
+  const publicCatalogs = catalogs.filter((c) => getCatalogAccess(c, user?.id) === 'public');
+
   const { data: exercises = [], isLoading } = useQuery({
     queryKey: ['pt-exercises-archive', user?.id, sourceFilter],
     queryFn: async () => {
       if (!user?.id) return [];
-      let q = supabase.from('exercises').select('*');
 
-      if (sourceFilter === 'archivio') {
-        q = q.or('is_public.eq.true,created_by.is.null');
-      } else if (sourceFilter === 'miei') {
-        q = q.eq('created_by', user.id).eq('is_public', false);
-      }
-      // 'all' / 'preferiti': RLS returns (public exercises) ∪ (own private exercises) automatically
+      return fetchAllRows<Exercise>(async (from, to) => {
+        let q = supabase.from('exercises').select(EXERCISE_COLUMNS);
 
-      const { data, error } = await q.order('category').order('name');
-      if (error) throw error;
-      return data as Exercise[];
+        if (sourceFilter === 'archivio') {
+          q = q.or('is_public.eq.true,created_by.is.null');
+        } else if (sourceFilter === 'miei') {
+          q = q.eq('created_by', user.id).eq('is_public', false);
+        }
+        // 'all' / 'preferiti': RLS returns (public exercises) ∪ (own private exercises) automatically
+
+        const { data, error } = await q.order('category').order('name').range(from, to);
+        return { data: (data ?? []) as Exercise[], error };
+      });
     },
     enabled: !!user?.id,
   });
@@ -120,14 +151,41 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
     };
   }, [exercises]);
 
-  const filtered = exercises.filter(ex => {
-    const matchesSearch = !search || ex.name.toLowerCase().includes(search.toLowerCase());
-    const matchesDiff = difficultyFilter === 'all' || ex.difficulty_level === difficultyFilter;
-    const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
-    const matchesMuscle = muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
-    const matchesFav = sourceFilter !== 'preferiti' || (favIds?.has(ex.id) ?? false);
-    return matchesSearch && matchesDiff && matchesCat && matchesMuscle && matchesFav;
-  });
+  const categoryOptions = useMemo(
+    () => [
+      { value: 'all', label: 'Tutte le categorie' },
+      ...categories.map((c) => ({ value: c, label: c })),
+    ],
+    [categories],
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return exercises.filter((ex) => {
+      const matchesSearch = !q || ex.name.toLowerCase().includes(q);
+      const matchesDiff = difficultyFilter === 'all' || ex.difficulty_level === difficultyFilter;
+      const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
+      const matchesMuscle = muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
+      const matchesFav = sourceFilter !== 'preferiti' || (favIds?.has(ex.id) ?? false);
+      return matchesSearch && matchesDiff && matchesCat && matchesMuscle && matchesFav;
+    });
+  }, [exercises, search, difficultyFilter, categoryFilter, muscleFilter, sourceFilter, favIds]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, sourceFilter, difficultyFilter, categoryFilter, muscleFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const isOwnExercise = (ex: Exercise) => ex.created_by === user?.id;
 
   const isPersonal = (ex: Exercise) =>
     ex.created_by === user?.id && !ex.is_public;
@@ -139,6 +197,36 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
   const isPlatformGlobal = (ex: Exercise) =>
     ex.is_public && ex.created_by !== user?.id;
 
+  const openCreate = () => {
+    setEditingExercise(null);
+    setCreateOpen(true);
+  };
+
+  const openEdit = (ex: Exercise) => {
+    setSelected(null);
+    setEditingExercise(ex);
+    setCreateOpen(true);
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async (exerciseId: string) => {
+      if (!user?.id) throw new Error('Not authenticated');
+      await deleteOwnPtExercise(exerciseId, user.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-exercises-archive'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-exercises'] });
+      queryClient.invalidateQueries({ queryKey: ['exercises'] });
+      queryClient.invalidateQueries({ queryKey: ['template-exercises-library'] });
+      setDeleteExercise(null);
+      setSelected(null);
+      toast.success('Esercizio eliminato');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Errore durante l\'eliminazione');
+    },
+  });
+
   return (
     <div className="space-y-6">
       {!embedded && (
@@ -147,11 +235,15 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
           subtitle="Archivio pubblico e i tuoi esercizi personali"
           actions={
             <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Importa Excel
+              </Button>
               <Button variant="outline" onClick={() => setCreateCatalogOpen(true)}>
                 <FolderPlus className="h-4 w-4 mr-2" />
                 Crea catalogo
               </Button>
-              <Button onClick={() => setCreateOpen(true)}>
+              <Button onClick={openCreate}>
                 <Plus className="h-4 w-4 mr-2" />
                 Crea esercizio
               </Button>
@@ -160,39 +252,97 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
         />
       )}
       {embedded && (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 flex-wrap">
+          <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" /> Importa
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setCreateCatalogOpen(true)}>
             <FolderPlus className="h-4 w-4 mr-1" /> Catalogo
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Button size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4 mr-1" /> Crea
           </Button>
         </div>
       )}
 
-      {catalogs.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1">I tuoi cataloghi:</span>
-          {catalogs.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setSelectedCatalogId(c.id)}
-              title={c.description || 'Apri catalogo'}
-              className="inline-flex"
-            >
-              <Badge
-                variant="outline"
-                className={cn(
-                  'gap-1 text-xs font-normal cursor-pointer transition-colors hover:bg-primary/10 hover:border-primary/40',
-                  selectedCatalogId === c.id && 'bg-primary/10 border-primary/40',
-                )}
-              >
-                <span>{c.emoji}</span>
-                {c.name}
-              </Badge>
-            </button>
-          ))}
+      {(ownedCatalogs.length > 0 || sharedCatalogs.length > 0 || publicCatalogs.length > 0) && (
+        <div className="space-y-2">
+          {ownedCatalogs.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted-foreground mr-1">I tuoi cataloghi:</span>
+              {ownedCatalogs.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCatalogId(c.id)}
+                  title={c.description || 'Apri catalogo'}
+                  className="inline-flex"
+                >
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'gap-1 text-xs font-normal cursor-pointer transition-colors hover:bg-primary/10 hover:border-primary/40',
+                      selectedCatalogId === c.id && 'bg-primary/10 border-primary/40',
+                    )}
+                  >
+                    <span>{c.emoji}</span>
+                    {c.name}
+                    {c.is_public ? ' · pubblico' : ''}
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          )}
+          {sharedCatalogs.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted-foreground mr-1">Condivisi con te:</span>
+              {sharedCatalogs.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCatalogId(c.id)}
+                  title={c.description || 'Apri catalogo'}
+                  className="inline-flex"
+                >
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'gap-1 text-xs font-normal cursor-pointer transition-colors hover:bg-primary/10 hover:border-primary/40',
+                      selectedCatalogId === c.id && 'bg-primary/10 border-primary/40',
+                    )}
+                  >
+                    <span>{c.emoji}</span>
+                    {c.name}
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          )}
+          {publicCatalogs.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted-foreground mr-1">Cataloghi pubblici:</span>
+              {publicCatalogs.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCatalogId(c.id)}
+                  title={c.description || 'Apri catalogo'}
+                  className="inline-flex"
+                >
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      'gap-1 text-xs font-normal cursor-pointer',
+                      selectedCatalogId === c.id && 'ring-1 ring-primary',
+                    )}
+                  >
+                    <span>{c.emoji}</span>
+                    {c.name}
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -253,15 +403,16 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                 ))}
               </SelectContent>
             </Select>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full lg:w-[180px]">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tutte le categorie</SelectItem>
-                {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={categoryFilter}
+              onValueChange={setCategoryFilter}
+              options={categoryOptions}
+              placeholder="Categoria"
+              searchPlaceholder="Cerca categoria..."
+              emptyText="Nessuna categoria"
+              aria-label="Categoria"
+              className="w-full lg:w-[180px]"
+            />
             <Select value={muscleFilter} onValueChange={setMuscleFilter}>
               <SelectTrigger className="w-full lg:w-[180px]">
                 <SelectValue placeholder="Gruppo muscolare" />
@@ -320,10 +471,11 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                   <TableHead className="hidden md:table-cell">Muscoli</TableHead>
                   <TableHead className="hidden lg:table-cell">Anteprima</TableHead>
                   <TableHead className="text-right">Video</TableHead>
+                  <TableHead className="w-[88px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(ex => {
+                {paginated.map(ex => {
                   const isFav = favIds?.has(ex.id) ?? false;
                   const personal = isPersonal(ex);
                   const ownShared = isOwnShared(ex);
@@ -427,11 +579,49 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                           <span className="text-muted-foreground text-xs">—</span>
                         )}
                       </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {isOwnExercise(ex) ? (
+                          <div className="flex items-center justify-end gap-0.5">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              title="Modifica"
+                              onClick={() => openEdit(ex)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              title="Elimina"
+                              onClick={() => setDeleteExercise(ex)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : null}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
+          )}
+          {!isLoading && filtered.length > 0 && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[25, 50, 100]}
+            />
           )}
         </CardContent>
       </Card>
@@ -441,11 +631,47 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
         open={!!selected}
         onOpenChange={(o) => !o && setSelected(null)}
         showFavoriteToggle
+        showShareAction
+        onEdit={selected && isOwnExercise(selected) ? () => openEdit(selected) : undefined}
+        onDelete={selected && isOwnExercise(selected) ? () => setDeleteExercise(selected) : undefined}
       />
 
       <CreateExerciseDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) setEditingExercise(null);
+        }}
+        exercise={editingExercise}
+      />
+
+      <AlertDialog open={!!deleteExercise} onOpenChange={(o) => !o && setDeleteExercise(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare l&apos;esercizio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteExercise
+                ? `"${deleteExercise.name}" verrà rimosso dalla tua libreria. Se è già in una scheda template, sparirà anche da lì. Non puoi eliminarlo se è in un corso o in un allenamento già assegnato.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteExercise && deleteMutation.mutate(deleteExercise.id)}
+              disabled={deleteMutation.isPending}
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ImportExercisesDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        compact={embedded}
       />
 
       <CreateCatalogDialog

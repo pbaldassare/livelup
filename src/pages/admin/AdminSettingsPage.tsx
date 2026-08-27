@@ -20,8 +20,9 @@ import {
 } from '@/components/ui/dialog';
 import { 
   Settings, Shield, Bell, Users, Globe, Lock, AlertTriangle, Save, RefreshCw, 
-  Tag, Plus, Pencil, Loader2, Award, CheckCircle2, XCircle, Lightbulb
+  Tag, Plus, Pencil, Loader2, Award, CheckCircle2, XCircle, Lightbulb, Palette
 } from 'lucide-react';
+import { ThemePreferencePicker } from '@/components/settings/ThemePreferencePicker';
 import { toast } from 'sonner';
 
 interface CatalogItem {
@@ -316,6 +317,10 @@ export function AdminSettingsPage() {
           </Button>
         }
       />
+
+      <SectionCard title="Aspetto" subtitle="Sfondo bianco (chiaro) o nero (scuro) per la dashboard" icon={Palette} iconColor="muted">
+        <ThemePreferencePicker variant="dashboard" />
+      </SectionCard>
 
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList>

@@ -180,7 +180,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
                 </div>
                 <p className="text-[10px] text-app-muted-foreground">
                   {userLocation
-                    ? `Gruppi entro ${maxDistance} km dalla tua posizione`
+                    ? `Gruppi con sede entro ${maxDistance} km. Chi non ha una posizione non compare.`
                     : 'Scegli il raggio, poi tocca «Usa posizione» per filtrare i gruppi vicini'}
                 </p>
               </div>
@@ -189,7 +189,9 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
             {discoverLoading && <ListSkeleton count={3} type="chat" />}
             {!discoverLoading && discoverGroups.length === 0 && (
               <p className="text-center text-app-muted-foreground py-8">
-                Nessun gruppo trovato
+                {userLocation
+                  ? `Nessun gruppo con sede entro ${maxDistance} km`
+                  : 'Nessun gruppo trovato'}
               </p>
             )}
             <div className="grid gap-3 sm:grid-cols-2">

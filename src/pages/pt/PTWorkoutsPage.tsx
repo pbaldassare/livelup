@@ -57,6 +57,7 @@ import {
   templateKindLabel,
 } from '@/lib/pt/templateKinds';
 import { cn } from '@/lib/utils';
+import { unassignWorkoutAssignment, canUnassignWorkout } from '@/lib/api/workouts';
 
 /** Import AI da file — nascosto finché la feature non è pronta in produzione. */
 const SHOW_IMPORT_SCHEDA = false;
@@ -145,8 +146,8 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isCreateExerciseOpen, setIsCreateExerciseOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<any | null>(null);
-  const [deleteExerciseId, setDeleteExerciseId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [unassignWorkout, setUnassignWorkout] = useState<Workout | null>(null);
   const [editExercisesDialogOpen, setEditExercisesDialogOpen] = useState(false);
   const [editTemplateDialog, setEditTemplateDialog] = useState<{
     id: string;
@@ -453,32 +454,6 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     },
   });
 
-  // Delete exercise mutation (con check uso nelle schede)
-  const deleteExerciseMutation = useMutation({
-    mutationFn: async (exerciseId: string) => {
-      const { count, error: countError } = await supabase
-        .from('template_exercises')
-        .select('*', { count: 'exact', head: true })
-        .eq('exercise_id', exerciseId);
-      if (countError) throw countError;
-      if ((count || 0) > 0) {
-        throw new Error(`Esercizio usato in ${count} scheda/e. Rimuovilo prima dalle schede.`);
-      }
-      const { error } = await supabase.from('exercises').delete().eq('id', exerciseId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pt-exercises'] });
-      queryClient.invalidateQueries({ queryKey: ['exercises'] });
-      setDeleteExerciseId(null);
-      toast.success('Esercizio eliminato');
-    },
-    onError: (err: any) => {
-      toast.error(err.message || 'Errore durante l\'eliminazione');
-      setDeleteExerciseId(null);
-    },
-  });
-
   // Difficulty options for inline edit
   const difficultyOptions = [
     { value: 'nessuno', label: 'Non specificato' },
@@ -671,6 +646,23 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     },
   ];
 
+  const unassignMutation = useMutation({
+    mutationFn: async (workoutId: string) => {
+      if (!user?.id) throw new Error('Not authenticated');
+      await unassignWorkoutAssignment(workoutId, user.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pt-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-athlete-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-events'] });
+      setUnassignWorkout(null);
+      toast.success('Assegnazione tolta');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Errore durante la rimozione');
+    },
+  });
+
   const workoutActions = (workout: Workout) => (
     <div className="flex items-center gap-2">
       <Button
@@ -684,6 +676,20 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
       >
         <Eye className="h-4 w-4" />
       </Button>
+      {canUnassignWorkout(workout.status) && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-destructive"
+          title="Togli assegnazione"
+          onClick={(e) => {
+            e.stopPropagation();
+            setUnassignWorkout(workout);
+          }}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 
@@ -1135,7 +1141,23 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                             </div>
                             <div className="flex flex-col items-end gap-2 shrink-0">
                               <StatusBadge status={workout.status} />
-                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              <div className="flex items-center gap-1">
+                                {canUnassignWorkout(workout.status) && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-destructive"
+                                    title="Togli assegnazione"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setUnassignWorkout(workout);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              </div>
                             </div>
                           </div>
                         </CardContent>
@@ -1310,6 +1332,14 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
         </DialogContent>
       </Dialog>
 
+      <ExerciseDetailDialog
+        exercise={previewExercise}
+        open={!!previewExercise}
+        onOpenChange={(o) => !o && setPreviewExercise(null)}
+        showFavoriteToggle
+        showShareAction
+      />
+
       {/* Assign Workout Dialog */}
       <AssignWorkoutDialog
         open={isAssignDialogOpen}
@@ -1331,23 +1361,24 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
       />
 
       {/* Conferma eliminazione esercizio */}
-      <AlertDialog open={!!deleteExerciseId} onOpenChange={(o) => !o && setDeleteExerciseId(null)}>
+      <AlertDialog open={!!unassignWorkout} onOpenChange={(o) => !o && setUnassignWorkout(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare l'esercizio?</AlertDialogTitle>
+            <AlertDialogTitle>Togliere l&apos;assegnazione?</AlertDialogTitle>
             <AlertDialogDescription>
-              L'esercizio sarà rimosso dalla tua libreria. Se è già usato in qualche scheda,
-              l'operazione verrà bloccata e dovrai prima rimuoverlo dalle schede.
+              {unassignWorkout
+                ? `La scheda "${unassignWorkout.title}" sparirà dall'atleta. Lo storico dei completati non viene toccato.`
+                : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annulla</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteExerciseId && deleteExerciseMutation.mutate(deleteExerciseId)}
-              disabled={deleteExerciseMutation.isPending}
+              onClick={() => unassignWorkout && unassignMutation.mutate(unassignWorkout.id)}
+              disabled={unassignMutation.isPending}
             >
-              Elimina
+              Togli assegnazione
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

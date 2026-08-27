@@ -26,7 +26,9 @@ import {
 import { 
   Settings, User, Globe, MapPin, Award, Euro, Eye, Save, Package,
   Navigation, Loader2, CheckCircle2, Upload, FileText, Trash2, Lightbulb, Calendar, Tags,
+  Palette,
 } from 'lucide-react';
+import { ThemePreferencePicker } from '@/components/settings/ThemePreferencePicker';
 import { toast } from 'sonner';
 import { ManageAthleteCategoriesDialog } from '@/components/pt/ManageAthleteCategoriesDialog';
 import {
@@ -443,6 +445,23 @@ export function PTSettingsPage({ embedded = false }: { embedded?: boolean } = {}
         <PageHeader title="Impostazioni" description="Gestisci il tuo profilo pubblico e le preferenze" icon={Settings} actions={saveButton} />
       )}
       {embedded && <div className="flex justify-end">{saveButton}</div>}
+
+      {!embedded && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              Aspetto
+            </CardTitle>
+            <CardDescription>
+              Sfondo bianco (chiaro) o nero (scuro) per la dashboard
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ThemePreferencePicker variant="dashboard" />
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="flex-wrap h-auto gap-1">

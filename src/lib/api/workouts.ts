@@ -408,6 +408,49 @@ export async function completeWorkout(
   return data;
 }
 
+const UNASSIGNABLE_WORKOUT_STATUSES = ['attivo', 'scaduto', 'in_corso', 'in_sospeso'] as const;
+
+export function canUnassignWorkout(status: string): boolean {
+  return (UNASSIGNABLE_WORKOUT_STATUSES as readonly string[]).includes(status);
+}
+
+/** Toglie una scheda assegnata (non completata): cancella workout, blocchi, esercizi e log. */
+export async function unassignWorkoutAssignment(workoutId: string, ptUserId: string) {
+  const { data: workout, error: fetchErr } = await supabase
+    .from('workouts')
+    .select('id, title, status, pt_user_id, atleta_user_id, scheduled_date')
+    .eq('id', workoutId)
+    .single();
+
+  if (fetchErr || !workout) {
+    throw new Error('Scheda non trovata');
+  }
+  if (workout.pt_user_id !== ptUserId) {
+    throw new Error('Non autorizzato');
+  }
+  if (!canUnassignWorkout(workout.status)) {
+    throw new Error('Non puoi togliere una scheda già completata. Lo storico resta visibile.');
+  }
+
+  if (workout.atleta_user_id && workout.scheduled_date) {
+    const day = String(workout.scheduled_date).slice(0, 10);
+    await supabase
+      .from('calendar_events')
+      .delete()
+      .eq('pt_user_id', ptUserId)
+      .eq('atleta_user_id', workout.atleta_user_id)
+      .eq('event_type', 'allenamento')
+      .eq('title', workout.title)
+      .gte('start_datetime', `${day}T00:00:00`)
+      .lte('start_datetime', `${day}T23:59:59.999`);
+  }
+
+  const { error: delErr } = await supabase.from('workouts').delete().eq('id', workoutId);
+  if (delErr) {
+    throw new Error('Errore rimozione assegnazione: ' + delErr.message);
+  }
+}
+
 // =====================================================
 // ATTIVA ASSEGNAZIONE (Programmate → In corso + calendario)
 // =====================================================

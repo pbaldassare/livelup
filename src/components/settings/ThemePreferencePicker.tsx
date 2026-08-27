@@ -14,11 +14,18 @@ const OPTIONS: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
 interface ThemePreferencePickerProps {
   className?: string;
   compact?: boolean;
+  /** PWA uses app-* tokens; dashboard (PT/Admin web) uses semantic tokens. */
+  variant?: 'app' | 'dashboard';
 }
 
-export function ThemePreferencePicker({ className, compact }: ThemePreferencePickerProps) {
+export function ThemePreferencePicker({
+  className,
+  compact,
+  variant = 'app',
+}: ThemePreferencePickerProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const isDashboard = variant === 'dashboard';
 
   useEffect(() => setMounted(true), []);
 
@@ -30,7 +37,10 @@ export function ThemePreferencePicker({ className, compact }: ThemePreferencePic
         {OPTIONS.map((opt) => (
           <div
             key={opt.value}
-            className="h-16 rounded-xl bg-app-muted animate-pulse"
+            className={cn(
+              'h-16 rounded-xl animate-pulse',
+              isDashboard ? 'bg-muted' : 'bg-app-muted',
+            )}
             aria-hidden
           />
         ))}
@@ -51,13 +61,26 @@ export function ThemePreferencePicker({ className, compact }: ThemePreferencePic
               className={cn(
                 'flex flex-col items-center justify-center gap-1.5 rounded-xl border p-3 transition-colors',
                 selected
-                  ? 'border-app-accent bg-app-accent/10 text-app-foreground'
-                  : 'border-app-border bg-app-muted/50 text-app-muted-foreground hover:border-app-accent/40',
+                  ? isDashboard
+                    ? 'border-primary bg-primary/10 text-foreground'
+                    : 'border-app-accent bg-app-accent/10 text-app-foreground'
+                  : isDashboard
+                    ? 'border-border bg-muted/50 text-muted-foreground hover:border-primary/40'
+                    : 'border-app-border bg-app-muted/50 text-app-muted-foreground hover:border-app-accent/40',
               )}
               aria-pressed={selected}
             >
               <Icon
-                className={cn('h-5 w-5', selected ? 'text-app-accent' : 'text-app-muted-foreground')}
+                className={cn(
+                  'h-5 w-5',
+                  selected
+                    ? isDashboard
+                      ? 'text-primary'
+                      : 'text-app-accent'
+                    : isDashboard
+                      ? 'text-muted-foreground'
+                      : 'text-app-muted-foreground',
+                )}
               />
               <span className={cn('text-xs font-medium', compact && 'text-[11px]')}>{label}</span>
             </button>
@@ -65,7 +88,12 @@ export function ThemePreferencePicker({ className, compact }: ThemePreferencePic
         })}
       </div>
       {active === 'system' && resolvedTheme && (
-        <p className="text-[11px] text-app-muted-foreground text-center">
+        <p
+          className={cn(
+            'text-[11px] text-center',
+            isDashboard ? 'text-muted-foreground' : 'text-app-muted-foreground',
+          )}
+        >
           Tema attivo: {resolvedTheme === 'dark' ? 'Scuro' : 'Chiaro'}
         </p>
       )}

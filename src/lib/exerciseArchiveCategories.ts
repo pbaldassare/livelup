@@ -27,3 +27,27 @@ export const EXERCISE_ARCHIVE_CATEGORIES = [
 ] as const;
 
 export type ExerciseArchiveCategory = (typeof EXERCISE_ARCHIVE_CATEGORIES)[number];
+
+export const EXERCISE_MUSCLE_GROUPS = [
+  'Petto',
+  'Schiena',
+  'Spalle',
+  'Bicipiti',
+  'Tricipiti',
+  'Quadricipiti',
+  'Femorali',
+  'Glutei',
+  'Polpacci',
+  'Addominali',
+  'Core',
+  'Full Body',
+  'Avambracci',
+  'Trapezio',
+] as const;
+
+export const EXERCISE_DIFFICULTY_LEVELS = [
+  'nessuno',
+  'principiante',
+  'intermedio',
+  'avanzato',
+] as const;

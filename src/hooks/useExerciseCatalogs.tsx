@@ -34,8 +34,24 @@ export interface ExerciseCatalog {
   name: string;
   emoji: string;
   description: string | null;
+  is_public?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type CatalogAccess = 'owned' | 'shared' | 'public';
+
+export function getCatalogAccess(catalog: ExerciseCatalog, userId: string | undefined): CatalogAccess {
+  if (userId && catalog.pt_user_id === userId) return 'owned';
+  if (catalog.is_public) return 'public';
+  return 'shared';
+}
+
+export interface CatalogShareRow {
+  id: string;
+  catalog_id: string;
+  shared_with_user_id: string;
+  created_at: string;
 }
 
 export interface CatalogExerciseRow {
@@ -58,7 +74,6 @@ export function useExerciseCatalogs() {
       const { data, error } = await sb
         .from('exercise_catalogs')
         .select('*')
-        .eq('pt_user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as ExerciseCatalog[];
@@ -268,6 +283,91 @@ export function useToggleCatalogItem() {
       }
       const message = getErrorMessage(err);
       toast.error(message ? `Errore: ${message}` : "Errore nell'aggiornamento del catalogo");
+    },
+  });
+}
+
+export function useCatalogShares(catalogId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['pt-catalog-shares', catalogId],
+    queryFn: async (): Promise<CatalogShareRow[]> => {
+      if (!catalogId) return [];
+      const { data, error } = await sb
+        .from('exercise_catalog_shares')
+        .select('id, catalog_id, shared_with_user_id, created_at')
+        .eq('catalog_id', catalogId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as CatalogShareRow[];
+    },
+    enabled: !!catalogId && enabled,
+  });
+}
+
+export function useShareExerciseCatalog() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { catalogId: string; sharedWithUserId: string }) => {
+      const { error } = await sb.from('exercise_catalog_shares').insert({
+        catalog_id: params.catalogId,
+        shared_with_user_id: params.sharedWithUserId,
+      });
+      if (error && error.code !== '23505') throw error;
+      return params;
+    },
+    onSuccess: (params) => {
+      qc.invalidateQueries({ queryKey: ['pt-catalog-shares', params.catalogId] });
+      toast.success('Catalogo condiviso con il PT');
+    },
+    onError: (err: unknown) => {
+      const message = getErrorMessage(err);
+      toast.error(message ? `Errore: ${message}` : 'Impossibile condividere il catalogo');
+    },
+  });
+}
+
+export function useRevokeCatalogShare() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { shareId: string; catalogId: string }) => {
+      const { error } = await sb.from('exercise_catalog_shares').delete().eq('id', params.shareId);
+      if (error) throw error;
+      return params;
+    },
+    onSuccess: (params) => {
+      qc.invalidateQueries({ queryKey: ['pt-catalog-shares', params.catalogId] });
+      qc.invalidateQueries({ queryKey: ['pt-exercise-catalogs', user?.id] });
+      toast.success('Accesso revocato');
+    },
+    onError: (err: unknown) => {
+      const message = getErrorMessage(err);
+      toast.error(message ? `Errore: ${message}` : 'Impossibile revocare l\'accesso');
+    },
+  });
+}
+
+export function useSetCatalogPublic() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { catalogId: string; isPublic: boolean }) => {
+      const { data, error } = await sb
+        .from('exercise_catalogs')
+        .update({ is_public: params.isPublic })
+        .eq('id', params.catalogId)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as ExerciseCatalog;
+    },
+    onSuccess: (catalog) => {
+      qc.invalidateQueries({ queryKey: ['pt-exercise-catalogs', user?.id] });
+      toast.success(catalog.is_public ? 'Catalogo pubblico: visibile a tutti i PT' : 'Catalogo tornato privato');
+    },
+    onError: (err: unknown) => {
+      const message = getErrorMessage(err);
+      toast.error(message ? `Errore: ${message}` : 'Impossibile aggiornare la visibilità');
     },
   });
 }

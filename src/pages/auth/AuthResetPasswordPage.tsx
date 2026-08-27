@@ -48,13 +48,6 @@ export function AuthResetPasswordPage() {
       return;
     }
 
-    const otp = getAuthEmailOtpFromLocation();
-    if (otp?.tokenHash && otp.type === 'recovery') {
-      setNeedsTap(true);
-      setLinkExpired(false);
-      return;
-    }
-
     const timeout = window.setTimeout(() => {
       if (!session) setLinkExpired(true);
     }, 8000);

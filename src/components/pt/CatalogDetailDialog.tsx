@@ -10,18 +10,22 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, X, Dumbbell, Plus, Search, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, X, Dumbbell, Plus, Search, Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
   ExerciseCatalog,
+  getCatalogAccess,
   useCatalogExercises,
+  useCatalogShares,
   useDeleteExerciseCatalog,
   useRemoveExerciseFromCatalog,
+  useRevokeCatalogShare,
   useToggleCatalogItem,
 } from '@/hooks/useExerciseCatalogs';
 import { CreateCatalogDialog } from '@/components/pt/CreateCatalogDialog';
+import { ShareCatalogDialog } from '@/components/pt/ShareCatalogDialog';
 
 interface CatalogDetailDialogProps {
   catalog: ExerciseCatalog | null;
@@ -33,6 +37,7 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [addSearch, setAddSearch] = useState('');
   const { user } = useAuth();
 
@@ -47,6 +52,8 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
   const removeItem = useRemoveExerciseFromCatalog();
   const deleteCatalog = useDeleteExerciseCatalog();
   const toggleItem = useToggleCatalogItem();
+  const revokeShare = useRevokeCatalogShare();
+  const sharesForLeave = useCatalogShares(catalogId, open && !!catalog && catalog.pt_user_id !== user?.id);
 
   const inCatalogIds = useMemo(
     () => new Set(rows.map((r) => r.exerciseId)),
@@ -81,6 +88,10 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
 
   if (!catalog) return null;
 
+  const access = getCatalogAccess(catalog, user?.id);
+  const isOwner = access === 'owned';
+  const myShare = (sharesForLeave.data ?? []).find((s) => s.shared_with_user_id === user?.id);
+
   const handleDelete = () => {
     deleteCatalog.mutate(catalog.id, {
       onSuccess: () => {
@@ -104,9 +115,18 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-lg w-[calc(100%-2rem)]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               <span>{catalog.emoji}</span>
               {catalog.name}
+              {catalog.is_public && (
+                <Badge variant="secondary" className="text-[10px] font-normal">Pubblico</Badge>
+              )}
+              {access === 'shared' && (
+                <Badge variant="outline" className="text-[10px] font-normal">Condiviso con te</Badge>
+              )}
+              {access === 'public' && (
+                <Badge variant="outline" className="text-[10px] font-normal">Di un altro PT</Badge>
+              )}
             </DialogTitle>
             {catalog.description && (
               <DialogDescription>{catalog.description}</DialogDescription>
@@ -118,20 +138,43 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
               {rows.length} {rows.length === 1 ? 'esercizio' : 'esercizi'} nel catalogo
             </span>
             <div className="flex gap-2 flex-wrap">
-              <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" /> Aggiungi
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rinomina
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-destructive hover:text-destructive"
-                onClick={() => setConfirmDeleteOpen(true)}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Elimina
-              </Button>
+              {isOwner ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => setShareOpen(true)}>
+                    <Share2 className="h-3.5 w-3.5 mr-1.5" /> Condividi
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+                    <Plus className="h-3.5 w-3.5 mr-1.5" /> Aggiungi
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rinomina
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setConfirmDeleteOpen(true)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Elimina
+                  </Button>
+                </>
+              ) : (
+                myShare && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      revokeShare.mutate(
+                        { shareId: myShare.id, catalogId: catalog.id },
+                        { onSuccess: () => onOpenChange(false) },
+                      )
+                    }
+                    disabled={revokeShare.isPending}
+                  >
+                    Rimuovi dal mio elenco
+                  </Button>
+                )
+              )}
             </div>
           </div>
 
@@ -155,6 +198,7 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
               <div className="text-center py-8 text-muted-foreground">
                 <Dumbbell className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Nessun esercizio in questo catalogo.</p>
+                {isOwner && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -163,6 +207,7 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
                 >
                   <Plus className="h-3.5 w-3.5 mr-1.5" /> Aggiungi esercizi
                 </Button>
+                )}
               </div>
             ) : (
               rows.map((row) => (
@@ -193,6 +238,7 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
                       )}
                     </div>
                   </div>
+                  {isOwner && (
                   <Button
                     size="icon"
                     variant="ghost"
@@ -205,6 +251,7 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
+                  )}
                 </div>
               ))
             )}
@@ -213,6 +260,8 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
       </Dialog>
 
       <CreateCatalogDialog open={editOpen} onOpenChange={setEditOpen} editCatalog={catalog} />
+
+      <ShareCatalogDialog open={shareOpen} onOpenChange={setShareOpen} catalog={catalog} />
 
       <Dialog
         open={addOpen}
