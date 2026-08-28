@@ -67,6 +67,9 @@ export function mapPTWebToApp(pathname: string): string {
   // Exact mapping for known routes
   if (pathname === '/pt' || pathname === '/pt/') return '/pt/app';
   // Athlete detail: i link interni usano la forma singolare /pt/app/athlete/:id
+  if (pathname.startsWith('/pt/assigned-workouts')) {
+    return pathname.replace('/pt/assigned-workouts', '/pt/app/assigned-workouts');
+  }
   if (pathname.startsWith('/pt/athletes/')) {
     const rest = pathname.replace('/pt/athletes/', '');
     return `/pt/app/athlete/${rest}`;

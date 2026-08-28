@@ -520,6 +520,49 @@ export async function activateWorkoutAssignment(
   return updated;
 }
 
+export async function updateAssignedWorkout(
+  workoutId: string,
+  ptUserId: string,
+  patch: {
+    title?: string;
+    description?: string | null;
+    templateKind?: TemplateKind;
+  },
+) {
+  const { data: workout, error: fetchErr } = await supabase
+    .from('workouts')
+    .select('id, pt_user_id')
+    .eq('id', workoutId)
+    .single();
+
+  if (fetchErr || !workout) {
+    throw new Error('Scheda non trovata');
+  }
+  if (workout.pt_user_id !== ptUserId) {
+    throw new Error('Non autorizzato');
+  }
+
+  const update: Record<string, unknown> = {};
+  if (patch.title !== undefined) update.title = patch.title.trim();
+  if (patch.description !== undefined) update.description = patch.description;
+  if (patch.templateKind !== undefined) update.template_kind = patch.templateKind;
+
+  if (Object.keys(update).length === 0) return workout;
+
+  const { data: updated, error } = await supabase
+    .from('workouts')
+    .update(update as any)
+    .eq('id', workoutId)
+    .select()
+    .single();
+
+  if (error || !updated) {
+    throw new Error('Errore aggiornamento scheda: ' + (error?.message ?? 'unknown'));
+  }
+
+  return updated;
+}
+
 // =====================================================
 // LOG ESERCIZIO
 // =====================================================

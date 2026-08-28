@@ -13,6 +13,7 @@ export const ptRoutes = {
     workouts: '/pt/workouts',
     workoutsTab: (tab: string) => `/pt/workouts?tab=${tab}`,
     template: (id: string) => `/pt/templates/${id}`,
+    assignedWorkout: (id: string) => `/pt/assigned-workouts/${id}`,
     templates: '/pt/workouts',
     exercises: '/pt/exercises',
     chat: (atletaId?: string) =>
@@ -33,6 +34,7 @@ export const ptRoutes = {
     workouts: '/pt/app/templates',
     workoutsTab: (tab: string) => `/pt/app/templates?tab=${tab}`,
     template: (id: string) => `/pt/app/templates/${id}`,
+    assignedWorkout: (id: string) => `/pt/app/assigned-workouts/${id}`,
     templates: '/pt/app/templates',
     exercises: '/pt/app/exercises',
     chat: (atletaId?: string) =>
@@ -55,6 +57,7 @@ export type PTRouteSet = {
   workouts: string;
   workoutsTab: (tab: string) => string;
   template: (id: string) => string;
+  assignedWorkout: (id: string) => string;
   templates: string;
   exercises: string;
   chat: (atletaId?: string) => string;

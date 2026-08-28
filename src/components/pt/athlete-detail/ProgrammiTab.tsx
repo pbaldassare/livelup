@@ -750,7 +750,7 @@ function WorkoutListItem({
             onClick={() => onActivateWorkout(workout)}
           >
             <UserPlus className="h-3.5 w-3.5 mr-1" />
-            Assegna
+            Attiva
           </Button>
         )}
       </div>
@@ -866,11 +866,7 @@ export function ProgrammiTab({
 
   const handleEdit = (workout: WorkoutRow) => {
     setActionsWorkout(null);
-    if (workout.template_id) {
-      navigate(routes.template(workout.template_id));
-    } else {
-      toast.info('Questa scheda non ha un template collegato da modificare');
-    }
+    navigate(routes.assignedWorkout(workout.id));
   };
 
   const unassignMutation = useMutation({

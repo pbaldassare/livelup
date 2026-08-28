@@ -106,10 +106,18 @@ import {
   type ProtocolConfig,
   type SetData,
   type SetTargetMode,
-  type TemplateExerciseInsert,
   type TemplateExerciseUpdate,
   toJson,
 } from '@/types/database';
+import {
+  normalizeSheetExerciseRow,
+  sheetExerciseSelect,
+  sheetExercisesTable,
+  sheetParentColumn,
+  toSheetExerciseInsert,
+  toSheetExerciseUpdate,
+  type SheetKind,
+} from '@/lib/api/sheetSequence';
 
 // =====================================================
 // TEMPLATE SEQUENCE BUILDER
@@ -150,12 +158,18 @@ interface TemplateExercise {
 }
 
 interface TemplateExerciseBuilderProps {
-  templateId: string;
+  templateId?: string;
+  /** Se valorizzato, modifica l'istanza assegnata (workout_exercises), non il template. */
+  workoutId?: string;
   blockId?: string | null; // null = esercizi fuori circuito
   onSave?: () => void;
 }
 
-export function TemplateExerciseBuilder({ templateId, blockId, onSave }: TemplateExerciseBuilderProps) {
+export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave }: TemplateExerciseBuilderProps) {
+  const kind: SheetKind = workoutId ? 'workout' : 'template';
+  const parentId = workoutId ?? templateId ?? '';
+  const table = sheetExercisesTable(kind);
+  const parentCol = sheetParentColumn(kind);
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
@@ -174,8 +188,9 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     });
   }, []);
 
-  // Cache key — separato per blocco
-  const queryKey = ['template-exercises', templateId, blockId ?? 'no-block'];
+  // Cache key — separato per blocco / tipo scheda
+  const queryKey = ['sheet-exercises', kind, parentId, blockId ?? 'no-block'];
+  const optionsQueryKey = ['sheet-exercise-options', kind, parentId];
 
   // Fetch PT's favorite exercises + own private exercises
   const { data: favIds } = useFavoriteIds();
@@ -202,57 +217,45 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     enabled: !!user?.id && favIds !== undefined,
   });
 
-  // Fetch template exercises (filtrati per block_id se presente)
+  // Fetch template / workout exercises (filtrati per block_id se presente)
   const { data: templateExercises = [], isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
       const mapRows = (data: any[]) =>
-        data.map((te) => ({
-          ...te,
-          protocol_name:
-            te.protocol_name ??
-            (te.protocol_params as any)?.protocol_name ??
-            null,
-          exercise: te.exercises,
-        })) as unknown as TemplateExercise[];
-
-      const baseSelect =
-        'id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params, protocol_name, library_protocol_id, exercises (*)';
-      const legacySelect =
-        'id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params, exercises (*)';
+        data.map((te) => normalizeSheetExerciseRow(kind, te)) as unknown as TemplateExercise[];
 
       const run = async (select: string) => {
         let q = supabase
-          .from('template_exercises')
+          .from(table as any)
           .select(select)
-          .eq('template_id', templateId)
+          .eq(parentCol, parentId)
           .order('order_index');
         if (blockId) q = q.eq('block_id', blockId);
-        else q = q.is('block_id', null);
+        else if (kind === 'template') q = q.is('block_id', null);
         return q;
       };
 
-      const first = await run(baseSelect);
+      const first = await run(sheetExerciseSelect(kind));
       if (!first.error) return mapRows(first.data || []);
       if (/protocol_name|library_protocol_id|42703|PGRST204|schema cache/i.test(first.error.message)) {
-        const legacy = await run(legacySelect);
+        const legacy = await run(sheetExerciseSelect(kind, true));
         if (legacy.error) throw legacy.error;
         return mapRows(legacy.data || []);
       }
       throw first.error;
     },
-    enabled: !!templateId,
+    enabled: !!parentId,
   });
 
   // Lista COMPLETA degli esercizi del template (tutti i blocchi/circuiti).
   // Usata per popolare il dropdown EMOM, indipendentemente dal block_id corrente.
   const { data: allTemplateExerciseOptions = [] } = useQuery({
-    queryKey: ['template-exercise-options', templateId],
+    queryKey: optionsQueryKey,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('template_exercises')
+        .from(table as any)
         .select('exercise_id, exercises ( id, name )')
-        .eq('template_id', templateId);
+        .eq(parentCol, parentId);
       if (error) throw error;
       const seen = new Set<string>();
       const out: { id: string; name: string }[] = [];
@@ -265,7 +268,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       }
       return out;
     },
-    enabled: !!templateId,
+    enabled: !!parentId,
   });
 
   // Archivio completo (globali + privati PT, via RLS) per i dropdown dei protocolli
@@ -371,8 +374,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         rest_seconds: rest,
       }));
 
-      const insertRow: TemplateExerciseInsert = {
-        template_id: templateId,
+      const insertRow = toSheetExerciseInsert(kind, parentId, {
         exercise_id: exerciseId,
         order_index: maxOrder,
         sets,
@@ -384,11 +386,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         block_id: blockId ?? null,
         protocol_type: 'SET',
         protocol_params: toJson({}),
-      };
+      });
 
       const { data, error } = await supabase
-        .from('template_exercises')
-        .insert(insertRow)
+        .from(table as any)
+        .insert(insertRow as any)
         .select('id')
         .single();
 
@@ -397,9 +399,9 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     },
     onSuccess: (newId) => {
       queryClient.invalidateQueries({ queryKey });
-      queryClient.invalidateQueries({ queryKey: ['template-blocks', templateId] });
-      queryClient.invalidateQueries({ queryKey: ['template-blocks-counts', templateId] });
-      queryClient.invalidateQueries({ queryKey: ['template-exercise-options', templateId] });
+      queryClient.invalidateQueries({ queryKey: ['template-blocks', parentId] });
+      queryClient.invalidateQueries({ queryKey: ['template-blocks-counts', parentId] });
+      queryClient.invalidateQueries({ queryKey: optionsQueryKey });
       setExpandedIds(new Set([newId]));
       toast.success('Esercizio aggiunto');
       setSearchOpen(false);
@@ -482,11 +484,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         // Nessuna riga libreria / preferiti in questo percorso
       }
 
-      const insertRow: TemplateExerciseInsert & {
-        protocol_name?: string | null;
-        library_protocol_id?: string | null;
-      } = {
-        template_id: templateId,
+      const insertRow = toSheetExerciseInsert(kind, parentId, {
         exercise_id: hostExerciseId,
         order_index: nextOrderIndex(),
         sets: 1,
@@ -500,22 +498,22 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         protocol_params: toJson(params),
         protocol_name: protocolName,
         library_protocol_id: libraryId,
-      };
+      });
 
       const { data, error } = await supabase
-        .from('template_exercises')
+        .from(table as any)
         .insert(insertRow as any)
         .select('id')
         .single();
       if (error) {
         if (/protocol_name|library_protocol_id|42703|PGRST204|schema cache/i.test(error.message)) {
-          const { protocol_name: _n, library_protocol_id: _l, ...legacy } = insertRow;
+          const { protocol_name: _n, library_protocol_id: _l, ...legacy } = insertRow as any;
           const legacyParams = {
             ...params,
             ...(libraryId ? { library_protocol_id: libraryId } : {}),
           };
           const { data: legacyData, error: legacyErr } = await supabase
-            .from('template_exercises')
+            .from(table as any)
             .insert({ ...legacy, protocol_params: toJson(legacyParams) } as any)
             .select('id')
             .single();
@@ -556,11 +554,11 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         protocol_name: name,
         protocol_params: toJson(nextParams),
       };
-      const { error } = await supabase.from('template_exercises').update(updateRow).eq('id', id);
+      const { error } = await supabase.from(table as any).update(toSheetExerciseUpdate(kind, updateRow) as any).eq('id', id);
       if (error) {
         if (/protocol_name|42703|PGRST204|schema cache/i.test(error.message)) {
           const { error: legacyErr } = await supabase
-            .from('template_exercises')
+            .from(table as any)
             .update({ protocol_params: toJson(nextParams) })
             .eq('id', id);
           if (legacyErr) throw legacyErr;
@@ -615,12 +613,12 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
       // Collega la riga scheda alla copia privata
       if (saved.id !== libId) {
         const { error } = await supabase
-          .from('template_exercises')
+          .from(table as any)
           .update({ library_protocol_id: saved.id } as any)
           .eq('id', te.id);
         if (error && !/library_protocol_id|42703|PGRST204/i.test(error.message)) {
           await supabase
-            .from('template_exercises')
+            .from(table as any)
             .update({
               protocol_params: toJson({
                 ...config,
@@ -678,8 +676,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         updateRow.exercise_id = resolvedFromNested;
       }
       const { error } = await supabase
-        .from('template_exercises')
-        .update(updateRow)
+        .from(table as any)
+        .update(toSheetExerciseUpdate(kind, updateRow) as any)
         .eq('id', id);
       if (error) throw error;
 
@@ -701,8 +699,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   const updateExerciseMutation = useMutation({
     mutationFn: async ({ id, ...data }: { id: string; sets?: number; reps_min?: number; reps_max?: number; rest_seconds?: number; notes?: string | null; tempo?: string | null }) => {
       const { error } = await supabase
-        .from('template_exercises')
-        .update(data)
+        .from(table as any)
+        .update(toSheetExerciseUpdate(kind, data) as any)
         .eq('id', id);
 
       if (error) throw error;
@@ -753,8 +751,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
         prescribed_duration_seconds: summary.prescribed_duration_seconds,
       };
       const { error } = await supabase
-        .from('template_exercises')
-        .update(updateRow)
+        .from(table as any)
+        .update(toSheetExerciseUpdate(kind, updateRow) as any)
         .eq('id', id);
       if (error) throw error;
     },
@@ -790,7 +788,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
   const removeExerciseMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('template_exercises')
+        .from(table as any)
         .delete()
         .eq('id', id);
 
@@ -798,8 +796,8 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
-      queryClient.invalidateQueries({ queryKey: ['template-blocks', templateId] });
-      queryClient.invalidateQueries({ queryKey: ['template-exercise-options', templateId] });
+      queryClient.invalidateQueries({ queryKey: ['template-blocks', parentId] });
+      queryClient.invalidateQueries({ queryKey: optionsQueryKey });
       toast.success('Esercizio rimosso');
     },
     onError: () => {
@@ -817,7 +815,7 @@ export function TemplateExerciseBuilder({ templateId, blockId, onSave }: Templat
     }) => {
       const results = await Promise.all(
         updates.map(({ id, order_index }) =>
-          supabase.from('template_exercises').update({ order_index }).eq('id', id),
+          supabase.from(table as any).update({ order_index }).eq('id', id),
         ),
       );
       const failed = results.find((r) => r.error);

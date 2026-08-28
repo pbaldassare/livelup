@@ -3,7 +3,7 @@ import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { createWorkout } from '@/lib/api/workouts';
+import { createWorkout, activateWorkoutAssignment } from '@/lib/api/workouts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,12 +52,18 @@ import {
   CheckCircle2,
   Check,
   Repeat,
+  CalendarPlus,
+  UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   generateWorkoutRepetitionDates,
   type WorkoutRepetitionMode,
 } from '@/lib/workoutRepetition';
+import {
+  firstCreatedWorkoutToActivate,
+  type AssignmentDelivery,
+} from '@/lib/workoutAssignmentDelivery';
 
 // =====================================================
 // ASSIGN WORKOUT DIALOG
@@ -109,6 +115,8 @@ export function AssignWorkoutDialog({
   );
   const [selectedTemplateId, setSelectedTemplateId] = useState(preselectedTemplateId || '');
   const [customTitle, setCustomTitle] = useState('');
+  const [instanceTitle, setInstanceTitle] = useState('');
+  const [delivery, setDelivery] = useState<AssignmentDelivery>('assign');
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [notes, setNotes] = useState('');
@@ -280,7 +288,7 @@ export function AssignWorkoutDialog({
           phase: b.phase,
         }));
 
-        title = template.title;
+        title = instanceTitle.trim() || template.title;
         templateId = selectedTemplateId;
         exercisesPayload = loaded.exercises.map((te) => ({
           exerciseId: te.exerciseId,
@@ -323,24 +331,39 @@ export function AssignWorkoutDialog({
 
       let created = 0;
       let skipped = 0;
+      const createdIds: string[] = [];
       for (const date of generatedDates) {
         const iso = date.toISOString().slice(0, 10);
         if (existingDateSet.has(iso)) {
           skipped++;
           continue;
         }
-        await createWorkout({
+        const workout = await createWorkout({
           atletaUserId: selectedAthleteId,
           ptUserId: user.id,
           title,
-          description: workoutSource === 'custom' ? notes : undefined,
+          description: notes.trim() || undefined,
           templateId,
           templateKind,
           scheduledDate: date.toISOString(),
           exercises: exercisesPayload,
           blocks: blocksPayload,
         });
+        createdIds.push(workout.id);
         created++;
+      }
+
+      const activateId = firstCreatedWorkoutToActivate(delivery, createdIds);
+      if (activateId) {
+        const createdDate =
+          generatedDates.filter((d) => {
+            const iso = d.toISOString().slice(0, 10);
+            return !existingDateSet.has(iso);
+          })[0] ?? generatedDates[0];
+        await activateWorkoutAssignment(activateId, {
+          ptUserId: user.id,
+          scheduledDate: createdDate,
+        });
       }
 
       // Notify athlete (single notification)
@@ -361,21 +384,27 @@ export function AssignWorkoutDialog({
         });
       }
 
-      return { created, skipped };
+      return { created, skipped, delivery };
     },
-    onSuccess: ({ created, skipped }) => {
+    onSuccess: ({ created, skipped, delivery }) => {
       queryClient.invalidateQueries({ queryKey: ['pt-workouts'] });
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-workouts'] });
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
       if (created === 0) {
         toast.warning('Nessun allenamento creato (date già occupate)');
-      } else if (skipped > 0) {
-        toast.success(`${created} allenamenti assegnati (${skipped} saltati)`);
-      } else {
+      } else if (delivery === 'schedule') {
         toast.success(
           created === 1
-            ? 'Allenamento assegnato con successo!'
-            : `${created} allenamenti assegnati con successo!`,
+            ? 'Scheda programmata (non ancora in corso)'
+            : `${created} schede programmate`,
+        );
+      } else if (created === 1) {
+        toast.success('Scheda assegnata: in corso e in calendario');
+      } else {
+        toast.success(
+          skipped > 0
+            ? `Prima sessione assegnata, ${created - 1} programmate (${skipped} saltate)`
+            : `Prima sessione assegnata, ${created - 1} programmate`,
         );
       }
       onOpenChange(false);
@@ -391,6 +420,8 @@ export function AssignWorkoutDialog({
     setWorkoutSource('template');
     setSelectedTemplateId(preselectedTemplateId || '');
     setCustomTitle('');
+    setInstanceTitle('');
+    setDelivery('assign');
     setScheduledDate(new Date());
     setEndDate(undefined);
     setNotes('');
@@ -413,10 +444,10 @@ export function AssignWorkoutDialog({
         <DialogHeader className="px-6 pt-6 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Dumbbell className="h-5 w-5 text-primary" />
-            Assegna Allenamento
+            Assegna o programma
           </DialogTitle>
           <DialogDescription>
-            Assegna un template esistente o crea una scheda personalizzata
+            Copia indipendente per l&apos;atleta. Puoi solo programmarla o assegnarla subito (in corso + calendario).
           </DialogDescription>
         </DialogHeader>
 
@@ -624,6 +655,18 @@ export function AssignWorkoutDialog({
                     ⚠️ Questo template non ha esercizi configurati
                   </p>
                 )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="instance-title" className="text-xs text-muted-foreground">
+                    Nome per questo atleta (opzionale)
+                  </Label>
+                  <Input
+                    id="instance-title"
+                    value={instanceTitle}
+                    onChange={(e) => setInstanceTitle(e.target.value)}
+                    placeholder={selectedTemplate?.title || 'Stesso nome del template'}
+                    className="h-11"
+                  />
+                </div>
               </section>
             )}
 
@@ -825,6 +868,59 @@ export function AssignWorkoutDialog({
               )}
             </section>
 
+            {/* === Programma o assegna === */}
+            <section className="space-y-3">
+              <Label className="text-sm font-semibold">Cosa fare ora</Label>
+              <RadioGroup
+                value={delivery}
+                onValueChange={(v) => setDelivery(v as AssignmentDelivery)}
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+              >
+                <Label
+                  htmlFor="delivery-schedule"
+                  className={cn(
+                    'flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all',
+                    delivery === 'schedule'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/40',
+                  )}
+                >
+                  <RadioGroupItem value="schedule" id="delivery-schedule" className="mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm flex items-center gap-1.5">
+                      <CalendarPlus className="h-3.5 w-3.5" />
+                      Solo programma
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                      Resta in Programmate. L&apos;atleta la vede in coda; attivi dopo.
+                    </p>
+                  </div>
+                </Label>
+                <Label
+                  htmlFor="delivery-assign"
+                  className={cn(
+                    'flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all',
+                    delivery === 'assign'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/40',
+                  )}
+                >
+                  <RadioGroupItem value="assign" id="delivery-assign" className="mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm flex items-center gap-1.5">
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Assegna subito
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                      {generatedDates.length > 1
+                        ? 'La prima sessione va in In corso e in calendario; le altre restano programmate.'
+                        : 'In corso e in calendario, senza secondo passaggio.'}
+                    </p>
+                  </div>
+                </Label>
+              </RadioGroup>
+            </section>
+
             {/* === Note === */}
             <section className="space-y-2">
               <Label htmlFor="notes" className="text-sm font-semibold">
@@ -852,10 +948,16 @@ export function AssignWorkoutDialog({
             className="min-w-[140px]"
           >
             {assignMutation.isPending
-              ? 'Assegnando...'
-              : generatedDates.length > 1
-                ? `Assegna (${generatedDates.length})`
-                : 'Assegna'}
+              ? delivery === 'schedule'
+                ? 'Programmazione...'
+                : 'Assegnando...'
+              : delivery === 'schedule'
+                ? generatedDates.length > 1
+                  ? `Programma (${generatedDates.length})`
+                  : 'Programma'
+                : generatedDates.length > 1
+                  ? `Assegna prima (${generatedDates.length})`
+                  : 'Assegna'}
           </Button>
         </DialogFooter>
       </DialogContent>

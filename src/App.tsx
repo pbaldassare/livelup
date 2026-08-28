@@ -81,6 +81,7 @@ import PTAthleteDetailPage from "./pages/pt/PTAthleteDetailPage";
 import PTWorkoutsPage from "./pages/pt/PTWorkoutsPage";
 import PTAssistantPage from "./pages/pt/PTAssistantPage";
 import PTTemplateDetailPage from "./pages/pt/PTTemplateDetailPage";
+import PTAssignedWorkoutPage from "./pages/pt/PTAssignedWorkoutPage";
 import PTCalendarPage from "./pages/pt/PTCalendarPage";
 import PTEventDetailPage from "./pages/pt/PTEventDetailPage";
 import PTMessagesPage from "./pages/pt/PTMessagesPage";
@@ -430,6 +431,13 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/assigned-workouts/:workoutId" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAssignedWorkoutPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
               <Route path="/pt/calendar" element={<Navigate to="/pt/events" replace />} />
               <Route path="/pt/calendar/eventi" element={<Navigate to="/pt/events" replace />} />
               <Route path="/pt/events" element={
@@ -715,6 +723,13 @@ const App = () => {
                 <PTAppRoute>
                   <AppLayout>
                     <PTTemplateDetailPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/assigned-workouts/:workoutId" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAssignedWorkoutPage />
                   </AppLayout>
                 </PTAppRoute>
               } />

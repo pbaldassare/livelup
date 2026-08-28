@@ -40,6 +40,7 @@ import {
 import { toast } from 'sonner';
 import { ListSkeleton } from '@/components/skeletons';
 import { formatGroupLocation } from '@/lib/groups/location';
+import { cn } from '@/lib/utils';
 import { FollowStarButton } from '@/components/app/FollowStarButton';
 import {
   Accordion,

@@ -126,6 +126,7 @@ describe('mapPTWebToApp', () => {
     ['/pt/athletes', '/pt/app/athletes'],
     ['/pt/athletes/abc-123', '/pt/app/athlete/abc-123'],
     ['/pt/workouts', '/pt/app/templates'],
+    ['/pt/assigned-workouts/w-1', '/pt/app/assigned-workouts/w-1'],
     ['/pt/templates/tpl-1', '/pt/app/templates/tpl-1'],
     ['/pt/templates', '/pt/app/templates'],
     ['/pt/calendar', '/pt/app/calendar'],
