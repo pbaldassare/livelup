@@ -18,9 +18,10 @@ describe('sheetSequence', () => {
       protocol_params: { protocol_name: 'EMOM' },
       exercises: { name: 'Squat' },
     });
-    expect(row.sets).toBe(4);
-    expect(row.reps_min).toBe(8);
-    expect(row.reps_max).toBe(12);
+    const r = row as any;
+    expect(r.sets).toBe(4);
+    expect(r.reps_min).toBe(8);
+    expect(r.reps_max).toBe(12);
     expect(row.protocol_name).toBe('EMOM');
     expect(row.exercise).toEqual({ name: 'Squat' });
   });

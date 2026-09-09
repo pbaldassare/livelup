@@ -428,7 +428,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
         .single();
 
       if (error) throw error;
-      return data.id as string;
+      return (data as any).id as string;
     },
     onSuccess: (newId) => {
       queryClient.invalidateQueries({ queryKey });
@@ -551,12 +551,12 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
             .select('id')
             .single();
           if (legacyErr) throw legacyErr;
-          return { id: legacyData.id as string, protocolName };
+          return { id: (legacyData as any).id as string, protocolName };
         } else {
           throw error;
         }
       }
-      return { id: data.id as string, protocolName };
+      return { id: (data as any).id as string, protocolName };
     },
     onSuccess: ({ id: newId, protocolName }) => {
       queryClient.invalidateQueries({ queryKey });
