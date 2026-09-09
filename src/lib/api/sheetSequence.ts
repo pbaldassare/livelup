@@ -15,13 +15,19 @@ const TEMPLATE_SELECT =
 const TEMPLATE_SELECT_LEGACY =
   'id, exercise_id, order_index, sets, reps_min, reps_max, rest_seconds, notes, tempo, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params, exercises (*)';
 const WORKOUT_SELECT =
-  'id, exercise_id, order_index, prescribed_sets, prescribed_reps_min, prescribed_reps_max, rest_seconds, notes, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params, protocol_name, library_protocol_id, exercises (*)';
+  'id, exercise_id, order_index, prescribed_sets, prescribed_reps_min, prescribed_reps_max, rest_seconds, notes, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params, protocol_name, library_protocol_id, phase, exercises (*)';
 const WORKOUT_SELECT_LEGACY =
+  'id, exercise_id, order_index, prescribed_sets, prescribed_reps_min, prescribed_reps_max, rest_seconds, notes, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params, phase, exercises (*)';
+const WORKOUT_SELECT_BARE =
   'id, exercise_id, order_index, prescribed_sets, prescribed_reps_min, prescribed_reps_max, rest_seconds, notes, block_id, prescribed_duration_seconds, sets_data, protocol_type, protocol_params, exercises (*)';
 
 export function sheetExerciseSelect(kind: SheetKind, legacy = false) {
   if (kind === 'workout') return legacy ? WORKOUT_SELECT_LEGACY : WORKOUT_SELECT;
   return legacy ? TEMPLATE_SELECT_LEGACY : TEMPLATE_SELECT;
+}
+
+export function sheetExerciseSelectBare(kind: SheetKind) {
+  return kind === 'workout' ? WORKOUT_SELECT_BARE : TEMPLATE_SELECT_LEGACY;
 }
 
 export function normalizeSheetExerciseRow(kind: SheetKind, te: Record<string, any>) {
@@ -63,6 +69,7 @@ type FlatExerciseFields = {
   block_id?: string | null;
   exercise_id?: string;
   order_index?: number;
+  phase?: string | null;
 };
 
 export function toSheetExerciseInsert(
@@ -71,7 +78,7 @@ export function toSheetExerciseInsert(
   row: FlatExerciseFields & { exercise_id: string; order_index: number },
 ) {
   if (kind === 'template') {
-    const { ...rest } = row;
+    const { phase: _phase, ...rest } = row;
     return { ...rest, template_id: parentId };
   }
 
@@ -82,6 +89,7 @@ export function toSheetExerciseInsert(
     prescribed_sets: sets ?? 1,
     prescribed_reps_min: reps_min ?? null,
     prescribed_reps_max: reps_max ?? null,
+    phase: row.phase ?? 'main',
   };
 }
 

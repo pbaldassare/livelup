@@ -118,12 +118,14 @@ import {
 import {
   normalizeSheetExerciseRow,
   sheetExerciseSelect,
+  sheetExerciseSelectBare,
   sheetExercisesTable,
   sheetParentColumn,
   toSheetExerciseInsert,
   toSheetExerciseUpdate,
   type SheetKind,
 } from '@/lib/api/sheetSequence';
+import { isSummaryPhase } from '@/lib/pt/templateRoles';
 
 // =====================================================
 // TEMPLATE SEQUENCE BUILDER
@@ -227,8 +229,13 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
   const { data: templateExercises = [], isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
-      const mapRows = (data: any[]) =>
-        data.map((te) => normalizeSheetExerciseRow(kind, te)) as unknown as TemplateExercise[];
+      const mapRows = (data: any[]) => {
+        const mapped = data.map((te) =>
+          normalizeSheetExerciseRow(kind, te),
+        ) as unknown as TemplateExercise[];
+        if (kind !== 'workout') return mapped;
+        return mapped.filter((te) => isSummaryPhase((te as { phase?: string | null }).phase));
+      };
 
       const run = async (select: string) => {
         let q = supabase
@@ -243,10 +250,15 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
 
       const first = await run(sheetExerciseSelect(kind));
       if (!first.error) return mapRows(first.data || []);
-      if (/protocol_name|library_protocol_id|42703|PGRST204|schema cache/i.test(first.error.message)) {
+      if (/protocol_name|library_protocol_id|phase|42703|PGRST204|schema cache/i.test(first.error.message)) {
         const legacy = await run(sheetExerciseSelect(kind, true));
-        if (legacy.error) throw legacy.error;
-        return mapRows(legacy.data || []);
+        if (!legacy.error) return mapRows(legacy.data || []);
+        if (kind === 'workout') {
+          const bare = await run(sheetExerciseSelectBare(kind));
+          if (bare.error) throw legacy.error;
+          return mapRows(bare.data || []);
+        }
+        throw legacy.error;
       }
       throw first.error;
     },
@@ -258,21 +270,36 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
   const { data: allTemplateExerciseOptions = [] } = useQuery({
     queryKey: optionsQueryKey,
     queryFn: async () => {
+      const mapOptionRows = (rows: any[], filterPhase: boolean) => {
+        const seen = new Set<string>();
+        const out: { id: string; name: string }[] = [];
+        for (const row of rows) {
+          if (filterPhase && !isSummaryPhase(row.phase)) continue;
+          const id = row.exercise_id;
+          const name = row.exercises?.name ?? '';
+          if (!id || !name.trim() || seen.has(id)) continue;
+          seen.add(id);
+          out.push({ id, name });
+        }
+        return out;
+      };
+
       const { data, error } = await supabase
         .from(table as any)
-        .select('exercise_id, exercises ( id, name )')
+        .select(kind === 'workout' ? 'exercise_id, phase, exercises ( id, name )' : 'exercise_id, exercises ( id, name )')
         .eq(parentCol, parentId);
-      if (error) throw error;
-      const seen = new Set<string>();
-      const out: { id: string; name: string }[] = [];
-      for (const row of data ?? []) {
-        const id = row.exercise_id;
-        const name = row.exercises?.name ?? '';
-        if (!id || !name.trim() || seen.has(id)) continue;
-        seen.add(id);
-        out.push({ id, name });
+      if (error) {
+        if (kind === 'workout' && /phase|42703|PGRST204|schema cache/i.test(error.message)) {
+          const legacy = await supabase
+            .from(table as any)
+            .select('exercise_id, exercises ( id, name )')
+            .eq(parentCol, parentId);
+          if (legacy.error) throw legacy.error;
+          return mapOptionRows(legacy.data ?? [], false);
+        }
+        throw error;
       }
-      return out;
+      return mapOptionRows(data ?? [], kind === 'workout');
     },
     enabled: !!parentId,
   });

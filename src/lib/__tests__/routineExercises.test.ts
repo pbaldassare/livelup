@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { buildAssignedRoutineInsert } from '@/lib/api/assignedRoutines';
 import {
   canAddRoutineExercise,
+  nextRoutineOrderIndex,
   resolveRoutineExerciseIds,
   routineExerciseListPatch,
 } from '@/lib/pt/routineExercises';
@@ -54,5 +56,27 @@ describe('canAddRoutineExercise', () => {
     expect(canAddRoutineExercise(['a'], 'a')).toBe(false);
     expect(canAddRoutineExercise(['a'], '')).toBe(false);
     expect(canAddRoutineExercise(['a'], 'b')).toBe(true);
+  });
+});
+
+describe('nextRoutineOrderIndex', () => {
+  it('parte da 0 e continua dal massimo', () => {
+    expect(nextRoutineOrderIndex([])).toBe(0);
+    expect(nextRoutineOrderIndex([0, 2])).toBe(3);
+    expect(nextRoutineOrderIndex([0, 1, 5])).toBe(6);
+  });
+});
+
+describe('buildAssignedRoutineInsert', () => {
+  it('inserisce la fase warmup/cooldown sulla copia assegnata', () => {
+    expect(buildAssignedRoutineInsert('w1', 'warmup', 'e1', 4)).toMatchObject({
+      workout_id: 'w1',
+      exercise_id: 'e1',
+      order_index: 4,
+      prescribed_sets: 1,
+      prescribed_reps_min: 10,
+      protocol_type: 'SET',
+      phase: 'warmup',
+    });
   });
 });

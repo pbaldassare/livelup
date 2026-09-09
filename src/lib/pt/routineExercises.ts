@@ -45,4 +45,9 @@ export function canAddRoutineExercise(ids: string[], nextId: string): boolean {
   return ids.length < MAX_ROUTINE_EXERCISES;
 }
 
+export function nextRoutineOrderIndex(orders: number[]): number {
+  if (orders.length === 0) return 0;
+  return Math.max(...orders) + 1;
+}
+
 export { MAX_ROUTINE_EXERCISES };
