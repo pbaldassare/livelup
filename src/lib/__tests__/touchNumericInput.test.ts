@@ -19,6 +19,17 @@ describe('touchNumericInput', () => {
     expect(commitPositiveInt('0', 1, 1)).toBe(1);
   });
 
+  it('allows zero when min is 0', () => {
+    expect(commitPositiveInt('0', 1, 0)).toBe(0);
+    expect(commitPositiveInt('', 0, 0)).toBe(0);
+    expect(stepPositiveInt(0, -1, 0)).toBe(0);
+  });
+
+  it('clamps to max when provided', () => {
+    expect(commitPositiveInt('99', 1, 1, 10)).toBe(10);
+    expect(stepPositiveInt(10, 1, 1, 10)).toBe(10);
+  });
+
   it('steps without going below min', () => {
     expect(stepPositiveInt(11, -1, 1)).toBe(10);
     expect(stepPositiveInt(1, -1, 1)).toBe(1);

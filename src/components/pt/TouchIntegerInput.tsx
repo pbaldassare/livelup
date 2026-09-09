@@ -19,6 +19,8 @@ interface TouchIntegerInputProps {
   value: number | null | undefined;
   onCommit: (next: number) => void;
   min?: number;
+  max?: number;
+  step?: number;
   fallback?: number;
   id?: string;
   'aria-label'?: string;
@@ -30,6 +32,8 @@ export function TouchIntegerInput({
   value,
   onCommit,
   min = 1,
+  max,
+  step = 1,
   fallback = 1,
   id,
   'aria-label': ariaLabel,
@@ -58,7 +62,7 @@ export function TouchIntegerInput({
   };
 
   const commitDraft = (raw: string) => {
-    onCommit(commitPositiveInt(raw, fallback, min));
+    onCommit(commitPositiveInt(raw, fallback, min, max));
   };
 
   const clearDraft = () => {
@@ -70,16 +74,19 @@ export function TouchIntegerInput({
     }
   };
 
-  const stepBy = (delta: number) => {
+  const stepSize = Math.max(1, Math.floor(step));
+
+  const stepBy = (dir: 1 | -1) => {
     const emptyDraft = focused && draft.trim() === '';
-    const base = emptyDraft
-      ? delta > 0
-        ? min - 1
-        : min
-      : focused
-        ? commitPositiveInt(draft, value ?? fallback, min)
-        : (value ?? fallback);
-    const next = stepPositiveInt(base, delta, min);
+    if (emptyDraft) {
+      setDraft(String(min));
+      onCommit(min);
+      return;
+    }
+    const current = focused
+      ? commitPositiveInt(draft, value ?? fallback, min, max)
+      : (value ?? fallback);
+    const next = stepPositiveInt(current, dir * stepSize, min, max);
     setDraft(String(next));
     onCommit(next);
   };

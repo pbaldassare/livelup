@@ -35,6 +35,7 @@ import {
 import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
 import { ProtocolTargetField } from '@/components/pt/protocols/ProtocolTargetField';
 import { MobileNotesField } from '@/components/pt/MobileNotesField';
+import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 import { LoadField } from '@/components/pt/LoadField';
 import { getProtocolTargetMode } from '@/lib/protocols/exerciseTarget';
 import { getLoadMode } from '@/lib/loadPrescription';
@@ -228,38 +229,38 @@ export function SupersetEditor({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Numero esercizi</Label>
-          <Input
-            type="number"
-            min={1}
+          <TouchIntegerInput
             value={value.exercises_count}
-            onChange={(e) => setExercisesCount(Number(e.target.value) || 1)}
-            className="h-8"
+            min={1}
+            fallback={1}
+            aria-label="Numero esercizi"
+            onCommit={(n) => setExercisesCount(n)}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Numero superset</Label>
-          <Input
-            type="number"
-            min={1}
+          <TouchIntegerInput
             value={value.supersets_count}
-            onChange={(e) => setSupersetsCount(Number(e.target.value) || 1)}
-            className="h-8"
+            min={1}
+            fallback={1}
+            aria-label="Numero superset"
+            onCommit={(n) => setSupersetsCount(n)}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Recupero tra superset (s)</Label>
-          <Input
-            type="number"
+          <TouchIntegerInput
+            value={value.rest_between_supersets}
             min={0}
             step={5}
-            value={value.rest_between_supersets}
-            onChange={(e) => setRestBetweenSupersets(Number(e.target.value) || 0)}
-            className="h-8"
+            fallback={0}
+            aria-label="Recupero tra superset"
+            onCommit={(n) => setRestBetweenSupersets(n)}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Recupero tra esercizi</Label>
-          <div className="flex items-center gap-3 h-8">
+          <div className="flex flex-wrap items-center gap-3">
             <Switch
               checked={value.rest_between_exercises_enabled}
               onCheckedChange={(checked) =>
@@ -267,17 +268,14 @@ export function SupersetEditor({
               }
             />
             {value.rest_between_exercises_enabled && (
-              <Input
-                type="number"
+              <TouchIntegerInput
+                value={value.rest_between_exercises ?? 30}
                 min={0}
                 step={5}
-                value={value.rest_between_exercises ?? 30}
-                onChange={(e) => {
-                  const n = Math.max(0, Math.floor(Number(e.target.value) || 0));
-                  commit(value, { rest_between_exercises: n }, onChange);
-                }}
-                className="h-8 w-24"
-                placeholder="30"
+                fallback={30}
+                aria-label="Recupero tra esercizi"
+                className="flex-1 min-w-[160px]"
+                onCommit={(n) => commit(value, { rest_between_exercises: n }, onChange)}
               />
             )}
             {value.rest_between_exercises_enabled && (

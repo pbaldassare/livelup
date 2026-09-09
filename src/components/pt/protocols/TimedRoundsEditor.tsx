@@ -6,7 +6,6 @@
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   type TimedRoundsParams,
@@ -20,6 +19,7 @@ import {
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
 import { MobileNotesField } from '@/components/pt/MobileNotesField';
+import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 
 export type TimedRoundsExerciseOption = ProtocolExerciseOption;
 
@@ -75,15 +75,6 @@ export function TimedRoundsEditor({
     commit(value, { exercises }, onChange);
   };
 
-  const setNum = (
-    key: keyof TimedRoundsParams,
-    raw: string,
-    min: number,
-  ) => {
-    const n = Math.max(min, Math.floor(Number(raw) || 0));
-    commit(value, { [key]: n } as Partial<TimedRoundsParams>, onChange);
-  };
-
   return (
     <div className="rounded-md border bg-muted/20 p-2.5 space-y-3 min-w-0 max-w-full overflow-hidden">
       <p className="text-xs font-medium text-muted-foreground">Configurazione {title}</p>
@@ -92,55 +83,61 @@ export function TimedRoundsEditor({
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Numero esercizi</Label>
-          <Input
-            type="number"
-            min={1}
+          <TouchIntegerInput
             value={value.exercises_count}
-            onChange={(e) => setNum('exercises_count', e.target.value, 1)}
-            className="h-8"
+            min={1}
+            fallback={1}
+            aria-label="Numero esercizi"
+            onCommit={(n) => commit(value, { exercises_count: n }, onChange)}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Durata esercizio (s)</Label>
-          <Input
-            type="number"
+          <TouchIntegerInput
+            value={value.exercise_duration_seconds}
             min={1}
             step={5}
-            value={value.exercise_duration_seconds}
-            onChange={(e) => setNum('exercise_duration_seconds', e.target.value, 1)}
-            className="h-8"
+            fallback={45}
+            aria-label="Durata esercizio"
+            onCommit={(n) =>
+              commit(value, { exercise_duration_seconds: n }, onChange)
+            }
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Recupero tra esercizi (s)</Label>
-          <Input
-            type="number"
+          <TouchIntegerInput
+            value={value.rest_between_exercises_seconds}
             min={0}
             step={5}
-            value={value.rest_between_exercises_seconds}
-            onChange={(e) => setNum('rest_between_exercises_seconds', e.target.value, 0)}
-            className="h-8"
+            fallback={0}
+            aria-label="Recupero tra esercizi"
+            onCommit={(n) =>
+              commit(value, { rest_between_exercises_seconds: n }, onChange)
+            }
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Recupero tra round (s)</Label>
-          <Input
-            type="number"
+          <TouchIntegerInput
+            value={value.rest_between_rounds_seconds}
             min={0}
             step={5}
-            value={value.rest_between_rounds_seconds}
-            onChange={(e) => setNum('rest_between_rounds_seconds', e.target.value, 0)}
-            className="h-8"
+            fallback={0}
+            aria-label="Recupero tra round"
+            onCommit={(n) =>
+              commit(value, { rest_between_rounds_seconds: n }, onChange)
+            }
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Numero round</Label>
-          <Input
-            type="number"
-            min={1}
+          <TouchIntegerInput
             value={value.rounds}
-            onChange={(e) => setNum('rounds', e.target.value, 1)}
-            className="h-8"
+            min={1}
+            fallback={1}
+            aria-label="Numero round"
+            onCommit={(n) => commit(value, { rounds: n }, onChange)}
           />
         </div>
       </div>

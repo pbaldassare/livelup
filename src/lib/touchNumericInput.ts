@@ -7,26 +7,36 @@ export function sanitizeIntegerInput(raw: string): string {
   return raw.replace(/\D/g, '');
 }
 
+function clampInt(n: number, min: number, max?: number): number {
+  let next = Math.max(min, Math.floor(n));
+  if (typeof max === 'number' && Number.isFinite(max)) {
+    next = Math.min(max, next);
+  }
+  return next;
+}
+
 export function commitPositiveInt(
   raw: string,
   fallback: number,
   min = 1,
+  max?: number,
 ): number {
   const trimmed = raw.trim();
-  if (trimmed === '') return Math.max(min, fallback);
+  if (trimmed === '') return clampInt(fallback, min, max);
   const n = Number(trimmed);
-  if (!Number.isFinite(n) || n <= 0) return Math.max(min, fallback);
-  return Math.max(min, Math.floor(n));
+  if (!Number.isFinite(n)) return clampInt(fallback, min, max);
+  return clampInt(n, min, max);
 }
 
 export function stepPositiveInt(
   current: number | null | undefined,
   delta: number,
   min = 1,
+  max?: number,
 ): number {
   const base =
     typeof current === 'number' && Number.isFinite(current) ? Math.floor(current) : min;
-  return Math.max(min, base + delta);
+  return clampInt(base + delta, min, max);
 }
 
 export function formatCommittedInt(value: number | null | undefined): string {

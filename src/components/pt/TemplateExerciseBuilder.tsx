@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MobileNotesField } from '@/components/pt/MobileNotesField';
+import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Collapsible,
@@ -1259,36 +1260,33 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Serie</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.top_sets}
                                                   min={1}
-                                                  placeholder="1"
-                                                  value={params.top_sets ?? ''}
-                                                  onChange={(e) => updateParam('top_sets', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={1}
+                                                  aria-label="Serie Top Set"
+                                                  onCommit={(n) => updateParam('top_sets', n)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Reps</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.top_reps}
                                                   min={1}
-                                                  placeholder="5"
-                                                  value={params.top_reps ?? ''}
-                                                  onChange={(e) => updateParam('top_reps', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={5}
+                                                  aria-label="Reps Top Set"
+                                                  onCommit={(n) => updateParam('top_reps', n)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Recupero (s)</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.top_rest}
                                                   min={0}
                                                   step={15}
-                                                  placeholder="120"
-                                                  value={params.top_rest ?? ''}
-                                                  onChange={(e) => updateParam('top_rest', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={120}
+                                                  aria-label="Recupero Top Set"
+                                                  onCommit={(n) => updateParam('top_rest', n)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1334,24 +1332,22 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Serie</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.backoff_sets}
                                                   min={1}
-                                                  placeholder="3"
-                                                  value={params.backoff_sets ?? ''}
-                                                  onChange={(e) => updateParam('backoff_sets', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={3}
+                                                  aria-label="Serie Back Off"
+                                                  onCommit={(n) => updateParam('backoff_sets', n)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Reps</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.backoff_reps}
                                                   min={1}
-                                                  placeholder="8"
-                                                  value={params.backoff_reps ?? ''}
-                                                  onChange={(e) => updateParam('backoff_reps', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={8}
+                                                  aria-label="Reps Back Off"
+                                                  onCommit={(n) => updateParam('backoff_reps', n)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1368,14 +1364,13 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                               </div>
                                               <div className="space-y-1">
                                                 <Label className="text-xs">% riduzione</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.backoff_percentage}
                                                   min={1}
                                                   max={90}
-                                                  placeholder="20"
-                                                  value={params.backoff_percentage ?? ''}
-                                                  onChange={(e) => updateParam('backoff_percentage', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={20}
+                                                  aria-label="Percentuale riduzione Back Off"
+                                                  onCommit={(n) => updateParam('backoff_percentage', n)}
                                                 />
                                               </div>
                                             </div>
@@ -1619,6 +1614,23 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   aria-label={f.label}
                                                   onChange={(raw) => {
                                                     const next = setNested(params, f.key, raw);
+                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                  }}
+                                                />
+                                              ) : f.type === 'number' ? (
+                                                <TouchIntegerInput
+                                                  value={typeof val === 'number' && Number.isFinite(val) ? val : null}
+                                                  min={f.min ?? 0}
+                                                  max={f.max}
+                                                  step={typeof f.step === 'number' && f.step >= 1 ? f.step : 1}
+                                                  fallback={
+                                                    typeof val === 'number' && Number.isFinite(val)
+                                                      ? val
+                                                      : (f.min ?? 0)
+                                                  }
+                                                  aria-label={f.label}
+                                                  onCommit={(n) => {
+                                                    const next = setNested(params, f.key, n);
                                                     updateProtocolParamMutation.mutate({ id: te.id, params: next });
                                                   }}
                                                 />
