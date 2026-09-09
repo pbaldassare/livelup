@@ -9,6 +9,11 @@ import { normalizeAmrapParams } from '@/lib/protocols/amrap';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
 import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { normalizeTimedRoundsParams } from '@/lib/protocols/timedRounds';
+import {
+  emptyNestedExerciseSlots,
+  emptySlotCountForProtocol,
+  hasGenericNestedExercises,
+} from '@/lib/protocols/nestedExercises';
 
 /** Cast finché Lovable non rigenera types.ts */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -465,7 +470,7 @@ export function seedParamsWithHostExercise(
     }
   }
 
-  if (type === 'AMRAP' || type === 'HIIT' || type === 'TABATA' || type === 'RXT' || type === 'RUNNING_TOTAL') {
+  if (type === 'AMRAP' || type === 'HIIT' || type === 'TABATA' || hasGenericNestedExercises(type)) {
     const exercises = Array.isArray(params.exercises) ? params.exercises : [];
     if (exercises.length === 0) {
       params.exercises = [
@@ -530,6 +535,15 @@ export function seedEmptyProtocolParams(
       exercises_count: Math.max(2, Number(base.exercises_count) || 1),
       exercises: [],
     }) as unknown as ProtocolParams;
+  }
+
+  if (hasGenericNestedExercises(type)) {
+    const exercises = emptyNestedExerciseSlots(emptySlotCountForProtocol(type));
+    return {
+      ...base,
+      exercises,
+      exercises_count: exercises.length,
+    } as ProtocolParams;
   }
 
   return base as ProtocolParams;

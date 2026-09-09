@@ -76,10 +76,15 @@ import { EmomBlocksEditor } from '@/components/pt/protocols/EmomBlocksEditor';
 import { AmrapEditor } from '@/components/pt/protocols/AmrapEditor';
 import { SupersetEditor } from '@/components/pt/protocols/SupersetEditor';
 import { TimedRoundsEditor } from '@/components/pt/protocols/TimedRoundsEditor';
+import { ProtocolNestedExercisesEditor } from '@/components/pt/protocols/ProtocolNestedExercisesEditor';
 import { normalizeTimedRoundsParams } from '@/lib/protocols/timedRounds';
 import { normalizeAmrapParams } from '@/lib/protocols/amrap';
 import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
+import {
+  normalizeNestedExercises,
+  withNestedExercises,
+} from '@/lib/protocols/nestedExercises';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
 import {
   useExerciseCatalogs,
@@ -877,6 +882,14 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     return out;
   }, [allTemplateExerciseOptions, protocolExerciseArchive]);
 
+  const protocolPickerProps = {
+    workoutExerciseOptions: allTemplateExerciseOptions,
+    favoriteExerciseOptions: protocolExerciseArchive.favoriteOptions,
+    mineExerciseOptions: protocolExerciseArchive.mineOptions,
+    globalExerciseOptions: protocolExerciseArchive.globalOptions,
+    catalogOptions: protocolCatalogOptions,
+  };
+
   const protocolCount = templateExercises.filter((te) => isProtocolType(te.protocol_type)).length;
   const exerciseCount = templateExercises.length - protocolCount;
 
@@ -1049,6 +1062,16 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                           <p className="text-sm text-muted-foreground truncate">
                                             Protocollo · {def.label}
                                             {(() => {
+                                              const nestedNames = (
+                                                Array.isArray(
+                                                  (te.protocol_params as ProtocolParams | null)?.exercises,
+                                                )
+                                                  ? (te.protocol_params as ProtocolParams).exercises!
+                                                  : []
+                                              )
+                                                .map((ex) => ex?.name?.trim())
+                                                .filter((n): n is string => !!n);
+                                              if (nestedNames.length) return ` · ${nestedNames.join(', ')}`;
                                               // Nasconde il placeholder FK silenzioso finché non c’è un esercizio annidato
                                               const nestedHost = resolveHostExerciseId({
                                                 ...(te.protocol_params as Record<string, unknown>),
@@ -1216,6 +1239,16 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                     return (
                                       <div className="space-y-3">
                                         {nameField}
+                                        <ProtocolNestedExercisesEditor
+                                          exercises={normalizeNestedExercises(
+                                            params as Record<string, unknown>,
+                                            { stableIdPrefix: te.id },
+                                          )}
+                                          onChange={(exercises) =>
+                                            commit(withNestedExercises(params, exercises))
+                                          }
+                                          {...protocolPickerProps}
+                                        />
                                         <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                           <p className="text-xs font-medium text-muted-foreground">
                                             Parametri Top Set + Back Off
@@ -1484,6 +1517,19 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                   return (
                                     <div className="space-y-3">
                                     {nameField}
+                                    <ProtocolNestedExercisesEditor
+                                      exercises={normalizeNestedExercises(
+                                        params as Record<string, unknown>,
+                                        { stableIdPrefix: te.id },
+                                      )}
+                                      onChange={(exercises) => {
+                                        updateProtocolParamMutation.mutate({
+                                          id: te.id,
+                                          params: withNestedExercises(params, exercises),
+                                        });
+                                      }}
+                                      {...protocolPickerProps}
+                                    />
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
                                         Parametri {def.label}
