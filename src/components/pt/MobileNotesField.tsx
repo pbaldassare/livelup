@@ -17,6 +17,7 @@ interface MobileNotesFieldProps {
   'aria-label'?: string;
   className?: string;
   rows?: number;
+  disabled?: boolean;
 }
 
 export function MobileNotesField({
@@ -28,6 +29,7 @@ export function MobileNotesField({
   'aria-label': ariaLabel,
   className,
   rows = 4,
+  disabled = false,
 }: MobileNotesFieldProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const canClear = value.trim().length > 0;
@@ -45,6 +47,7 @@ export function MobileNotesField({
         autoCapitalize="sentences"
         autoCorrect="on"
         spellCheck
+        disabled={disabled}
         onFocus={(e) => {
           e.currentTarget.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
         }}
@@ -52,7 +55,7 @@ export function MobileNotesField({
         onChange={(e) => onChange(e.target.value)}
         className="min-h-[96px] resize-y pr-10 text-base leading-relaxed md:min-h-[80px] md:text-sm"
       />
-      {canClear && (
+      {canClear && !disabled && (
         <button
           type="button"
           className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"

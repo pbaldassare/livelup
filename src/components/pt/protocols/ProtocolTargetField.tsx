@@ -21,6 +21,7 @@ interface ProtocolTargetFieldProps {
   label?: string | null;
   inputClassName?: string;
   showLabel?: boolean;
+  compact?: boolean;
   id?: string;
 }
 
@@ -31,6 +32,7 @@ export function ProtocolTargetField({
   label = 'Target',
   inputClassName,
   showLabel = true,
+  compact = false,
   id,
 }: ProtocolTargetFieldProps) {
   const mode = getProtocolTargetMode(value);
@@ -85,6 +87,7 @@ export function ProtocolTargetField({
           onCommit={commitNumber}
           min={1}
           fallback={1}
+          compact={compact}
           aria-label={mode === 'seconds' ? 'Secondi' : 'Reps'}
           inputClassName={inputClassName}
         />

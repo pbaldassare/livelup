@@ -1724,22 +1724,22 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                           const tempoParts = (te.tempo || '').split('-');
                                           const labels = ['Ecc.', 'Pausa', 'Conc.', 'Pausa'];
                                           return labels.map((label, i) => (
-                                            <div key={i} className="flex-1">
-                                              <Input
-                                                type="number"
+                                            <div key={i} className="flex-1 min-w-0">
+                                              <TouchIntegerInput
+                                                compact
                                                 min={0}
                                                 max={9}
-                                                placeholder="0"
-                                                value={tempoParts[i] || ''}
-                                                onChange={(e) => {
+                                                fallback={0}
+                                                value={Number.parseInt(tempoParts[i] || '0', 10) || 0}
+                                                aria-label={label}
+                                                onCommit={(n) => {
                                                   const newParts = [...(te.tempo || '0-0-0-0').split('-')];
                                                   while (newParts.length < 4) newParts.push('0');
-                                                  newParts[i] = e.target.value || '0';
+                                                  newParts[i] = String(n);
                                                   const tempo = newParts.join('-');
                                                   patchExerciseInCache(te.id, { tempo });
                                                   scheduleExerciseFieldUpdate(te.id, { tempo });
                                                 }}
-                                                className="h-8 text-center px-1"
                                               />
                                               <span className="text-[10px] text-muted-foreground text-center block mt-0.5">{label}</span>
                                             </div>
@@ -1848,12 +1848,6 @@ function SetsTable({ te, onChange }: SetsTableProps) {
     onChange(sets.filter((_, i) => i !== idx));
   };
 
-  const parseNum = (v: string): number | null => {
-    if (v === '') return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-
   return (
     <div className="rounded-md border bg-muted/20 p-2">
       <div className="flex items-center mb-2">
@@ -1917,24 +1911,27 @@ function SetsTable({ te, onChange }: SetsTableProps) {
                           Sec
                         </button>
                       </div>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={
-                          mode === 'seconds'
-                            ? (s.duration_seconds ?? '')
-                            : (s.reps ?? '')
-                        }
-                        onChange={(e) => {
-                          const n = parseNum(e.target.value);
+                      <TouchIntegerInput
+                        compact
+                        min={0}
+                        allowEmpty
+                        value={mode === 'seconds' ? s.duration_seconds : s.reps}
+                        fallback={mode === 'seconds' ? 20 : 10}
+                        aria-label={mode === 'seconds' ? `Secondi set ${i + 1}` : `Reps set ${i + 1}`}
+                        onCommit={(n) => {
                           if (mode === 'seconds') {
                             updateSet(i, { mode: 'seconds', duration_seconds: n, reps: null });
                           } else {
                             updateSet(i, { mode: 'reps', reps: n, duration_seconds: null });
                           }
                         }}
-                        className="h-8 text-center px-1"
-                        aria-label={mode === 'seconds' ? `Secondi set ${i + 1}` : `Reps set ${i + 1}`}
+                        onEmptyCommit={() => {
+                          if (mode === 'seconds') {
+                            updateSet(i, { mode: 'seconds', duration_seconds: null, reps: null });
+                          } else {
+                            updateSet(i, { mode: 'reps', reps: null, duration_seconds: null });
+                          }
+                        }}
                       />
                     </div>
                   </td>
@@ -1962,12 +1959,15 @@ function SetsTable({ te, onChange }: SetsTableProps) {
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Rec (s)</td>
               {sets.map((s, i) => (
                 <td key={i} className="px-1 py-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={s.rest_seconds ?? ''}
-                    onChange={(e) => updateSet(i, { rest_seconds: parseNum(e.target.value) })}
-                    className="h-8 text-center px-1"
+                  <TouchIntegerInput
+                    compact
+                    min={0}
+                    allowEmpty
+                    value={s.rest_seconds}
+                    fallback={0}
+                    aria-label={`Recupero set ${i + 1}`}
+                    onCommit={(n) => updateSet(i, { rest_seconds: n })}
+                    onEmptyCommit={() => updateSet(i, { rest_seconds: null })}
                   />
                 </td>
               ))}
@@ -2202,12 +2202,6 @@ interface TopSetBackoffTableProps {
 }
 
 function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }: TopSetBackoffTableProps) {
-  const parseNum = (v: string): number | null => {
-    if (v === '') return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-
   if (sets.length === 0) {
     return (
       <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
@@ -2252,12 +2246,15 @@ function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Reps</td>
               {sets.map((s, i) => (
                 <td key={i} className="px-1 py-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={s.reps ?? ''}
-                    onChange={(e) => onCellChange(i, { reps: parseNum(e.target.value) })}
-                    className="h-8 text-center px-1"
+                  <TouchIntegerInput
+                    compact
+                    min={0}
+                    allowEmpty
+                    value={s.reps}
+                    fallback={1}
+                    aria-label={`Reps set ${i + 1}`}
+                    onCommit={(n) => onCellChange(i, { reps: n })}
+                    onEmptyCommit={() => onCellChange(i, { reps: null })}
                   />
                 </td>
               ))}
@@ -2288,12 +2285,15 @@ function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Rec (s)</td>
               {sets.map((s, i) => (
                 <td key={i} className="px-1 py-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={s.rest_seconds ?? ''}
-                    onChange={(e) => onCellChange(i, { rest_seconds: parseNum(e.target.value) })}
-                    className="h-8 text-center px-1"
+                  <TouchIntegerInput
+                    compact
+                    min={0}
+                    allowEmpty
+                    value={s.rest_seconds}
+                    fallback={0}
+                    aria-label={`Recupero set ${i + 1}`}
+                    onCommit={(n) => onCellChange(i, { rest_seconds: n })}
+                    onEmptyCommit={() => onCellChange(i, { rest_seconds: null })}
                   />
                 </td>
               ))}

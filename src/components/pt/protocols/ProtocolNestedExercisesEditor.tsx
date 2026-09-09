@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   type NestedProtocolExercise,
   makeNestedExercise,
@@ -14,6 +15,7 @@ import {
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
 import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
+import { MobileNotesField } from '@/components/pt/MobileNotesField';
 
 interface ProtocolNestedExercisesEditorProps extends ProtocolExercisePickerProps {
   exercises: NestedProtocolExercise[];
@@ -76,7 +78,17 @@ export function ProtocolNestedExercisesEditor({
           onRemove={() => removeExercise(eIdx)}
           autoOpen={autoOpenIndex === eIdx}
           onAutoOpenConsumed={() => setAutoOpenIndex(null)}
-        />
+        >
+          <div className="space-y-0.5">
+            <Label className="text-[10px] text-muted-foreground">Note (opzionali)</Label>
+            <MobileNotesField
+              value={ex.notes ?? ''}
+              rows={3}
+              placeholder="Es. focus tecnica, variazione, intensità…"
+              onChange={(raw) => updateExercise(eIdx, { notes: raw })}
+            />
+          </div>
+        </ProtocolExerciseRow>
       ))}
       <Button
         type="button"

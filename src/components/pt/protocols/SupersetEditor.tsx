@@ -9,7 +9,6 @@
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -373,7 +372,7 @@ export function SupersetEditor({
                         <ProtocolTargetField
                           value={cell}
                           showLabel={false}
-                          inputClassName="h-7 text-xs px-1.5"
+                          compact
                           onChange={(next) => updateCell(rIdx, cIdx, next)}
                         />
                         <LoadField
@@ -382,23 +381,15 @@ export function SupersetEditor({
                           value={cell}
                           onChange={(load) => updateCell(rIdx, cIdx, load)}
                         />
-                        <div className="grid grid-cols-1 gap-1">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={5}
-                            value={cell.rest_seconds}
-                            onChange={(e) => {
-                              const n = Number(e.target.value);
-                              updateCell(rIdx, cIdx, {
-                                rest_seconds: Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0,
-                              });
-                            }}
-                            className="h-7 text-xs px-1.5"
-                            aria-label={`Recupero Set ${cIdx + 1}`}
-                            title="rec (s)"
-                          />
-                        </div>
+                        <TouchIntegerInput
+                          compact
+                          min={0}
+                          step={5}
+                          fallback={0}
+                          value={cell.rest_seconds}
+                          aria-label={`Recupero Set ${cIdx + 1}`}
+                          onCommit={(n) => updateCell(rIdx, cIdx, { rest_seconds: n })}
+                        />
                       </div>
                     </TableCell>
                   ))}

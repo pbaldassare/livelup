@@ -8,10 +8,11 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Save } from 'lucide-react';
+import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
+import { MobileNotesField } from '@/components/pt/MobileNotesField';
 
 export interface ImportedExercise {
   name: string;
@@ -88,12 +89,6 @@ export function ReviewImportedTemplateDialog({
 
   const removeExercise = (idx: number) =>
     setExercises((prev) => prev.filter((_, i) => i !== idx));
-
-  const parseNum = (v: string): number | null => {
-    if (v === '' || v == null) return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
 
   return (
     <Dialog
@@ -183,72 +178,61 @@ export function ReviewImportedTemplateDialog({
                       <Label className="text-xs text-muted-foreground">
                         Serie
                       </Label>
-                      <Input
-                        type="number"
+                      <TouchIntegerInput
+                        compact
                         min={1}
-                        value={ex.sets ?? ''}
-                        onChange={(e) =>
-                          updateExercise(idx, {
-                            sets: parseNum(e.target.value) ?? 0,
-                          })
-                        }
+                        fallback={3}
+                        value={ex.sets}
                         disabled={isSaving}
+                        aria-label={`Serie ${ex.name || idx + 1}`}
+                        onCommit={(n) => updateExercise(idx, { sets: n })}
                       />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">
                         Ripetizioni
                       </Label>
-                      <Input
-                        type="number"
+                      <TouchIntegerInput
+                        compact
                         min={0}
-                        value={ex.reps ?? ''}
-                        onChange={(e) =>
-                          updateExercise(idx, { reps: parseNum(e.target.value) })
-                        }
+                        allowEmpty
+                        fallback={10}
+                        value={ex.reps}
                         disabled={isSaving}
+                        aria-label={`Ripetizioni ${ex.name || idx + 1}`}
+                        onCommit={(n) => updateExercise(idx, { reps: n })}
+                        onEmptyCommit={() => updateExercise(idx, { reps: null })}
                       />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">
                         Recupero (s)
                       </Label>
-                      <Input
-                        type="number"
+                      <TouchIntegerInput
+                        compact
                         min={0}
-                        value={ex.rest_seconds ?? ''}
-                        onChange={(e) =>
-                          updateExercise(idx, {
-                            rest_seconds: parseNum(e.target.value),
-                          })
-                        }
+                        allowEmpty
+                        fallback={60}
+                        value={ex.rest_seconds}
                         disabled={isSaving}
+                        aria-label={`Recupero ${ex.name || idx + 1}`}
+                        onCommit={(n) => updateExercise(idx, { rest_seconds: n })}
+                        onEmptyCommit={() =>
+                          updateExercise(idx, { rest_seconds: null })
+                        }
                       />
                     </div>
                   </div>
 
-                  {(ex.notes || ex.notes === '') && (
-                    <Textarea
-                      value={ex.notes ?? ''}
-                      onChange={(e) =>
-                        updateExercise(idx, { notes: e.target.value || null })
-                      }
-                      placeholder="Note..."
-                      className="min-h-[50px] text-sm"
-                      disabled={isSaving}
-                    />
-                  )}
-                  {!ex.notes && ex.notes !== '' && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs text-muted-foreground"
-                      onClick={() => updateExercise(idx, { notes: '' })}
-                      disabled={isSaving}
-                    >
-                      + Aggiungi note
-                    </Button>
-                  )}
+                  <MobileNotesField
+                    value={ex.notes ?? ''}
+                    placeholder="Note..."
+                    rows={3}
+                    disabled={isSaving}
+                    onChange={(raw) =>
+                      updateExercise(idx, { notes: raw || null })
+                    }
+                  />
                 </div>
               ))}
             </div>

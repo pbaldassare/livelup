@@ -41,6 +41,13 @@ describe('ProtocolNestedExercisesEditor', () => {
     expect(screen.getAllByText('Esercizio')).toHaveLength(2);
   });
 
+  it('mostra un campo note su ogni esercizio', () => {
+    render(
+      <Harness initial={[makeNestedExercise({ id: 'n1', name: 'Trazioni' })]} />,
+    );
+    expect(screen.getByPlaceholderText('Es. focus tecnica, variazione, intensità…')).toBeInTheDocument();
+  });
+
   it('non elimina l’unico esercizio', () => {
     render(
       <Harness initial={[makeNestedExercise({ id: 'n1', name: 'Trazioni' })]} />,

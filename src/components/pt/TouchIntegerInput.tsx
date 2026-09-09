@@ -18,11 +18,17 @@ import {
 interface TouchIntegerInputProps {
   value: number | null | undefined;
   onCommit: (next: number) => void;
+  /** Se true e il campo è vuoto al blur, chiama onEmptyCommit invece del fallback. */
+  allowEmpty?: boolean;
+  onEmptyCommit?: () => void;
   min?: number;
   max?: number;
   step?: number;
   fallback?: number;
   id?: string;
+  disabled?: boolean;
+  /** Senza −/+: per celle tabella. Stesso svuota / riscrivi / X. */
+  compact?: boolean;
   'aria-label'?: string;
   className?: string;
   inputClassName?: string;
@@ -31,11 +37,15 @@ interface TouchIntegerInputProps {
 export function TouchIntegerInput({
   value,
   onCommit,
+  allowEmpty = false,
+  onEmptyCommit,
   min = 1,
   max,
   step = 1,
   fallback = 1,
   id,
+  disabled = false,
+  compact = false,
   'aria-label': ariaLabel,
   className,
   inputClassName,
@@ -62,6 +72,10 @@ export function TouchIntegerInput({
   };
 
   const commitDraft = (raw: string) => {
+    if (allowEmpty && raw.trim() === '') {
+      onEmptyCommit?.();
+      return;
+    }
     onCommit(commitPositiveInt(raw, fallback, min, max));
   };
 
@@ -93,16 +107,19 @@ export function TouchIntegerInput({
 
   return (
     <div className={cn('flex items-center gap-1', className)}>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="h-10 w-10 shrink-0"
-        aria-label="Diminuisci"
-        onClick={() => stepBy(-1)}
-      >
-        <Minus className="h-4 w-4" />
-      </Button>
+      {!compact && (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          disabled={disabled}
+          className="h-10 w-10 shrink-0"
+          aria-label="Diminuisci"
+          onClick={() => stepBy(-1)}
+        >
+          <Minus className="h-4 w-4" />
+        </Button>
+      )}
 
       <div className="relative min-w-0 flex-1">
         <Input
@@ -114,6 +131,7 @@ export function TouchIntegerInput({
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
+          disabled={disabled}
           value={shown}
           aria-label={ariaLabel}
           onFocus={() => {
@@ -132,13 +150,22 @@ export function TouchIntegerInput({
           onChange={(e) => {
             setDraft(sanitizeIntegerInput(e.target.value));
           }}
-          className={cn('h-10 pr-10 text-center text-base tabular-nums md:text-sm', inputClassName)}
+          className={cn(
+            'text-center tabular-nums',
+            compact
+              ? 'h-8 pr-8 text-base md:text-xs'
+              : 'h-10 pr-10 text-base md:text-sm',
+            inputClassName,
+          )}
         />
-        {canClear && (
+        {canClear && !disabled && (
           <button
             type="button"
             tabIndex={-1}
-            className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            className={cn(
+              'absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground',
+              compact ? 'h-7 w-7' : 'h-8 w-8',
+            )}
             aria-label="Cancella numero"
             onPointerDown={(e) => {
               e.preventDefault();
@@ -149,21 +176,24 @@ export function TouchIntegerInput({
               clearDraft();
             }}
           >
-            <X className="h-3.5 w-3.5" />
+            <X className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
           </button>
         )}
       </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="h-10 w-10 shrink-0"
-        aria-label="Aumenta"
-        onClick={() => stepBy(1)}
-      >
-        <Plus className="h-4 w-4" />
-      </Button>
+      {!compact && (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          disabled={disabled}
+          className="h-10 w-10 shrink-0"
+          aria-label="Aumenta"
+          onClick={() => stepBy(1)}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 }
