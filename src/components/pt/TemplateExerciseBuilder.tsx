@@ -5,7 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MobileNotesField } from '@/components/pt/MobileNotesField';
+import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Collapsible,
@@ -76,10 +77,15 @@ import { EmomBlocksEditor } from '@/components/pt/protocols/EmomBlocksEditor';
 import { AmrapEditor } from '@/components/pt/protocols/AmrapEditor';
 import { SupersetEditor } from '@/components/pt/protocols/SupersetEditor';
 import { TimedRoundsEditor } from '@/components/pt/protocols/TimedRoundsEditor';
+import { ProtocolNestedExercisesEditor } from '@/components/pt/protocols/ProtocolNestedExercisesEditor';
 import { normalizeTimedRoundsParams } from '@/lib/protocols/timedRounds';
 import { normalizeAmrapParams } from '@/lib/protocols/amrap';
 import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { normalizeEmomParams } from '@/lib/protocols/emom';
+import {
+  normalizeNestedExercises,
+  withNestedExercises,
+} from '@/lib/protocols/nestedExercises';
 import { useFavoriteIds } from '@/hooks/usePTFavoriteExercises';
 import {
   useExerciseCatalogs,
@@ -112,12 +118,14 @@ import {
 import {
   normalizeSheetExerciseRow,
   sheetExerciseSelect,
+  sheetExerciseSelectBare,
   sheetExercisesTable,
   sheetParentColumn,
   toSheetExerciseInsert,
   toSheetExerciseUpdate,
   type SheetKind,
 } from '@/lib/api/sheetSequence';
+import { isSummaryPhase } from '@/lib/pt/templateRoles';
 
 // =====================================================
 // TEMPLATE SEQUENCE BUILDER
@@ -221,8 +229,13 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
   const { data: templateExercises = [], isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
-      const mapRows = (data: any[]) =>
-        data.map((te) => normalizeSheetExerciseRow(kind, te)) as unknown as TemplateExercise[];
+      const mapRows = (data: any[]) => {
+        const mapped = data.map((te) =>
+          normalizeSheetExerciseRow(kind, te),
+        ) as unknown as TemplateExercise[];
+        if (kind !== 'workout') return mapped;
+        return mapped.filter((te) => isSummaryPhase((te as { phase?: string | null }).phase));
+      };
 
       const run = async (select: string) => {
         let q = supabase
@@ -237,10 +250,15 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
 
       const first = await run(sheetExerciseSelect(kind));
       if (!first.error) return mapRows(first.data || []);
-      if (/protocol_name|library_protocol_id|42703|PGRST204|schema cache/i.test(first.error.message)) {
+      if (/protocol_name|library_protocol_id|phase|42703|PGRST204|schema cache/i.test(first.error.message)) {
         const legacy = await run(sheetExerciseSelect(kind, true));
-        if (legacy.error) throw legacy.error;
-        return mapRows(legacy.data || []);
+        if (!legacy.error) return mapRows(legacy.data || []);
+        if (kind === 'workout') {
+          const bare = await run(sheetExerciseSelectBare(kind));
+          if (bare.error) throw legacy.error;
+          return mapRows(bare.data || []);
+        }
+        throw legacy.error;
       }
       throw first.error;
     },
@@ -252,21 +270,36 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
   const { data: allTemplateExerciseOptions = [] } = useQuery({
     queryKey: optionsQueryKey,
     queryFn: async () => {
+      const mapOptionRows = (rows: any[], filterPhase: boolean) => {
+        const seen = new Set<string>();
+        const out: { id: string; name: string }[] = [];
+        for (const row of rows) {
+          if (filterPhase && !isSummaryPhase(row.phase)) continue;
+          const id = row.exercise_id;
+          const name = row.exercises?.name ?? '';
+          if (!id || !name.trim() || seen.has(id)) continue;
+          seen.add(id);
+          out.push({ id, name });
+        }
+        return out;
+      };
+
       const { data, error } = await supabase
         .from(table as any)
-        .select('exercise_id, exercises ( id, name )')
+        .select(kind === 'workout' ? 'exercise_id, phase, exercises ( id, name )' : 'exercise_id, exercises ( id, name )')
         .eq(parentCol, parentId);
-      if (error) throw error;
-      const seen = new Set<string>();
-      const out: { id: string; name: string }[] = [];
-      for (const row of data ?? []) {
-        const id = row.exercise_id;
-        const name = row.exercises?.name ?? '';
-        if (!id || !name.trim() || seen.has(id)) continue;
-        seen.add(id);
-        out.push({ id, name });
+      if (error) {
+        if (kind === 'workout' && /phase|42703|PGRST204|schema cache/i.test(error.message)) {
+          const legacy = await supabase
+            .from(table as any)
+            .select('exercise_id, exercises ( id, name )')
+            .eq(parentCol, parentId);
+          if (legacy.error) throw legacy.error;
+          return mapOptionRows(legacy.data ?? [], false);
+        }
+        throw error;
       }
-      return out;
+      return mapOptionRows(data ?? [], kind === 'workout');
     },
     enabled: !!parentId,
   });
@@ -877,6 +910,14 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     return out;
   }, [allTemplateExerciseOptions, protocolExerciseArchive]);
 
+  const protocolPickerProps = {
+    workoutExerciseOptions: allTemplateExerciseOptions,
+    favoriteExerciseOptions: protocolExerciseArchive.favoriteOptions,
+    mineExerciseOptions: protocolExerciseArchive.mineOptions,
+    globalExerciseOptions: protocolExerciseArchive.globalOptions,
+    catalogOptions: protocolCatalogOptions,
+  };
+
   const protocolCount = templateExercises.filter((te) => isProtocolType(te.protocol_type)).length;
   const exerciseCount = templateExercises.length - protocolCount;
 
@@ -1049,6 +1090,16 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                           <p className="text-sm text-muted-foreground truncate">
                                             Protocollo · {def.label}
                                             {(() => {
+                                              const nestedNames = (
+                                                Array.isArray(
+                                                  (te.protocol_params as ProtocolParams | null)?.exercises,
+                                                )
+                                                  ? (te.protocol_params as ProtocolParams).exercises!
+                                                  : []
+                                              )
+                                                .map((ex) => ex?.name?.trim())
+                                                .filter((n): n is string => !!n);
+                                              if (nestedNames.length) return ` · ${nestedNames.join(', ')}`;
                                               // Nasconde il placeholder FK silenzioso finché non c’è un esercizio annidato
                                               const nestedHost = resolveHostExerciseId({
                                                 ...(te.protocol_params as Record<string, unknown>),
@@ -1216,6 +1267,16 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                     return (
                                       <div className="space-y-3">
                                         {nameField}
+                                        <ProtocolNestedExercisesEditor
+                                          exercises={normalizeNestedExercises(
+                                            params as Record<string, unknown>,
+                                            { stableIdPrefix: te.id },
+                                          )}
+                                          onChange={(exercises) =>
+                                            commit(withNestedExercises(params, exercises))
+                                          }
+                                          {...protocolPickerProps}
+                                        />
                                         <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                           <p className="text-xs font-medium text-muted-foreground">
                                             Parametri Top Set + Back Off
@@ -1226,36 +1287,33 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Serie</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.top_sets}
                                                   min={1}
-                                                  placeholder="1"
-                                                  value={params.top_sets ?? ''}
-                                                  onChange={(e) => updateParam('top_sets', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={1}
+                                                  aria-label="Serie Top Set"
+                                                  onCommit={(n) => updateParam('top_sets', n)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Reps</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.top_reps}
                                                   min={1}
-                                                  placeholder="5"
-                                                  value={params.top_reps ?? ''}
-                                                  onChange={(e) => updateParam('top_reps', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={5}
+                                                  aria-label="Reps Top Set"
+                                                  onCommit={(n) => updateParam('top_reps', n)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Recupero (s)</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.top_rest}
                                                   min={0}
                                                   step={15}
-                                                  placeholder="120"
-                                                  value={params.top_rest ?? ''}
-                                                  onChange={(e) => updateParam('top_rest', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={120}
+                                                  aria-label="Recupero Top Set"
+                                                  onCommit={(n) => updateParam('top_rest', n)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1301,24 +1359,22 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Serie</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.backoff_sets}
                                                   min={1}
-                                                  placeholder="3"
-                                                  value={params.backoff_sets ?? ''}
-                                                  onChange={(e) => updateParam('backoff_sets', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={3}
+                                                  aria-label="Serie Back Off"
+                                                  onCommit={(n) => updateParam('backoff_sets', n)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Reps</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.backoff_reps}
                                                   min={1}
-                                                  placeholder="8"
-                                                  value={params.backoff_reps ?? ''}
-                                                  onChange={(e) => updateParam('backoff_reps', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={8}
+                                                  aria-label="Reps Back Off"
+                                                  onCommit={(n) => updateParam('backoff_reps', n)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1335,14 +1391,13 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                               </div>
                                               <div className="space-y-1">
                                                 <Label className="text-xs">% riduzione</Label>
-                                                <Input
-                                                  type="number"
+                                                <TouchIntegerInput
+                                                  value={params.backoff_percentage}
                                                   min={1}
                                                   max={90}
-                                                  placeholder="20"
-                                                  value={params.backoff_percentage ?? ''}
-                                                  onChange={(e) => updateParam('backoff_percentage', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  fallback={20}
+                                                  aria-label="Percentuale riduzione Back Off"
+                                                  onCommit={(n) => updateParam('backoff_percentage', n)}
                                                 />
                                               </div>
                                             </div>
@@ -1484,6 +1539,19 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                   return (
                                     <div className="space-y-3">
                                     {nameField}
+                                    <ProtocolNestedExercisesEditor
+                                      exercises={normalizeNestedExercises(
+                                        params as Record<string, unknown>,
+                                        { stableIdPrefix: te.id },
+                                      )}
+                                      onChange={(exercises) => {
+                                        updateProtocolParamMutation.mutate({
+                                          id: te.id,
+                                          params: withNestedExercises(params, exercises),
+                                        });
+                                      }}
+                                      {...protocolPickerProps}
+                                    />
                                     <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                                       <p className="text-xs font-medium text-muted-foreground">
                                         Parametri {def.label}
@@ -1493,7 +1561,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                           .filter((f) => !f.showWhen || f.showWhen(params))
                                           .map((f) => {
                                           const val = getNested(params, f.key);
-                                          const isWide = f.type === 'text' || f.type === 'select' || f.type === 'exercise_select' || f.type === 'number_list';
+                                          const isWide = f.type === 'text' || f.type === 'textarea' || f.type === 'select' || f.type === 'exercise_select' || f.type === 'number_list';
                                           return (
                                             <div key={f.key} className={cn('space-y-1', isWide && 'col-span-2 md:col-span-3')}>
                                               <Label className="text-xs">{f.label}</Label>
@@ -1565,6 +1633,33 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                     updateProtocolParamMutation.mutate({ id: te.id, params: next });
                                                   }}
                                                   className="h-8"
+                                                />
+                                              ) : f.type === 'textarea' ? (
+                                                <MobileNotesField
+                                                  value={(val as string) ?? ''}
+                                                  placeholder={f.placeholder}
+                                                  aria-label={f.label}
+                                                  onChange={(raw) => {
+                                                    const next = setNested(params, f.key, raw);
+                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                  }}
+                                                />
+                                              ) : f.type === 'number' ? (
+                                                <TouchIntegerInput
+                                                  value={typeof val === 'number' && Number.isFinite(val) ? val : null}
+                                                  min={f.min ?? 0}
+                                                  max={f.max}
+                                                  step={typeof f.step === 'number' && f.step >= 1 ? f.step : 1}
+                                                  fallback={
+                                                    typeof val === 'number' && Number.isFinite(val)
+                                                      ? val
+                                                      : (f.min ?? 0)
+                                                  }
+                                                  aria-label={f.label}
+                                                  onCommit={(n) => {
+                                                    const next = setNested(params, f.key, n);
+                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                  }}
                                                 />
                                               ) : (
                                                 <Input
@@ -1656,22 +1751,22 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                           const tempoParts = (te.tempo || '').split('-');
                                           const labels = ['Ecc.', 'Pausa', 'Conc.', 'Pausa'];
                                           return labels.map((label, i) => (
-                                            <div key={i} className="flex-1">
-                                              <Input
-                                                type="number"
+                                            <div key={i} className="flex-1 min-w-0">
+                                              <TouchIntegerInput
+                                                compact
                                                 min={0}
                                                 max={9}
-                                                placeholder="0"
-                                                value={tempoParts[i] || ''}
-                                                onChange={(e) => {
+                                                fallback={0}
+                                                value={Number.parseInt(tempoParts[i] || '0', 10) || 0}
+                                                aria-label={label}
+                                                onCommit={(n) => {
                                                   const newParts = [...(te.tempo || '0-0-0-0').split('-')];
                                                   while (newParts.length < 4) newParts.push('0');
-                                                  newParts[i] = e.target.value || '0';
+                                                  newParts[i] = String(n);
                                                   const tempo = newParts.join('-');
                                                   patchExerciseInCache(te.id, { tempo });
                                                   scheduleExerciseFieldUpdate(te.id, { tempo });
                                                 }}
-                                                className="h-8 text-center px-1"
                                               />
                                               <span className="text-[10px] text-muted-foreground text-center block mt-0.5">{label}</span>
                                             </div>
@@ -1683,15 +1778,14 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
 
                                     <div className="space-y-1">
                                       <Label className="text-xs">Note e istruzioni</Label>
-                                      <Textarea
+                                      <MobileNotesField
                                         placeholder="Aggiungi istruzioni specifiche per l'atleta..."
                                         value={te.notes ?? ''}
-                                        onChange={(e) => {
-                                          const notes = e.target.value || null;
+                                        onChange={(raw) => {
+                                          const notes = raw || null;
                                           patchExerciseInCache(te.id, { notes });
                                           scheduleExerciseFieldUpdate(te.id, { notes });
                                         }}
-                                        className="min-h-[60px] text-sm resize-none"
                                       />
                                     </div>
                                   </CollapsibleContent>
@@ -1781,12 +1875,6 @@ function SetsTable({ te, onChange }: SetsTableProps) {
     onChange(sets.filter((_, i) => i !== idx));
   };
 
-  const parseNum = (v: string): number | null => {
-    if (v === '') return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-
   return (
     <div className="rounded-md border bg-muted/20 p-2">
       <div className="flex items-center mb-2">
@@ -1850,24 +1938,27 @@ function SetsTable({ te, onChange }: SetsTableProps) {
                           Sec
                         </button>
                       </div>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={
-                          mode === 'seconds'
-                            ? (s.duration_seconds ?? '')
-                            : (s.reps ?? '')
-                        }
-                        onChange={(e) => {
-                          const n = parseNum(e.target.value);
+                      <TouchIntegerInput
+                        compact
+                        min={0}
+                        allowEmpty
+                        value={mode === 'seconds' ? s.duration_seconds : s.reps}
+                        fallback={mode === 'seconds' ? 20 : 10}
+                        aria-label={mode === 'seconds' ? `Secondi set ${i + 1}` : `Reps set ${i + 1}`}
+                        onCommit={(n) => {
                           if (mode === 'seconds') {
                             updateSet(i, { mode: 'seconds', duration_seconds: n, reps: null });
                           } else {
                             updateSet(i, { mode: 'reps', reps: n, duration_seconds: null });
                           }
                         }}
-                        className="h-8 text-center px-1"
-                        aria-label={mode === 'seconds' ? `Secondi set ${i + 1}` : `Reps set ${i + 1}`}
+                        onEmptyCommit={() => {
+                          if (mode === 'seconds') {
+                            updateSet(i, { mode: 'seconds', duration_seconds: null, reps: null });
+                          } else {
+                            updateSet(i, { mode: 'reps', reps: null, duration_seconds: null });
+                          }
+                        }}
                       />
                     </div>
                   </td>
@@ -1895,12 +1986,15 @@ function SetsTable({ te, onChange }: SetsTableProps) {
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Rec (s)</td>
               {sets.map((s, i) => (
                 <td key={i} className="px-1 py-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={s.rest_seconds ?? ''}
-                    onChange={(e) => updateSet(i, { rest_seconds: parseNum(e.target.value) })}
-                    className="h-8 text-center px-1"
+                  <TouchIntegerInput
+                    compact
+                    min={0}
+                    allowEmpty
+                    value={s.rest_seconds}
+                    fallback={0}
+                    aria-label={`Recupero set ${i + 1}`}
+                    onCommit={(n) => updateSet(i, { rest_seconds: n })}
+                    onEmptyCommit={() => updateSet(i, { rest_seconds: null })}
                   />
                 </td>
               ))}
@@ -2135,12 +2229,6 @@ interface TopSetBackoffTableProps {
 }
 
 function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }: TopSetBackoffTableProps) {
-  const parseNum = (v: string): number | null => {
-    if (v === '') return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-
   if (sets.length === 0) {
     return (
       <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
@@ -2185,12 +2273,15 @@ function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Reps</td>
               {sets.map((s, i) => (
                 <td key={i} className="px-1 py-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={s.reps ?? ''}
-                    onChange={(e) => onCellChange(i, { reps: parseNum(e.target.value) })}
-                    className="h-8 text-center px-1"
+                  <TouchIntegerInput
+                    compact
+                    min={0}
+                    allowEmpty
+                    value={s.reps}
+                    fallback={1}
+                    aria-label={`Reps set ${i + 1}`}
+                    onCommit={(n) => onCellChange(i, { reps: n })}
+                    onEmptyCommit={() => onCellChange(i, { reps: null })}
                   />
                 </td>
               ))}
@@ -2221,12 +2312,15 @@ function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }
               <td className="pr-2 py-1 text-muted-foreground sticky left-0 bg-muted/20">Rec (s)</td>
               {sets.map((s, i) => (
                 <td key={i} className="px-1 py-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={s.rest_seconds ?? ''}
-                    onChange={(e) => onCellChange(i, { rest_seconds: parseNum(e.target.value) })}
-                    className="h-8 text-center px-1"
+                  <TouchIntegerInput
+                    compact
+                    min={0}
+                    allowEmpty
+                    value={s.rest_seconds}
+                    fallback={0}
+                    aria-label={`Recupero set ${i + 1}`}
+                    onCommit={(n) => onCellChange(i, { rest_seconds: n })}
+                    onEmptyCommit={() => onCellChange(i, { rest_seconds: null })}
                   />
                 </td>
               ))}

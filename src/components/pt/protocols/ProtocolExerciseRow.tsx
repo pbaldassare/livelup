@@ -42,12 +42,9 @@ export function ProtocolExerciseRow({
   canRemove,
   className,
   children,
-  workoutExerciseOptions,
-  favoriteExerciseOptions,
-  mineExerciseOptions,
-  globalExerciseOptions,
   autoOpen,
   onAutoOpenConsumed,
+  ...pickerProps
 }: ProtocolExerciseRowProps) {
   return (
     <div
@@ -61,13 +58,10 @@ export function ProtocolExerciseRow({
           <Label className="text-[10px] text-muted-foreground">Esercizio</Label>
           <ProtocolExerciseCombobox
             value={exerciseName}
-            workoutExerciseOptions={workoutExerciseOptions}
-            favoriteExerciseOptions={favoriteExerciseOptions}
-            mineExerciseOptions={mineExerciseOptions}
-            globalExerciseOptions={globalExerciseOptions}
             onChange={onExerciseChange}
             autoOpen={autoOpen}
             onAutoOpenConsumed={onAutoOpenConsumed}
+            {...pickerProps}
           />
         </div>
         <Button

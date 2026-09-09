@@ -9,7 +9,6 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   type AmrapParams,
@@ -23,6 +22,7 @@ import {
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
 import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
+import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 
 export type AmrapExerciseOption = ProtocolExerciseOption;
 
@@ -89,20 +89,13 @@ export function AmrapEditor({
           <Label className="text-xs">
             Durata totale (s) <span className="text-muted-foreground">· {durationLabel}</span>
           </Label>
-          <Input
-            type="number"
+          <TouchIntegerInput
+            value={value.duration_seconds}
             min={1}
             step={30}
-            value={value.duration_seconds}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              commit(
-                value,
-                { duration_seconds: Number.isFinite(n) && n > 0 ? Math.floor(n) : 1 },
-                onChange,
-              );
-            }}
-            className="h-8"
+            fallback={600}
+            aria-label="Durata totale"
+            onCommit={(n) => commit(value, { duration_seconds: n }, onChange)}
           />
         </div>
         <div className="space-y-1">
@@ -110,16 +103,12 @@ export function AmrapEditor({
             Numero esercizi
             <span className="ml-1 text-muted-foreground">· sincronizzato con la lista</span>
           </Label>
-          <Input
-            type="number"
-            min={1}
+          <TouchIntegerInput
             value={value.exercises_count}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              const clamped = Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
-              commit(value, { exercises_count: clamped }, onChange);
-            }}
-            className="h-8"
+            min={1}
+            fallback={1}
+            aria-label="Numero esercizi"
+            onCommit={(n) => commit(value, { exercises_count: n }, onChange)}
           />
         </div>
       </div>

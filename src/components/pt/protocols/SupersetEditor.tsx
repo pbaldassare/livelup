@@ -9,7 +9,6 @@
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -34,6 +33,8 @@ import {
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
 import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
 import { ProtocolTargetField } from '@/components/pt/protocols/ProtocolTargetField';
+import { MobileNotesField } from '@/components/pt/MobileNotesField';
+import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 import { LoadField } from '@/components/pt/LoadField';
 import { getProtocolTargetMode } from '@/lib/protocols/exerciseTarget';
 import { getLoadMode } from '@/lib/loadPrescription';
@@ -227,38 +228,38 @@ export function SupersetEditor({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Numero esercizi</Label>
-          <Input
-            type="number"
-            min={1}
+          <TouchIntegerInput
             value={value.exercises_count}
-            onChange={(e) => setExercisesCount(Number(e.target.value) || 1)}
-            className="h-8"
+            min={1}
+            fallback={1}
+            aria-label="Numero esercizi"
+            onCommit={(n) => setExercisesCount(n)}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Numero superset</Label>
-          <Input
-            type="number"
-            min={1}
+          <TouchIntegerInput
             value={value.supersets_count}
-            onChange={(e) => setSupersetsCount(Number(e.target.value) || 1)}
-            className="h-8"
+            min={1}
+            fallback={1}
+            aria-label="Numero superset"
+            onCommit={(n) => setSupersetsCount(n)}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Recupero tra superset (s)</Label>
-          <Input
-            type="number"
+          <TouchIntegerInput
+            value={value.rest_between_supersets}
             min={0}
             step={5}
-            value={value.rest_between_supersets}
-            onChange={(e) => setRestBetweenSupersets(Number(e.target.value) || 0)}
-            className="h-8"
+            fallback={0}
+            aria-label="Recupero tra superset"
+            onCommit={(n) => setRestBetweenSupersets(n)}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Recupero tra esercizi</Label>
-          <div className="flex items-center gap-3 h-8">
+          <div className="flex flex-wrap items-center gap-3">
             <Switch
               checked={value.rest_between_exercises_enabled}
               onCheckedChange={(checked) =>
@@ -266,17 +267,14 @@ export function SupersetEditor({
               }
             />
             {value.rest_between_exercises_enabled && (
-              <Input
-                type="number"
+              <TouchIntegerInput
+                value={value.rest_between_exercises ?? 30}
                 min={0}
                 step={5}
-                value={value.rest_between_exercises ?? 30}
-                onChange={(e) => {
-                  const n = Math.max(0, Math.floor(Number(e.target.value) || 0));
-                  commit(value, { rest_between_exercises: n }, onChange);
-                }}
-                className="h-8 w-24"
-                placeholder="30"
+                fallback={30}
+                aria-label="Recupero tra esercizi"
+                className="flex-1 min-w-[160px]"
+                onCommit={(n) => commit(value, { rest_between_exercises: n }, onChange)}
               />
             )}
             {value.rest_between_exercises_enabled && (
@@ -315,12 +313,11 @@ export function SupersetEditor({
             >
               <div className="space-y-0.5">
                 <Label className="text-[10px] text-muted-foreground">Note</Label>
-                <Input
-                  type="text"
-                  value={ex.notes}
+                <MobileNotesField
+                  value={ex.notes ?? ''}
                   placeholder="Es. fermo 1s al petto"
-                  onChange={(e) => updateExercise(eIdx, { notes: e.target.value })}
-                  className="h-9"
+                  rows={3}
+                  onChange={(raw) => updateExercise(eIdx, { notes: raw })}
                 />
               </div>
             </ProtocolExerciseRow>
@@ -375,7 +372,7 @@ export function SupersetEditor({
                         <ProtocolTargetField
                           value={cell}
                           showLabel={false}
-                          inputClassName="h-7 text-xs px-1.5"
+                          compact
                           onChange={(next) => updateCell(rIdx, cIdx, next)}
                         />
                         <LoadField
@@ -384,23 +381,15 @@ export function SupersetEditor({
                           value={cell}
                           onChange={(load) => updateCell(rIdx, cIdx, load)}
                         />
-                        <div className="grid grid-cols-1 gap-1">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={5}
-                            value={cell.rest_seconds}
-                            onChange={(e) => {
-                              const n = Number(e.target.value);
-                              updateCell(rIdx, cIdx, {
-                                rest_seconds: Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0,
-                              });
-                            }}
-                            className="h-7 text-xs px-1.5"
-                            aria-label={`Recupero Set ${cIdx + 1}`}
-                            title="rec (s)"
-                          />
-                        </div>
+                        <TouchIntegerInput
+                          compact
+                          min={0}
+                          step={5}
+                          fallback={0}
+                          value={cell.rest_seconds}
+                          aria-label={`Recupero Set ${cIdx + 1}`}
+                          onCommit={(n) => updateCell(rIdx, cIdx, { rest_seconds: n })}
+                        />
                       </div>
                     </TableCell>
                   ))}

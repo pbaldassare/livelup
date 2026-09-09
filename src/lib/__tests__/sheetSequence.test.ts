@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   normalizeSheetExerciseRow,
+  sheetExerciseSelect,
+  sheetExerciseSelectBare,
   toSheetExerciseInsert,
   toSheetExerciseUpdate,
 } from '@/lib/api/sheetSequence';
@@ -37,9 +39,16 @@ describe('sheetSequence', () => {
       exercise_id: 'e1',
       prescribed_sets: 3,
       prescribed_reps_min: 10,
+      phase: 'main',
     });
     expect(insert).not.toHaveProperty('tempo');
     expect(insert).not.toHaveProperty('template_id');
+  });
+
+  it('keeps phase on workout selects and drops it on the bare fallback', () => {
+    expect(sheetExerciseSelect('workout')).toContain('phase');
+    expect(sheetExerciseSelect('workout', true)).toContain('phase');
+    expect(sheetExerciseSelectBare('workout')).not.toContain('phase');
   });
 
   it('remaps flat set updates onto workout columns', () => {

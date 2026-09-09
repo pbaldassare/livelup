@@ -65,6 +65,8 @@ import {
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -317,24 +319,31 @@ function ActivateWorkoutDialog({
     d.setHours(0, 0, 0, 0);
     return d;
   });
+  const [addToCalendar, setAddToCalendar] = useState(false);
 
   useEffect(() => {
     if (!open || !workout) return;
     const base = workout.scheduled_date ? new Date(workout.scheduled_date) : new Date();
     base.setHours(0, 0, 0, 0);
     setScheduledDate(base);
+    setAddToCalendar(false);
   }, [open, workout?.id, workout?.scheduled_date]);
 
   const activateMutation = useMutation({
     mutationFn: () => {
       if (!workout) throw new Error('Scheda non selezionata');
-      return activateWorkoutAssignment(workout.id, { ptUserId, scheduledDate });
+      return activateWorkoutAssignment(workout.id, { ptUserId, scheduledDate, addToCalendar });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-workouts', atletaUserId, ptUserId] });
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-calendar'] });
       queryClient.invalidateQueries({ queryKey: ['workout-history', atletaUserId] });
-      toast.success('Scheda attivata — compare in In corso e nel calendario');
+      toast.success(
+        addToCalendar
+          ? 'Scheda attivata — compare in In corso e nel calendario'
+          : 'Scheda attivata — compare in In corso',
+      );
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message || 'Errore durante l\'attivazione'),
@@ -349,10 +358,10 @@ function ActivateWorkoutDialog({
           <DialogTitle>Attiva scheda</DialogTitle>
           <DialogDescription>
             Imposta la data della sessione per <strong>{workout.title}</strong>.
-            La scheda passerà in <strong>In corso</strong> e verrà aggiunta al calendario.
+            La scheda passerà in <strong>In corso</strong>. Il calendario PT è opzionale.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2 py-2">
+        <div className="space-y-3 py-2">
           <p className="text-sm font-medium">Data sessione</p>
           <Popover>
             <PopoverTrigger asChild>
@@ -371,6 +380,22 @@ function ActivateWorkoutDialog({
               />
             </PopoverContent>
           </Popover>
+          <div className="flex items-start justify-between gap-3 rounded-md border border-border p-3">
+            <div className="min-w-0 space-y-0.5">
+              <Label htmlFor="activate-add-to-calendar" className="text-sm font-medium">
+                Metti nel calendario
+              </Label>
+              <p className="text-xs text-muted-foreground leading-snug">
+                Crea un appuntamento alle 10:00 nel calendario PT. L&apos;atleta vede comunque la
+                scheda in In corso.
+              </p>
+            </div>
+            <Switch
+              id="activate-add-to-calendar"
+              checked={addToCalendar}
+              onCheckedChange={setAddToCalendar}
+            />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
