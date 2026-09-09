@@ -6,6 +6,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { TemplateKind } from '@/lib/pt/templateKinds';
 import { isSummaryPhase, type WorkoutPhase } from '@/lib/pt/templateRoles';
+import { buildAssignmentCalendarEvent } from '@/lib/workoutAssignmentDelivery';
 
 export type { TemplateKind };
 
@@ -452,7 +453,7 @@ export async function unassignWorkoutAssignment(workoutId: string, ptUserId: str
 }
 
 // =====================================================
-// ATTIVA ASSEGNAZIONE (Programmate → In corso + calendario)
+// ATTIVA ASSEGNAZIONE (Programmate → In corso; calendario opzionale)
 // =====================================================
 
 export async function activateWorkoutAssignment(
@@ -460,6 +461,8 @@ export async function activateWorkoutAssignment(
   params: {
     ptUserId: string;
     scheduledDate: Date;
+    /** Default false: In corso senza riquadro nel calendario PT. */
+    addToCalendar?: boolean;
   },
 ) {
   const { data: workout, error: fetchErr } = await supabase
@@ -495,26 +498,18 @@ export async function activateWorkoutAssignment(
     throw new Error('Errore attivazione scheda: ' + (updateErr?.message ?? 'unknown'));
   }
 
-  const start = new Date(scheduled);
-  start.setHours(10, 0, 0, 0);
-  const end = new Date(start);
-  end.setHours(end.getHours() + 1);
-
-  const { error: calErr } = await supabase.from('calendar_events').insert({
-    creator_user_id: params.ptUserId,
-    pt_user_id: params.ptUserId,
-    atleta_user_id: workout.atleta_user_id,
+  const calendarRow = buildAssignmentCalendarEvent({
+    addToCalendar: params.addToCalendar,
+    ptUserId: params.ptUserId,
+    atletaUserId: workout.atleta_user_id,
     title: workout.title,
-    event_type: 'allenamento',
-    category: 'appuntamento',
-    start_datetime: start.toISOString(),
-    end_datetime: end.toISOString(),
-    is_public: false,
-    visibility: 'connected_only',
+    scheduledDate: scheduled,
   });
-
-  if (calErr) {
-    throw new Error('Scheda attivata ma errore calendario: ' + calErr.message);
+  if (calendarRow) {
+    const { error: calErr } = await supabase.from('calendar_events').insert(calendarRow);
+    if (calErr) {
+      throw new Error('Scheda attivata ma errore calendario: ' + calErr.message);
+    }
   }
 
   return updated;

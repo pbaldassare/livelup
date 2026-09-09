@@ -32,6 +32,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
@@ -117,6 +118,7 @@ export function AssignWorkoutDialog({
   const [customTitle, setCustomTitle] = useState('');
   const [instanceTitle, setInstanceTitle] = useState('');
   const [delivery, setDelivery] = useState<AssignmentDelivery>('assign');
+  const [addToCalendar, setAddToCalendar] = useState(false);
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [notes, setNotes] = useState('');
@@ -138,6 +140,7 @@ export function AssignWorkoutDialog({
       if (preselectedAthleteId) {
         setSelectedAthleteId(preselectedAthleteId);
       }
+      setAddToCalendar(false);
     }
   }, [open, preselectedTemplateId, preselectedAthleteId]);
 
@@ -363,6 +366,7 @@ export function AssignWorkoutDialog({
         await activateWorkoutAssignment(activateId, {
           ptUserId: user.id,
           scheduledDate: createdDate,
+          addToCalendar,
         });
       }
 
@@ -384,12 +388,13 @@ export function AssignWorkoutDialog({
         });
       }
 
-      return { created, skipped, delivery };
+      return { created, skipped, delivery, addToCalendar };
     },
-    onSuccess: ({ created, skipped, delivery }) => {
+    onSuccess: ({ created, skipped, delivery, addToCalendar }) => {
       queryClient.invalidateQueries({ queryKey: ['pt-workouts'] });
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-workouts'] });
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
+      queryClient.invalidateQueries({ queryKey: ['pt-calendar'] });
       if (created === 0) {
         toast.warning('Nessun allenamento creato (date già occupate)');
       } else if (delivery === 'schedule') {
@@ -399,7 +404,11 @@ export function AssignWorkoutDialog({
             : `${created} schede programmate`,
         );
       } else if (created === 1) {
-        toast.success('Scheda assegnata: in corso e in calendario');
+        toast.success(
+          addToCalendar
+            ? 'Scheda assegnata: in corso e in calendario'
+            : 'Scheda assegnata: in corso',
+        );
       } else {
         toast.success(
           skipped > 0
@@ -422,6 +431,7 @@ export function AssignWorkoutDialog({
     setCustomTitle('');
     setInstanceTitle('');
     setDelivery('assign');
+    setAddToCalendar(false);
     setScheduledDate(new Date());
     setEndDate(undefined);
     setNotes('');
@@ -447,7 +457,8 @@ export function AssignWorkoutDialog({
             Assegna o programma
           </DialogTitle>
           <DialogDescription>
-            Copia indipendente per l&apos;atleta. Puoi solo programmarla o assegnarla subito (in corso + calendario).
+            Copia indipendente per l&apos;atleta. Puoi programmarla o assegnarla subito (In corso).
+            Il calendario PT è opzionale.
           </DialogDescription>
         </DialogHeader>
 
@@ -913,12 +924,30 @@ export function AssignWorkoutDialog({
                     </p>
                     <p className="text-xs text-muted-foreground leading-tight mt-0.5">
                       {generatedDates.length > 1
-                        ? 'La prima sessione va in In corso e in calendario; le altre restano programmate.'
-                        : 'In corso e in calendario, senza secondo passaggio.'}
+                        ? 'La prima sessione va in In corso; le altre restano programmate.'
+                        : 'In corso, senza secondo passaggio.'}
                     </p>
                   </div>
                 </Label>
               </RadioGroup>
+              {delivery === 'assign' && (
+                <div className="flex items-start justify-between gap-3 rounded-md border border-border bg-muted/20 p-3">
+                  <div className="min-w-0 space-y-0.5">
+                    <Label htmlFor="add-to-calendar" className="text-sm font-medium">
+                      Metti nel calendario
+                    </Label>
+                    <p className="text-xs text-muted-foreground leading-snug">
+                      Crea un appuntamento alle 10:00 nel calendario PT. L&apos;atleta vede
+                      comunque la scheda in In corso.
+                    </p>
+                  </div>
+                  <Switch
+                    id="add-to-calendar"
+                    checked={addToCalendar}
+                    onCheckedChange={setAddToCalendar}
+                  />
+                </div>
+              )}
             </section>
 
             {/* === Note === */}
