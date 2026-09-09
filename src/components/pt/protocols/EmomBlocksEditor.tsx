@@ -27,6 +27,7 @@ import {
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
 import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
+import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 
 export type EmomExerciseOption = ProtocolExerciseOption;
 
@@ -126,54 +127,36 @@ export function EmomBlocksEditor({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Numero round</Label>
-          <Input
-            type="number"
-            min={1}
+          <TouchIntegerInput
             value={value.rounds}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              commit(
-                value,
-                { rounds: Number.isFinite(n) && n > 0 ? Math.floor(n) : 1 },
-                onChange,
-              );
-            }}
-            className="h-8"
+            min={1}
+            fallback={1}
+            aria-label="Numero round"
+            onCommit={(n) => commit(value, { rounds: n }, onChange)}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">
             Durata round (s) <span className="text-muted-foreground">· {durationLabel}</span>
           </Label>
-          <Input
-            type="number"
+          <TouchIntegerInput
+            value={value.round_duration}
             min={10}
             step={5}
-            value={value.round_duration}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              commit(
-                value,
-                { round_duration: Number.isFinite(n) && n >= 10 ? Math.floor(n) : 10 },
-                onChange,
-              );
-            }}
-            className="h-8"
+            fallback={60}
+            aria-label="Durata round"
+            onCommit={(n) => commit(value, { round_duration: n }, onChange)}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Numero blocchi</Label>
-          <Input
-            type="number"
+          <TouchIntegerInput
+            value={value.blocks_count}
             min={1}
             max={10}
-            value={value.blocks_count}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              const clamped = Number.isFinite(n) ? Math.min(10, Math.max(1, Math.floor(n))) : 1;
-              commit(value, { blocks_count: clamped }, onChange);
-            }}
-            className="h-8"
+            fallback={1}
+            aria-label="Numero blocchi"
+            onCommit={(n) => commit(value, { blocks_count: n }, onChange)}
           />
         </div>
       </div>

@@ -16,6 +16,7 @@ import {
 } from '@/lib/pt/templateKinds';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { TemplateExerciseBuilder } from '@/components/pt/TemplateExerciseBuilder';
+import { WorkoutRoutineLinks } from '@/components/pt/WorkoutRoutineLinks';
 import { PageLoader } from '@/components/common/PageLoader';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 import { ExportSheetPdfButton } from '@/components/shared/ExportSheetPdfButton';
@@ -221,7 +222,8 @@ export function PTAssignedWorkoutPage() {
               Modifiche solo su questa copia assegnata, come una duplica.
             </CardDescription>
           </CardHeader>
-          <CardContent className="px-4 pb-4 pt-0">
+          <CardContent className="px-4 pb-4 pt-0 space-y-4">
+            <WorkoutRoutineLinks workoutId={workout.id} />
             <TemplateExerciseBuilder workoutId={workout.id} />
           </CardContent>
         </Card>
