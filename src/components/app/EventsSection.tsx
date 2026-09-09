@@ -5,9 +5,10 @@ import { ListSkeleton } from '@/components/skeletons';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PublicEventCard } from './PublicEventCard';
-import { CalendarDays, PartyPopper, MapPin } from 'lucide-react';
+import { CreatePublicEventDialog } from '@/components/pt/CreatePublicEventDialog';
+import { Button } from '@/components/ui/button';
+import { CalendarDays, PartyPopper, MapPin, Plus } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label';
 
 interface PublicEvent {
   id: string;
@@ -50,6 +51,7 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
   const { user } = useAuth();
   const [maxDistance, setMaxDistance] = useState(100);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     if ('geolocation' in navigator) {
@@ -176,7 +178,13 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24">
+      <CreatePublicEventDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        variant="atleta"
+      />
+
       {/* Banner per atleti connessi */}
       {isConnected && (
         <motion.div
@@ -215,15 +223,26 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
         </div>
       )}
 
-      <p className="text-sm text-app-muted-foreground">
-        {(() => {
-          if (!events) return '0 eventi in programma';
-          const filtered = userLocation
-            ? events.filter(e => !e.location_lat || !e.location_lng || haversineDistance(userLocation.lat, userLocation.lng, e.location_lat, e.location_lng) <= maxDistance)
-            : events;
-          return `${filtered.length} eventi in programma`;
-        })()}
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-app-muted-foreground">
+          {(() => {
+            if (!events) return '0 eventi in programma';
+            const filtered = userLocation
+              ? events.filter(e => !e.location_lat || !e.location_lng || haversineDistance(userLocation.lat, userLocation.lng, e.location_lat, e.location_lng) <= maxDistance)
+              : events;
+            return `${filtered.length} eventi in programma`;
+          })()}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          className="shrink-0 h-9 gap-1 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+          onClick={() => setCreateOpen(true)}
+        >
+          <Plus className="h-4 w-4" />
+          Crea evento
+        </Button>
+      </div>
 
       {isLoading ? (
         <ListSkeleton count={3} type="event" />
@@ -258,11 +277,28 @@ export function EventsSection({ isConnected = false }: EventsSectionProps) {
           <h3 className="text-lg font-semibold text-app-foreground mb-2">
             Nessun evento in programma
           </h3>
-          <p className="text-sm text-app-muted-foreground">
-            I prossimi eventi appariranno qui
+          <p className="text-sm text-app-muted-foreground mb-4">
+            I prossimi eventi appariranno qui. Puoi crearne uno tu.
           </p>
+          <Button
+            type="button"
+            className="gap-1 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Crea evento
+          </Button>
         </motion.div>
       )}
+
+      <button
+        type="button"
+        onClick={() => setCreateOpen(true)}
+        className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full bg-app-accent text-app-accent-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+        aria-label="Crea evento"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
     </div>
   );
 }
