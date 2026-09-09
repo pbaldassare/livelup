@@ -3,16 +3,15 @@
 // Stesso UX del toggle Reps | Sec nelle schede (SetsTable).
 // =====================================================
 
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
   getProtocolTargetMode,
-  parsePositiveInt,
   switchProtocolTargetMode,
   type ProtocolExerciseTarget,
 } from '@/lib/protocols/exerciseTarget';
 import type { SetTargetMode } from '@/types/database';
+import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 
 interface ProtocolTargetFieldProps {
   value: Pick<ProtocolExerciseTarget, 'mode' | 'reps' | 'duration_seconds'>;
@@ -38,6 +37,14 @@ export function ProtocolTargetField({
 
   const setMode = (next: SetTargetMode) => {
     onChange(switchProtocolTargetMode(value, next));
+  };
+
+  const commitNumber = (n: number) => {
+    if (mode === 'seconds') {
+      onChange({ mode: 'seconds', duration_seconds: n, reps: null });
+    } else {
+      onChange({ mode: 'reps', reps: n, duration_seconds: null });
+    }
   };
 
   return (
@@ -72,24 +79,14 @@ export function ProtocolTargetField({
             Sec
           </button>
         </div>
-        <Input
+        <TouchIntegerInput
           id={id}
-          type="number"
+          value={mode === 'seconds' ? value.duration_seconds : value.reps}
+          onCommit={commitNumber}
           min={1}
-          inputMode="numeric"
-          value={
-            mode === 'seconds' ? (value.duration_seconds ?? '') : (value.reps ?? '')
-          }
-          onChange={(e) => {
-            const n = parsePositiveInt(e.target.value, 1);
-            if (mode === 'seconds') {
-              onChange({ mode: 'seconds', duration_seconds: n, reps: null });
-            } else {
-              onChange({ mode: 'reps', reps: n, duration_seconds: null });
-            }
-          }}
-          className={cn('h-9 sm:h-8', inputClassName)}
+          fallback={1}
           aria-label={mode === 'seconds' ? 'Secondi' : 'Reps'}
+          inputClassName={inputClassName}
         />
       </div>
     </div>
