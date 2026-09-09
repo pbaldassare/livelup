@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MobileNotesField } from '@/components/pt/MobileNotesField';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Collapsible,
@@ -1539,7 +1539,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                           .filter((f) => !f.showWhen || f.showWhen(params))
                                           .map((f) => {
                                           const val = getNested(params, f.key);
-                                          const isWide = f.type === 'text' || f.type === 'select' || f.type === 'exercise_select' || f.type === 'number_list';
+                                          const isWide = f.type === 'text' || f.type === 'textarea' || f.type === 'select' || f.type === 'exercise_select' || f.type === 'number_list';
                                           return (
                                             <div key={f.key} className={cn('space-y-1', isWide && 'col-span-2 md:col-span-3')}>
                                               <Label className="text-xs">{f.label}</Label>
@@ -1611,6 +1611,16 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                     updateProtocolParamMutation.mutate({ id: te.id, params: next });
                                                   }}
                                                   className="h-8"
+                                                />
+                                              ) : f.type === 'textarea' ? (
+                                                <MobileNotesField
+                                                  value={(val as string) ?? ''}
+                                                  placeholder={f.placeholder}
+                                                  aria-label={f.label}
+                                                  onChange={(raw) => {
+                                                    const next = setNested(params, f.key, raw);
+                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                  }}
                                                 />
                                               ) : (
                                                 <Input
@@ -1729,15 +1739,14 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
 
                                     <div className="space-y-1">
                                       <Label className="text-xs">Note e istruzioni</Label>
-                                      <Textarea
+                                      <MobileNotesField
                                         placeholder="Aggiungi istruzioni specifiche per l'atleta..."
                                         value={te.notes ?? ''}
-                                        onChange={(e) => {
-                                          const notes = e.target.value || null;
+                                        onChange={(raw) => {
+                                          const notes = raw || null;
                                           patchExerciseInCache(te.id, { notes });
                                           scheduleExerciseFieldUpdate(te.id, { notes });
                                         }}
-                                        className="min-h-[60px] text-sm resize-none"
                                       />
                                     </div>
                                   </CollapsibleContent>

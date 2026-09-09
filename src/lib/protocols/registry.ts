@@ -120,7 +120,7 @@ export type ProtocolParams = {
   rest_between_rounds_seconds?: number | null;
 };
 
-export type ParamFieldType = 'number' | 'text' | 'select' | 'exercise_select' | 'number_list';
+export type ParamFieldType = 'number' | 'text' | 'textarea' | 'select' | 'exercise_select' | 'number_list';
 
 export type ParamField = {
   key: string; // dot-path inside params, es. "sets" or "top_set.reps"
@@ -264,7 +264,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     paramFields: [
       { key: 'reps', label: 'Ripetizioni per serie', type: 'number', min: 1, placeholder: '5' },
       { key: 'rest_seconds', label: 'Recupero (s)', type: 'number', min: 0, step: 15, placeholder: '120' },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. parti da 40 kg, sali di 5 kg', hint: 'Indicazioni libere per l\'atleta' },
+      { key: 'note', label: 'Note (opzionali)', type: 'textarea', placeholder: 'Es. parti da 40 kg, sali di 5 kg', hint: 'Indicazioni libere per l\'atleta' },
       {
         key: 'value_type',
         label: 'Valore',
@@ -395,7 +395,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     paramFields: [
       { key: 'duration_minutes', label: 'Durata (minuti)', type: 'number', min: 1, placeholder: '10' },
       { key: 'reps', label: 'Ripetizioni per esercizio', type: 'number', min: 1, placeholder: '10' },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. 10 squat + 10 push-up + 10 sit-up', hint: 'Indicazioni libere o lista esercizi del round' },
+      { key: 'note', label: 'Note (opzionali)', type: 'textarea', placeholder: 'Es. 10 squat + 10 push-up + 10 sit-up', hint: 'Indicazioni libere o lista esercizi del round' },
     ],
     executionMode: 'amrap',
     sections: {
@@ -443,7 +443,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       { key: 'reps', label: 'Ripetizioni per esercizio', type: 'number', min: 1, placeholder: '10' },
       { key: 'internal_rest_seconds', label: 'Recupero A → B (s)', type: 'number', min: 0, step: 5, placeholder: '30' },
       { key: 'external_rest_seconds', label: 'Recupero tra superset (s)', type: 'number', min: 0, step: 15, placeholder: '90' },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. tecnica, focus o tempo di esecuzione', hint: 'Indicazioni libere per l\'atleta' },
+      { key: 'note', label: 'Note (opzionali)', type: 'textarea', placeholder: 'Es. tecnica, focus o tempo di esecuzione', hint: 'Indicazioni libere per l\'atleta' },
     ],
     executionMode: 'standard',
     sections: {
@@ -494,7 +494,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       { key: 'sets', label: 'Serie (scale complete)', type: 'number', min: 1, placeholder: '3' },
       { key: 'step_rest_seconds', label: 'Recupero tra scalini (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
       { key: 'set_rest_seconds', label: 'Recupero tra serie (s)', type: 'number', min: 0, step: 15, placeholder: '90' },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o variazione carico', hint: 'Indicazioni libere per l\'atleta' },
+      { key: 'note', label: 'Note (opzionali)', type: 'textarea', placeholder: 'Es. focus tecnica o variazione carico', hint: 'Indicazioni libere per l\'atleta' },
     ],
     executionMode: 'standard',
     sections: {
@@ -546,7 +546,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       { key: 'start_reps', label: 'Scalino iniziale (reps)', type: 'number', min: 1, placeholder: '1', hint: 'Numero di reps del primo scalino' },
       { key: 'step_rest_seconds', label: 'Recupero tra scalini (s)', type: 'number', min: 0, step: 5, placeholder: '20' },
       { key: 'set_rest_seconds', label: 'Recupero tra serie (s)', type: 'number', min: 0, step: 15, placeholder: '90' },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. focus tecnica o stop a un tetto', hint: 'Indicazioni libere per l\'atleta' },
+      { key: 'note', label: 'Note (opzionali)', type: 'textarea', placeholder: 'Es. focus tecnica o stop a un tetto', hint: 'Indicazioni libere per l\'atleta' },
     ],
     executionMode: 'standard',
     sections: {
@@ -681,7 +681,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     paramFields: [
       { key: 'rounds', label: 'Round', type: 'number', min: 1, placeholder: '5' },
       { key: 'max_rest_seconds', label: 'Pausa max consigliata (s)', type: 'number', min: 0, step: 5, placeholder: 'Opzionale' },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. mantieni ritmo costante', hint: 'Indicazioni libere per l\'atleta' },
+      { key: 'note', label: 'Note (opzionali)', type: 'textarea', placeholder: 'Es. mantieni ritmo costante', hint: 'Indicazioni libere per l\'atleta' },
     ],
     executionMode: 'rounds',
     sections: {
@@ -722,7 +722,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     },
     paramFields: [
       { key: 'target_reps', label: 'Target reps blocco', type: 'number', min: 1, placeholder: '50' },
-      { key: 'note', label: 'Note (opzionali)', type: 'text', placeholder: 'Es. spezza in mini-serie sostenibili', hint: 'Strategia o indicazioni libere per l\'atleta' },
+      { key: 'note', label: 'Note (opzionali)', type: 'textarea', placeholder: 'Es. spezza in mini-serie sostenibili', hint: 'Strategia o indicazioni libere per l\'atleta' },
     ],
     executionMode: 'rounds',
     sections: {

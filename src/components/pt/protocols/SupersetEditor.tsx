@@ -34,6 +34,7 @@ import {
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
 import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
 import { ProtocolTargetField } from '@/components/pt/protocols/ProtocolTargetField';
+import { MobileNotesField } from '@/components/pt/MobileNotesField';
 import { LoadField } from '@/components/pt/LoadField';
 import { getProtocolTargetMode } from '@/lib/protocols/exerciseTarget';
 import { getLoadMode } from '@/lib/loadPrescription';
@@ -315,12 +316,11 @@ export function SupersetEditor({
             >
               <div className="space-y-0.5">
                 <Label className="text-[10px] text-muted-foreground">Note</Label>
-                <Input
-                  type="text"
-                  value={ex.notes}
+                <MobileNotesField
+                  value={ex.notes ?? ''}
                   placeholder="Es. fermo 1s al petto"
-                  onChange={(e) => updateExercise(eIdx, { notes: e.target.value })}
-                  className="h-9"
+                  rows={3}
+                  onChange={(raw) => updateExercise(eIdx, { notes: raw })}
                 />
               </div>
             </ProtocolExerciseRow>

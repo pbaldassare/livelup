@@ -19,6 +19,7 @@ import {
   type ProtocolExerciseOption,
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
+import { MobileNotesField } from '@/components/pt/MobileNotesField';
 
 export type TimedRoundsExerciseOption = ProtocolExerciseOption;
 
@@ -193,11 +194,11 @@ export function TimedRoundsEditor({
             </div>
             <div className="space-y-0.5">
               <Label className="text-[10px] text-muted-foreground">Note (opzionali)</Label>
-              <Input
+              <MobileNotesField
                 value={ex.notes ?? ''}
                 placeholder="Es. focus tecnica, variazione, intensità…"
-                onChange={(e) => updateExercise(eIdx, { notes: e.target.value })}
-                className="h-8"
+                rows={3}
+                onChange={(raw) => updateExercise(eIdx, { notes: raw })}
               />
             </div>
           </div>

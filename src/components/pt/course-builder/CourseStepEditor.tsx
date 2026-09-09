@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MobileNotesField } from '@/components/pt/MobileNotesField';
 import { Slider } from '@/components/ui/slider';
 import {
   Select,
@@ -340,12 +340,12 @@ export function CourseStepEditor({
 
           <div className="space-y-2">
             <Label htmlFor={`step-desc-${step.id}`}>Descrizione</Label>
-            <Textarea
+            <MobileNotesField
               id={`step-desc-${step.id}`}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={setDescription}
               onBlur={commitMeta}
-              rows={2}
+              rows={3}
               placeholder={
                 isVideoStep
                   ? 'Breve introduzione ai video per l\'atleta'
@@ -655,11 +655,12 @@ function StepExerciseRow({
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Note</Label>
-        <Input
+        <MobileNotesField
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={setNotes}
           onBlur={commit}
           placeholder="Note per l'atleta"
+          rows={3}
         />
       </div>
     </li>
