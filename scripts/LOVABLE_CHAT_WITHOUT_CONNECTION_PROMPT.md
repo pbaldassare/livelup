@@ -1,72 +1,54 @@
-# Livelapp — Prompt Lovable: chat senza connessione
+# Prompt Lovable — solo carica dati dal database separato
 
-Incolla il blocco sotto nella chat Lovable del progetto collegato a questo repo.
-Serve perché preview/produzione parlano ancora del Cloud dove `can_chat_with` accetta solo connessioni `active`/`pending`. Senza questo SQL, **Invia un messaggio** fallisce con RLS su `chats`.
+Il database di Livelapp **non è** quello interno di Lovable.
+Lovable deve **solo collegarsi e caricare i dati**. Non eseguire SQL, non creare tabelle, non toccare RLS.
 
-Non toccare `src/integrations/supabase/client.ts`, `types.ts`, `.env`.
+Database ufficiale (già aggiornato, `can_chat_with` già applicato):
+
+- Project ref: `kxgaqnksylntokyrpaxp`
+- URL: `https://kxgaqnksylntokyrpaxp.supabase.co`
 
 ---
 
 ## PROMPT DA INCOLLARE IN LOVABLE
 
 ```text
-Sei Lovable Cloud per Livelapp.
+STOP. Questo progetto ha un DATABASE SEPARATO da Lovable.
 
-OBIETTIVO
-Applica SUBITO la migration della chat 1:1 senza connessione sul backend COLLEGATO a questa preview/produzione (quello di VITE_SUPABASE_URL, anche se è il Cloud vecchio). Senza questo SQL il pulsante "Invia un messaggio" dà: new row violates row-level security policy for table "chats".
+Lovable NON è il database. Lovable deve SOLO collegarsi e CARICARE i dati.
+NON eseguire SQL. NON applicare migration. NON creare/modificare funzioni, policy, tabelle, seed, reset.
 
-REGOLE
-1. Esegui il SQL qui sotto così com'è, in una sola volta. È idempotente (CREATE OR REPLACE + DROP POLICY IF EXISTS).
-2. Non creare una connessione pending. La chat di domanda è separata da "Richiedi connessione".
-3. Non toccare client.ts, types.ts, .env.
-4. File canonico nel repo: supabase/migrations/20260919193000_chat_without_connection.sql
-5. Alla fine conferma: funzione can_chat_with aggiornata, policy INSERT su chats ricreata, nessun errore.
+Database ufficiale (unico):
+  Project ref:  kxgaqnksylntokyrpaxp
+  Nome:         Livelapp
+  Region:       eu-central-1
+  URL:          https://kxgaqnksylntokyrpaxp.supabase.co
 
-SQL DA ESEGUIRE ORA:
+Il Cloud vecchio è VIETATO:
+  uiowzycolsmgcsvihmhy
 
--- Chat 1:1 anche senza connessione PT–atleta
-CREATE OR REPLACE FUNCTION public.can_chat_with(_pt_user_id UUID, _atleta_user_id UUID)
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT
-    EXISTS (
-      SELECT 1
-      FROM public.pt_atleta_connections
-      WHERE pt_user_id = _pt_user_id
-        AND atleta_user_id = _atleta_user_id
-        AND status IN ('active', 'pending')
-    )
-    OR (
-      auth.uid() = _atleta_user_id
-      AND public.has_role(_pt_user_id, 'pt')
-      AND public.has_role(_atleta_user_id, 'atleta')
-      AND EXISTS (
-        SELECT 1
-        FROM public.pt_profiles p
-        WHERE p.user_id = _pt_user_id
-          AND COALESCE(p.is_active, true)
-          AND p.status IS DISTINCT FROM 'sospeso'::public.pt_status
-      )
-    );
-$$;
+COSA DEVI FARE
+1) Scollega uiowzycolsmgcsvihmhy se è ancora connesso.
+2) Collega kxgaqnksylntokyrpaxp come unico backend.
+3) Aggiorna solo le env frontend:
+   - VITE_SUPABASE_PROJECT_ID = kxgaqnksylntokyrpaxp
+   - VITE_SUPABASE_URL        = https://kxgaqnksylntokyrpaxp.supabase.co
+   - VITE_SUPABASE_PUBLISHABLE_KEY = la publishable/anon key di kxgaqnksylntokyrpaxp
+4) Togli ogni riferimento a uiowzycolsmgcsvihmhy.
+5) Publish/preview devono autenticare e leggere/scrivere SOLO su kxgaqnksylntokyrpaxp.
 
-COMMENT ON FUNCTION public.can_chat_with(uuid, uuid) IS
-  'True se PT e atleta hanno connessione active/pending, oppure se l''atleta apre una chat di domanda verso un PT non sospeso.';
+COSA NON DEVI FARE
+- NON lanciare SQL / migration / can_chat_with / policy su chats.
+- NON ricreare il database. NON seed. NON wipe. NON reset Cloud.
+- NON toccare client.ts, types.ts a mano.
+- NON cambiare logica UI.
 
-GRANT EXECUTE ON FUNCTION public.can_chat_with(uuid, uuid) TO authenticated, service_role;
+PERCHÉ
+"Invia un messaggio" fallisce con RLS su chats perché la preview sta ancora caricando i dati dal Cloud vecchio. Sul database separato (kxgaqnksylntokyrpaxp) la regola è GIÀ applicata. Basta che Lovable punti lì.
 
-DROP POLICY IF EXISTS "Connected users can create chat" ON public.chats;
-CREATE POLICY "Connected users can create chat"
-  ON public.chats FOR INSERT
-  WITH CHECK (
-    (auth.uid() = pt_user_id OR auth.uid() = atleta_user_id)
-    AND public.can_chat_with(pt_user_id, atleta_user_id)
-  );
-
-VERIFICA
-Dopo l'apply, da atleta sul profilo di un Professionista non collegato: tocca "Invia un messaggio" — deve aprire la chat, non mostrare errore RLS.
+Conferma in chat:
+- backend collegato = kxgaqnksylntokyrpaxp
+- vecchio scollegato = sì
+- VITE_SUPABASE_URL attuale
+Non stampare service_role.
 ```
