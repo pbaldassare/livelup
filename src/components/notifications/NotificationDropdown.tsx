@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, Check, Trash2, UserPlus, MessageSquare, Calendar, CreditCard } from 'lucide-react';
+import { Bell, Check, Trash2, UserPlus, MessageSquare, Calendar, CreditCard, Dumbbell, Award, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
@@ -24,7 +24,14 @@ const notificationIcons: Record<string, typeof Bell> = {
   connection_accepted: Check,
   message: MessageSquare,
   event: Calendar,
+  event_registration: Calendar,
+  event_comment: MessageSquare,
+  booking: Calendar,
   payment: CreditCard,
+  workout: Dumbbell,
+  workout_assigned: Dumbbell,
+  badge: Award,
+  review: Star,
 };
 
 export function NotificationDropdown() {
@@ -32,6 +39,9 @@ export function NotificationDropdown() {
   const {
     notifications,
     unreadCount,
+    isLoading,
+    isError,
+    refetch,
     markAsRead,
     markAllAsRead,
     deleteNotification,
@@ -74,19 +84,35 @@ export function NotificationDropdown() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {notifications.length === 0 ? (
+        {isLoading ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">
+            Caricamento notifiche…
+          </div>
+        ) : isError ? (
+          <div className="p-4 text-center space-y-2">
+            <p className="text-sm text-muted-foreground">Impossibile caricare le notifiche.</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto p-1 text-xs"
+              onClick={() => refetch()}
+            >
+              Riprova
+            </Button>
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="p-4 text-center text-sm text-muted-foreground">
             Nessuna notifica
           </div>
         ) : (
           <div className="max-h-[300px] overflow-y-auto">
-            {notifications.slice(0, 10).map((notification) => {
+            {notifications.map((notification) => {
               const Icon = getIcon(notification.type);
               return (
                 <DropdownMenuItem
                   key={notification.id}
                   className={cn(
-                    'flex items-start gap-3 p-3 cursor-pointer',
+                    'group flex items-start gap-3 p-3 cursor-pointer',
                     !notification.is_read && 'bg-muted/50'
                   )}
                   onSelect={(e) => {

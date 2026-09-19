@@ -26,7 +26,10 @@ export function useNotifications() {
   // Fetch notifications
   const { 
     data: notifications = [], 
-    isLoading 
+    isLoading,
+    isError,
+    error,
+    refetch,
   } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
@@ -98,6 +101,9 @@ export function useNotifications() {
     notifications,
     unreadCount,
     isLoading,
+    isError,
+    error,
+    refetch,
     markAsRead: markAsReadMutation.mutate,
     markAllAsRead: markAllAsReadMutation.mutate,
     deleteNotification: deleteNotificationMutation.mutate,

@@ -81,6 +81,10 @@ export function mapPTWebToApp(pathname: string): string {
     return `/pt/app/templates/${rest}`;
   }
   if (pathname.startsWith('/pt/calendar/appuntamenti')) return '/pt/app/calendar?view=appuntamenti';
+  if (pathname.startsWith('/pt/calendar/eventi/')) {
+    const rest = pathname.replace('/pt/calendar/eventi/', '');
+    return `/pt/app/events/${rest}`;
+  }
   if (pathname.startsWith('/pt/calendar')) return '/pt/app/calendar';
   if (pathname.startsWith('/pt/groups')) return pathname.replace('/pt/groups', '/pt/app/groups');
   if (pathname.startsWith('/pt/events/')) {
@@ -105,5 +109,46 @@ export function mapPTWebToApp(pathname: string): string {
   // Onboarding is shared — keep as is
   if (pathname.startsWith('/pt/onboarding')) return pathname;
   return '/pt/app';
+}
+
+/**
+ * Maps a PT PWA route to its closest web dashboard equivalent.
+ * Unknown paths fall back to `/pt`.
+ */
+export function mapPTAppToWeb(pathname: string): string {
+  if (pathname === '/pt/app' || pathname === '/pt/app/') return '/pt';
+  if (pathname.startsWith('/pt/app/assigned-workouts')) {
+    return pathname.replace('/pt/app/assigned-workouts', '/pt/assigned-workouts');
+  }
+  if (pathname.startsWith('/pt/app/athlete/')) {
+    const rest = pathname.replace('/pt/app/athlete/', '');
+    return `/pt/athletes/${rest}`;
+  }
+  if (pathname.startsWith('/pt/app/athletes')) return '/pt/athletes';
+  if (pathname.startsWith('/pt/app/templates')) {
+    return pathname.replace('/pt/app/templates', '/pt/templates');
+  }
+  if (pathname.startsWith('/pt/app/calendar')) return '/pt/calendar/appuntamenti';
+  if (pathname.startsWith('/pt/app/groups')) {
+    return pathname.replace('/pt/app/groups', '/pt/groups');
+  }
+  if (pathname.startsWith('/pt/app/events')) {
+    return pathname.replace('/pt/app/events', '/pt/events');
+  }
+  // Group chat lives only on the PWA; keep the deep link.
+  if (pathname.startsWith('/pt/app/chat/group/')) return pathname;
+  if (pathname.startsWith('/pt/app/chat')) return '/pt/messages';
+  if (pathname.startsWith('/pt/app/exercises')) return '/pt/exercises';
+  if (pathname.startsWith('/pt/app/coupons')) return '/pt/coupons';
+  if (pathname.startsWith('/pt/app/payments')) return '/pt/payments';
+  if (pathname.startsWith('/pt/app/blog')) return '/pt/blog';
+  if (pathname.startsWith('/pt/app/settings') || pathname.startsWith('/pt/app/profile')) {
+    return '/pt/settings';
+  }
+  if (pathname.startsWith('/pt/app/notifications')) return '/pt';
+  if (pathname.startsWith('/pt/app/cerca-professionisti')) return '/pt/cerca-professionisti';
+  if (pathname.startsWith('/pt/app/athlete-transfer')) return '/pt/athlete-transfer';
+  if (pathname.startsWith('/pt/app/courses')) return '/pt/courses';
+  return '/pt';
 }
 

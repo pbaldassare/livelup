@@ -1,4 +1,4 @@
-import { mapPTWebToApp } from '@/hooks/usePTSurface';
+import { mapPTAppToWeb, mapPTWebToApp } from '@/hooks/usePTSurface';
 
 // =====================================================
 // Notification deep-link helpers (shared PT web / PT PWA / atleta)
@@ -99,6 +99,10 @@ export function remapNotificationActionUrl(
 
   if (opts.role === 'pt' && isPtAppPath(opts.pathname)) {
     if (pathname.startsWith('/pt/app')) return actionUrl;
+    if (pathname.startsWith('/pt/calendar/eventi/')) {
+      const eventId = pathname.replace('/pt/calendar/eventi/', '');
+      return withSearch(`/pt/app/events/${eventId}`, search);
+    }
     if (pathname.startsWith('/pt/')) {
       return withSearch(mapPTWebToApp(pathname), search);
     }
@@ -107,8 +111,13 @@ export function remapNotificationActionUrl(
     }
   }
 
-  if (opts.role === 'pt' && pathname.startsWith('/app/')) {
-    return '/pt';
+  if (opts.role === 'pt' && !isPtAppPath(opts.pathname)) {
+    if (pathname.startsWith('/pt/app')) {
+      return withSearch(mapPTAppToWeb(pathname), search);
+    }
+    if (pathname.startsWith('/app/')) {
+      return '/pt';
+    }
   }
 
   return actionUrl;

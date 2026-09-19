@@ -8,6 +8,7 @@ import {
   CreditCard,
   Dumbbell,
   Award,
+  Star,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNotifications, type Notification } from '@/hooks/useNotifications';
@@ -22,7 +23,12 @@ const notificationIcons: Record<string, typeof Bell> = {
   event: Calendar,
   payment: CreditCard,
   workout: Dumbbell,
+  workout_assigned: Dumbbell,
   badge: Award,
+  review: Star,
+  booking: Calendar,
+  event_registration: Calendar,
+  event_comment: MessageSquare,
 };
 
 export function NotificationsInbox() {
@@ -30,6 +36,8 @@ export function NotificationsInbox() {
     notifications,
     unreadCount,
     isLoading,
+    isError,
+    refetch,
     markAsRead,
     markAllAsRead,
     deleteNotification,
@@ -45,6 +53,26 @@ export function NotificationsInbox() {
     return (
       <div className="py-12 text-center text-sm text-app-muted-foreground">
         Caricamento notifiche…
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-2xl border border-app-border bg-app-card p-8 text-center">
+        <p className="text-sm font-medium text-app-foreground">Impossibile caricare le notifiche.</p>
+        <p className="mt-1 text-xs text-app-muted-foreground">
+          Controlla la connessione e riprova.
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mt-3 text-app-accent hover:text-app-accent"
+          onClick={() => refetch()}
+        >
+          Riprova
+        </Button>
       </div>
     );
   }

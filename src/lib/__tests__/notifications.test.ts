@@ -60,6 +60,27 @@ describe('remapNotificationActionUrl', () => {
       .toBe('/pt');
   });
 
+  it('remaps PT PWA action urls when the user is on the web dashboard', () => {
+    expect(remapNotificationActionUrl('/pt/app/calendar', { role: 'pt', pathname: '/pt/workouts' }))
+      .toBe('/pt/calendar/appuntamenti');
+    expect(remapNotificationActionUrl('/pt/app/athletes?tab=pending', { role: 'pt', pathname: '/pt' }))
+      .toBe('/pt/athletes?tab=pending');
+    expect(remapNotificationActionUrl('/pt/app/chat/group/abc', { role: 'pt', pathname: '/pt' }))
+      .toBe('/pt/app/chat/group/abc');
+  });
+
+  it('remaps legacy event registration urls on the PWA', () => {
+    expect(remapNotificationActionUrl('/pt/calendar/eventi/evt-1', { role: 'pt', pathname: '/pt/app' }))
+      .toBe('/pt/app/events/evt-1');
+  });
+
+  it('does not remap athlete action urls', () => {
+    expect(remapNotificationActionUrl('/app/scheda', { role: 'atleta', pathname: '/app' }))
+      .toBe('/app/scheda');
+    expect(remapNotificationActionUrl('/app/notifications', { role: 'atleta', pathname: '/app/profile' }))
+      .toBe('/app/notifications');
+  });
+
   it('falls back to the inbox when action_url is missing', () => {
     expect(remapNotificationActionUrl(null, { role: 'pt', pathname: '/pt/app' }))
       .toBe('/pt/app/notifications');
