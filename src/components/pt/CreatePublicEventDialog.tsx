@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -35,17 +36,22 @@ import {
 } from 'lucide-react';
 import { PlacesAutocomplete } from '@/components/app/PlacesAutocomplete';
 import { ImageUpload } from '@/components/common/ImageUpload';
+import { addEventParticipant } from '@/lib/api/eventParticipants';
+import { buildPublicEventInsert, type PublicEventCreatorKind } from '@/lib/api/publicEvents';
 
 interface CreatePublicEventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDate?: Date;
+  /** Default PT. Atleta: niente pt_user_id, senza visibilità "solo collegati". */
+  variant?: PublicEventCreatorKind;
 }
 
 export function CreatePublicEventDialog({
   open,
   onOpenChange,
   selectedDate,
+  variant = 'pt',
 }: CreatePublicEventDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -108,42 +114,52 @@ export function CreatePublicEventDialog({
       const startDatetime = startLocal.toISOString();
       const endDatetime = endLocal.toISOString();
 
-      const { error } = await supabase.from('calendar_events').insert([{
-        creator_user_id: user.id,
-        pt_user_id: user.id,
+      const payload = buildPublicEventInsert({
+        creatorUserId: user.id,
+        creatorKind: variant,
         title,
         description: description || null,
-        event_type: 'evento' as const,
-        category: 'evento',
-        event_type_id: eventTypeId || null,
-        start_datetime: startDatetime,
-        end_datetime: endDatetime,
+        eventTypeId: eventTypeId || null,
+        startDatetime,
+        endDatetime,
         location: location || null,
-        location_lat: locationLat,
-        location_lng: locationLng,
-        is_public: true,
+        locationLat: locationLat,
+        locationLng: locationLng,
         visibility,
-        is_closed_number: isClosedNumber,
-        max_participants: isClosedNumber && maxParticipants ? Number(maxParticipants) : null,
-        cover_image_url: coverImageUrl,
-      }]);
+        isClosedNumber,
+        maxParticipants: isClosedNumber && maxParticipants ? Number(maxParticipants) : null,
+        coverImageUrl,
+      });
 
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .insert([payload])
+        .select('id')
+        .single();
 
       if (error) throw error;
+      if (data?.id && variant === 'atleta') {
+        await addEventParticipant(data.id, user.id);
+      }
     },
 
     onSuccess: () => {
-      toast.success('Evento creato con successo! 🎉');
+      toast.success(
+        variant === 'atleta'
+          ? 'Evento pubblicato: lo vedi in Scopri → Eventi'
+          : 'Evento creato con successo! 🎉',
+      );
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
       queryClient.invalidateQueries({ queryKey: ['pt-events-manage'] });
       queryClient.invalidateQueries({ queryKey: ['public-events'] });
+      queryClient.invalidateQueries({ queryKey: ['public-events-discover'] });
       queryClient.invalidateQueries({ queryKey: ['pt-calendar'] });
       onOpenChange(false);
       resetForm();
     },
     onError: (error) => {
       console.error('Error creating event:', error);
-      toast.error('Errore nella creazione dell\'evento');
+      toast.error(error instanceof Error ? error.message : "Errore nella creazione dell'evento");
     },
   });
 
@@ -184,8 +200,13 @@ export function CreatePublicEventDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Crea Evento
+            Crea evento
           </DialogTitle>
+          <DialogDescription>
+            {variant === 'atleta'
+              ? 'Pubblica un evento in Scopri. Chiunque in zona potrà vederlo e partecipare.'
+              : 'Crea un evento pubblico visibile in Scopri e nel calendario.'}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -381,12 +402,14 @@ export function CreatePublicEventDialog({
                       Solo utenti app
                     </div>
                   </SelectItem>
-                  <SelectItem value="connected_only">
-                    <div className="flex items-center gap-2">
-                      <Lock className="h-4 w-4" />
-                      Solo atleti collegati
-                    </div>
-                  </SelectItem>
+                  {variant === 'pt' && (
+                    <SelectItem value="connected_only">
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4" />
+                        Solo atleti collegati
+                      </div>
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
