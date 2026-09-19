@@ -7,7 +7,7 @@
 // A fine ultimo round chiama onFinished().
 // =====================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pause, Play, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,8 @@ import {
 } from '@/lib/protocols/emom';
 import { formatProtocolTargetLabel } from '@/lib/protocols/exerciseTarget';
 import { formatLoadLabel } from '@/lib/loadPrescription';
+import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { deadlineFromRemaining, remainingFromDeadline } from '@/lib/workoutClock';
 
 interface AtletaEmomPlayerProps {
   exerciseName: string;
@@ -51,7 +53,8 @@ export function AtletaEmomPlayer({
   );
 
   const [round, setRound] = useState(1);
-  const [secondsLeft, setSecondsLeft] = useState(emom.round_duration);
+  const [endsAt, setEndsAt] = useState<number | null>(null);
+  const [pausedLeft, setPausedLeft] = useState(emom.round_duration);
   const [isRunning, setIsRunning] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const finishedRef = useRef(false);
@@ -61,46 +64,58 @@ export function AtletaEmomPlayer({
     currentBlock?.label?.trim() ||
     `Blocco ${((round - 1) % emom.blocks.length) + 1}`;
 
-  // Tick 1Hz
-  useEffect(() => {
-    if (!isRunning) return;
-    const t = setInterval(() => {
-      setSecondsLeft((s) => s - 1);
-    }, 1000);
-    return () => clearInterval(t);
-  }, [isRunning]);
+  const startRoundClock = useCallback((duration = emom.round_duration) => {
+    setPausedLeft(duration);
+    setEndsAt(deadlineFromRemaining(duration));
+    setIsRunning(true);
+  }, [emom.round_duration]);
 
-  // Round transition / finish
-  useEffect(() => {
-    if (secondsLeft > 0) return;
+  const handleRoundExpired = useCallback(() => {
+    if (finishedRef.current) return;
     if (round < emom.rounds) {
       setRound((r) => r + 1);
-      setSecondsLeft(emom.round_duration);
-    } else if (!finishedRef.current) {
-      finishedRef.current = true;
-      setIsRunning(false);
-      onFinished();
+      startRoundClock(emom.round_duration);
+      return;
     }
-  }, [secondsLeft, round, emom.rounds, emom.round_duration, onFinished]);
+    finishedRef.current = true;
+    setIsRunning(false);
+    setEndsAt(null);
+    onFinished();
+  }, [round, emom.rounds, emom.round_duration, onFinished, startRoundClock]);
+
+  const tickingLeft = useDeadlineCountdown(isRunning ? endsAt : null, handleRoundExpired);
+  const secondsLeft = isRunning ? tickingLeft : pausedLeft;
 
   const handleStart = () => {
     setHasStarted(true);
-    setIsRunning(true);
+    startRoundClock(emom.round_duration);
   };
 
-  const handleTogglePause = () => setIsRunning((v) => !v);
+  const handleTogglePause = () => {
+    setIsRunning((v) => {
+      if (v) {
+        const left = remainingFromDeadline(endsAt);
+        setPausedLeft(left);
+        setEndsAt(null);
+        return false;
+      }
+      setEndsAt(deadlineFromRemaining(pausedLeft));
+      return true;
+    });
+  };
 
   const handleNextRound = () => {
     if (round >= emom.rounds) {
       if (!finishedRef.current) {
         finishedRef.current = true;
         setIsRunning(false);
+        setEndsAt(null);
         onFinished();
       }
       return;
     }
     setRound((r) => r + 1);
-    setSecondsLeft(emom.round_duration);
+    startRoundClock(emom.round_duration);
   };
 
   const progressPct =

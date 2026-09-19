@@ -3,7 +3,7 @@
 // Guida l'atleta attraverso supersets × esercizi con recuperi.
 // =====================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Check, Pause, Play, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,8 @@ import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { formatProtocolTargetLabel } from '@/lib/protocols/exerciseTarget';
 import { formatLoadLabel } from '@/lib/loadPrescription';
+import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { deadlineFromRemaining, remainingFromDeadline } from '@/lib/workoutClock';
 
 type Phase = 'work' | 'rest_between_exercises' | 'rest_between_supersets';
 
@@ -47,7 +49,8 @@ export function AtletaSupersetPlayer({
   const [supersetIndex, setSupersetIndex] = useState(0);
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('work');
-  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
+  const [pausedLeft, setPausedLeft] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const finishedRef = useRef(false);
@@ -63,18 +66,6 @@ export function AtletaSupersetPlayer({
   const isLastExercise = exerciseIndex >= params.exercises_count - 1;
   const isLastSuperset = supersetIndex >= params.supersets_count - 1;
 
-  useEffect(() => {
-    if (!isRunning || phase === 'work') return;
-    const t = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearInterval(t);
-  }, [isRunning, phase]);
-
-  useEffect(() => {
-    if (phase === 'work' || secondsLeft > 0 || !isRunning) return;
-    setIsRunning(false);
-    advanceAfterRest();
-  }, [secondsLeft, phase, isRunning]);
-
   const advanceAfterRest = () => {
     if (phase === 'rest_between_exercises') {
       setExerciseIndex((i) => i + 1);
@@ -88,6 +79,24 @@ export function AtletaSupersetPlayer({
     }
   };
 
+  const startRest = (seconds: number) => {
+    setPausedLeft(seconds);
+    setRestEndsAt(deadlineFromRemaining(seconds));
+    setIsRunning(true);
+  };
+
+  const handleRestExpired = useCallback(() => {
+    setIsRunning(false);
+    setRestEndsAt(null);
+    advanceAfterRest();
+  }, [phase]);
+
+  const restLeft = useDeadlineCountdown(
+    phase !== 'work' && isRunning ? restEndsAt : null,
+    handleRestExpired,
+  );
+  const secondsLeft = isRunning ? restLeft : pausedLeft;
+
   const finishWorkout = () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
@@ -98,15 +107,13 @@ export function AtletaSupersetPlayer({
   const handleCompleteExercise = () => {
     if (!isLastExercise && params.rest_between_exercises_enabled && params.rest_between_exercises) {
       setPhase('rest_between_exercises');
-      setSecondsLeft(params.rest_between_exercises);
-      setIsRunning(true);
+      startRest(params.rest_between_exercises);
       return;
     }
 
     if (isLastExercise && !isLastSuperset && params.rest_between_supersets > 0) {
       setPhase('rest_between_supersets');
-      setSecondsLeft(params.rest_between_supersets);
-      setIsRunning(true);
+      startRest(params.rest_between_supersets);
       return;
     }
 
@@ -126,8 +133,22 @@ export function AtletaSupersetPlayer({
 
   const handleSkipRest = () => {
     setIsRunning(false);
-    setSecondsLeft(0);
+    setRestEndsAt(null);
+    setPausedLeft(0);
     advanceAfterRest();
+  };
+
+  const handleToggleRestPause = () => {
+    setIsRunning((v) => {
+      if (v) {
+        const left = remainingFromDeadline(restEndsAt);
+        setPausedLeft(left);
+        setRestEndsAt(null);
+        return false;
+      }
+      setRestEndsAt(deadlineFromRemaining(pausedLeft));
+      return true;
+    });
   };
 
   const phaseLabel =
@@ -209,7 +230,7 @@ export function AtletaSupersetPlayer({
             <div className="flex gap-3">
               <Button
                 variant="outline"
-                onClick={() => setIsRunning((v) => !v)}
+                onClick={handleToggleRestPause}
                 className="flex-1 h-12 rounded-full border-app-border"
               >
                 {isRunning ? (

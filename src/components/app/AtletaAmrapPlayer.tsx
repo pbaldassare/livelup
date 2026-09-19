@@ -4,7 +4,7 @@
 // Cicla gli esercizi della lista ad ogni round completato.
 // =====================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Pause, Play, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,8 @@ import {
 } from '@/lib/protocols/amrap';
 import { formatProtocolTarget } from '@/lib/protocols/exerciseTarget';
 import { formatLoadLabel } from '@/lib/loadPrescription';
+import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { deadlineFromRemaining, remainingFromDeadline } from '@/lib/workoutClock';
 
 interface AtletaAmrapPlayerProps {
   exerciseName: string;
@@ -46,39 +48,52 @@ export function AtletaAmrapPlayer({
     [protocolParams],
   );
 
-  const [secondsLeft, setSecondsLeft] = useState(params.duration_seconds);
+  const [endsAt, setEndsAt] = useState<number | null>(null);
+  const [pausedLeft, setPausedLeft] = useState(params.duration_seconds);
   const [roundsCompleted, setRoundsCompleted] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const finishedRef = useRef(false);
-  const elapsedRef = useRef(0);
+  const roundsRef = useRef(0);
+  roundsRef.current = roundsCompleted;
 
   const currentExerciseIndex =
     params.exercises.length > 0 ? roundsCompleted % params.exercises.length : 0;
   const currentExercise = params.exercises[currentExerciseIndex];
 
-  useEffect(() => {
-    if (!isRunning) return;
-    const t = setInterval(() => {
-      setSecondsLeft((s) => s - 1);
-      elapsedRef.current += 1;
-    }, 1000);
-    return () => clearInterval(t);
-  }, [isRunning]);
-
-  useEffect(() => {
-    if (secondsLeft > 0 || finishedRef.current) return;
+  const finishAmrap = (left: number) => {
+    if (finishedRef.current) return;
     finishedRef.current = true;
     setIsRunning(false);
+    setEndsAt(null);
+    const elapsed = Math.max(0, params.duration_seconds - left);
     onFinished({
-      roundsCompleted,
-      totalDurationSeconds: elapsedRef.current || params.duration_seconds,
+      roundsCompleted: roundsRef.current,
+      totalDurationSeconds: elapsed || params.duration_seconds,
     });
-  }, [secondsLeft, roundsCompleted, onFinished, params.duration_seconds]);
+  };
+
+  const tickingLeft = useDeadlineCountdown(isRunning ? endsAt : null, () => finishAmrap(0));
+  const secondsLeft = isRunning ? tickingLeft : pausedLeft;
 
   const handleStart = () => {
     setHasStarted(true);
+    setPausedLeft(params.duration_seconds);
+    setEndsAt(deadlineFromRemaining(params.duration_seconds));
     setIsRunning(true);
+  };
+
+  const handleTogglePause = () => {
+    setIsRunning((v) => {
+      if (v) {
+        const left = remainingFromDeadline(endsAt);
+        setPausedLeft(left);
+        setEndsAt(null);
+        return false;
+      }
+      setEndsAt(deadlineFromRemaining(pausedLeft));
+      return true;
+    });
   };
 
   const handleCompleteRound = () => {
@@ -86,13 +101,7 @@ export function AtletaAmrapPlayer({
   };
 
   const handleFinishEarly = () => {
-    if (finishedRef.current) return;
-    finishedRef.current = true;
-    setIsRunning(false);
-    onFinished({
-      roundsCompleted,
-      totalDurationSeconds: elapsedRef.current,
-    });
+    finishAmrap(isRunning ? remainingFromDeadline(endsAt) : pausedLeft);
   };
 
   const progressPct =
@@ -194,7 +203,7 @@ export function AtletaAmrapPlayer({
             <div className="flex gap-3">
               <Button
                 variant="outline"
-                onClick={() => setIsRunning((v) => !v)}
+                onClick={handleTogglePause}
                 className="flex-1 h-12 rounded-full border-app-border"
               >
                 {isRunning ? (

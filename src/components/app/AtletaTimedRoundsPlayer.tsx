@@ -163,21 +163,31 @@ export function AtletaTimedRoundsPlayer({
     if (phaseStartedAtRef.current === null) {
       phaseStartedAtRef.current = Date.now() - (phaseTotalRef.current - secondsLeft) * 1000;
     }
-    const id = setInterval(() => {
+    const tick = () => {
       const started = phaseStartedAtRef.current;
       if (started === null) return;
       const elapsed = Math.floor((Date.now() - started) / 1000);
       const left = phaseTotalRef.current - elapsed;
       if (left <= 0) {
-        // ferma il tick e avanza una sola volta
         setSecondsLeft(0);
         phaseStartedAtRef.current = null;
         advancePhase();
       } else {
         setSecondsLeft(left);
       }
-    }, 250);
-    return () => clearInterval(id);
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    const onResume = () => tick();
+    document.addEventListener('visibilitychange', onResume);
+    window.addEventListener('pageshow', onResume);
+    window.addEventListener('focus', onResume);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('pageshow', onResume);
+      window.removeEventListener('focus', onResume);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, phase, round, exerciseIndex]);
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle2, ChevronRight, Loader2, Timer } from 'lucide-react';
@@ -14,6 +14,8 @@ import {
 } from '@/lib/api/courses';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { deadlineFromRemaining } from '@/lib/workoutClock';
 
 function parseSets(ex: PtCourseStepExercise): number {
   return Math.max(1, ex.sets ?? 3);
@@ -52,7 +54,7 @@ export function AtletaCourseStepRunPage() {
 
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [currentSet, setCurrentSet] = useState(1);
-  const [restLeft, setRestLeft] = useState<number | null>(null);
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
   const [finished, setFinished] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
 
@@ -70,17 +72,8 @@ export function AtletaCourseStepRunPage() {
     return n;
   }, [exerciseIndex, currentSet, exercises, finished, totalSets]);
 
-  useEffect(() => {
-    if (restLeft == null || restLeft <= 0) return;
-    const id = window.setInterval(() => {
-      setRestLeft((prev) => {
-        if (prev == null) return null;
-        if (prev <= 1) return 0;
-        return prev - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [restLeft]);
+  const restTick = useDeadlineCountdown(restEndsAt, () => setRestEndsAt(null));
+  const restLeft = restEndsAt == null ? null : restTick;
 
   const goBackToCourse = () => {
     if (courseId) {
@@ -106,7 +99,7 @@ export function AtletaCourseStepRunPage() {
     completingRef.current = true;
     setIsCompleting(true);
     setFinished(true);
-    setRestLeft(null);
+    setRestEndsAt(null);
 
     try {
       const result = await completeCourseStep(enrollmentId, sid, uid);
@@ -142,14 +135,14 @@ export function AtletaCourseStepRunPage() {
 
     if (currentSet < setsTotal) {
       setCurrentSet((s) => s + 1);
-      setRestLeft(restSeconds > 0 ? restSeconds : null);
+      setRestEndsAt(restSeconds > 0 ? deadlineFromRemaining(restSeconds) : null);
       return;
     }
 
     if (exerciseIndex < exercises.length - 1) {
       setExerciseIndex((i) => i + 1);
       setCurrentSet(1);
-      setRestLeft(restSeconds > 0 ? restSeconds : null);
+      setRestEndsAt(restSeconds > 0 ? deadlineFromRemaining(restSeconds) : null);
       return;
     }
 
@@ -162,7 +155,7 @@ export function AtletaCourseStepRunPage() {
     advanceAfterSet();
   };
 
-  const skipRest = () => setRestLeft(0);
+  const skipRest = () => setRestEndsAt(null);
 
   if (isLoading) {
     return (

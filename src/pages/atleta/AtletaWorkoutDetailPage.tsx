@@ -17,6 +17,7 @@ import {
   resolveRepeatState,
 } from '@/lib/workoutRepeat';
 import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
+import { useWallClockElapsed } from '@/hooks/useDeadlineCountdown';
 import { isSummaryPhase } from '@/lib/pt/templateRoles';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
 import {
@@ -134,7 +135,10 @@ export function AtletaWorkoutDetailPage() {
   const [isResting, setIsResting] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
   const [completedSets, setCompletedSets] = useState<Record<string, number[]>>({});
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const [elapsedBase, setElapsedBase] = useState(0);
+  const [elapsedRunningSince, setElapsedRunningSince] = useState<number | null>(null);
+  const elapsedSlice = useWallClockElapsed(elapsedRunningSince);
+  const elapsedTime = elapsedBase + (elapsedRunningSince ? elapsedSlice : 0);
   const [exerciseDirection, setExerciseDirection] = useState(1);
   const [showSummary, setShowSummary] = useState(false);
   const [reorderOpen, setReorderOpen] = useState(false);
@@ -418,16 +422,17 @@ export function AtletaWorkoutDetailPage() {
     },
   });
 
-  // Timer for elapsed time
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isWorkoutStarted && !isResting && !showSummary) {
-      interval = setInterval(() => {
-        setElapsedTime(prev => prev + 1);
-      }, 1000);
+    const running = isWorkoutStarted && !isResting && !showSummary;
+    if (running) {
+      setElapsedRunningSince((prev) => prev ?? Date.now());
+      return;
     }
-    return () => { if (interval) clearInterval(interval); };
-  }, [isWorkoutStarted, isResting, showSummary]);
+    if (elapsedRunningSince != null) {
+      setElapsedBase((b) => b + Math.floor((Date.now() - elapsedRunningSince) / 1000));
+      setElapsedRunningSince(null);
+    }
+  }, [isWorkoutStarted, isResting, showSummary, elapsedRunningSince]);
 
   const exercises = workout?.workout_exercises || [];
   const currentExercise = exercises[currentExerciseIndex] as WorkoutExercise | undefined;
