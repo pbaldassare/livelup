@@ -14,6 +14,7 @@ import {
   formatRepeatCompletionToast,
   formatRepeatProgress,
   isRepeatAssignment,
+  resolveRepeatState,
 } from '@/lib/workoutRepeat';
 import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
 import { isSummaryPhase } from '@/lib/pt/templateRoles';
@@ -170,7 +171,7 @@ export function AtletaWorkoutDetailPage() {
       const { data, error } = await supabase
         .from('workouts')
         .select(`
-          id, title, description, status, scheduled_date, notes_pt, pt_user_id,
+          id, title, description, status, scheduled_date, notes_pt, notes_atleta, pt_user_id,
           template_kind, athlete_reordered_at, repeat_target, repeat_done,
           workout_blocks (id, order_index, type, name, params),
           workout_exercises (
@@ -185,11 +186,11 @@ export function AtletaWorkoutDetailPage() {
         .single();
       if (error) {
         // Fallback se colonna phase non ancora migrata
-        if (/phase|42703|PGRST204|schema cache/i.test(error.message)) {
+        if (/phase|repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
           const { data: legacy, error: legacyErr } = await supabase
             .from('workouts')
             .select(`
-              id, title, description, status, scheduled_date, notes_pt, pt_user_id,
+              id, title, description, status, scheduled_date, notes_pt, notes_atleta, pt_user_id,
               template_kind, athlete_reordered_at,
               workout_blocks (id, order_index, type, name, params),
               workout_exercises (
@@ -357,10 +358,8 @@ export function AtletaWorkoutDetailPage() {
       });
     },
     onSuccess: (updated) => {
-      const info = formatRepeatCompletionToast(
-        (updated as any)?.repeat_done,
-        (updated as any)?.repeat_target ?? 1,
-      );
+      const repeat = resolveRepeatState(updated as any);
+      const info = formatRepeatCompletionToast(repeat.repeatDone, repeat.repeatTarget);
       toast.success(info.message);
       queryClient.invalidateQueries({ queryKey: ['atleta-workouts'] });
       queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
@@ -776,19 +775,23 @@ export function AtletaWorkoutDetailPage() {
 
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-app-foreground">
-              {isRepeatAssignment((workout as any).repeat_target) &&
-              !applyRepeatCompletion((workout as any).repeat_done, (workout as any).repeat_target)
-                .finished
+              {isRepeatAssignment(resolveRepeatState(workout as any).repeatTarget) &&
+              !applyRepeatCompletion(
+                resolveRepeatState(workout as any).repeatDone,
+                resolveRepeatState(workout as any).repeatTarget,
+              ).finished
                 ? 'Sessione completata!'
                 : 'Allenamento completato!'}
             </h1>
             <p className="text-app-muted-foreground">{workout.title}</p>
-            {isRepeatAssignment((workout as any).repeat_target) && (
+            {isRepeatAssignment(resolveRepeatState(workout as any).repeatTarget) && (
               <p className="text-sm text-app-accent">
                 {formatRepeatProgress(
-                  applyRepeatCompletion((workout as any).repeat_done, (workout as any).repeat_target)
-                    .repeatDone,
-                  (workout as any).repeat_target,
+                  applyRepeatCompletion(
+                    resolveRepeatState(workout as any).repeatDone,
+                    resolveRepeatState(workout as any).repeatTarget,
+                  ).repeatDone,
+                  resolveRepeatState(workout as any).repeatTarget,
                 )}
               </p>
             )}
@@ -967,9 +970,12 @@ export function AtletaWorkoutDetailPage() {
                 <span>~{totalExercises * 5} min</span>
               </div>
             </div>
-            {isRepeatAssignment((workout as any).repeat_target) && (
+            {isRepeatAssignment(resolveRepeatState(workout as any).repeatTarget) && (
               <p className="text-sm font-medium text-app-accent pt-1">
-                {formatRepeatProgress((workout as any).repeat_done, (workout as any).repeat_target)}
+                {formatRepeatProgress(
+                  resolveRepeatState(workout as any).repeatDone,
+                  resolveRepeatState(workout as any).repeatTarget,
+                )}
               </p>
             )}
             {isCompleted && (

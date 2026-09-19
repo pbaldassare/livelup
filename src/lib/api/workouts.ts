@@ -7,7 +7,13 @@ import { supabase } from '@/integrations/supabase/client';
 import type { TemplateKind } from '@/lib/pt/templateKinds';
 import { isSummaryPhase, type WorkoutPhase } from '@/lib/pt/templateRoles';
 import { buildAssignmentCalendarEvent } from '@/lib/workoutAssignmentDelivery';
-import { encodeRepeatDescription, encodeRepeatTickNotes } from '@/lib/workoutRepeat';
+import {
+  applyRepeatCompletion,
+  encodeRepeatDescription,
+  encodeRepeatProgressNotes,
+  isRepeatColumnsMissingError,
+  resolveRepeatState,
+} from '@/lib/workoutRepeat';
 
 export type { TemplateKind };
 
@@ -323,6 +329,44 @@ export const COMPLETABLE_WORKOUT_STATUSES = [
   'scaduto',
 ] as const;
 
+type WorkoutCompleteRow = {
+  id: string;
+  status: string;
+  description?: string | null;
+  notes_atleta?: string | null;
+  repeat_target?: number | null;
+  repeat_done?: number | null;
+};
+
+async function fetchWorkoutForComplete(workoutId: string): Promise<WorkoutCompleteRow> {
+  const withRepeat = await supabase
+    .from('workouts')
+    .select('id, status, description, notes_atleta, repeat_target, repeat_done')
+    .eq('id', workoutId)
+    .maybeSingle();
+
+  if (!withRepeat.error && withRepeat.data) {
+    return withRepeat.data as WorkoutCompleteRow;
+  }
+  if (withRepeat.error && !isRepeatColumnsMissingError(withRepeat.error.message)) {
+    throw new Error('Errore completamento workout: ' + withRepeat.error.message);
+  }
+
+  const legacy = await supabase
+    .from('workouts')
+    .select('id, status, description, notes_atleta')
+    .eq('id', workoutId)
+    .maybeSingle();
+
+  if (legacy.error) {
+    throw new Error('Errore completamento workout: ' + legacy.error.message);
+  }
+  if (!legacy.data) {
+    throw new Error('Allenamento non trovato');
+  }
+  return legacy.data as WorkoutCompleteRow;
+}
+
 export async function completeWorkout(
   workoutId: string,
   feedback?: {
@@ -338,21 +382,8 @@ export async function completeWorkout(
     volumeKg?: number;
   },
 ) {
-  const existingSelect = await supabase
-    .from('workouts')
-    .select('id, status')
-    .eq('id', workoutId)
-    .maybeSingle();
+  const existing = await fetchWorkoutForComplete(workoutId);
 
-  const existing = existingSelect.data as { id: string; status: string } | null;
-  const fetchErr = existingSelect.error;
-
-  if (fetchErr) {
-    throw new Error('Errore completamento workout: ' + fetchErr.message);
-  }
-  if (!existing) {
-    throw new Error('Allenamento non trovato');
-  }
   // Idempotente: doppio tap / doppia callback non devono fallire
   if (existing.status === 'completato') {
     const { data: done, error: doneErr } = await supabase
@@ -383,16 +414,30 @@ export async function completeWorkout(
     }
   }
 
+  const current = resolveRepeatState(existing);
+  const next = applyRepeatCompletion(current.repeatDone, current.repeatTarget);
+  const nextNotes = encodeRepeatProgressNotes(feedback?.notesAtleta, next.repeatDone, {
+    tick: true,
+  });
+
+  const patch: Record<string, unknown> = {
+    notes_atleta: nextNotes,
+    rating: feedback?.rating,
+    duration_seconds: feedback?.durationSeconds ?? null,
+    sets_completed: setsCompleted,
+    reps_total: repsTotal,
+    volume_kg: volumeKg,
+    // Chiude il ciclo anche se il trigger / le colonne API non sono visibili.
+    status: next.finished ? 'completato' : 'in_corso',
+    completed_at: next.finished ? new Date().toISOString() : null,
+  };
+  if (current.repeatTarget > 1) {
+    patch.description = encodeRepeatDescription(existing.description, current.repeatTarget);
+  }
+
   const { data, error } = await supabase
     .from('workouts')
-    .update({
-      notes_atleta: encodeRepeatTickNotes(feedback?.notesAtleta),
-      rating: feedback?.rating,
-      duration_seconds: feedback?.durationSeconds ?? null,
-      sets_completed: setsCompleted,
-      reps_total: repsTotal,
-      volume_kg: volumeKg,
-    } as any)
+    .update(patch as any)
     .eq('id', workoutId)
     .select()
     .maybeSingle();
@@ -409,7 +454,16 @@ export async function completeWorkout(
     );
   }
 
-  return data;
+  const resolved = resolveRepeatState({
+    ...(data as WorkoutCompleteRow),
+    description: (data as WorkoutCompleteRow).description ?? (patch.description as string | undefined) ?? existing.description,
+    notes_atleta: (data as WorkoutCompleteRow).notes_atleta ?? nextNotes,
+  });
+  return {
+    ...data,
+    repeat_target: resolved.repeatTarget,
+    repeat_done: resolved.repeatDone,
+  };
 }
 
 const UNASSIGNABLE_WORKOUT_STATUSES = ['attivo', 'scaduto', 'in_corso', 'in_sospeso'] as const;
@@ -529,7 +583,7 @@ export async function updateAssignedWorkout(
 ) {
   const { data: workout, error: fetchErr } = await supabase
     .from('workouts')
-    .select('id, pt_user_id')
+    .select('id, pt_user_id, description, notes_atleta')
     .eq('id', workoutId)
     .single();
 
@@ -542,7 +596,13 @@ export async function updateAssignedWorkout(
 
   const update: Record<string, unknown> = {};
   if (patch.title !== undefined) update.title = patch.title.trim();
-  if (patch.description !== undefined) update.description = patch.description;
+  if (patch.description !== undefined) {
+    const target = resolveRepeatState({
+      description: (workout as { description?: string | null }).description,
+      notes_atleta: (workout as { notes_atleta?: string | null }).notes_atleta,
+    }).repeatTarget;
+    update.description = encodeRepeatDescription(patch.description, target);
+  }
   if (patch.templateKind !== undefined) update.template_kind = patch.templateKind;
 
   if (Object.keys(update).length === 0) return workout;
@@ -687,7 +747,7 @@ async function copyWorkoutAssignmentToAthlete(
     title: opts?.title ?? original.title,
     description: encodeRepeatDescription(
       original.description,
-      (original as any).repeat_target ?? 1,
+      resolveRepeatState(original as any).repeatTarget,
     ),
     template_id: original.template_id,
     template_kind: (original as any).template_kind ?? 'libera',

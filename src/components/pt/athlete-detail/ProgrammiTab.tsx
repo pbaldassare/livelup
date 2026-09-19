@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { isWorkoutStartable } from '@/components/pt/PTAthleteWorkoutRunner';
-import { formatRepeatProgress, isRepeatAssignment } from '@/lib/workoutRepeat';
+import { formatRepeatProgress, isRepeatAssignment, resolveRepeatState, stripRepeatMarkers } from '@/lib/workoutRepeat';
 import {
   duplicateWorkoutAssignment,
   duplicateWorkoutToAthletes,
@@ -94,6 +94,8 @@ type WorkoutRow = {
   created_at: string;
   template_id: string | null;
   athlete_reordered_at?: string | null;
+  description?: string | null;
+  notes_atleta?: string | null;
   repeat_target?: number | null;
   repeat_done?: number | null;
 };
@@ -102,6 +104,7 @@ type WorkoutDetail = {
   id: string;
   title: string;
   description: string | null;
+  notes_atleta?: string | null;
   status: string;
   scheduled_date: string | null;
   due_date: string | null;
@@ -170,10 +173,13 @@ function WorkoutActionsDialog({
           <DialogTitle className="truncate pr-6">{workout.title}</DialogTitle>
           <DialogDescription>
             {workoutDateLabel(workout)}
-            {isRepeatAssignment(workout.repeat_target) && (
+            {isRepeatAssignment(resolveRepeatState(workout).repeatTarget) && (
               <>
                 {' · '}
-                {formatRepeatProgress(workout.repeat_done, workout.repeat_target)}
+                {formatRepeatProgress(
+                  resolveRepeatState(workout).repeatDone,
+                  resolveRepeatState(workout).repeatTarget,
+                )}
               </>
             )}
           </DialogDescription>
@@ -220,7 +226,7 @@ function WorkoutDetailDialog({
     queryKey: ['pt-workout-detail', workoutId],
     queryFn: async () => {
       const selectWithRepeat = `
-          id, title, description, status, scheduled_date, due_date, template_id, athlete_reordered_at, repeat_target, repeat_done,
+          id, title, description, notes_atleta, status, scheduled_date, due_date, template_id, athlete_reordered_at, repeat_target, repeat_done,
           workout_exercises (
             id, order_index, prescribed_sets, prescribed_reps_min, prescribed_reps_max,
             exercises ( name )
@@ -235,7 +241,7 @@ function WorkoutDetailDialog({
         const retry = await supabase
           .from('workouts')
           .select(`
-          id, title, description, status, scheduled_date, due_date, template_id, athlete_reordered_at,
+          id, title, description, notes_atleta, status, scheduled_date, due_date, template_id, athlete_reordered_at,
           workout_exercises (
             id, order_index, prescribed_sets, prescribed_reps_min, prescribed_reps_max,
             exercises ( name )
@@ -265,9 +271,12 @@ function WorkoutDetailDialog({
                   {format(new Date(workout.scheduled_date), 'dd MMM yyyy', { locale: it })}
                 </span>
               )}
-              {isRepeatAssignment(workout.repeat_target) && (
+              {isRepeatAssignment(resolveRepeatState(workout).repeatTarget) && (
                 <Badge variant="secondary" className="text-[10px]">
-                  {formatRepeatProgress(workout.repeat_done, workout.repeat_target)}
+                  {formatRepeatProgress(
+                    resolveRepeatState(workout).repeatDone,
+                    resolveRepeatState(workout).repeatTarget,
+                  )}
                 </Badge>
               )}
               {workout.athlete_reordered_at && (
@@ -284,8 +293,8 @@ function WorkoutDetailDialog({
           </div>
         ) : workout ? (
           <div className="space-y-4">
-            {workout.description && (
-              <p className="text-sm text-muted-foreground">{workout.description}</p>
+            {stripRepeatMarkers(workout.description) && (
+              <p className="text-sm text-muted-foreground">{stripRepeatMarkers(workout.description)}</p>
             )}
             {workout.athlete_reordered_at && (
               <p className="text-xs text-muted-foreground rounded-md border bg-muted/40 px-3 py-2">
@@ -785,9 +794,12 @@ function WorkoutListItem({
             <Clock className="h-3 w-3 shrink-0" />
             {workoutDateLabel(workout)}
           </p>
-          {isRepeatAssignment(workout.repeat_target) && (
+          {isRepeatAssignment(resolveRepeatState(workout).repeatTarget) && (
             <p className="text-xs text-muted-foreground mt-0.5">
-              {formatRepeatProgress(workout.repeat_done, workout.repeat_target)}
+              {formatRepeatProgress(
+                resolveRepeatState(workout).repeatDone,
+                resolveRepeatState(workout).repeatTarget,
+              )}
             </p>
           )}
           {workout.athlete_reordered_at && (
@@ -912,9 +924,9 @@ export function ProgrammiTab({
     queryKey: ['pt-athlete-workouts', atletaUserId, ptUserId],
     queryFn: async () => {
       const withRepeat =
-        'id, title, status, scheduled_date, due_date, created_at, template_id, athlete_reordered_at, repeat_target, repeat_done';
+        'id, title, description, notes_atleta, status, scheduled_date, due_date, created_at, template_id, athlete_reordered_at, repeat_target, repeat_done';
       const withoutRepeat =
-        'id, title, status, scheduled_date, due_date, created_at, template_id, athlete_reordered_at';
+        'id, title, description, notes_atleta, status, scheduled_date, due_date, created_at, template_id, athlete_reordered_at';
       let { data, error } = await supabase
         .from('workouts')
         .select(withRepeat)

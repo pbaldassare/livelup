@@ -4,11 +4,16 @@ import {
   applyRepeatCompletion,
   canCreateWithoutRepeatColumns,
   encodeRepeatDescription,
+  encodeRepeatProgressNotes,
   encodeRepeatTickNotes,
   formatRepeatCompletionToast,
   formatRepeatProgress,
   isRepeatColumnsMissingError,
+  parseRepeatDoneMarker,
+  parseRepeatTargetMarker,
   REPEAT_TICK_MARKER,
+  resolveRepeatState,
+  stripRepeatMarkers,
 } from '@/lib/workoutRepeat';
 
 const d = (iso: string) => new Date(`${iso}T12:00:00`);
@@ -133,6 +138,40 @@ describe('applyRepeatCompletion', () => {
     expect(encodeRepeatDescription('ciao', 2)).toBe('<!--livelapp-repeat:2--> ciao');
     expect(encodeRepeatDescription(null, 1)).toBeNull();
     expect(encodeRepeatTickNotes('ok')).toBe(`${REPEAT_TICK_MARKER} ok`);
+  });
+
+  it('tiene target e fatte nei marker anche se le colonne API mancano', () => {
+    expect(parseRepeatTargetMarker('<!--livelapp-repeat:2--> PROVA')).toBe(2);
+    expect(parseRepeatDoneMarker(`${REPEAT_TICK_MARKER} <!--livelapp-repeat-done:2-->`)).toBe(2);
+    expect(
+      encodeRepeatProgressNotes('ok', 2, { tick: true }),
+    ).toBe(`${REPEAT_TICK_MARKER} <!--livelapp-repeat-done:2--> ok`);
+    expect(stripRepeatMarkers('<!--livelapp-repeat:2--> ciao')).toBe('ciao');
+    expect(
+      resolveRepeatState({
+        repeat_target: 1,
+        repeat_done: 0,
+        description: '<!--livelapp-repeat:2--> PROVA',
+        notes_atleta: '<!--livelapp-repeat-done:2-->',
+      }),
+    ).toEqual({ repeatTarget: 2, repeatDone: 2 });
+    expect(
+      resolveRepeatState({
+        repeat_target: 2,
+        repeat_done: 1,
+        description: null,
+        notes_atleta: null,
+      }),
+    ).toEqual({ repeatTarget: 2, repeatDone: 1 });
+  });
+
+  it('dopo N sessioni il ciclo è chiuso (niente seconda da fare)', () => {
+    expect(applyRepeatCompletion(1, 2)).toEqual({
+      repeatDone: 2,
+      repeatTarget: 2,
+      finished: true,
+    });
+    expect(formatRepeatCompletionToast(2, 2).finished).toBe(true);
   });
 
   it('non crea in silenzio una scheda una tantum se il target è N', () => {

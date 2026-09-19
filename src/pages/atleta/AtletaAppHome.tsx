@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppHeader } from '@/components/app/AppHeader';
 import { CoachCard } from '@/components/app/CoachCard';
 import { InviteAtletaCTA } from '@/components/shared/InviteAtletaCTA';
-import { formatRepeatProgress, isRepeatAssignment } from '@/lib/workoutRepeat';
+import { formatRepeatProgress, isRepeatAssignment, resolveRepeatState, stripRepeatMarkers } from '@/lib/workoutRepeat';
 import { countUnreadMessages } from '@/lib/api/messages';
 import { getAthleteChatGroups } from '@/lib/api/chatGroups';
 import { motion } from 'framer-motion';
@@ -34,6 +34,7 @@ type WorkoutSummary = {
   id: string;
   title: string;
   description: string | null;
+  notes_atleta?: string | null;
   status: string;
   scheduled_date: string | null;
   pt_user_id: string | null;
@@ -78,11 +79,11 @@ export function AtletaAppHome() {
       const today = new Date().toISOString().split('T')[0];
 
       const focusSelect = `
-          id, title, description, status, scheduled_date, pt_user_id, repeat_target, repeat_done,
+          id, title, description, notes_atleta, status, scheduled_date, pt_user_id, repeat_target, repeat_done,
           workout_exercises(id, prescribed_sets)
         `;
       const focusSelectLegacy = `
-          id, title, description, status, scheduled_date, pt_user_id,
+          id, title, description, notes_atleta, status, scheduled_date, pt_user_id,
           workout_exercises(id, prescribed_sets)
         `;
 
@@ -233,7 +234,7 @@ export function AtletaAppHome() {
                 description={
                   focusWorkout.workout.description &&
                   !/^course_step:/i.test(focusWorkout.workout.description.trim())
-                    ? focusWorkout.workout.description
+                    ? stripRepeatMarkers(focusWorkout.workout.description) || null
                     : null
                 }
                 coachName={ptName || 'Il tuo Coach'}
@@ -241,10 +242,10 @@ export function AtletaAppHome() {
                 completedSets={progressData?.completed || 0}
                 totalSets={progressData?.total || 0}
                 repeatLabel={
-                  isRepeatAssignment(focusWorkout.workout.repeat_target)
+                  isRepeatAssignment(resolveRepeatState(focusWorkout.workout).repeatTarget)
                     ? formatRepeatProgress(
-                        focusWorkout.workout.repeat_done,
-                        focusWorkout.workout.repeat_target,
+                        resolveRepeatState(focusWorkout.workout).repeatDone,
+                        resolveRepeatState(focusWorkout.workout).repeatTarget,
                       )
                     : null
                 }

@@ -545,4 +545,4 @@ bunx vitest run  # tests
 
 ---
 
-_Last updated: 2026-09-19 — N volte in totale = una scheda + contatore (vedi `CLAUDE.md` §15)._
+_Last updated: 2026-09-19 — N volte: una scheda + contatore; close-at-N anche senza cache colonne (vedi `CLAUDE.md` §15)._
