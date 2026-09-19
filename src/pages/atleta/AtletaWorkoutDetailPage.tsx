@@ -9,6 +9,13 @@ import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { PtCoachingPausedCard } from '@/components/app/PtCoachingPausedCard';
 import { supabase } from '@/integrations/supabase/client';
 import { completeWorkout, redoCompletedWorkout, reorderWorkoutFreeExercises } from '@/lib/api/workouts';
+import {
+  applyRepeatCompletion,
+  formatRepeatCompletionToast,
+  formatRepeatProgress,
+  isRepeatAssignment,
+  resolveRepeatState,
+} from '@/lib/workoutRepeat';
 import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
 import { isSummaryPhase } from '@/lib/pt/templateRoles';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
@@ -164,8 +171,8 @@ export function AtletaWorkoutDetailPage() {
       const { data, error } = await supabase
         .from('workouts')
         .select(`
-          id, title, description, status, scheduled_date, notes_pt, pt_user_id,
-          template_kind, athlete_reordered_at,
+          id, title, description, status, scheduled_date, notes_pt, notes_atleta, pt_user_id,
+          template_kind, athlete_reordered_at, repeat_target, repeat_done,
           workout_blocks (id, order_index, type, name, params),
           workout_exercises (
             id, exercise_id, order_index, prescribed_sets,
@@ -179,11 +186,11 @@ export function AtletaWorkoutDetailPage() {
         .single();
       if (error) {
         // Fallback se colonna phase non ancora migrata
-        if (/phase|42703|PGRST204|schema cache/i.test(error.message)) {
+        if (/phase|repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
           const { data: legacy, error: legacyErr } = await supabase
             .from('workouts')
             .select(`
-              id, title, description, status, scheduled_date, notes_pt, pt_user_id,
+              id, title, description, status, scheduled_date, notes_pt, notes_atleta, pt_user_id,
               template_kind, athlete_reordered_at,
               workout_blocks (id, order_index, type, name, params),
               workout_exercises (
@@ -339,7 +346,7 @@ export function AtletaWorkoutDetailPage() {
   const completeWorkoutMutation = useMutation({
     mutationFn: async () => {
       if (!workoutId) throw new Error('Workout ID mancante');
-      await completeWorkout(workoutId, {
+      return completeWorkout(workoutId, {
         rating: workoutRating || undefined,
         notesAtleta: workoutNotes || undefined,
         durationSeconds: elapsedTime,
@@ -350,9 +357,13 @@ export function AtletaWorkoutDetailPage() {
         recomputeFromLogs: true,
       });
     },
-    onSuccess: () => {
-      toast.success('Allenamento completato! 🎉');
+    onSuccess: (updated) => {
+      const repeat = resolveRepeatState(updated as any);
+      const info = formatRepeatCompletionToast(repeat.repeatDone, repeat.repeatTarget);
+      toast.success(info.message);
       queryClient.invalidateQueries({ queryKey: ['atleta-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+      queryClient.invalidateQueries({ queryKey: ['workout-detail', workoutId] });
       queryClient.invalidateQueries({ queryKey: ['workout-history'] });
       navigate('/app/workout');
     },
@@ -763,8 +774,27 @@ export function AtletaWorkoutDetailPage() {
           </motion.div>
 
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-app-foreground">Allenamento completato!</h1>
+            <h1 className="text-3xl font-bold text-app-foreground">
+              {isRepeatAssignment(resolveRepeatState(workout as any).repeatTarget) &&
+              !applyRepeatCompletion(
+                resolveRepeatState(workout as any).repeatDone,
+                resolveRepeatState(workout as any).repeatTarget,
+              ).finished
+                ? 'Sessione completata!'
+                : 'Allenamento completato!'}
+            </h1>
             <p className="text-app-muted-foreground">{workout.title}</p>
+            {isRepeatAssignment(resolveRepeatState(workout as any).repeatTarget) && (
+              <p className="text-sm text-app-accent">
+                {formatRepeatProgress(
+                  applyRepeatCompletion(
+                    resolveRepeatState(workout as any).repeatDone,
+                    resolveRepeatState(workout as any).repeatTarget,
+                  ).repeatDone,
+                  resolveRepeatState(workout as any).repeatTarget,
+                )}
+              </p>
+            )}
           </div>
 
           {/* Stats grid */}
@@ -940,6 +970,14 @@ export function AtletaWorkoutDetailPage() {
                 <span>~{totalExercises * 5} min</span>
               </div>
             </div>
+            {isRepeatAssignment(resolveRepeatState(workout as any).repeatTarget) && (
+              <p className="text-sm font-medium text-app-accent pt-1">
+                {formatRepeatProgress(
+                  resolveRepeatState(workout as any).repeatDone,
+                  resolveRepeatState(workout as any).repeatTarget,
+                )}
+              </p>
+            )}
             {isCompleted && (
               <div className="inline-flex items-center gap-2 bg-app-muted text-app-muted-foreground px-3 py-1 rounded-full text-sm font-medium mt-2">
                 <CheckCircle2 className="h-3 w-3" />

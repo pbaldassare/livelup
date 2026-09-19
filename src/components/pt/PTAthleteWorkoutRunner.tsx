@@ -7,6 +7,7 @@ import { type GWExercise } from '@/components/app/GuidedWorkoutFlow';
 import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
 import { Loader2, UserCheck, X } from 'lucide-react';
 import { completeWorkout } from '@/lib/api/workouts';
+import { formatRepeatCompletionToast, resolveRepeatState } from '@/lib/workoutRepeat';
 
 export const STARTABLE_WORKOUT_STATUSES = ['attivo', 'in_sospeso', 'in_corso'] as const;
 
@@ -31,26 +32,46 @@ export function PTAthleteWorkoutRunner({
 }: PTAthleteWorkoutRunnerProps) {
   const queryClient = useQueryClient();
 
-  const { data: workout, isLoading, isError } = useQuery({
+  const { data: workout, isLoading, isError, error: loadError, refetch } = useQuery({
     queryKey: ['pt-athlete-workout-run', workoutId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('workouts')
-        .select(`
-          id, title, status, atleta_user_id, template_kind,
-          workout_exercises (
+      const exerciseEmbed = `
             id, exercise_id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
             prescribed_duration_seconds, rest_seconds, notes,
-            protocol_type, protocol_params, sets_data, phase,
-            exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
-          )
-        `)
-        .eq('id', workoutId)
-        .eq('atleta_user_id', atletaUserId)
-        .single();
-      if (error) throw error;
-      return data;
+            protocol_type, protocol_params, sets_data`;
+      const exerciseEmbedWithPhase = `${exerciseEmbed}, phase,
+            exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)`;
+      const exerciseEmbedLegacy = `${exerciseEmbed},
+            exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)`;
+      const selects = [
+        `id, title, status, atleta_user_id, template_kind, description, notes_atleta, repeat_target, repeat_done,
+          workout_exercises ( ${exerciseEmbedWithPhase} )`,
+        `id, title, status, atleta_user_id, template_kind, description, notes_atleta,
+          workout_exercises ( ${exerciseEmbedWithPhase} )`,
+        `id, title, status, atleta_user_id, template_kind, description, notes_atleta, repeat_target, repeat_done,
+          workout_exercises ( ${exerciseEmbedLegacy} )`,
+        `id, title, status, atleta_user_id, template_kind, description, notes_atleta,
+          workout_exercises ( ${exerciseEmbedLegacy} )`,
+      ];
+
+      let lastMessage = 'Allenamento non trovato';
+      for (const select of selects) {
+        const { data, error } = await supabase
+          .from('workouts')
+          .select(select)
+          .eq('id', workoutId)
+          .eq('atleta_user_id', atletaUserId)
+          .maybeSingle();
+        if (!error && data) return data;
+        if (error) {
+          lastMessage = error.message;
+          if (!/repeat_target|repeat_done|phase|42703|PGRST204|schema cache/i.test(error.message)) {
+            throw error;
+          }
+        }
+      }
+      throw new Error(lastMessage);
     },
     enabled: !!workoutId && !!atletaUserId,
   });
@@ -72,8 +93,12 @@ export function PTAthleteWorkoutRunner({
 
   const completeWorkoutMutation = useMutation({
     mutationFn: () => completeWorkout(workoutId),
-    onSuccess: () => {
-      toast.success(`Sessione di ${atletaName} salvata 🎉`);
+    onSuccess: (updated) => {
+      const repeat = resolveRepeatState(updated as any);
+      const info = formatRepeatCompletionToast(repeat.repeatDone, repeat.repeatTarget);
+      toast.success(
+        info.finished ? `Sessione di ${atletaName} salvata 🎉` : `${atletaName}: ${info.message}`,
+      );
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-workout-run'] });
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-current-workout'] });
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-history'] });
@@ -130,11 +155,19 @@ export function PTAthleteWorkoutRunner({
 
   if (isError || !workout) {
     return (
-      <div className="p-4 text-center text-sm text-muted-foreground">
+      <div className="p-4 text-center text-sm text-muted-foreground space-y-2">
         <p>Impossibile caricare l&apos;allenamento.</p>
-        <Button variant="link" onClick={onClose}>
-          Chiudi
-        </Button>
+        {loadError instanceof Error && loadError.message && (
+          <p className="text-xs text-destructive/80 break-words">{loadError.message}</p>
+        )}
+        <div className="flex items-center justify-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            Riprova
+          </Button>
+          <Button variant="link" onClick={onClose}>
+            Chiudi
+          </Button>
+        </div>
       </div>
     );
   }

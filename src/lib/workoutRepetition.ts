@@ -1,4 +1,5 @@
 import { addDays, differenceInCalendarDays } from 'date-fns';
+import { clampRepeatTarget } from '@/lib/workoutRepeat';
 
 export type WorkoutRepetitionMode = 'once' | 'total' | 'weekly_count';
 
@@ -73,4 +74,24 @@ export function generateWorkoutRepetitionDates(params: {
     week++;
   }
   return uniqueSorted(dates);
+}
+
+/** N volte in totale = una scheda + contatore. Le altre modalità restano N date. */
+export function resolveAssignmentPlan(params: {
+  mode: WorkoutRepetitionMode;
+  startDate: Date;
+  endDate?: Date | null;
+  totalCount?: number;
+  timesPerWeek?: number;
+}): { dates: Date[]; repeatTarget: number } {
+  if (params.mode === 'total') {
+    return {
+      dates: [startOfLocalDay(params.startDate)],
+      repeatTarget: clampRepeatTarget(params.totalCount ?? 1),
+    };
+  }
+  return {
+    dates: generateWorkoutRepetitionDates(params),
+    repeatTarget: 1,
+  };
 }

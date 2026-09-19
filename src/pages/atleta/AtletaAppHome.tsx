@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppHeader } from '@/components/app/AppHeader';
 import { CoachCard } from '@/components/app/CoachCard';
 import { InviteAtletaCTA } from '@/components/shared/InviteAtletaCTA';
+import { formatRepeatProgress, isRepeatAssignment, resolveRepeatState, stripRepeatMarkers } from '@/lib/workoutRepeat';
 import { countUnreadMessages } from '@/lib/api/messages';
 import { getAthleteChatGroups } from '@/lib/api/chatGroups';
 import { motion } from 'framer-motion';
@@ -33,9 +34,12 @@ type WorkoutSummary = {
   id: string;
   title: string;
   description: string | null;
+  notes_atleta?: string | null;
   status: string;
   scheduled_date: string | null;
   pt_user_id: string | null;
+  repeat_target?: number | null;
+  repeat_done?: number | null;
   workout_exercises: { id: string; prescribed_sets: number }[];
 };
 
@@ -74,38 +78,67 @@ export function AtletaAppHome() {
       if (!user?.id) return null;
       const today = new Date().toISOString().split('T')[0];
 
-      // 1) in_corso o in_sospeso → resume
-      const { data: resumeData } = await supabase
-        .from('workouts')
-        .select(`
-          id, title, description, status, scheduled_date, pt_user_id,
+      const focusSelect = `
+          id, title, description, notes_atleta, status, scheduled_date, pt_user_id, repeat_target, repeat_done,
           workout_exercises(id, prescribed_sets)
-        `)
+        `;
+      const focusSelectLegacy = `
+          id, title, description, notes_atleta, status, scheduled_date, pt_user_id,
+          workout_exercises(id, prescribed_sets)
+        `;
+
+      // 1) in_corso o in_sospeso → resume
+      let resume = await supabase
+        .from('workouts')
+        .select(focusSelect)
         .eq('atleta_user_id', user.id)
         .in('status', ['in_corso', 'in_sospeso'])
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (
+        resume.error &&
+        /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(resume.error.message)
+      ) {
+        resume = await supabase
+          .from('workouts')
+          .select(focusSelectLegacy)
+          .eq('atleta_user_id', user.id)
+          .in('status', ['in_corso', 'in_sospeso'])
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+      }
 
-      if (resumeData) {
-        return { workout: resumeData as WorkoutSummary, mode: 'resume' };
+      if (resume.data) {
+        return { workout: resume.data as WorkoutSummary, mode: 'resume' };
       }
 
       // 2) attivo schedulato oggi → today
-      const { data: todayData } = await supabase
+      let todayRow = await supabase
         .from('workouts')
-        .select(`
-          id, title, description, status, scheduled_date, pt_user_id,
-          workout_exercises(id, prescribed_sets)
-        `)
+        .select(focusSelect)
         .eq('atleta_user_id', user.id)
         .eq('scheduled_date', today)
         .eq('status', 'attivo')
         .limit(1)
         .maybeSingle();
+      if (
+        todayRow.error &&
+        /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(todayRow.error.message)
+      ) {
+        todayRow = await supabase
+          .from('workouts')
+          .select(focusSelectLegacy)
+          .eq('atleta_user_id', user.id)
+          .eq('scheduled_date', today)
+          .eq('status', 'attivo')
+          .limit(1)
+          .maybeSingle();
+      }
 
-      if (todayData) {
-        return { workout: todayData as WorkoutSummary, mode: 'today' };
+      if (todayRow.data) {
+        return { workout: todayRow.data as WorkoutSummary, mode: 'today' };
       }
 
       return null;
@@ -201,13 +234,21 @@ export function AtletaAppHome() {
                 description={
                   focusWorkout.workout.description &&
                   !/^course_step:/i.test(focusWorkout.workout.description.trim())
-                    ? focusWorkout.workout.description
+                    ? stripRepeatMarkers(focusWorkout.workout.description) || null
                     : null
                 }
                 coachName={ptName || 'Il tuo Coach'}
                 mode={focusWorkout.mode}
                 completedSets={progressData?.completed || 0}
                 totalSets={progressData?.total || 0}
+                repeatLabel={
+                  isRepeatAssignment(resolveRepeatState(focusWorkout.workout).repeatTarget)
+                    ? formatRepeatProgress(
+                        resolveRepeatState(focusWorkout.workout).repeatDone,
+                        resolveRepeatState(focusWorkout.workout).repeatTarget,
+                      )
+                    : null
+                }
                 onAction={startWorkout}
               />
             ) : (
@@ -258,6 +299,7 @@ function FocusWorkoutHero({
   mode,
   completedSets,
   totalSets,
+  repeatLabel,
   onAction,
 }: {
   title: string;
@@ -266,6 +308,7 @@ function FocusWorkoutHero({
   mode: 'resume' | 'today';
   completedSets: number;
   totalSets: number;
+  repeatLabel?: string | null;
   onAction: () => void;
 }) {
   const isResume = mode === 'resume';
@@ -317,6 +360,9 @@ function FocusWorkoutHero({
           <p className="text-sm text-white/50">
             con <span className="text-app-accent font-medium">{coachName}</span>
           </p>
+          {repeatLabel && (
+            <p className="text-sm font-semibold text-app-accent">{repeatLabel}</p>
+          )}
         </div>
 
         {/* Progress se resume */}
