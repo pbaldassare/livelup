@@ -24,6 +24,7 @@ export const ptRoutes = {
     event: (id: string) => `/pt/events/${id}`,
     payments: '/pt/payments',
     athleteTransfer: '/pt/athlete-transfer',
+    notifications: '/pt',
   },
   app: {
     home: '/pt/app',
@@ -45,6 +46,7 @@ export const ptRoutes = {
     event: (id: string) => `/pt/app/events/${id}`,
     payments: '/pt/app/payments',
     athleteTransfer: '/pt/app/athlete-transfer',
+    notifications: '/pt/app/notifications',
   },
 } as const;
 
@@ -67,6 +69,7 @@ export type PTRouteSet = {
   event: (id: string) => string;
   payments: string;
   athleteTransfer: string;
+  notifications: string;
 };
 
 export function ptRoutesForPath(pathname: string): PTRouteSet {

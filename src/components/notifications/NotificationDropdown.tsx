@@ -1,7 +1,5 @@
-import { useLocation, useNavigate } from 'react-router-dom';
 import { useNotifications, type Notification } from '@/hooks/useNotifications';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { useNotificationNavigation } from '@/hooks/useNotificationNavigation';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,7 +15,7 @@ import { useState } from 'react';
 
 // =====================================================
 // COMPONENT: Notification Dropdown
-// Per header/navbar
+// Per header/navbar (PT web + Admin)
 // =====================================================
 
 const notificationIcons: Record<string, typeof Bell> = {
@@ -29,21 +27,7 @@ const notificationIcons: Record<string, typeof Bell> = {
   payment: CreditCard,
 };
 
-function extractChatId(n: Notification): string | null {
-  const fromData =
-    n.data && typeof n.data === 'object' ? (n.data as Record<string, unknown>).chat_id : null;
-  if (typeof fromData === 'string' && fromData) return fromData;
-  if (n.action_url) {
-    const m = n.action_url.match(/\/(?:chat|messages)\/([0-9a-fA-F-]{8,})/);
-    if (m) return m[1];
-  }
-  return null;
-}
-
 export function NotificationDropdown() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user, role } = useAuth();
   const [open, setOpen] = useState(false);
   const {
     notifications,
@@ -52,55 +36,12 @@ export function NotificationDropdown() {
     markAllAsRead,
     deleteNotification,
   } = useNotifications();
-
-  const resolveChatRoute = async (chatId: string): Promise<string | null> => {
-    if (!user?.id) return null;
-    const { data, error } = await supabase
-      .from('chats')
-      .select('pt_user_id, atleta_user_id')
-      .eq('id', chatId)
-      .maybeSingle();
-    if (error || !data) return null;
-
-    const otherUserId =
-      data.pt_user_id === user.id ? data.atleta_user_id : data.pt_user_id;
-
-    if (role === 'atleta') {
-      return `/app/chat/${otherUserId}`;
-    }
-    if (role === 'pt') {
-      // PT can be in the dashboard (/pt/...) or in the PT PWA (/pt/app/...)
-      const inPwa = location.pathname.startsWith('/pt/app');
-      return inPwa
-        ? `/pt/app/chat/${otherUserId}`
-        : `/pt/messages?athlete=${otherUserId}`;
-    }
-    return null;
-  };
+  const { openNotification } = useNotificationNavigation();
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) markAsRead(notification.id);
     setOpen(false);
-
-    const isMessage =
-      notification.type === 'message' ||
-      (notification.action_url || '').includes('/messages/') ||
-      (notification.action_url || '').includes('/chat/');
-
-    if (isMessage) {
-      const chatId = extractChatId(notification);
-      if (chatId) {
-        const route = await resolveChatRoute(chatId);
-        if (route) {
-          navigate(route);
-          return;
-        }
-      }
-    }
-
-    if (notification.action_url) {
-      navigate(notification.action_url);
-    }
+    await openNotification(notification);
   };
 
   const getIcon = (type: string) => notificationIcons[type] || Bell;
@@ -108,7 +49,7 @@ export function NotificationDropdown() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" aria-label="Notifiche">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-destructive-foreground">

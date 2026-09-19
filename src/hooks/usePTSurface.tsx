@@ -95,6 +95,7 @@ export function mapPTWebToApp(pathname: string): string {
   if (pathname.startsWith('/pt/payments')) return '/pt/app/payments';
   if (pathname.startsWith('/pt/blog')) return '/pt/app/blog';
   if (pathname.startsWith('/pt/settings')) return '/pt/app/settings';
+  if (pathname.startsWith('/pt/notifications')) return '/pt/app/notifications';
   if (pathname.startsWith('/pt/cerca-professionisti')) return '/pt/app/cerca-professionisti';
   if (pathname.startsWith('/pt/collaboratori')) return '/pt/app/athlete-transfer';
   if (pathname.startsWith('/pt/athlete-transfer')) return '/pt/app/athlete-transfer';

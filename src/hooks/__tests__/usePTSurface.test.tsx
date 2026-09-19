@@ -143,6 +143,7 @@ describe('mapPTWebToApp', () => {
     ['/pt/payments', '/pt/app/payments'],
     ['/pt/blog', '/pt/app/blog'],
     ['/pt/settings', '/pt/app/settings'],
+    ['/pt/notifications', '/pt/app/notifications'],
     ['/pt/cerca-professionisti', '/pt/app/cerca-professionisti'],
     ['/pt/collaboratori', '/pt/app/athlete-transfer'],
     ['/pt/athlete-transfer', '/pt/app/athlete-transfer'],

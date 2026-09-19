@@ -111,6 +111,7 @@ import PTAppCouponsPage from "./pages/pt/PTAppCouponsPage";
 import PTAppPaymentsPage from "./pages/pt/PTAppPaymentsPage";
 import PTAppBlogPage from "./pages/pt/PTAppBlogPage";
 import PTAppSettingsPage from "./pages/pt/PTAppSettingsPage";
+import PTAppNotificationsPage from "./pages/pt/PTAppNotificationsPage";
 import PTAppAthleteTransferPage from "./pages/pt/PTAppAthleteTransferPage";
 import PTAppColleagueSearchPage from "./pages/pt/PTAppColleagueSearchPage";
 
@@ -681,6 +682,13 @@ const App = () => {
                 <PTAppRoute>
                   <AppLayout>
                     <PTAppSettingsPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/notifications" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppNotificationsPage />
                   </AppLayout>
                 </PTAppRoute>
               } />
