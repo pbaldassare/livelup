@@ -7,20 +7,116 @@ import { supabase } from '@/integrations/supabase/client';
 import type { TemplateKind } from '@/lib/pt/templateKinds';
 import { isSummaryPhase, type WorkoutPhase } from '@/lib/pt/templateRoles';
 import { buildAssignmentCalendarEvent } from '@/lib/workoutAssignmentDelivery';
-import { clampRepeatTarget } from '@/lib/workoutRepeat';
+import { applyRepeatCompletion, clampRepeatTarget } from '@/lib/workoutRepeat';
 
 export type { TemplateKind };
 
 async function persistWorkoutRepeatTarget(workoutId: string, repeatTarget: number) {
   const target = clampRepeatTarget(repeatTarget);
   if (target <= 1) return;
-  const { error } = await supabase.rpc('set_workout_repeat_target' as any, {
-    _workout_id: workoutId,
-    _repeat_target: target,
-  });
-  if (error) {
-    throw new Error('Errore salvataggio ripetizioni: ' + error.message);
+
+  const rpcAttempts = [
+    { workout_id: workoutId, repeat_target: target },
+    { _workout_id: workoutId, _repeat_target: target },
+  ];
+  let lastRpcMessage = '';
+  for (const args of rpcAttempts) {
+    const { error } = await supabase.rpc('set_workout_repeat_target' as any, args);
+    if (!error) return;
+    lastRpcMessage = error.message;
+    if (!/schema cache|PGRST202|Could not find the function/i.test(error.message)) {
+      throw new Error('Errore salvataggio ripetizioni: ' + error.message);
+    }
   }
+
+  const { error: updErr } = await supabase
+    .from('workouts')
+    .update({ repeat_target: target, repeat_done: 0 } as any)
+    .eq('id', workoutId);
+  if (updErr) {
+    throw new Error(
+      'Errore salvataggio ripetizioni: ' + (updErr.message || lastRpcMessage),
+    );
+  }
+}
+
+async function runRepeatCompletion(workoutId: string): Promise<{
+  repeat_done: number;
+  repeat_target: number;
+  finished: boolean;
+  status: string;
+}> {
+  const rpcAttempts = [{ workout_id: workoutId }, { _workout_id: workoutId }];
+  for (const args of rpcAttempts) {
+    const { data, error } = await supabase.rpc(
+      'apply_workout_repeat_completion' as any,
+      args,
+    );
+    if (!error && data) {
+      const row = data as {
+        repeat_done?: number;
+        repeat_target?: number;
+        finished?: boolean;
+        status?: string;
+      };
+      return {
+        repeat_done: row.repeat_done ?? 0,
+        repeat_target: row.repeat_target ?? 1,
+        finished: !!row.finished,
+        status: row.status ?? (row.finished ? 'completato' : 'in_corso'),
+      };
+    }
+    if (error && !/schema cache|PGRST202|Could not find the function/i.test(error.message)) {
+      throw new Error('Errore completamento workout: ' + error.message);
+    }
+  }
+
+  const existing = await supabase
+    .from('workouts')
+    .select('id, status, repeat_target, repeat_done')
+    .eq('id', workoutId)
+    .maybeSingle();
+  if (existing.error) {
+    throw new Error('Errore completamento workout: ' + existing.error.message);
+  }
+  const row = existing.data as {
+    repeat_target?: number;
+    repeat_done?: number;
+  } | null;
+  const cycle = applyRepeatCompletion(row?.repeat_done, row?.repeat_target ?? 1);
+  if (!cycle.finished) {
+    const { data: exerciseRows, error: exErr } = await supabase
+      .from('workout_exercises')
+      .select('id')
+      .eq('workout_id', workoutId);
+    if (exErr) throw new Error('Errore completamento workout: ' + exErr.message);
+    const exerciseIds = (exerciseRows || []).map((r) => r.id);
+    if (exerciseIds.length > 0) {
+      const { error: logErr } = await supabase
+        .from('workout_logs')
+        .delete()
+        .in('workout_exercise_id', exerciseIds);
+      if (logErr) throw new Error('Errore reset log sessione: ' + logErr.message);
+    }
+  }
+  const { error: updErr } = await supabase
+    .from('workouts')
+    .update({
+      repeat_done: cycle.repeatDone,
+      repeat_target: cycle.repeatTarget,
+      status: cycle.finished ? 'completato' : 'in_corso',
+      completed_at: cycle.finished ? new Date().toISOString() : null,
+    } as any)
+    .eq('id', workoutId);
+  if (updErr) {
+    throw new Error('Errore completamento workout: ' + updErr.message);
+  }
+  return {
+    repeat_done: cycle.repeatDone,
+    repeat_target: cycle.repeatTarget,
+    finished: cycle.finished,
+    status: cycle.finished ? 'completato' : 'in_corso',
+  };
 }
 
 // =====================================================
@@ -402,19 +498,7 @@ export async function completeWorkout(
     }
   }
 
-  const { data: cycleRow, error: cycleErr } = await supabase.rpc(
-    'apply_workout_repeat_completion' as any,
-    { _workout_id: workoutId },
-  );
-  if (cycleErr) {
-    throw new Error('Errore completamento workout: ' + cycleErr.message);
-  }
-  const cycle = (cycleRow || {}) as {
-    repeat_done?: number;
-    repeat_target?: number;
-    finished?: boolean;
-    status?: string;
-  };
+  const cycle = await runRepeatCompletion(workoutId);
 
   const { data, error } = await supabase
     .from('workouts')
