@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { isWorkoutStartable } from '@/components/pt/PTAthleteWorkoutRunner';
+import { formatRepeatProgress, isRepeatAssignment } from '@/lib/workoutRepeat';
 import {
   duplicateWorkoutAssignment,
   duplicateWorkoutToAthletes,
@@ -93,6 +94,8 @@ type WorkoutRow = {
   created_at: string;
   template_id: string | null;
   athlete_reordered_at?: string | null;
+  repeat_target?: number | null;
+  repeat_done?: number | null;
 };
 
 type WorkoutDetail = {
@@ -104,6 +107,8 @@ type WorkoutDetail = {
   due_date: string | null;
   template_id: string | null;
   athlete_reordered_at?: string | null;
+  repeat_target?: number | null;
+  repeat_done?: number | null;
   workout_exercises: Array<{
     id: string;
     order_index: number;
@@ -163,7 +168,15 @@ function WorkoutActionsDialog({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="truncate pr-6">{workout.title}</DialogTitle>
-          <DialogDescription>{workoutDateLabel(workout)}</DialogDescription>
+          <DialogDescription>
+            {workoutDateLabel(workout)}
+            {isRepeatAssignment(workout.repeat_target) && (
+              <>
+                {' · '}
+                {formatRepeatProgress(workout.repeat_done, workout.repeat_target)}
+              </>
+            )}
+          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2 py-2">
           <Button variant="outline" className="justify-start" onClick={onView}>
@@ -206,17 +219,33 @@ function WorkoutDetailDialog({
   const { data: workout, isLoading } = useQuery({
     queryKey: ['pt-workout-detail', workoutId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const selectWithRepeat = `
+          id, title, description, status, scheduled_date, due_date, template_id, athlete_reordered_at, repeat_target, repeat_done,
+          workout_exercises (
+            id, order_index, prescribed_sets, prescribed_reps_min, prescribed_reps_max,
+            exercises ( name )
+          )
+        `;
+      let { data, error } = await supabase
         .from('workouts')
-        .select(`
+        .select(selectWithRepeat)
+        .eq('id', workoutId!)
+        .single();
+      if (error && /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
+        const retry = await supabase
+          .from('workouts')
+          .select(`
           id, title, description, status, scheduled_date, due_date, template_id, athlete_reordered_at,
           workout_exercises (
             id, order_index, prescribed_sets, prescribed_reps_min, prescribed_reps_max,
             exercises ( name )
           )
         `)
-        .eq('id', workoutId!)
-        .single();
+          .eq('id', workoutId!)
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
       if (error) throw error;
       return data as WorkoutDetail;
     },
@@ -235,6 +264,11 @@ function WorkoutDetailDialog({
                 <span>
                   {format(new Date(workout.scheduled_date), 'dd MMM yyyy', { locale: it })}
                 </span>
+              )}
+              {isRepeatAssignment(workout.repeat_target) && (
+                <Badge variant="secondary" className="text-[10px]">
+                  {formatRepeatProgress(workout.repeat_done, workout.repeat_target)}
+                </Badge>
               )}
               {workout.athlete_reordered_at && (
                 <Badge variant="secondary" className="text-[10px]">
@@ -751,6 +785,11 @@ function WorkoutListItem({
             <Clock className="h-3 w-3 shrink-0" />
             {workoutDateLabel(workout)}
           </p>
+          {isRepeatAssignment(workout.repeat_target) && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {formatRepeatProgress(workout.repeat_done, workout.repeat_target)}
+            </p>
+          )}
           {workout.athlete_reordered_at && (
             <Badge variant="outline" className="mt-1 text-[10px] h-5">
               Ordine modificato dall&apos;atleta
@@ -872,14 +911,30 @@ export function ProgrammiTab({
   const { data: workouts = [], isLoading } = useQuery({
     queryKey: ['pt-athlete-workouts', atletaUserId, ptUserId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const withRepeat =
+        'id, title, status, scheduled_date, due_date, created_at, template_id, athlete_reordered_at, repeat_target, repeat_done';
+      const withoutRepeat =
+        'id, title, status, scheduled_date, due_date, created_at, template_id, athlete_reordered_at';
+      let { data, error } = await supabase
         .from('workouts')
-        .select('id, title, status, scheduled_date, due_date, created_at, template_id, athlete_reordered_at')
+        .select(withRepeat)
         .eq('atleta_user_id', atletaUserId)
         .eq('pt_user_id', ptUserId)
         .in('status', ['attivo', 'scaduto', 'in_corso', 'in_sospeso'])
         .order('scheduled_date', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
+      if (error && /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
+        const retry = await supabase
+          .from('workouts')
+          .select(withoutRepeat)
+          .eq('atleta_user_id', atletaUserId)
+          .eq('pt_user_id', ptUserId)
+          .in('status', ['attivo', 'scaduto', 'in_corso', 'in_sospeso'])
+          .order('scheduled_date', { ascending: true, nullsFirst: false })
+          .order('created_at', { ascending: false });
+        data = retry.data;
+        error = retry.error;
+      }
       if (error) throw error;
       return (data || []) as WorkoutRow[];
     },

@@ -7,6 +7,7 @@ import { type GWExercise } from '@/components/app/GuidedWorkoutFlow';
 import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
 import { Loader2, UserCheck, X } from 'lucide-react';
 import { completeWorkout } from '@/lib/api/workouts';
+import { formatRepeatCompletionToast } from '@/lib/workoutRepeat';
 
 export const STARTABLE_WORKOUT_STATUSES = ['attivo', 'in_sospeso', 'in_corso'] as const;
 
@@ -37,7 +38,7 @@ export function PTAthleteWorkoutRunner({
       const { data, error } = await supabase
         .from('workouts')
         .select(`
-          id, title, status, atleta_user_id, template_kind,
+          id, title, status, atleta_user_id, template_kind, repeat_target, repeat_done,
           workout_exercises (
             id, exercise_id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
@@ -72,8 +73,14 @@ export function PTAthleteWorkoutRunner({
 
   const completeWorkoutMutation = useMutation({
     mutationFn: () => completeWorkout(workoutId),
-    onSuccess: () => {
-      toast.success(`Sessione di ${atletaName} salvata 🎉`);
+    onSuccess: (updated) => {
+      const info = formatRepeatCompletionToast(
+        (updated as any)?.repeat_done,
+        (updated as any)?.repeat_target ?? 1,
+      );
+      toast.success(
+        info.finished ? `Sessione di ${atletaName} salvata 🎉` : `${atletaName}: ${info.message}`,
+      );
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-workout-run'] });
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-current-workout'] });
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-history'] });

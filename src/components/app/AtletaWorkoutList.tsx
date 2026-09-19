@@ -19,6 +19,7 @@ import {
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { formatRepeatProgress, isRepeatAssignment } from '@/lib/workoutRepeat';
 
 // =====================================================
 // ATLETA WORKOUT LIST
@@ -29,6 +30,8 @@ import { cn } from '@/lib/utils';
 
 const STATUS_CONFIG = {
   attivo: { label: 'Attivo', icon: PlayCircle },
+  in_corso: { label: 'In corso', icon: PlayCircle },
+  in_sospeso: { label: 'In pausa', icon: Clock },
   completato: { label: 'Completato', icon: CheckCircle2 },
   saltato: { label: 'Saltato', icon: Clock },
 };
@@ -43,9 +46,31 @@ export function AtletaWorkoutList() {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data, error } = await supabase
-        .from('workouts')
-        .select(`
+      const selectWithRepeat = `
+          id,
+          title,
+          description,
+          status,
+          scheduled_date,
+          due_date,
+          completed_at,
+          notes_pt,
+          pt_user_id,
+          repeat_target,
+          repeat_done,
+          workout_exercises (
+            id,
+            exercise_id,
+            prescribed_sets,
+            prescribed_reps_min,
+            prescribed_reps_max,
+            exercises:exercise_id (
+              name,
+              category
+            )
+          )
+        `;
+      const selectLegacy = `
           id,
           title,
           description,
@@ -66,9 +91,22 @@ export function AtletaWorkoutList() {
               category
             )
           )
-        `)
+        `;
+      let { data, error } = await supabase
+        .from('workouts')
+        .select(selectWithRepeat)
         .eq('atleta_user_id', user.id)
         .order('scheduled_date', { ascending: false });
+
+      if (error && /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
+        const retry = await supabase
+          .from('workouts')
+          .select(selectLegacy)
+          .eq('atleta_user_id', user.id)
+          .order('scheduled_date', { ascending: false });
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) throw error;
       return data || [];
@@ -81,6 +119,7 @@ export function AtletaWorkoutList() {
 
   const upcomingWorkouts =
     workouts?.filter((w) => {
+      if (w.status === 'in_corso' || w.status === 'in_sospeso') return true;
       if (!w.scheduled_date || w.status !== 'attivo') return false;
       const scheduled = new Date(w.scheduled_date);
       scheduled.setHours(0, 0, 0, 0);
@@ -190,9 +229,16 @@ function WorkoutCard({ workout }: { workout: any }) {
                 </span>
               </div>
 
-              <Badge className="mt-2 text-xs bg-app-muted border-app-border text-app-muted-foreground">
-                {statusConfig.label}
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <Badge className="text-xs bg-app-muted border-app-border text-app-muted-foreground">
+                  {statusConfig.label}
+                </Badge>
+                {isRepeatAssignment(workout.repeat_target) && (
+                  <Badge className="text-xs bg-app-accent/15 border-app-border text-app-foreground">
+                    {formatRepeatProgress(workout.repeat_done, workout.repeat_target)}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>

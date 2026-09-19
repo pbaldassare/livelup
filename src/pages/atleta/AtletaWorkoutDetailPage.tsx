@@ -9,6 +9,12 @@ import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { PtCoachingPausedCard } from '@/components/app/PtCoachingPausedCard';
 import { supabase } from '@/integrations/supabase/client';
 import { completeWorkout, redoCompletedWorkout, reorderWorkoutFreeExercises } from '@/lib/api/workouts';
+import {
+  applyRepeatCompletion,
+  formatRepeatCompletionToast,
+  formatRepeatProgress,
+  isRepeatAssignment,
+} from '@/lib/workoutRepeat';
 import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
 import { isSummaryPhase } from '@/lib/pt/templateRoles';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
@@ -165,7 +171,7 @@ export function AtletaWorkoutDetailPage() {
         .from('workouts')
         .select(`
           id, title, description, status, scheduled_date, notes_pt, pt_user_id,
-          template_kind, athlete_reordered_at,
+          template_kind, athlete_reordered_at, repeat_target, repeat_done,
           workout_blocks (id, order_index, type, name, params),
           workout_exercises (
             id, exercise_id, order_index, prescribed_sets,
@@ -339,7 +345,7 @@ export function AtletaWorkoutDetailPage() {
   const completeWorkoutMutation = useMutation({
     mutationFn: async () => {
       if (!workoutId) throw new Error('Workout ID mancante');
-      await completeWorkout(workoutId, {
+      return completeWorkout(workoutId, {
         rating: workoutRating || undefined,
         notesAtleta: workoutNotes || undefined,
         durationSeconds: elapsedTime,
@@ -350,9 +356,15 @@ export function AtletaWorkoutDetailPage() {
         recomputeFromLogs: true,
       });
     },
-    onSuccess: () => {
-      toast.success('Allenamento completato! 🎉');
+    onSuccess: (updated) => {
+      const info = formatRepeatCompletionToast(
+        (updated as any)?.repeat_done,
+        (updated as any)?.repeat_target ?? 1,
+      );
+      toast.success(info.message);
       queryClient.invalidateQueries({ queryKey: ['atleta-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+      queryClient.invalidateQueries({ queryKey: ['workout-detail', workoutId] });
       queryClient.invalidateQueries({ queryKey: ['workout-history'] });
       navigate('/app/workout');
     },
@@ -763,8 +775,23 @@ export function AtletaWorkoutDetailPage() {
           </motion.div>
 
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-app-foreground">Allenamento completato!</h1>
+            <h1 className="text-3xl font-bold text-app-foreground">
+              {isRepeatAssignment((workout as any).repeat_target) &&
+              !applyRepeatCompletion((workout as any).repeat_done, (workout as any).repeat_target)
+                .finished
+                ? 'Sessione completata!'
+                : 'Allenamento completato!'}
+            </h1>
             <p className="text-app-muted-foreground">{workout.title}</p>
+            {isRepeatAssignment((workout as any).repeat_target) && (
+              <p className="text-sm text-app-accent">
+                {formatRepeatProgress(
+                  applyRepeatCompletion((workout as any).repeat_done, (workout as any).repeat_target)
+                    .repeatDone,
+                  (workout as any).repeat_target,
+                )}
+              </p>
+            )}
           </div>
 
           {/* Stats grid */}
@@ -940,6 +967,11 @@ export function AtletaWorkoutDetailPage() {
                 <span>~{totalExercises * 5} min</span>
               </div>
             </div>
+            {isRepeatAssignment((workout as any).repeat_target) && (
+              <p className="text-sm font-medium text-app-accent pt-1">
+                {formatRepeatProgress((workout as any).repeat_done, (workout as any).repeat_target)}
+              </p>
+            )}
             {isCompleted && (
               <div className="inline-flex items-center gap-2 bg-app-muted text-app-muted-foreground px-3 py-1 rounded-full text-sm font-medium mt-2">
                 <CheckCircle2 className="h-3 w-3" />

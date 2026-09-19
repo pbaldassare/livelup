@@ -58,7 +58,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  generateWorkoutRepetitionDates,
+  resolveAssignmentPlan,
   type WorkoutRepetitionMode,
 } from '@/lib/workoutRepetition';
 import {
@@ -230,17 +230,19 @@ export function AssignWorkoutDialog({
   }, [selectedTemplateId, workoutSource, selectedTemplate?.template_kind]);
 
 
-  // Compute generated dates based on frequency
-  const generatedDates = useMemo<Date[]>(() => {
-    if (!scheduledDate) return [];
-    return generateWorkoutRepetitionDates({
+  const assignmentPlan = useMemo(() => {
+    if (!scheduledDate) return { dates: [] as Date[], repeatTarget: 1 };
+    return resolveAssignmentPlan({
       mode: frequency,
       startDate: scheduledDate,
-      endDate: frequency === 'once' ? null : endDate,
+      endDate: frequency === 'weekly_count' ? endDate : null,
       totalCount,
       timesPerWeek,
     });
   }, [scheduledDate, endDate, frequency, totalCount, timesPerWeek]);
+
+  const generatedDates = assignmentPlan.dates;
+  const repeatTarget = assignmentPlan.repeatTarget;
 
   // Assign workout mutation (supports multi)
   const assignMutation = useMutation({
@@ -349,6 +351,7 @@ export function AssignWorkoutDialog({
           templateId,
           templateKind,
           scheduledDate: date.toISOString(),
+          repeatTarget,
           exercises: exercisesPayload,
           blocks: blocksPayload,
         });
@@ -380,23 +383,33 @@ export function AssignWorkoutDialog({
               ? 'Nuovo allenamento!'
               : `${created} allenamenti assegnati`,
           body:
-            created === 1
-              ? `Il tuo Coach ti ha assegnato: ${title}`
-              : `Il tuo Coach ti ha assegnato la scheda "${title}" su ${created} giorni`,
+            created === 1 && repeatTarget > 1
+              ? `Il tuo Coach ti ha assegnato: ${title} (${repeatTarget} volte)`
+              : created === 1
+                ? `Il tuo Coach ti ha assegnato: ${title}`
+                : `Il tuo Coach ti ha assegnato la scheda "${title}" su ${created} giorni`,
           action_url: '/app/scheda',
           data: { pt_user_id: user.id, template_id: templateId },
         });
       }
 
-      return { created, skipped, delivery, addToCalendar };
+      return { created, skipped, delivery, addToCalendar, repeatTarget };
     },
-    onSuccess: ({ created, skipped, delivery, addToCalendar }) => {
+    onSuccess: ({ created, skipped, delivery, addToCalendar, repeatTarget }) => {
       queryClient.invalidateQueries({ queryKey: ['pt-workouts'] });
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-workouts'] });
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
       queryClient.invalidateQueries({ queryKey: ['pt-calendar'] });
       if (created === 0) {
         toast.warning('Nessun allenamento creato (date già occupate)');
+      } else if (created === 1 && repeatTarget > 1) {
+        toast.success(
+          delivery === 'schedule'
+            ? `Scheda programmata: da ripetere ${repeatTarget} volte`
+            : addToCalendar
+              ? `Scheda assegnata: da ripetere ${repeatTarget} volte (in calendario)`
+              : `Scheda assegnata: da ripetere ${repeatTarget} volte`,
+        );
       } else if (delivery === 'schedule') {
         toast.success(
           created === 1
@@ -755,7 +768,8 @@ export function AssignWorkoutDialog({
                     className="h-10 bg-background"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Senza data fine: un giorno dopo l&apos;altro. Con data fine: spalmate tra inizio e fine.
+                    Una sola scheda, da ripetere {totalCount} {totalCount === 1 ? 'volta' : 'volte'}.
+                    Ogni completamento incrementa il contatore; i log si azzerano fino all&apos;ultima sessione.
                   </p>
                 </div>
               )}
@@ -778,7 +792,7 @@ export function AssignWorkoutDialog({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className={frequency === 'total' ? 'space-y-1.5' : 'grid grid-cols-2 gap-3'}>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">
                     Data inizio <span className="text-destructive">*</span>
@@ -813,7 +827,7 @@ export function AssignWorkoutDialog({
                   </Popover>
                 </div>
 
-                {frequency !== 'once' && (
+                {frequency === 'weekly_count' && (
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">
                       Data fine (opzionale)
@@ -853,8 +867,16 @@ export function AssignWorkoutDialog({
                 )}
               </div>
 
-              {/* Preview occorrenze */}
-              {generatedDates.length > 0 && frequency !== 'once' && (
+              {frequency === 'total' && scheduledDate && (
+                <div className="text-xs text-muted-foreground p-2 rounded bg-background border border-border">
+                  Una scheda da svolgere{' '}
+                  <span className="font-semibold text-foreground">{repeatTarget}</span>{' '}
+                  {repeatTarget === 1 ? 'volta' : 'volte'} • fatte{' '}
+                  <span className="font-medium text-foreground">0 / {repeatTarget}</span>
+                </div>
+              )}
+
+              {generatedDates.length > 0 && frequency === 'weekly_count' && (
                 <div className="text-xs text-muted-foreground p-2 rounded bg-background border border-border">
                   Verranno create{' '}
                   <span className="font-semibold text-foreground">
@@ -923,9 +945,11 @@ export function AssignWorkoutDialog({
                       Assegna subito
                     </p>
                     <p className="text-xs text-muted-foreground leading-tight mt-0.5">
-                      {generatedDates.length > 1
-                        ? 'La prima sessione va in In corso; le altre restano programmate.'
-                        : 'In corso, senza secondo passaggio.'}
+                      {frequency === 'total' && repeatTarget > 1
+                        ? 'In corso sulla stessa scheda. L\'atleta la ripete senza copie in calendario.'
+                        : generatedDates.length > 1
+                          ? 'La prima sessione va in In corso; le altre restano programmate.'
+                          : 'In corso, senza secondo passaggio.'}
                     </p>
                   </div>
                 </Label>
@@ -980,13 +1004,17 @@ export function AssignWorkoutDialog({
               ? delivery === 'schedule'
                 ? 'Programmazione...'
                 : 'Assegnando...'
-              : delivery === 'schedule'
-                ? generatedDates.length > 1
-                  ? `Programma (${generatedDates.length})`
-                  : 'Programma'
-                : generatedDates.length > 1
-                  ? `Assegna prima (${generatedDates.length})`
-                  : 'Assegna'}
+              : frequency === 'total' && repeatTarget > 1
+                ? delivery === 'schedule'
+                  ? `Programma (${repeatTarget} volte)`
+                  : `Assegna (${repeatTarget} volte)`
+                : delivery === 'schedule'
+                  ? generatedDates.length > 1
+                    ? `Programma (${generatedDates.length})`
+                    : 'Programma'
+                  : generatedDates.length > 1
+                    ? `Assegna prima (${generatedDates.length})`
+                    : 'Assegna'}
           </Button>
         </DialogFooter>
       </DialogContent>

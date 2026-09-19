@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { generateWorkoutRepetitionDates } from '@/lib/workoutRepetition';
+import { generateWorkoutRepetitionDates, resolveAssignmentPlan } from '@/lib/workoutRepetition';
+import {
+  applyRepeatCompletion,
+  formatRepeatCompletionToast,
+  formatRepeatProgress,
+} from '@/lib/workoutRepeat';
 
 const d = (iso: string) => new Date(`${iso}T12:00:00`);
 
@@ -45,5 +50,77 @@ describe('generateWorkoutRepetitionDates', () => {
     const firstThreeSpan =
       (dates[2].getTime() - dates[0].getTime()) / (24 * 60 * 60 * 1000);
     expect(firstThreeSpan).toBeLessThan(7);
+  });
+});
+
+describe('resolveAssignmentPlan', () => {
+  it('N volte in totale: una sola data e il contatore', () => {
+    const plan = resolveAssignmentPlan({
+      mode: 'total',
+      startDate: d('2026-09-19'),
+      totalCount: 8,
+    });
+    expect(plan.dates).toHaveLength(1);
+    expect(plan.dates[0].getDate()).toBe(19);
+    expect(plan.repeatTarget).toBe(8);
+  });
+
+  it('una volta: una data e target 1', () => {
+    const plan = resolveAssignmentPlan({
+      mode: 'once',
+      startDate: d('2026-09-19'),
+    });
+    expect(plan.dates).toHaveLength(1);
+    expect(plan.repeatTarget).toBe(1);
+  });
+
+  it('N volte in totale ignora la data fine: resta una scheda', () => {
+    const plan = resolveAssignmentPlan({
+      mode: 'total',
+      startDate: d('2026-09-01'),
+      endDate: d('2026-09-30'),
+      totalCount: 12,
+    });
+    expect(plan.dates).toHaveLength(1);
+    expect(plan.repeatTarget).toBe(12);
+  });
+
+  it('N volte a settimana: N date e target 1', () => {
+    const plan = resolveAssignmentPlan({
+      mode: 'weekly_count',
+      startDate: d('2026-08-27'),
+      timesPerWeek: 3,
+      endDate: d('2026-09-09'),
+    });
+    expect(plan.dates.length).toBeGreaterThan(1);
+    expect(plan.repeatTarget).toBe(1);
+  });
+});
+
+describe('applyRepeatCompletion', () => {
+  it('incrementa e chiude al target', () => {
+    expect(applyRepeatCompletion(0, 8)).toEqual({
+      repeatDone: 1,
+      repeatTarget: 8,
+      finished: false,
+    });
+    expect(applyRepeatCompletion(7, 8)).toEqual({
+      repeatDone: 8,
+      repeatTarget: 8,
+      finished: true,
+    });
+  });
+
+  it('formatta fatte / da fare', () => {
+    expect(formatRepeatProgress(2, 8)).toBe('2 / 8 volte');
+  });
+
+  it('toast intermedio vs chiusura ciclo', () => {
+    expect(formatRepeatCompletionToast(3, 8).finished).toBe(false);
+    expect(formatRepeatCompletionToast(3, 8).message).toContain('3 / 8');
+    expect(formatRepeatCompletionToast(8, 8)).toEqual({
+      finished: true,
+      message: 'Allenamento completato! 🎉',
+    });
   });
 });
