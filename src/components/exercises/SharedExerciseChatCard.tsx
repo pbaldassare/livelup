@@ -7,6 +7,7 @@ import {
   parseExerciseSharePayload,
   type SharedExerciseSnapshot,
 } from '@/lib/exerciseShare';
+import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 import { cn } from '@/lib/utils';
 
 interface SharedExerciseChatCardProps {
@@ -26,8 +27,17 @@ export function SharedExerciseChatCard({
 
   if (!isExerciseShareAttachment(attachmentType) || !exercise) return null;
 
+  const resolvedVideoUrl = resolveExerciseVideoUrl(exercise.video_url, {
+    allowDefault: false,
+    exerciseId: exercise.id,
+    exerciseName: exercise.name,
+  });
+  const exerciseWithVideo = resolvedVideoUrl
+    ? { ...exercise, video_url: resolvedVideoUrl }
+    : exercise;
+
   const openViewer = (videoFirst: boolean) => {
-    setPreferVideo(videoFirst && !!exercise.video_url);
+    setPreferVideo(videoFirst && !!resolvedVideoUrl);
     setOpen(true);
   };
 
@@ -41,7 +51,7 @@ export function SharedExerciseChatCard({
       >
         <button
           type="button"
-          onClick={() => openViewer(!!exercise.video_url)}
+          onClick={() => openViewer(!!resolvedVideoUrl)}
           className="flex w-full items-stretch gap-3 p-2 text-left"
         >
           <ExerciseThumb exercise={exercise} />
@@ -62,7 +72,7 @@ export function SharedExerciseChatCard({
             size="sm"
             className="h-8 rounded-full text-xs"
             onClick={() => openViewer(true)}
-            disabled={!exercise.video_url}
+            disabled={!resolvedVideoUrl}
           >
             <PlayCircle className="mr-1.5 h-3.5 w-3.5" />
             Guarda
@@ -79,7 +89,7 @@ export function SharedExerciseChatCard({
         </div>
       </div>
       <ExerciseDetailDialog
-        exercise={exercise}
+        exercise={exerciseWithVideo}
         open={open}
         onOpenChange={setOpen}
         sharedPractice
@@ -101,7 +111,11 @@ function ExerciseThumb({ exercise }: { exercise: SharedExerciseSnapshot }) {
   }
   return (
     <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-      {exercise.video_url ? <PlayCircle className="h-6 w-6" /> : <Dumbbell className="h-6 w-6" />}
+      {resolveExerciseVideoUrl(exercise.video_url, {
+        allowDefault: false,
+        exerciseId: exercise.id,
+        exerciseName: exercise.name,
+      }) ? <PlayCircle className="h-6 w-6" /> : <Dumbbell className="h-6 w-6" />}
     </div>
   );
 }

@@ -42,6 +42,7 @@ interface SheetExercise {
   protocol_type?: string | null;
   protocol_params?: Record<string, unknown> | null;
   exercises?: {
+    id?: string;
     name: string;
     category?: string;
     video_url?: string;
@@ -138,7 +139,10 @@ export function AtletaExerciseDetailSheet({
   const ex = exercise.exercises;
   if (!ex) return null;
 
-  const resolvedVideoUrl = resolveExerciseVideoUrl(ex.video_url);
+  const resolvedVideoUrl = resolveExerciseVideoUrl(ex.video_url, {
+    exerciseId: ex.id,
+    exerciseName: ex.name,
+  });
   const youtubeId = resolvedVideoUrl ? getYouTubeVideoId(resolvedVideoUrl) : null;
   const vimeoId = resolvedVideoUrl ? getVimeoVideoId(resolvedVideoUrl) : null;
   const isUploadedVideo = resolvedVideoUrl ? isVideoFileUrl(resolvedVideoUrl) : false;

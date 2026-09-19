@@ -42,6 +42,8 @@ import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialo
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { EXERCISE_ARCHIVE_CATEGORIES } from '@/lib/exerciseArchiveCategories';
+import { fetchAllRows } from '@/lib/fetchAllRows';
+import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 
 type Exercise = {
   id: string;
@@ -207,13 +209,15 @@ export default function AdminExercisesPage() {
   const { data: exercises = [], isLoading } = useQuery({
     queryKey: ['admin-exercises'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('*')
-        .order('category')
-        .order('name');
-      if (error) throw error;
-      return data as Exercise[];
+      return fetchAllRows<Exercise>(async (from, to) => {
+        const { data, error } = await supabase
+          .from('exercises')
+          .select('*')
+          .order('category')
+          .order('name')
+          .range(from, to);
+        return { data: (data ?? []) as Exercise[], error };
+      });
     },
   });
 
@@ -302,7 +306,11 @@ export default function AdminExercisesPage() {
       category: ex.category,
       muscle_groups: ex.muscle_groups || [],
       difficulty_level: ex.difficulty_level,
-      video_url: ex.video_url || '',
+      video_url: resolveExerciseVideoUrl(ex.video_url, {
+        allowDefault: false,
+        exerciseId: ex.id,
+        exerciseName: ex.name,
+      }) || '',
       image_url: ex.image_url || '',
       instructions: ex.instructions || '',
     });
@@ -545,7 +553,11 @@ export default function AdminExercisesPage() {
                       {ex.difficulty_level}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      {ex.video_url ? (
+                      {resolveExerciseVideoUrl(ex.video_url, {
+                        allowDefault: false,
+                        exerciseId: ex.id,
+                        exerciseName: ex.name,
+                      }) ? (
                         <button
                           type="button"
                           onClick={() => setPreviewExercise(ex)}

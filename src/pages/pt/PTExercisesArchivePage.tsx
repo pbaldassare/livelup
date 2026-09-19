@@ -35,6 +35,7 @@ import { ExerciseCatalogAssignPopover } from '@/components/pt/ExerciseCatalogAss
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
 import { useExerciseCatalogs, getCatalogAccess, type ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 import { deleteOwnPtExercise } from '@/lib/api/ptExercises';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -573,7 +574,11 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                         {ex.instructions || ex.description || '—'}
                       </TableCell>
                       <TableCell className="text-right">
-                        {ex.video_url ? (
+                        {resolveExerciseVideoUrl(ex.video_url, {
+                          allowDefault: false,
+                          exerciseId: ex.id,
+                          exerciseName: ex.name,
+                        }) ? (
                           <Video className="inline h-4 w-4 text-primary" />
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
