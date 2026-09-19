@@ -546,3 +546,4 @@ bunx vitest run  # tests
 ---
 
 _Last updated: 2026-09-19 — N volte, stesso giorno, lockscreen, durata min|sec (vedi `CLAUDE.md` §15)._
+_Last updated: 2026-09-19 — chat 1:1 anche senza connessione (inquiry atleta→PT; vedi `CLAUDE.md` §9)._

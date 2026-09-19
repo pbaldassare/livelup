@@ -299,6 +299,12 @@ atleta → app_atleta + sito pubblico
 2. **Accetta/Rifiuta** — controparte aggiorna status
 3. **Attivazione** — `status='active'` (può coesistere con altri PT attivi); se nessun primary, diventa primary; `atleta_profiles.status='collegato'`, notifica
 
+### Chat 1:1 prima della connessione
+
+- L'atleta può messaggiare un Professionista attivo anche senza connessione (`can_chat_with`: active/pending **oppure** inquiry atleta→PT)
+- "Richiedi connessione" resta un'azione separata: la chat di domanda non crea una connessione
+- Workout, progress e recensioni restano legati a `are_connected` (solo `active`)
+
 ### Assegnazione e completamento workout
 
 - Assegnare template **copia** blocchi/esercizi in `workout_blocks` / `workout_exercises` (snapshot immutabile)
@@ -434,6 +440,7 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Timer recupero/sessione a orologio di sistema.** Con schermo bloccato o PWA in background il countdown non si ferma: al resume recupera i secondi passati (`useDeadlineCountdown`). |
 | 2026-09-19 | **Durata min|sec negli editor PT.** Campo riusabile `DurationUnitInput`: si inserisce in minuti o secondi, storage canonico in secondi (`duration_seconds`, `round_duration`, `exercise_duration_seconds`, set timed). In minuti i secondi residui scattano al minuto più vicino. Player atleta invariati. |
 | 2026-09-19 | **Notifiche PT come in app.** Campanella + inbox su `/pt/app/notifications` (stesso hook `useNotifications`); realtime anche sulla dashboard web `/pt`; tap apre la route corretta per web/PWA. |
+| 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
 
 ---
 

@@ -28,6 +28,12 @@ import { formatDistanceToNow } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { getOrCreateChat, sendMessage } from '@/lib/api/messages';
+import {
+  conversationFallbackPreview,
+  conversationRelationLabel,
+  mergeConversationPeers,
+  type ConversationRelation,
+} from '@/lib/conversations';
 import { getPTChatGroups } from '@/lib/api/chatGroups';
 import { uploadChatAttachment, validateChatAttachment } from '@/lib/api/chatAttachments';
 import { CreateChatGroupDialog } from '@/components/pt/CreateChatGroupDialog';
@@ -51,6 +57,7 @@ interface AthleteChatRow {
   lastMessage: { content: string | null; sender_user_id: string; created_at: string } | null;
   lastMessageAt: string | null;
   unreadCount: number;
+  relation: ConversationRelation;
 }
 
 export function PTAppChatPage() {
@@ -66,24 +73,30 @@ export function PTAppChatPage() {
     queryFn: async (): Promise<AthleteChatRow[]> => {
       if (!user?.id) return [];
 
-      // 1) Tutti gli atleti collegati attivi
+      // 1) Atleti collegati (active/pending) + chat di domanda aperte dagli atleti
       const { data: connections, error: connErr } = await supabase
         .from('pt_atleta_connections')
-        .select('atleta_user_id')
+        .select('atleta_user_id, status')
         .eq('pt_user_id', user.id)
-        .eq('status', 'active');
+        .in('status', ['active', 'pending']);
 
       if (connErr) throw connErr;
 
-      const athleteIds = (connections || []).map((c) => c.atleta_user_id);
-      if (athleteIds.length === 0) return [];
-
-      // 2) Chats esistenti per questi atleti
-      const { data: chatsData } = await supabase
+      const { data: chatsData, error: chatsErr } = await supabase
         .from('chats')
         .select('id, atleta_user_id, last_message_at, is_active')
         .eq('pt_user_id', user.id)
-        .in('atleta_user_id', athleteIds);
+        .eq('is_active', true);
+
+      if (chatsErr) throw chatsErr;
+
+      const peers = mergeConversationPeers(
+        (connections || []).map((c) => ({ peerId: c.atleta_user_id, status: c.status })),
+        (chatsData || []).map((c) => c.atleta_user_id),
+      );
+      const athleteIds = peers.map((p) => p.peerId);
+      if (athleteIds.length === 0) return [];
+      const relationByAthlete = new Map(peers.map((p) => [p.peerId, p.relation]));
 
       const chatByAthlete = new Map<string, { id: string; last_message_at: string | null }>();
       (chatsData || []).forEach((c) => {
@@ -142,6 +155,7 @@ export function PTAppChatPage() {
             lastMessage,
             lastMessageAt: chat?.last_message_at || null,
             unreadCount,
+            relation: relationByAthlete.get(athleteId) ?? 'inquiry',
           } as AthleteChatRow;
         })
       );
@@ -279,9 +293,9 @@ export function PTAppChatPage() {
               <Card className="border-dashed">
                 <CardContent className="p-8 text-center">
                   <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="font-semibold mb-2">Nessun atleta collegato</h3>
+                  <h3 className="font-semibold mb-2">Nessuna conversazione</h3>
                   <p className="text-sm text-muted-foreground">
-                    Quando avrai atleti collegati potrai chattare con loro qui
+                    Qui vedi gli atleti collegati e chi ti scrive per farti una domanda
                   </p>
                 </CardContent>
               </Card>
@@ -392,7 +406,9 @@ export function PTAppChatPage() {
         open={createGroupOpen}
         onOpenChange={setCreateGroupOpen}
         ptUserId={user?.id || ''}
-        athletes={(rows || []).map((r) => ({ atleta_user_id: r.atleta_user_id, profile: r.profile }))}
+        athletes={(rows || [])
+          .filter((r) => r.relation === 'active')
+          .map((r) => ({ atleta_user_id: r.atleta_user_id, profile: r.profile }))}
         detailBasePath="/pt/app/chat/group"
       />
     </div>
@@ -417,9 +433,10 @@ function ChatCard({
   const hasUnread = row.unreadCount > 0;
 
   const isOwnMessage = row.lastMessage?.sender_user_id === currentUserId;
+  const relationLabel = conversationRelationLabel(row.relation);
   const messagePreview = row.lastMessage?.content
     ? (isOwnMessage ? 'Tu: ' : '') + row.lastMessage.content
-    : 'Nessuna conversazione';
+    : conversationFallbackPreview(row.relation);
 
   const timeAgo = row.lastMessage?.created_at
     ? formatDistanceToNow(new Date(row.lastMessage.created_at), { addSuffix: true, locale: it })
@@ -449,8 +466,13 @@ function ChatCard({
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <h3 className={cn('font-semibold truncate', hasUnread && 'font-bold')}>{name}</h3>
+              {relationLabel && (
+                <Badge variant="outline" className="shrink-0 text-[10px]">
+                  {relationLabel}
+                </Badge>
+              )}
               <div className="flex items-center gap-2">
                 {timeAgo && (
                   <span className="text-xs text-muted-foreground">{timeAgo}</span>
