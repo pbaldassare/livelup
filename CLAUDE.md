@@ -299,6 +299,12 @@ atleta → app_atleta + sito pubblico
 2. **Accetta/Rifiuta** — controparte aggiorna status
 3. **Attivazione** — `status='active'` (può coesistere con altri PT attivi); se nessun primary, diventa primary; `atleta_profiles.status='collegato'`, notifica
 
+### Chat 1:1 prima della connessione
+
+- L'atleta può messaggiare un Professionista attivo anche senza connessione (`can_chat_with`: active/pending **oppure** inquiry atleta→PT)
+- "Richiedi connessione" resta un'azione separata: la chat di domanda non crea una connessione
+- Workout, progress e recensioni restano legati a `are_connected` (solo `active`)
+
 ### Assegnazione e completamento workout
 
 - Assegnare template **copia** blocchi/esercizi in `workout_blocks` / `workout_exercises` (snapshot immutabile)
@@ -428,7 +434,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-07-18 | **Chat PT: invio multiplo, gruppi atleti, allegati media.** Migration `20260718170000_pt_chat_groups_and_attachments.sql` (nuove tabelle `pt_chat_groups`/`pt_chat_group_members`/`pt_chat_group_reads`; `messages.chat_id` ora nullable + nuova `messages.chat_group_id` con CHECK di esclusività; trigger `update_chat_last_message`/`create_message_notification` estesi; bucket storage privato `chat-attachments` con limiti 5MB immagini / 25MB video). Nuove API `src/lib/api/chatGroups.ts` e `src/lib/api/chatAttachments.ts` (queste ultime usano un cast `as any` sulle nuove tabelle finché `types.ts` non viene rigenerato da Lovable — non è un errore, è voluto). `ChatMessages.tsx` ora supporta allegati in tutte le chat (1:1 e gruppo, PT e atleta). `PTAppChatPage` ha modalità "Seleziona" per broadcast multi-atleta e tab "Gruppi" con creazione gruppo (`CreateChatGroupDialog`). Nuove pagine `PTAppChatGroupDetailPage` / `AtletaChatGroupDetailPage` e route `/pt/app/chat/group/:groupId` / `/app/chat/group/:groupId`. |
 | 2026-08-25 | **Email solo Resend.** Mittente `noreply@livelapp.it`; hook Auth `auth-send-email` + SMTP Resend per il resto; niente mailer built-in. |
 | 2026-08-25 | **Billing PT a fasce atleti.** Migration `20260825160000_pt_platform_billing_tiers.sql`: Starter 0-5 gratis, Growth 6-20 19,90, Pro 21-50 49,90, Unlimited 51+ 99,90. Storico, report admin, grazia 7 giorni, blocco nuovi atleti. Stripe IDs vuoti. |
+| 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
 
 ---
 
-_Ultimo aggiornamento: 2026-08-25_
+_Ultimo aggiornamento: 2026-09-19_

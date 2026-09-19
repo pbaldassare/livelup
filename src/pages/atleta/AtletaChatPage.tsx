@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Users, Search, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from '@/lib/api/messages';
+import { conversationFallbackPreview, mergeConversationPeers } from '@/lib/conversations';
 import { uploadChatAttachment } from '@/lib/api/chatAttachments';
 import { toast } from 'sonner';
 import { buildCoachFullName } from '@/lib/coachName';
@@ -37,7 +38,7 @@ export function AtletaChatPage() {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      // 1. Connessioni active + pending (chat consentita anche in attesa)
+      // 1. Connessioni active + pending + chat di domanda già aperte
       const { data: connections, error: connErr } = await supabase
         .from('pt_atleta_connections')
         .select('pt_user_id, status')
@@ -46,19 +47,21 @@ export function AtletaChatPage() {
 
       if (connErr) throw connErr;
 
-      const ptIds = [...new Set((connections || []).map((c) => c.pt_user_id))];
-      if (ptIds.length === 0) return [];
-      const pendingPtIds = new Set(
-        (connections || []).filter((c) => c.status === 'pending').map((c) => c.pt_user_id),
-      );
-
-      // 2. Chat esistenti per queste connessioni
-      const { data: existingChats } = await supabase
+      const { data: existingChats, error: chatsErr } = await supabase
         .from('chats')
         .select('id, pt_user_id, last_message_at')
         .eq('atleta_user_id', user.id)
-        .eq('is_active', true)
-        .in('pt_user_id', ptIds);
+        .eq('is_active', true);
+
+      if (chatsErr) throw chatsErr;
+
+      const peers = mergeConversationPeers(
+        (connections || []).map((c) => ({ peerId: c.pt_user_id, status: c.status })),
+        (existingChats || []).map((c) => c.pt_user_id),
+      );
+      const ptIds = peers.map((p) => p.peerId);
+      if (ptIds.length === 0) return [];
+      const relationByPt = new Map(peers.map((p) => [p.peerId, p.relation]));
 
       const chatByPt = new Map(
         (existingChats || []).map((c) => [c.pt_user_id, c]),
@@ -107,23 +110,18 @@ export function AtletaChatPage() {
             unreadCount = count || 0;
           }
 
-          const isPendingConnection = pendingPtIds.has(ptId);
+          const relation = relationByPt.get(ptId) ?? 'inquiry';
           return {
             id: chat?.id ?? `pending-${ptId}`,
             recipientUserId: ptId,
             name: realName ?? profile?.email ?? 'Il tuo Coach',
             avatarUrl: profile?.avatar_url,
-            lastMessage:
-              lastMessage ??
-              (isPendingConnection
-                ? 'Richiesta in attesa · puoi chattare'
-                : chat
-                  ? undefined
-                  : 'Nessuna conversazione'),
+            lastMessage: lastMessage ?? conversationFallbackPreview(relation),
             lastMessageAt,
             unreadCount,
             _hasChat: !!chat,
-            isPendingConnection,
+            isPendingConnection: relation === 'pending',
+            relation,
           };
         }),
       );
@@ -154,7 +152,7 @@ export function AtletaChatPage() {
   const existingChat = chats?.find(c => c.recipientUserId === recipientId);
 
   // If recipientId is provided but no chat exists yet → create it on the fly
-  const { data: createdChat, isLoading: creatingChat } = useQuery({
+  const { data: createdChat, isLoading: creatingChat, isError: createChatFailed, error: createChatError } = useQuery({
     queryKey: ['atleta-create-chat', user?.id, recipientId],
     queryFn: async () => {
       if (!user?.id || !recipientId) return null;
@@ -165,6 +163,12 @@ export function AtletaChatPage() {
     enabled: !!user?.id && !!recipientId && !chatsLoading && !existingChat,
     retry: false,
   });
+
+  useEffect(() => {
+    if (createChatFailed && createChatError instanceof Error) {
+      toast.error(createChatError.message || 'Impossibile aprire la chat');
+    }
+  }, [createChatFailed, createChatError]);
 
   // Fetch PT profile for the newly-created chat case (race condition fix)
   const { data: recipientProfile } = useQuery({
@@ -297,6 +301,24 @@ export function AtletaChatPage() {
     };
   }, [currentChat?.id, user?.id, queryClient]);
 
+  if (recipientId && createChatFailed && !currentChat) {
+    return (
+      <div className="h-full min-h-0 flex flex-col items-center justify-center gap-3 px-6 bg-app-background text-center">
+        <MessageCircle className="h-10 w-10 text-app-muted-foreground" />
+        <p className="font-semibold text-app-foreground">Impossibile aprire la chat</p>
+        <p className="text-sm text-app-muted-foreground">
+          Riprova tra poco oppure richiedi la connessione dal profilo.
+        </p>
+        <Button
+          onClick={() => navigate(-1)}
+          className="mt-2 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
+        >
+          Torna indietro
+        </Button>
+      </div>
+    );
+  }
+
   // Show chat detail if recipientId is provided
   if (recipientId && (currentChat || creatingChat)) {
     return (
@@ -371,7 +393,7 @@ export function AtletaChatPage() {
               <MessageCircle className="h-10 w-10 mx-auto text-app-muted-foreground mb-3" />
               <p className="font-semibold text-app-foreground">Nessuna conversazione</p>
               <p className="text-sm text-app-muted-foreground mt-1">
-                Collegati a un professionista per iniziare a chattare.
+                Scrivi a un professionista per fargli una domanda, oppure collegati.
               </p>
               <Button
                 onClick={() => navigate('/app/discover')}

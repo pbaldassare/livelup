@@ -14,6 +14,12 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getOrCreateChat, markMessagesAsRead } from '@/lib/api/messages';
 import {
+  conversationFallbackPreview,
+  conversationRelationLabel,
+  mergeConversationPeers,
+  type ConversationRelation,
+} from '@/lib/conversations';
+import {
   getPTChatGroups,
   getChatGroupMessages,
   sendChatGroupMessage,
@@ -49,6 +55,7 @@ interface AthleteRow {
   lastMessage: string | null;
   lastMessageAt: string | null;
   unreadCount: number;
+  relation: ConversationRelation;
 }
 
 interface Message {
@@ -124,20 +131,26 @@ export function PTMessagesPage() {
 
       const { data: connections, error: connErr } = await supabase
         .from('pt_atleta_connections')
-        .select('atleta_user_id')
+        .select('atleta_user_id, status')
         .eq('pt_user_id', user.id)
-        .eq('status', 'active');
+        .in('status', ['active', 'pending']);
 
       if (connErr) throw connErr;
 
-      const athleteIds = (connections || []).map((c) => c.atleta_user_id);
-      if (athleteIds.length === 0) return [];
-
-      const { data: chatsData } = await supabase
+      const { data: chatsData, error: chatsErr } = await supabase
         .from('chats')
         .select('id, atleta_user_id, last_message_at')
-        .eq('pt_user_id', user.id)
-        .in('atleta_user_id', athleteIds);
+        .eq('pt_user_id', user.id);
+
+      if (chatsErr) throw chatsErr;
+
+      const peers = mergeConversationPeers(
+        (connections || []).map((c) => ({ peerId: c.atleta_user_id, status: c.status })),
+        (chatsData || []).map((c) => c.atleta_user_id),
+      );
+      const athleteIds = peers.map((p) => p.peerId);
+      if (athleteIds.length === 0) return [];
+      const relationByAthlete = new Map(peers.map((p) => [p.peerId, p.relation]));
 
       const chatByAthlete = new Map<string, { id: string; last_message_at: string | null }>();
       (chatsData || []).forEach((c) => {
@@ -196,6 +209,7 @@ export function PTMessagesPage() {
             lastMessage,
             lastMessageAt,
             unreadCount,
+            relation: relationByAthlete.get(athleteId) ?? 'inquiry',
           } as AthleteRow;
         })
       );
@@ -758,15 +772,22 @@ export function PTMessagesPage() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                               <p className="font-medium truncate">
                                 {row.profile?.first_name} {row.profile?.last_name}
                               </p>
-                              {row.unreadCount > 0 && (
-                                <span className="flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-role-pt text-[10px] text-white">
-                                  {row.unreadCount}
-                                </span>
-                              )}
+                              <div className="flex items-center gap-1 shrink-0">
+                                {conversationRelationLabel(row.relation) && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {conversationRelationLabel(row.relation)}
+                                  </span>
+                                )}
+                                {row.unreadCount > 0 && (
+                                  <span className="flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-role-pt text-[10px] text-white">
+                                    {row.unreadCount}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <p
                               className={cn(
@@ -776,7 +797,7 @@ export function PTMessagesPage() {
                                   : 'text-muted-foreground italic'
                               )}
                             >
-                              {row.lastMessage || 'Nessuna conversazione'}
+                              {row.lastMessage || conversationFallbackPreview(row.relation)}
                             </p>
                           </div>
                         </div>
@@ -955,6 +976,13 @@ export function PTMessagesPage() {
                     <CardTitle className="text-lg">
                       {selectedRow.profile?.first_name} {selectedRow.profile?.last_name}
                     </CardTitle>
+                    {conversationRelationLabel(selectedRow.relation) && (
+                      <p className="text-xs text-muted-foreground">
+                        {selectedRow.relation === 'inquiry'
+                          ? 'Ti ha scritto senza essere collegato'
+                          : 'Richiesta di connessione in attesa'}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardHeader>

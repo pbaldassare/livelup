@@ -603,6 +603,17 @@ export function AtletaPTProfilePage() {
                   Hai già altri coach: puoi collegarti anche a questo e chattare con tutti.
                 </p>
               )}
+              <p className="text-xs text-center text-app-muted-foreground px-1">
+                Puoi scrivergli per fargli delle domande anche senza essere collegato.
+              </p>
+              <Button
+                variant="outline"
+                className="w-full bg-transparent border-app-border text-app-foreground hover:bg-app-muted"
+                onClick={() => navigate(`/app/chat/${userId}`)}
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Invia un messaggio
+              </Button>
               <Button
                 className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
                 onClick={() => requestMutation.mutate()}

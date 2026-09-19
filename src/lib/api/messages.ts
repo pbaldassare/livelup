@@ -27,7 +27,7 @@ export async function getOrCreateChat(ptUserId: string, atletaUserId: string): P
     return existingChat as Chat;
   }
 
-  // Crea nuova chat (RLS: connessione active o pending via can_chat_with)
+  // Crea nuova chat (RLS: connessione active/pending, o inquiry atleta→PT via can_chat_with)
   const { data: newChat, error: createError } = await supabase
     .from('chats')
     .insert({

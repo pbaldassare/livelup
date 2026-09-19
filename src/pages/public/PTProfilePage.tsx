@@ -27,7 +27,8 @@ import {
   Sparkles,
   Target,
   GraduationCap,
-  MessageSquare
+  MessageSquare,
+  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -379,6 +380,7 @@ export function PTProfilePage() {
                 role={role}
                 isPending={requestConnectionMutation.isPending}
                 onRequest={() => requestConnectionMutation.mutate()}
+                onMessage={() => navigate(`/app/chat/${userId}`)}
                 onLogin={() => navigate('/auth')}
               />
             </div>
@@ -584,6 +586,7 @@ export function PTProfilePage() {
                       role={role}
                       isPending={requestConnectionMutation.isPending}
                       onRequest={() => requestConnectionMutation.mutate()}
+                      onMessage={() => navigate(`/app/chat/${userId}`)}
                       onLogin={() => navigate('/auth')}
                       fullWidth
                     />
@@ -599,13 +602,15 @@ export function PTProfilePage() {
                       role={role}
                       isPending={requestConnectionMutation.isPending}
                       onRequest={() => requestConnectionMutation.mutate()}
+                      onMessage={() => navigate(`/app/chat/${userId}`)}
                       onLogin={() => navigate('/auth')}
                       fullWidth
                     />
                   </div>
 
                   <p className="text-xs text-center text-muted-foreground">
-                    La connessione è gratuita. Il PT deciderà se accettarti.
+                    Puoi scrivergli per fargli delle domande anche senza collegarti.
+                    La connessione è gratuita: il Professionista decide se accettarti.
                   </p>
                 </CardContent>
               </Card>
@@ -664,6 +669,7 @@ interface ConnectionButtonProps {
   role: string | null;
   isPending: boolean;
   onRequest: () => void;
+  onMessage: () => void;
   onLogin: () => void;
   fullWidth?: boolean;
 }
@@ -676,43 +682,63 @@ function ConnectionButton({
   role,
   isPending,
   onRequest,
+  onMessage,
   onLogin,
   fullWidth = false,
 }: ConnectionButtonProps) {
   const buttonClass = fullWidth ? 'w-full' : '';
+  const stackClass = fullWidth ? 'w-full space-y-2' : 'space-y-2';
 
   if (isConnected) {
     return (
-      <Button className={buttonClass} variant="outline" disabled>
-        <Check className="h-4 w-4 mr-2" />
-        Già connesso
-      </Button>
+      <div className={stackClass}>
+        <Button className={buttonClass} onClick={onMessage}>
+          <MessageCircle className="h-4 w-4 mr-2" />
+          Invia un messaggio
+        </Button>
+        <Button className={buttonClass} variant="outline" disabled>
+          <Check className="h-4 w-4 mr-2" />
+          Già connesso
+        </Button>
+      </div>
     );
   }
 
   if (hasPendingRequest) {
     return (
-      <Button className={buttonClass} variant="secondary" disabled>
-        <Clock className="h-4 w-4 mr-2" />
-        Richiesta inviata
-      </Button>
+      <div className={stackClass}>
+        <Button className={buttonClass} onClick={onMessage}>
+          <MessageCircle className="h-4 w-4 mr-2" />
+          Invia un messaggio
+        </Button>
+        <Button className={buttonClass} variant="secondary" disabled>
+          <Clock className="h-4 w-4 mr-2" />
+          Richiesta inviata
+        </Button>
+      </div>
     );
   }
 
   if (canRequestConnection) {
     return (
-      <Button 
-        className={buttonClass}
-        onClick={onRequest}
-        disabled={isPending}
-      >
-        {isPending ? (
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        ) : (
-          <UserPlus className="h-4 w-4 mr-2" />
-        )}
-        Richiedi connessione
-      </Button>
+      <div className={stackClass}>
+        <Button className={buttonClass} variant="outline" onClick={onMessage}>
+          <MessageCircle className="h-4 w-4 mr-2" />
+          Invia un messaggio
+        </Button>
+        <Button
+          className={buttonClass}
+          onClick={onRequest}
+          disabled={isPending}
+        >
+          {isPending ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <UserPlus className="h-4 w-4 mr-2" />
+          )}
+          Richiedi connessione
+        </Button>
+      </div>
     );
   }
 
