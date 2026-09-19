@@ -135,15 +135,13 @@ export function AssignProgramDialog({
         activeDays,
       });
     },
-    onSuccess: ({ created, skipped }) => {
+    onSuccess: ({ created }) => {
       queryClient.invalidateQueries({ queryKey: ['pt-program-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['pt-workouts'] });
       const msg =
         created > 0
-          ? `Programma assegnato — ${created} allenamenti creati per la prima settimana${
-              skipped > 0 ? ` (${skipped} saltati)` : ''
-            }`
-          : 'Programma assegnato (date già occupate)';
+          ? `Programma assegnato — ${created} allenamenti creati per la prima settimana`
+          : 'Programma assegnato';
       toast.success(msg);
       onOpenChange(false);
     },

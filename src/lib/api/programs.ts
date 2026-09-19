@@ -391,7 +391,7 @@ function countActiveDatesBefore(
  * Genera workouts per la finestra [fromWeek, toWeek) usando rotazione ciclica.
  * - Le schede vengono prese in ordine ciclico A→B→C→A… per ogni data attiva.
  * - current_index parte da `startIndex` (di solito = assignment.current_index).
- * - Salta date già occupate (stesso atleta + stesso titolo o stesso template_id).
+ * - Più schede possono cadere nello stesso giorno (nessuno skip per data occupata).
  * - Ritorna anche il NUOVO indice da persistere.
  */
 async function generateRotationWorkouts(params: {
@@ -431,45 +431,12 @@ async function generateRotationWorkouts(params: {
     return { created: 0, skipped: 0, newIndex: startIndex };
   }
 
-  // Pre-fetch workouts esistenti nella finestra per skip duplicati
-  const windowStart = dates[0];
-  const windowEndDate = new Date(dates[dates.length - 1]);
-  windowEndDate.setDate(windowEndDate.getDate() + 1);
-
-  // Pre-fetch workouts esistenti nella finestra per skip duplicati.
-  // REGOLA: se in una data esiste GIÀ un qualsiasi workout per quell'atleta+PT
-  // → SKIP (mai sovrascrivere, mai duplicare). L'index della rotazione avanza
-  // comunque per mantenere la sequenza A→B→C→A coerente.
-  const { data: existing } = await supabase
-    .from('workouts')
-    .select('scheduled_date')
-    .eq('atleta_user_id', atletaUserId)
-    .eq('pt_user_id', ptUserId)
-    .gte('scheduled_date', windowStart.toISOString())
-    .lt('scheduled_date', windowEndDate.toISOString());
-
-  const occupiedDates = new Set(
-    (existing || []).map((w: any) =>
-      w.scheduled_date ? w.scheduled_date.slice(0, 10) : '',
-    ),
-  );
-
   let created = 0;
-  let skipped = 0;
   let index = ((startIndex % sortedSchedules.length) + sortedSchedules.length) %
     sortedSchedules.length;
 
   for (const date of dates) {
     const sch = sortedSchedules[index];
-    const dateKey = date.toISOString().slice(0, 10);
-
-    if (occupiedDates.has(dateKey)) {
-      skipped++;
-      // ⚠️ avanziamo comunque l'indice per mantenere la rotazione coerente,
-      // come se la scheda fosse stata "consumata" (la data era già occupata)
-      index = (index + 1) % sortedSchedules.length;
-      continue;
-    }
 
     // Carica blocchi + esercizi (+ riscaldamento/stretching se collegati)
     const { blocks, exercises } = await loadTemplateWithRoutinesForWorkoutCreate(sch.template_id);
@@ -490,7 +457,7 @@ async function generateRotationWorkouts(params: {
     index = (index + 1) % sortedSchedules.length;
   }
 
-  return { created, skipped, newIndex: index };
+  return { created, skipped: 0, newIndex: index };
 }
 
 /**
@@ -657,44 +624,17 @@ async function assignDayByDayProgram(params: {
     .single();
   if (error) throw error;
 
-  // Pre-fetch workouts esistenti nelle date target per skip duplicati
   const targetDates = schedules.map((s) => {
     const d = new Date(start);
     d.setDate(d.getDate() + (s.day_offset ?? 0));
     return d;
   });
-  const minDate = targetDates[0];
-  const maxDate = new Date(targetDates[targetDates.length - 1]);
-  maxDate.setDate(maxDate.getDate() + 1);
-
-  const { data: existing } = await supabase
-    .from('workouts')
-    .select('scheduled_date')
-    .eq('atleta_user_id', atletaUserId)
-    .eq('pt_user_id', ptUserId)
-    .gte('scheduled_date', minDate.toISOString())
-    .lt('scheduled_date', maxDate.toISOString());
-
-  // SKIP per data: se la data è occupata da un workout (qualunque template,
-  // qualunque status) NON sovrascrivere mai.
-  const occupiedDates = new Set(
-    (existing || []).map((w: any) =>
-      w.scheduled_date ? w.scheduled_date.slice(0, 10) : '',
-    ),
-  );
 
   let created = 0;
-  let skipped = 0;
 
   for (let i = 0; i < schedules.length; i++) {
     const sch = schedules[i];
     const targetDate = targetDates[i];
-    const dateKey = targetDate.toISOString().slice(0, 10);
-
-    if (occupiedDates.has(dateKey)) {
-      skipped++;
-      continue;
-    }
 
     const { blocks, exercises } = await loadTemplateWithRoutinesForWorkoutCreate(sch.template_id);
 
@@ -719,13 +659,12 @@ async function assignDayByDayProgram(params: {
     data: { pt_user_id: ptUserId, program_id: programId },
   });
 
-  return { assignment, created, skipped, newIndex: 0 };
+  return { assignment, created, skipped: 0, newIndex: 0 };
 }
 
 /**
  * Genera la prossima settimana per un'assegnazione attiva.
- * Idempotente: salta i workout già esistenti.
- * Continua la rotazione dall'indice salvato (NIENTE reset).
+ * Continua la rotazione dall'indice salvato (niente skip per data occupata).
  */
 export async function rollProgramAssignment(assignmentId: string) {
   const { data: assignment, error } = await supabase

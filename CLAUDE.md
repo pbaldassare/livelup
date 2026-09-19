@@ -430,6 +430,7 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-08-25 | **Billing PT a fasce atleti.** Migration `20260825160000_pt_platform_billing_tiers.sql`: Starter 0-5 gratis, Growth 6-20 19,90, Pro 21-50 49,90, Unlimited 51+ 99,90. Storico, report admin, grazia 7 giorni, blocco nuovi atleti. Stripe IDs vuoti. |
 | 2026-09-19 | **"N volte in totale"** non clona più N workout: una riga `workouts` con `repeat_target` / `repeat_done`. Ogni sessione incrementa il contatore, azzera i log e resta `in_corso` fino all'ultima. |
 | 2026-09-19 | **Close-at-N senza cache API.** `completeWorkout` scrive `status` da marker persistenti in `description` / `notes_atleta` (`<!--livelapp-repeat:N-->`, `<!--livelapp-repeat-done:K-->`). Dopo l'ultima sessione la scheda va solo nello storico: niente seconda «da fare». |
+| 2026-09-19 | **Più schede nello stesso giorno.** Assegnazione scheda/programma/assistente non salta più le date già occupate: si possono mettere più allenamenti lo stesso giorno. |
 
 ---
 

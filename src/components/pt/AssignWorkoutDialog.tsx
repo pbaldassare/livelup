@@ -315,34 +315,9 @@ export function AssignWorkoutDialog({
         title = customTitle;
       }
 
-      // Check existing workouts on those dates to skip duplicates
-      const isoDates = generatedDates.map((d) => d.toISOString().slice(0, 10));
-      const { data: existing } = await supabase
-        .from('workouts')
-        .select('scheduled_date, title')
-        .eq('atleta_user_id', selectedAthleteId)
-        .eq('pt_user_id', user.id)
-        .neq('status', 'completato')
-        .gte('scheduled_date', `${isoDates[0]}T00:00:00.000Z`)
-        .lte('scheduled_date', `${isoDates[isoDates.length - 1]}T23:59:59.999Z`);
-
-      const existingDateSet = new Set(
-        (existing || [])
-          .filter((w) => w.title === title)
-          .map((w) =>
-            w.scheduled_date ? new Date(w.scheduled_date).toISOString().slice(0, 10) : '',
-          ),
-      );
-
       let created = 0;
-      let skipped = 0;
       const createdIds: string[] = [];
       for (const date of generatedDates) {
-        const iso = date.toISOString().slice(0, 10);
-        if (existingDateSet.has(iso)) {
-          skipped++;
-          continue;
-        }
         const workout = await createWorkout({
           atletaUserId: selectedAthleteId,
           ptUserId: user.id,
@@ -361,14 +336,9 @@ export function AssignWorkoutDialog({
 
       const activateId = firstCreatedWorkoutToActivate(delivery, createdIds);
       if (activateId) {
-        const createdDate =
-          generatedDates.filter((d) => {
-            const iso = d.toISOString().slice(0, 10);
-            return !existingDateSet.has(iso);
-          })[0] ?? generatedDates[0];
         await activateWorkoutAssignment(activateId, {
           ptUserId: user.id,
-          scheduledDate: createdDate,
+          scheduledDate: generatedDates[0],
           addToCalendar,
         });
       }
@@ -393,15 +363,15 @@ export function AssignWorkoutDialog({
         });
       }
 
-      return { created, skipped, delivery, addToCalendar, repeatTarget };
+      return { created, delivery, addToCalendar, repeatTarget };
     },
-    onSuccess: ({ created, skipped, delivery, addToCalendar, repeatTarget }) => {
+    onSuccess: ({ created, delivery, addToCalendar, repeatTarget }) => {
       queryClient.invalidateQueries({ queryKey: ['pt-workouts'] });
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-workouts'] });
       queryClient.invalidateQueries({ queryKey: ['pt-events'] });
       queryClient.invalidateQueries({ queryKey: ['pt-calendar'] });
       if (created === 0) {
-        toast.warning('Nessun allenamento creato (date già occupate)');
+        toast.warning('Nessun allenamento creato');
       } else if (created === 1 && repeatTarget > 1) {
         toast.success(
           delivery === 'schedule'
@@ -423,11 +393,7 @@ export function AssignWorkoutDialog({
             : 'Scheda assegnata: in corso',
         );
       } else {
-        toast.success(
-          skipped > 0
-            ? `Prima sessione assegnata, ${created - 1} programmate (${skipped} saltate)`
-            : `Prima sessione assegnata, ${created - 1} programmate`,
-        );
+        toast.success(`Prima sessione assegnata, ${created - 1} programmate`);
       }
       onOpenChange(false);
       resetForm();
