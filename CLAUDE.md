@@ -432,6 +432,7 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Close-at-N senza cache API.** `completeWorkout` scrive `status` da marker persistenti in `description` / `notes_atleta` (`<!--livelapp-repeat:N-->`, `<!--livelapp-repeat-done:K-->`). Dopo l'ultima sessione la scheda va solo nello storico: niente seconda «da fare». |
 | 2026-09-19 | **Più schede nello stesso giorno.** Assegnazione scheda/programma/assistente non salta più le date già occupate: si possono mettere più allenamenti lo stesso giorno. |
 | 2026-09-19 | **Timer recupero/sessione a orologio di sistema.** Con schermo bloccato o PWA in background il countdown non si ferma: al resume recupera i secondi passati (`useDeadlineCountdown`). |
+| 2026-09-19 | **Durata min|sec negli editor PT.** Campo riusabile `DurationUnitInput`: si inserisce in minuti o secondi, storage canonico in secondi (`duration_seconds`, `round_duration`, `exercise_duration_seconds`, set timed). In minuti i secondi residui scattano al minuto più vicino. Player atleta invariati. |
 
 ---
 
