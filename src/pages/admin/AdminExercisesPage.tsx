@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils';
 import { EXERCISE_ARCHIVE_CATEGORIES } from '@/lib/exerciseArchiveCategories';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
+import { resolveExerciseInstructions } from '@/lib/exerciseInstructions';
 
 type Exercise = {
   id: string;
@@ -312,7 +313,7 @@ export default function AdminExercisesPage() {
         exerciseName: ex.name,
       }) || '',
       image_url: ex.image_url || '',
-      instructions: ex.instructions || '',
+      instructions: resolveExerciseInstructions(ex.name, ex.category, ex.instructions) || '',
     });
     setDialogOpen(true);
   };

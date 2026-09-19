@@ -36,6 +36,7 @@ import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercise
 import { useExerciseCatalogs, getCatalogAccess, type ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
+import { resolveExerciseInstructions } from '@/lib/exerciseInstructions';
 import { deleteOwnPtExercise } from '@/lib/api/ptExercises';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -571,7 +572,7 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                         </div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-muted-foreground text-sm max-w-xs truncate">
-                        {ex.instructions || ex.description || '—'}
+                        {resolveExerciseInstructions(ex.name, ex.category, ex.instructions) || ex.description || '—'}
                       </TableCell>
                       <TableCell className="text-right">
                         {resolveExerciseVideoUrl(ex.video_url, {

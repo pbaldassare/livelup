@@ -27,6 +27,7 @@ import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercise
 import { VideoEmbed } from '@/components/common/VideoEmbed';
 import { ShareExerciseDialog } from '@/components/pt/ShareExerciseDialog';
 import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
+import { resolveExerciseInstructions } from '@/lib/exerciseInstructions';
 import { cn } from '@/lib/utils';
 
 interface ExerciseLite {
@@ -148,6 +149,11 @@ export function ExerciseDetailDialog({
     exerciseName: exercise.name,
   });
   const hasVideo = !!resolvedVideoUrl;
+  const resolvedInstructions = resolveExerciseInstructions(
+    exercise.name,
+    exercise.category,
+    exercise.instructions,
+  );
   const focusMuscles = exercise.muscle_groups?.slice(0, 3) ?? [];
   const mainFocus = focusMuscles.length > 0 ? focusMuscles.join(', ') : 'Non definito';
 
@@ -295,8 +301,8 @@ export function ExerciseDetailDialog({
               </div>
 
               <SectionCard icon={ListChecks} title="Tecnica esecuzione">
-                {exercise.instructions ? (
-                  <p className="whitespace-pre-line text-sm leading-7 text-foreground">{exercise.instructions}</p>
+                {resolvedInstructions ? (
+                  <p className="whitespace-pre-line text-sm leading-7 text-foreground">{resolvedInstructions}</p>
                 ) : (
                   <p className="text-sm leading-7 text-muted-foreground">Tecnica non ancora compilata dall’Admin.</p>
                 )}

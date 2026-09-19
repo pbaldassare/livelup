@@ -22,6 +22,7 @@ import {
 } from '@/lib/setsData';
 import { formatLoadLabel, getLoadMode } from '@/lib/loadPrescription';
 import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
+import { resolveExerciseInstructions } from '@/lib/exerciseInstructions';
 import { AtletaEmomSummary } from '@/components/app/AtletaEmomSummary';
 
 // =====================================================
@@ -143,6 +144,7 @@ export function AtletaExerciseDetailSheet({
     exerciseId: ex.id,
     exerciseName: ex.name,
   });
+  const resolvedInstructions = resolveExerciseInstructions(ex.name, ex.category, ex.instructions);
   const youtubeId = resolvedVideoUrl ? getYouTubeVideoId(resolvedVideoUrl) : null;
   const vimeoId = resolvedVideoUrl ? getVimeoVideoId(resolvedVideoUrl) : null;
   const isUploadedVideo = resolvedVideoUrl ? isVideoFileUrl(resolvedVideoUrl) : false;
@@ -305,11 +307,11 @@ export function AtletaExerciseDetailSheet({
                 )}
 
                 {/* Istruzioni */}
-                {ex.instructions && (
+                {resolvedInstructions && (
                   <div className="space-y-2">
                     <h3 className="text-base font-bold text-app-foreground">Esecuzione</h3>
                     <p className="text-sm text-app-muted-foreground whitespace-pre-line leading-relaxed">
-                      {ex.instructions}
+                      {resolvedInstructions}
                     </p>
                   </div>
                 )}
@@ -456,11 +458,11 @@ export function AtletaExerciseDetailSheet({
                         )}
                       </div>
                     </div>
-                    {ex.instructions && (
+                    {resolvedInstructions && (
                       <div className="rounded-2xl border border-app-border/70 bg-app-card/60 p-4">
                         <h3 className="mb-2 text-base font-bold text-app-foreground">Punti chiave</h3>
                         <p className="whitespace-pre-line text-sm leading-relaxed text-app-muted-foreground">
-                          {ex.instructions}
+                          {resolvedInstructions}
                         </p>
                       </div>
                     )}
