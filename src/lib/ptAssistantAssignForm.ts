@@ -93,7 +93,6 @@ export function getAssignSchedaDates(form: AssignSchedaFormState): Date[] {
 export function previewFromAssignScheda(
   form: AssignSchedaFormState,
   catalog: PTCatalog,
-  occupiedCount = 0,
 ): PreviewField[] {
   const athlete = catalog.athletes.find((a) => a.id === form.athleteId);
   const template = catalog.templates.find((t) => t.id === form.templateId);
@@ -105,12 +104,7 @@ export function previewFromAssignScheda(
   if (dates.length > 0 && start) {
     const rangeEnd = end ?? dates[dates.length - 1];
     const daysLabel = form.activeDays.map((d) => WEEKDAY_LABELS[d]).join(', ') || '—';
-    dateSummary = `${dates.length} allenamenti (${format(start, 'd MMM yyyy', { locale: it })} → ${format(rangeEnd, 'd MMM yyyy', { locale: it })}, ${daysLabel})`;
-    if (occupiedCount > 0) {
-      dateSummary += ` — ${occupiedCount} date già occupate`;
-    }
-    const toCreate = Math.max(0, dates.length - occupiedCount);
-    dateSummary += ` → verranno creati ${toCreate} workout`;
+    dateSummary = `${dates.length} allenamenti (${format(start, 'd MMM yyyy', { locale: it })} → ${format(rangeEnd, 'd MMM yyyy', { locale: it })}, ${daysLabel}) → verranno creati ${dates.length} workout`;
   }
 
   return [

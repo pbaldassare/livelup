@@ -545,4 +545,4 @@ bunx vitest run  # tests
 
 ---
 
-_Last updated: 2026-08-25 — billing PT a fasce (vedi `CLAUDE.md` §15)._
+_Last updated: 2026-09-19 — più schede nello stesso giorno (vedi `CLAUDE.md` §15)._
