@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { deadlineFromRemaining } from '@/lib/workoutClock';
 import { ArrowLeft, ArrowRight, Check, Dumbbell, LogOut, TimerReset } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -28,24 +30,17 @@ export function CourseStepPreviewPlayer({ step, onExit, onFinish }: CourseStepPr
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [doneSets, setDoneSets] = useState<Record<string, Set<number>>>({});
-  const [restRemaining, setRestRemaining] = useState<number | null>(null);
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
+  const restTick = useDeadlineCountdown(restEndsAt, () => setRestEndsAt(null));
+  const restRemaining = restEndsAt == null ? null : restTick;
 
   const total = exercises.length;
   const current: PtCourseStepExercise | undefined = exercises[currentIndex];
   const isLastExercise = currentIndex === total - 1;
 
   useEffect(() => {
-    setRestRemaining(null);
+    setRestEndsAt(null);
   }, [currentIndex]);
-
-  useEffect(() => {
-    if (restRemaining === null) return;
-    if (restRemaining <= 0) return;
-    const timer = setInterval(() => {
-      setRestRemaining((prev) => (prev === null ? null : Math.max(0, prev - 1)));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [restRemaining]);
 
   if (!current) {
     return (
@@ -73,13 +68,15 @@ export function CourseStepPreviewPlayer({ step, onExit, onFinish }: CourseStepPr
         nextForExercise.add(setNumber);
       }
       if (!wasDone && current.rest_seconds) {
-        setRestRemaining(current.rest_seconds);
+        setRestEndsAt(
+          current.rest_seconds > 0 ? deadlineFromRemaining(current.rest_seconds) : null,
+        );
       }
       return { ...prev, [current.id]: nextForExercise };
     });
   };
 
-  const skipRest = () => setRestRemaining(0);
+  const skipRest = () => setRestEndsAt(null);
 
   const goPrevious = () => setCurrentIndex((idx) => Math.max(0, idx - 1));
 

@@ -20,6 +20,8 @@ import { AtletaTimedRoundsPlayer } from '@/components/app/AtletaTimedRoundsPlaye
 import { AtletaAmrapPlayer } from '@/components/app/AtletaAmrapPlayer';
 import { AtletaSupersetPlayer } from '@/components/app/AtletaSupersetPlayer';
 import { WorkoutRestScreen } from '@/components/app/WorkoutRestScreen';
+import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { deadlineFromRemaining, remainingFromDeadline, shiftDeadline } from '@/lib/workoutClock';
 import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 import {
   buildNextPreviewInfo,
@@ -117,7 +119,7 @@ interface State {
   rpe: number;
   restSeconds: number;
   restTotal: number;
-  restStartedAt: number | null;
+  restEndsAt: number | null;
   // virtual extra sets per exercise id
   extraSets: Record<string, number>;
   // skipped exercise ids
@@ -138,7 +140,6 @@ type Action =
   | { type: 'SET_RPE'; v: number }
   | { type: 'MARK_SET_COMPLETED'; exerciseId: string; setNumber: number }
   | { type: 'AFTER_SAVE'; rest: number }
-  | { type: 'TICK_REST' }
   | { type: 'ADJUST_REST'; delta: number }
   | { type: 'SKIP_REST' }
   | { type: 'GOTO_NEXT'; payload: { exerciseIndex: number; setNumber: number; flow: FlowState; transitionMessage?: string } }
@@ -166,17 +167,20 @@ function reducer(state: State, action: Action): State {
         flow: 'rest',
         restSeconds: action.rest,
         restTotal: action.rest,
-        restStartedAt: Date.now(),
+        restEndsAt: deadlineFromRemaining(action.rest),
       };
-    case 'TICK_REST':
-      return { ...state, restSeconds: Math.max(0, state.restSeconds - 1) };
     case 'ADJUST_REST': {
-      const next = Math.max(5, state.restSeconds + action.delta);
-      const total = Math.max(state.restTotal, next);
-      return { ...state, restSeconds: next, restTotal: total };
+      const nextEnds = shiftDeadline(state.restEndsAt, action.delta, { minRemaining: 5 });
+      const next = remainingFromDeadline(nextEnds);
+      return {
+        ...state,
+        restSeconds: next,
+        restTotal: Math.max(state.restTotal, next),
+        restEndsAt: nextEnds,
+      };
     }
     case 'SKIP_REST':
-      return { ...state, restSeconds: 0 };
+      return { ...state, restSeconds: 0, restEndsAt: Date.now() };
     case 'GOTO_NEXT':
       return {
         ...state,
@@ -193,7 +197,7 @@ function reducer(state: State, action: Action): State {
         flow: 'rest',
         restSeconds: action.rest,
         restTotal: action.rest,
-        restStartedAt: Date.now(),
+        restEndsAt: deadlineFromRemaining(action.rest),
         protocolTransition: true,
         pendingExerciseIndex: action.nextIndex,
       };
@@ -285,7 +289,7 @@ export function GuidedWorkoutFlow({
     rpe: 7,
     restSeconds: initialSetData?.rest_seconds || initialExercise?.rest_seconds || 60,
     restTotal: initialSetData?.rest_seconds || initialExercise?.rest_seconds || 60,
-    restStartedAt: null,
+    restEndsAt: null,
     extraSets: {},
     skipped: {},
     completed: initialCompletedSets,
@@ -488,16 +492,10 @@ export function GuidedWorkoutFlow({
     advance(true);
   }, [advance, state.protocolTransition, state.pendingExerciseIndex]);
 
-  // Rest timer ticking
-  useEffect(() => {
-    if (state.flow !== 'rest') return;
-    if (state.restSeconds <= 0) {
-      handleRestEnd();
-      return;
-    }
-    const t = setTimeout(() => dispatch({ type: 'TICK_REST' }), 1000);
-    return () => clearTimeout(t);
-  }, [state.flow, state.restSeconds, handleRestEnd]);
+  const restLeft = useDeadlineCountdown(
+    state.flow === 'rest' ? state.restEndsAt : null,
+    handleRestEnd,
+  );
 
   const handleCompleteSet = async () => {
     if (!currentExercise) return;
@@ -641,7 +639,7 @@ export function GuidedWorkoutFlow({
             }
           />
           <WorkoutRestScreen
-            restSeconds={state.restSeconds}
+            restSeconds={restLeft}
             restTotal={state.restTotal}
             showNextPreview={isBeforeNextExercise && !!nextPreviewInfo}
             next={nextPreviewInfo}
