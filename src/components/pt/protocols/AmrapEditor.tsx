@@ -22,6 +22,7 @@ import {
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
 import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
+import { DurationUnitInput } from '@/components/pt/DurationUnitInput';
 import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 
 export type AmrapExerciseOption = ProtocolExerciseOption;
@@ -87,15 +88,15 @@ export function AmrapEditor({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">
-            Durata totale (s) <span className="text-muted-foreground">· {durationLabel}</span>
+            Durata totale <span className="text-muted-foreground">· {durationLabel}</span>
           </Label>
-          <TouchIntegerInput
-            value={value.duration_seconds}
-            min={1}
-            step={30}
-            fallback={600}
+          <DurationUnitInput
+            valueSeconds={value.duration_seconds}
+            minSeconds={1}
+            stepSeconds={30}
+            fallbackSeconds={600}
             aria-label="Durata totale"
-            onCommit={(n) => commit(value, { duration_seconds: n }, onChange)}
+            onCommitSeconds={(n) => commit(value, { duration_seconds: n }, onChange)}
           />
         </div>
         <div className="space-y-1">

@@ -19,6 +19,7 @@ import {
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
 import { MobileNotesField } from '@/components/pt/MobileNotesField';
+import { DurationUnitInput } from '@/components/pt/DurationUnitInput';
 import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 
 export type TimedRoundsExerciseOption = ProtocolExerciseOption;
@@ -92,14 +93,14 @@ export function TimedRoundsEditor({
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Durata esercizio (s)</Label>
-          <TouchIntegerInput
-            value={value.exercise_duration_seconds}
-            min={1}
-            step={5}
-            fallback={45}
+          <Label className="text-xs">Durata esercizio</Label>
+          <DurationUnitInput
+            valueSeconds={value.exercise_duration_seconds}
+            minSeconds={1}
+            stepSeconds={5}
+            fallbackSeconds={45}
             aria-label="Durata esercizio"
-            onCommit={(n) =>
+            onCommitSeconds={(n) =>
               commit(value, { exercise_duration_seconds: n }, onChange)
             }
           />

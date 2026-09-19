@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MobileNotesField } from '@/components/pt/MobileNotesField';
+import { DurationUnitInput } from '@/components/pt/DurationUnitInput';
 import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
+import {
+  isDurationMinutesFieldKey,
+  isDurationSecondsFieldKey,
+} from '@/lib/durationUnit';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Collapsible,
@@ -1644,6 +1649,44 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                     updateProtocolParamMutation.mutate({ id: te.id, params: next });
                                                   }}
                                                 />
+                                              ) : f.type === 'number' && isDurationSecondsFieldKey(f.key) ? (
+                                                <DurationUnitInput
+                                                  valueSeconds={typeof val === 'number' && Number.isFinite(val) ? val : null}
+                                                  minSeconds={f.min ?? 1}
+                                                  maxSeconds={f.max}
+                                                  stepSeconds={typeof f.step === 'number' && f.step >= 1 ? f.step : 5}
+                                                  fallbackSeconds={
+                                                    typeof val === 'number' && Number.isFinite(val)
+                                                      ? val
+                                                      : (f.min ?? 1)
+                                                  }
+                                                  aria-label={f.label}
+                                                  onCommitSeconds={(n) => {
+                                                    const next = setNested(params, f.key, n);
+                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                  }}
+                                                />
+                                              ) : f.type === 'number' && isDurationMinutesFieldKey(f.key) ? (
+                                                <DurationUnitInput
+                                                  valueSeconds={
+                                                    typeof val === 'number' && Number.isFinite(val)
+                                                      ? val * 60
+                                                      : null
+                                                  }
+                                                  minSeconds={60}
+                                                  stepSeconds={5}
+                                                  fallbackSeconds={
+                                                    typeof val === 'number' && Number.isFinite(val)
+                                                      ? val * 60
+                                                      : 600
+                                                  }
+                                                  aria-label={f.label}
+                                                  onCommitSeconds={(n) => {
+                                                    const minutes = Math.max(1, Math.round(n / 60));
+                                                    const next = setNested(params, f.key, minutes);
+                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                  }}
+                                                />
                                               ) : f.type === 'number' ? (
                                                 <TouchIntegerInput
                                                   value={typeof val === 'number' && Number.isFinite(val) ? val : null}
@@ -1938,28 +1981,38 @@ function SetsTable({ te, onChange }: SetsTableProps) {
                           Sec
                         </button>
                       </div>
-                      <TouchIntegerInput
-                        compact
-                        min={0}
-                        allowEmpty
-                        value={mode === 'seconds' ? s.duration_seconds : s.reps}
-                        fallback={mode === 'seconds' ? 20 : 10}
-                        aria-label={mode === 'seconds' ? `Secondi set ${i + 1}` : `Reps set ${i + 1}`}
-                        onCommit={(n) => {
-                          if (mode === 'seconds') {
+                      {mode === 'seconds' ? (
+                        <DurationUnitInput
+                          compact
+                          allowEmpty
+                          minSeconds={0}
+                          stepSeconds={5}
+                          fallbackSeconds={20}
+                          valueSeconds={s.duration_seconds}
+                          aria-label={`Durata set ${i + 1}`}
+                          onCommitSeconds={(n) => {
                             updateSet(i, { mode: 'seconds', duration_seconds: n, reps: null });
-                          } else {
-                            updateSet(i, { mode: 'reps', reps: n, duration_seconds: null });
-                          }
-                        }}
-                        onEmptyCommit={() => {
-                          if (mode === 'seconds') {
+                          }}
+                          onEmptyCommit={() => {
                             updateSet(i, { mode: 'seconds', duration_seconds: null, reps: null });
-                          } else {
+                          }}
+                        />
+                      ) : (
+                        <TouchIntegerInput
+                          compact
+                          min={0}
+                          allowEmpty
+                          value={s.reps}
+                          fallback={10}
+                          aria-label={`Reps set ${i + 1}`}
+                          onCommit={(n) => {
+                            updateSet(i, { mode: 'reps', reps: n, duration_seconds: null });
+                          }}
+                          onEmptyCommit={() => {
                             updateSet(i, { mode: 'reps', reps: null, duration_seconds: null });
-                          }
-                        }}
-                      />
+                          }}
+                        />
+                      )}
                     </div>
                   </td>
                 );

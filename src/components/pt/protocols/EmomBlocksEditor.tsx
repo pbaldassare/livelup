@@ -27,6 +27,7 @@ import {
   type ProtocolExercisePickerProps,
 } from '@/components/pt/protocols/ProtocolExerciseCombobox';
 import { ProtocolExerciseRow } from '@/components/pt/protocols/ProtocolExerciseRow';
+import { DurationUnitInput } from '@/components/pt/DurationUnitInput';
 import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 
 export type EmomExerciseOption = ProtocolExerciseOption;
@@ -137,15 +138,15 @@ export function EmomBlocksEditor({
         </div>
         <div className="space-y-1">
           <Label className="text-xs">
-            Durata round (s) <span className="text-muted-foreground">· {durationLabel}</span>
+            Durata round <span className="text-muted-foreground">· {durationLabel}</span>
           </Label>
-          <TouchIntegerInput
-            value={value.round_duration}
-            min={10}
-            step={5}
-            fallback={60}
+          <DurationUnitInput
+            valueSeconds={value.round_duration}
+            minSeconds={10}
+            stepSeconds={5}
+            fallbackSeconds={60}
             aria-label="Durata round"
-            onCommit={(n) => commit(value, { round_duration: n }, onChange)}
+            onCommitSeconds={(n) => commit(value, { round_duration: n }, onChange)}
           />
         </div>
         <div className="space-y-1">

@@ -166,7 +166,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
     paramFields: [
       { key: 'sets', label: 'Serie', type: 'number', min: 1, placeholder: '3' },
       { key: 'reps', label: 'Ripetizioni', type: 'number', min: 1, placeholder: '10', hint: 'Lascia vuoto se usi il tempo' },
-      { key: 'duration_seconds', label: 'Tempo (s)', type: 'number', min: 1, step: 5, placeholder: '30', hint: 'Lascia vuoto se usi le reps' },
+      { key: 'duration_seconds', label: 'Tempo', type: 'number', min: 1, step: 5, placeholder: '30', hint: 'Lascia vuoto se usi le reps' },
       { key: 'weight', label: 'Carico (kg)', type: 'number', min: 0, step: 0.5, placeholder: '—', hint: 'Opzionale' },
       { key: 'rest_seconds', label: 'Recupero (s)', type: 'number', min: 0, step: 15, placeholder: '60' },
     ],
@@ -336,7 +336,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       ],
     } as unknown as ProtocolParams,
     paramFields: [
-      { key: 'duration_minutes', label: 'Durata (minuti)', type: 'number', min: 1, placeholder: '10' },
+      { key: 'duration_minutes', label: 'Durata', type: 'number', min: 1, placeholder: '10' },
       { key: 'reps', label: 'Ripetizioni per minuto', type: 'number', min: 1, placeholder: '10' },
       {
         key: 'mode',
@@ -393,7 +393,7 @@ export const PROTOCOL_REGISTRY: Record<ProtocolType, ProtocolDefinition> = {
       'Completa il maggior numero di round possibile entro il tempo stabilito. Conta ogni round completato.',
     defaultParams: { duration_minutes: 10, reps: 10, note: '' },
     paramFields: [
-      { key: 'duration_minutes', label: 'Durata (minuti)', type: 'number', min: 1, placeholder: '10' },
+      { key: 'duration_minutes', label: 'Durata', type: 'number', min: 1, placeholder: '10' },
       { key: 'reps', label: 'Ripetizioni per esercizio', type: 'number', min: 1, placeholder: '10' },
       { key: 'note', label: 'Note (opzionali)', type: 'textarea', placeholder: 'Es. 10 squat + 10 push-up + 10 sit-up', hint: 'Indicazioni libere o lista esercizi del round' },
     ],

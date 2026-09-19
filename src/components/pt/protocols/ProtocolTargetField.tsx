@@ -11,6 +11,7 @@ import {
   type ProtocolExerciseTarget,
 } from '@/lib/protocols/exerciseTarget';
 import type { SetTargetMode } from '@/types/database';
+import { DurationUnitInput } from '@/components/pt/DurationUnitInput';
 import { TouchIntegerInput } from '@/components/pt/TouchIntegerInput';
 
 interface ProtocolTargetFieldProps {
@@ -81,16 +82,30 @@ export function ProtocolTargetField({
             Sec
           </button>
         </div>
-        <TouchIntegerInput
-          id={id}
-          value={mode === 'seconds' ? value.duration_seconds : value.reps}
-          onCommit={commitNumber}
-          min={1}
-          fallback={1}
-          compact={compact}
-          aria-label={mode === 'seconds' ? 'Secondi' : 'Reps'}
-          inputClassName={inputClassName}
-        />
+        {mode === 'seconds' ? (
+          <DurationUnitInput
+            id={id}
+            valueSeconds={value.duration_seconds}
+            onCommitSeconds={commitNumber}
+            minSeconds={1}
+            stepSeconds={5}
+            fallbackSeconds={1}
+            compact={compact}
+            aria-label="Durata"
+            inputClassName={inputClassName}
+          />
+        ) : (
+          <TouchIntegerInput
+            id={id}
+            value={value.reps}
+            onCommit={commitNumber}
+            min={1}
+            fallback={1}
+            compact={compact}
+            aria-label="Reps"
+            inputClassName={inputClassName}
+          />
+        )}
       </div>
     </div>
   );
