@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { PTBillingBanner } from '@/components/pt/PTBillingBanner';
+import { NotificationBellButton } from '@/components/notifications/NotificationBellButton';
 
 // =====================================================
 // PT APP PAGE SHELL
@@ -27,6 +28,8 @@ interface PTAppPageShellProps {
   backTo?: string;
   /** Quando true il contenuto è scollabile con padding ridotto laterale */
   flush?: boolean;
+  /** Campanella inbox (default: sì, come in app atleta) */
+  showNotifications?: boolean;
   children: ReactNode;
   className?: string;
 }
@@ -38,6 +41,7 @@ export function PTAppPageShell({
   showBack = false,
   backTo,
   flush = false,
+  showNotifications = true,
   children,
   className,
 }: PTAppPageShellProps) {
@@ -78,7 +82,12 @@ export function PTAppPageShell({
               <p className="text-xs text-app-muted-foreground line-clamp-2">{description}</p>
             )}
           </div>
-          {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
+          {(actions || showNotifications) && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {actions}
+              {showNotifications && <NotificationBellButton to="/pt/app/notifications" />}
+            </div>
+          )}
         </div>
       </header>
 

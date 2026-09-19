@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/common/Logo';
@@ -62,6 +63,7 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const isMobile = useIsMobile();
+  useRealtimeNotifications();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);

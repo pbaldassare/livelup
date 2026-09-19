@@ -23,7 +23,8 @@ import {
   Laptop,
   Award,
   MapPin,
-  Download
+  Download,
+  Bell,
 } from 'lucide-react';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 
@@ -117,6 +118,7 @@ export function PTAppProfilePage() {
     ...(showInstallOption ? [{ icon: Download, label: 'Installa App', href: '/install', external: false }] : []),
     // ?view=web evita il surface-gate mobile che rimappa /pt → /pt/app (home)
     { icon: Laptop, label: 'Dashboard Web', href: '/pt?view=web', external: false },
+    { icon: Bell, label: 'Notifiche', href: '/pt/app/notifications', external: false },
     { icon: Settings, label: 'Impostazioni profilo', href: '/pt/app/settings', external: false },
   ];
 

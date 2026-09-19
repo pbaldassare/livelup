@@ -1,7 +1,9 @@
 import { useEffect, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { remapNotificationActionUrl } from '@/lib/notifications';
 import { toast } from 'sonner';
 
 // =====================================================
@@ -31,28 +33,34 @@ interface RealtimeConnectionPayload {
 }
 
 export function useRealtimeNotifications() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Handle new notification
   const handleNewNotification = useCallback((payload: RealtimeNotificationPayload) => {
     // Show toast notification
     const icon = getNotificationIcon(payload.type);
+    const target = remapNotificationActionUrl(payload.action_url, {
+      role,
+      pathname: location.pathname,
+    });
     
     toast(payload.title, {
       description: payload.body || undefined,
       icon,
-      action: payload.action_url ? {
+      action: target ? {
         label: 'Vedi',
         onClick: () => {
-          window.location.href = payload.action_url!;
+          navigate(target);
         },
       } : undefined,
     });
 
     // Invalidate notifications query to refresh the list
     queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
-  }, [queryClient, user?.id]);
+  }, [queryClient, user?.id, role, location.pathname, navigate]);
 
   // Handle connection status change
   const handleConnectionChange = useCallback((payload: RealtimeConnectionPayload, eventType: string) => {

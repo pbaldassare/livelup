@@ -10,6 +10,7 @@ import {
   type PTHomeAppointment,
 } from '@/hooks/usePTHomeData';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
+import { useNotifications } from '@/hooks/useNotifications';
 import type { PTRouteSet } from '@/lib/pt/routes';
 import { AppHeader } from '@/components/app/AppHeader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -50,6 +51,7 @@ export function PTAppHome() {
   const navigate = useNavigate();
   const { routes } = usePTRoutes(true);
   const { data: stats } = usePTAppStats();
+  const { unreadCount } = useNotifications();
   const { data: home, isLoading } = usePTHomeData();
 
   const { data: profile } = useQuery({
@@ -82,9 +84,12 @@ export function PTAppHome() {
         avatarUrl={profile?.avatar_url || undefined}
         avatarInitials={avatarInitials}
         showNotifications
-        notificationCount={stats?.unreadMessages || 0}
+        notificationCount={unreadCount}
+        showMessages
+        messageCount={stats?.unreadMessages || 0}
         onAvatarPress={() => navigate('/pt/app/profile')}
-        onNotificationPress={() => navigate(routes.chat())}
+        onNotificationPress={() => navigate(routes.notifications)}
+        onMessagePress={() => navigate(routes.chat())}
       >
         <div className="text-right">
           <p className="text-[10px] text-app-muted-foreground uppercase tracking-wider">Ciao Coach</p>

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
-import { usePTSurface, mapPTWebToApp } from '../usePTSurface';
+import { usePTSurface, mapPTWebToApp, mapPTAppToWeb } from '../usePTSurface';
 
 // =====================================================
 // Helpers: control matchMedia and window.location.search
@@ -131,6 +131,7 @@ describe('mapPTWebToApp', () => {
     ['/pt/templates', '/pt/app/templates'],
     ['/pt/calendar', '/pt/app/calendar'],
     ['/pt/calendar/eventi', '/pt/app/calendar'],
+    ['/pt/calendar/eventi/abc-123', '/pt/app/events/abc-123'],
     ['/pt/events', '/pt/app/events'],
     ['/pt/events/abc-123', '/pt/app/events/abc-123'],
     ['/pt/groups', '/pt/app/groups'],
@@ -143,6 +144,7 @@ describe('mapPTWebToApp', () => {
     ['/pt/payments', '/pt/app/payments'],
     ['/pt/blog', '/pt/app/blog'],
     ['/pt/settings', '/pt/app/settings'],
+    ['/pt/notifications', '/pt/app/notifications'],
     ['/pt/cerca-professionisti', '/pt/app/cerca-professionisti'],
     ['/pt/collaboratori', '/pt/app/athlete-transfer'],
     ['/pt/athlete-transfer', '/pt/app/athlete-transfer'],
@@ -160,6 +162,28 @@ describe('mapPTWebToApp', () => {
 
   it('falls back to /pt/app for unknown /pt subpaths', () => {
     expect(mapPTWebToApp('/pt/something-new')).toBe('/pt/app');
+  });
+});
+
+describe('mapPTAppToWeb', () => {
+  it.each([
+    ['/pt/app', '/pt'],
+    ['/pt/app/', '/pt'],
+    ['/pt/app/athletes', '/pt/athletes'],
+    ['/pt/app/athlete/abc-123', '/pt/athletes/abc-123'],
+    ['/pt/app/templates', '/pt/templates'],
+    ['/pt/app/templates/tpl-1', '/pt/templates/tpl-1'],
+    ['/pt/app/assigned-workouts/w-1', '/pt/assigned-workouts/w-1'],
+    ['/pt/app/calendar', '/pt/calendar/appuntamenti'],
+    ['/pt/app/events/abc-123', '/pt/events/abc-123'],
+    ['/pt/app/chat', '/pt/messages'],
+    ['/pt/app/chat/abc-123', '/pt/messages'],
+    ['/pt/app/chat/group/abc-123', '/pt/app/chat/group/abc-123'],
+    ['/pt/app/profile', '/pt/settings'],
+    ['/pt/app/notifications', '/pt'],
+    ['/pt/app/courses', '/pt/courses'],
+  ])('maps %s → %s', (input, expected) => {
+    expect(mapPTAppToWeb(input)).toBe(expected);
   });
 });
 

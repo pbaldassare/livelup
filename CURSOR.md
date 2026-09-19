@@ -68,7 +68,7 @@ src/
 │   │   ├── PTDashboardLayout.tsx        # PT web sidebar, mobile swipe drawer, /pt/app redirect
 │   │   ├── AppLayout.tsx                # Athlete + PT PWA layout (bottom nav, safe-area)
 │   │   └── PublicLayout.tsx             # Marketing / public site
-│   ├── notifications/           # NotificationDropdown
+│   ├── notifications/           # NotificationDropdown, NotificationsInbox, NotificationBellButton
 │   ├── protocols/               # ProtocolInfoPopover (standard/emom/amrap/superset/hiit)
 │   ├── pt/                      # PT-specific dashboard widgets
 │   ├── pwa/                     # InstallBanner, PWAUpdatePrompt
@@ -248,7 +248,7 @@ public/
 `/pt` · `/pt/athletes` · `/pt/athletes/:id` · `/pt/workouts` · `/pt/templates` · `/pt/templates/:id` · `/pt/exercises` · `/pt/calendar` · `/pt/chat` · `/pt/blog` · `/pt/coupons` · `/pt/payments` · `/pt/settings` · `/pt/profile` · `/pt/onboarding`
 
 ### PT PWA (`/pt/app/*`) — `PTAppRoute`
-`/pt/app` · `/pt/app/athletes` · `/pt/app/athlete/:atletaId` · `/pt/app/athlete/:atletaId/workouts` · `/pt/app/workouts` · `/pt/app/templates` · `/pt/app/templates/:id` · `/pt/app/exercises` · `/pt/app/calendar` · `/pt/app/chat` · `/pt/app/chat/:chatId` · `/pt/app/blog` · `/pt/app/coupons` · `/pt/app/payments` · `/pt/app/settings` · `/pt/app/profile`
+`/pt/app` · `/pt/app/athletes` · `/pt/app/athlete/:atletaId` · `/pt/app/athlete/:atletaId/workouts` · `/pt/app/workouts` · `/pt/app/templates` · `/pt/app/templates/:id` · `/pt/app/exercises` · `/pt/app/calendar` · `/pt/app/chat` · `/pt/app/chat/:chatId` · `/pt/app/blog` · `/pt/app/coupons` · `/pt/app/payments` · `/pt/app/settings` · `/pt/app/profile` · `/pt/app/notifications`
 
 ### Athlete PWA (`/app/*`) — `AtletaRoute`
 `/app` · `/app/discover` · `/app/programma` · `/app/scheda` · `/app/workout/:id` · `/app/esercizi` · `/app/progress` · `/app/calendar` · `/app/appuntamenti` · `/app/booking/:ptId` · `/app/events/:id` · `/app/chat` · `/app/chat/:chatId` · `/app/notifications` · `/app/profile` · `/app/settings` · `/app/subscription` · `/app/coupons` · `/app/courses` · `/app/help` · `/app/documents` · `/app/pt/:slug` · `/app/professional/:slug` · `/app/onboarding`
