@@ -1,5 +1,24 @@
 export const MAX_WORKOUT_REPEATS = 60;
 
+/** Marker in colonne già note all'API: un trigger Postgres applica il contatore. */
+export const REPEAT_TARGET_MARKER_RE = /<!--livelapp-repeat:(\d+)-->/;
+export const REPEAT_TICK_MARKER = '<!--livelapp-repeat-tick-->';
+
+export function encodeRepeatDescription(
+  description: string | null | undefined,
+  repeatTarget: unknown,
+): string | null {
+  const target = clampRepeatTarget(repeatTarget);
+  const body = (description ?? '').replace(REPEAT_TARGET_MARKER_RE, '').trim();
+  if (target <= 1) return body || null;
+  return body ? `<!--livelapp-repeat:${target}--> ${body}` : `<!--livelapp-repeat:${target}-->`;
+}
+
+export function encodeRepeatTickNotes(notes: string | null | undefined): string {
+  const body = (notes ?? '').split(REPEAT_TICK_MARKER).join('').trim();
+  return body ? `${REPEAT_TICK_MARKER} ${body}` : REPEAT_TICK_MARKER;
+}
+
 /** PostgREST / Postgres quando le colonne repeat_* non sono (ancora) in cache. */
 export const REPEAT_COLUMNS_MISSING_RE =
   /repeat_target|repeat_done|42703|PGRST204|schema cache/i;

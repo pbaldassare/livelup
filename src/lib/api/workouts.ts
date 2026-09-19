@@ -7,117 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import type { TemplateKind } from '@/lib/pt/templateKinds';
 import { isSummaryPhase, type WorkoutPhase } from '@/lib/pt/templateRoles';
 import { buildAssignmentCalendarEvent } from '@/lib/workoutAssignmentDelivery';
-import { applyRepeatCompletion, clampRepeatTarget } from '@/lib/workoutRepeat';
+import { encodeRepeatDescription, encodeRepeatTickNotes } from '@/lib/workoutRepeat';
 
 export type { TemplateKind };
-
-async function persistWorkoutRepeatTarget(workoutId: string, repeatTarget: number) {
-  const target = clampRepeatTarget(repeatTarget);
-  if (target <= 1) return;
-
-  const rpcAttempts = [
-    { workout_id: workoutId, repeat_target: target },
-    { _workout_id: workoutId, _repeat_target: target },
-  ];
-  let lastRpcMessage = '';
-  for (const args of rpcAttempts) {
-    const { error } = await supabase.rpc('set_workout_repeat_target' as any, args);
-    if (!error) return;
-    lastRpcMessage = error.message;
-    if (!/schema cache|PGRST202|Could not find the function/i.test(error.message)) {
-      throw new Error('Errore salvataggio ripetizioni: ' + error.message);
-    }
-  }
-
-  const { error: updErr } = await supabase
-    .from('workouts')
-    .update({ repeat_target: target, repeat_done: 0 } as any)
-    .eq('id', workoutId);
-  if (updErr) {
-    throw new Error(
-      'Errore salvataggio ripetizioni: ' + (updErr.message || lastRpcMessage),
-    );
-  }
-}
-
-async function runRepeatCompletion(workoutId: string): Promise<{
-  repeat_done: number;
-  repeat_target: number;
-  finished: boolean;
-  status: string;
-}> {
-  const rpcAttempts = [{ workout_id: workoutId }, { _workout_id: workoutId }];
-  for (const args of rpcAttempts) {
-    const { data, error } = await supabase.rpc(
-      'apply_workout_repeat_completion' as any,
-      args,
-    );
-    if (!error && data) {
-      const row = data as {
-        repeat_done?: number;
-        repeat_target?: number;
-        finished?: boolean;
-        status?: string;
-      };
-      return {
-        repeat_done: row.repeat_done ?? 0,
-        repeat_target: row.repeat_target ?? 1,
-        finished: !!row.finished,
-        status: row.status ?? (row.finished ? 'completato' : 'in_corso'),
-      };
-    }
-    if (error && !/schema cache|PGRST202|Could not find the function/i.test(error.message)) {
-      throw new Error('Errore completamento workout: ' + error.message);
-    }
-  }
-
-  const existing = await supabase
-    .from('workouts')
-    .select('id, status, repeat_target, repeat_done')
-    .eq('id', workoutId)
-    .maybeSingle();
-  if (existing.error) {
-    throw new Error('Errore completamento workout: ' + existing.error.message);
-  }
-  const row = existing.data as {
-    repeat_target?: number;
-    repeat_done?: number;
-  } | null;
-  const cycle = applyRepeatCompletion(row?.repeat_done, row?.repeat_target ?? 1);
-  if (!cycle.finished) {
-    const { data: exerciseRows, error: exErr } = await supabase
-      .from('workout_exercises')
-      .select('id')
-      .eq('workout_id', workoutId);
-    if (exErr) throw new Error('Errore completamento workout: ' + exErr.message);
-    const exerciseIds = (exerciseRows || []).map((r) => r.id);
-    if (exerciseIds.length > 0) {
-      const { error: logErr } = await supabase
-        .from('workout_logs')
-        .delete()
-        .in('workout_exercise_id', exerciseIds);
-      if (logErr) throw new Error('Errore reset log sessione: ' + logErr.message);
-    }
-  }
-  const { error: updErr } = await supabase
-    .from('workouts')
-    .update({
-      repeat_done: cycle.repeatDone,
-      repeat_target: cycle.repeatTarget,
-      status: cycle.finished ? 'completato' : 'in_corso',
-      completed_at: cycle.finished ? new Date().toISOString() : null,
-    } as any)
-    .eq('id', workoutId);
-  if (updErr) {
-    throw new Error('Errore completamento workout: ' + updErr.message);
-  }
-  return {
-    repeat_done: cycle.repeatDone,
-    repeat_target: cycle.repeatTarget,
-    finished: cycle.finished,
-    status: cycle.finished ? 'completato' : 'in_corso',
-  };
-}
 
 // =====================================================
 // CREA WORKOUT
@@ -178,7 +70,7 @@ export async function createWorkout(params: {
       atleta_user_id: atletaUserId,
       pt_user_id: ptUserId,
       title,
-      description,
+      description: encodeRepeatDescription(description, repeatTarget),
       template_id: templateId,
       template_kind: templateKind,
       scheduled_date: scheduledDate,
@@ -190,13 +82,6 @@ export async function createWorkout(params: {
 
   if (workoutError) {
     throw new Error('Errore creazione workout: ' + workoutError.message);
-  }
-
-  try {
-    await persistWorkoutRepeatTarget(workout.id, repeatTarget);
-  } catch (e) {
-    await supabase.from('workouts').delete().eq('id', workout.id);
-    throw e;
   }
 
   // Mappa tempId → real workout_block id
@@ -498,12 +383,10 @@ export async function completeWorkout(
     }
   }
 
-  const cycle = await runRepeatCompletion(workoutId);
-
   const { data, error } = await supabase
     .from('workouts')
     .update({
-      notes_atleta: feedback?.notesAtleta,
+      notes_atleta: encodeRepeatTickNotes(feedback?.notesAtleta),
       rating: feedback?.rating,
       duration_seconds: feedback?.durationSeconds ?? null,
       sets_completed: setsCompleted,
@@ -526,12 +409,7 @@ export async function completeWorkout(
     );
   }
 
-  return {
-    ...data,
-    repeat_done: cycle.repeat_done ?? (data as any).repeat_done,
-    repeat_target: cycle.repeat_target ?? (data as any).repeat_target,
-    status: cycle.status ?? data.status,
-  };
+  return data;
 }
 
 const UNASSIGNABLE_WORKOUT_STATUSES = ['attivo', 'scaduto', 'in_corso', 'in_sospeso'] as const;
@@ -807,7 +685,10 @@ async function copyWorkoutAssignmentToAthlete(
     atleta_user_id: targetAtletaUserId,
     pt_user_id: original.pt_user_id,
     title: opts?.title ?? original.title,
-    description: original.description,
+    description: encodeRepeatDescription(
+      original.description,
+      (original as any).repeat_target ?? 1,
+    ),
     template_id: original.template_id,
     template_kind: (original as any).template_kind ?? 'libera',
     scheduled_date: scheduledDate,
@@ -825,16 +706,6 @@ async function copyWorkoutAssignmentToAthlete(
 
   if (insErr || !workout) {
     throw new Error('Errore duplicazione workout: ' + (insErr?.message ?? 'unknown'));
-  }
-
-  try {
-    await persistWorkoutRepeatTarget(
-      workout.id,
-      clampRepeatTarget((original as any).repeat_target ?? 1),
-    );
-  } catch (e) {
-    await supabase.from('workouts').delete().eq('id', workout.id);
-    throw e;
   }
 
   const blockIdMap = new Map<string, string>();

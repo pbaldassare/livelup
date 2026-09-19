@@ -3,9 +3,12 @@ import { generateWorkoutRepetitionDates, resolveAssignmentPlan } from '@/lib/wor
 import {
   applyRepeatCompletion,
   canCreateWithoutRepeatColumns,
+  encodeRepeatDescription,
+  encodeRepeatTickNotes,
   formatRepeatCompletionToast,
   formatRepeatProgress,
   isRepeatColumnsMissingError,
+  REPEAT_TICK_MARKER,
 } from '@/lib/workoutRepeat';
 
 const d = (iso: string) => new Date(`${iso}T12:00:00`);
@@ -124,6 +127,12 @@ describe('applyRepeatCompletion', () => {
       finished: true,
       message: 'Allenamento completato! 🎉',
     });
+  });
+
+  it('codifica il marker N volte nella description', () => {
+    expect(encodeRepeatDescription('ciao', 2)).toBe('<!--livelapp-repeat:2--> ciao');
+    expect(encodeRepeatDescription(null, 1)).toBeNull();
+    expect(encodeRepeatTickNotes('ok')).toBe(`${REPEAT_TICK_MARKER} ok`);
   });
 
   it('non crea in silenzio una scheda una tantum se il target è N', () => {
