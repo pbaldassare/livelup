@@ -7,7 +7,12 @@ import { supabase } from '@/integrations/supabase/client';
 import type { TemplateKind } from '@/lib/pt/templateKinds';
 import { isSummaryPhase, type WorkoutPhase } from '@/lib/pt/templateRoles';
 import { buildAssignmentCalendarEvent } from '@/lib/workoutAssignmentDelivery';
-import { applyRepeatCompletion, clampRepeatTarget } from '@/lib/workoutRepeat';
+import {
+  applyRepeatCompletion,
+  canCreateWithoutRepeatColumns,
+  clampRepeatTarget,
+  isRepeatColumnsMissingError,
+} from '@/lib/workoutRepeat';
 
 export type { TemplateKind };
 
@@ -89,8 +94,13 @@ export async function createWorkout(params: {
 
   if (
     workoutInsert.error &&
-    /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(workoutInsert.error.message)
+    isRepeatColumnsMissingError(workoutInsert.error.message)
   ) {
+    if (!canCreateWithoutRepeatColumns(repeatTarget)) {
+      throw new Error(
+        'Il contatore «N volte» non è ancora disponibile. Ricarica la pagina e riassegna la scheda, senza creare una copia da una tantum.',
+      );
+    }
     workoutInsert = await supabase
       .from('workouts')
       .insert({
@@ -382,16 +392,10 @@ export async function completeWorkout(
   } | null;
   let fetchErr = existingSelect.error;
 
-  if (fetchErr && /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(fetchErr.message)) {
-    const legacy = await supabase
-      .from('workouts')
-      .select('id, status')
-      .eq('id', workoutId)
-      .maybeSingle();
-    fetchErr = legacy.error;
-    existing = legacy.data
-      ? { ...legacy.data, repeat_target: 1, repeat_done: 0 }
-      : null;
+  if (fetchErr && isRepeatColumnsMissingError(fetchErr.message)) {
+    throw new Error(
+      'Impossibile leggere il contatore ripetizioni. Ricarica la pagina e riprova, senza chiudere la scheda.',
+    );
   }
 
   if (fetchErr) {
@@ -469,17 +473,14 @@ export async function completeWorkout(
     .select()
     .maybeSingle();
 
-  if (
-    error &&
-    /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)
-  ) {
+  if (error && isRepeatColumnsMissingError(error.message)) {
     const { repeat_done: _d, repeat_target: _t, ...legacyPatch } = patch;
     const retry = await supabase
       .from('workouts')
       .update({
         ...legacyPatch,
-        status: 'completato',
-        completed_at: new Date().toISOString(),
+        status: cycle.finished ? 'completato' : 'in_corso',
+        completed_at: cycle.finished ? new Date().toISOString() : null,
       } as any)
       .eq('id', workoutId)
       .in('status', [...COMPLETABLE_WORKOUT_STATUSES])
@@ -807,10 +808,13 @@ async function copyWorkoutAssignmentToAthlete(
     .select()
     .single();
 
-  if (
-    copyInsert.error &&
-    /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(copyInsert.error.message)
-  ) {
+  if (copyInsert.error && isRepeatColumnsMissingError(copyInsert.error.message)) {
+    const copiedTarget = clampRepeatTarget((original as any).repeat_target ?? 1);
+    if (!canCreateWithoutRepeatColumns(copiedTarget)) {
+      throw new Error(
+        'Il contatore «N volte» non è ancora disponibile. Ricarica e riprova la duplicazione.',
+      );
+    }
     copyInsert = await supabase
       .from('workouts')
       .insert(copyBase as any)

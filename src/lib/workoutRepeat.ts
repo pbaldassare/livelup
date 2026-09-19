@@ -1,5 +1,18 @@
 export const MAX_WORKOUT_REPEATS = 60;
 
+/** PostgREST / Postgres quando le colonne repeat_* non sono (ancora) in cache. */
+export const REPEAT_COLUMNS_MISSING_RE =
+  /repeat_target|repeat_done|42703|PGRST204|schema cache/i;
+
+export function isRepeatColumnsMissingError(message: unknown): boolean {
+  return typeof message === 'string' && REPEAT_COLUMNS_MISSING_RE.test(message);
+}
+
+/** Fallback insert senza colonne solo se la scheda è una tantum. */
+export function canCreateWithoutRepeatColumns(repeatTarget: unknown): boolean {
+  return clampRepeatTarget(repeatTarget) <= 1;
+}
+
 export function clampRepeatTarget(value: unknown): number {
   const n = Math.floor(Number(value));
   if (!Number.isFinite(n) || n < 1) return 1;

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { generateWorkoutRepetitionDates, resolveAssignmentPlan } from '@/lib/workoutRepetition';
 import {
   applyRepeatCompletion,
+  canCreateWithoutRepeatColumns,
   formatRepeatCompletionToast,
   formatRepeatProgress,
+  isRepeatColumnsMissingError,
 } from '@/lib/workoutRepeat';
 
 const d = (iso: string) => new Date(`${iso}T12:00:00`);
@@ -122,5 +124,14 @@ describe('applyRepeatCompletion', () => {
       finished: true,
       message: 'Allenamento completato! 🎉',
     });
+  });
+
+  it('non crea in silenzio una scheda una tantum se il target è N', () => {
+    expect(canCreateWithoutRepeatColumns(1)).toBe(true);
+    expect(canCreateWithoutRepeatColumns(8)).toBe(false);
+    expect(isRepeatColumnsMissingError('Could not find the repeat_target column of workouts in the schema cache')).toBe(
+      true,
+    );
+    expect(isRepeatColumnsMissingError('permission denied')).toBe(false);
   });
 });
