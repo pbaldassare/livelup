@@ -41,9 +41,9 @@ export function PTAthleteWorkoutRunner({
             prescribed_duration_seconds, rest_seconds, notes,
             protocol_type, protocol_params, sets_data`;
       const exerciseEmbedWithPhase = `${exerciseEmbed}, phase,
-            exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)`;
+            exercises:exercise_id (id, name, category, video_url, image_url, instructions, muscle_groups)`;
       const exerciseEmbedLegacy = `${exerciseEmbed},
-            exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)`;
+            exercises:exercise_id (id, name, category, video_url, image_url, instructions, muscle_groups)`;
       const selects = [
         `id, title, status, atleta_user_id, template_kind, description, notes_atleta, repeat_target, repeat_done,
           workout_exercises ( ${exerciseEmbedWithPhase} )`,

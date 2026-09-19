@@ -18,6 +18,7 @@ import {
 interface ExerciseVideoPlayerProps {
   videoUrl?: string | null;
   imageUrl?: string | null;
+  exerciseId?: string | null;
   exerciseName: string;
   setNumber?: number;
   totalSets?: number;
@@ -45,6 +46,7 @@ function getYouTubeEmbedUrl(videoId: string): string {
 export function ExerciseVideoPlayer({
   videoUrl,
   imageUrl,
+  exerciseId,
   exerciseName,
   setNumber,
   totalSets,
@@ -55,7 +57,11 @@ export function ExerciseVideoPlayer({
   showTitle,
   useDefaultVideo = true,
 }: ExerciseVideoPlayerProps) {
-  const resolvedUrl = resolveExerciseVideoUrl(videoUrl, { allowDefault: useDefaultVideo });
+  const resolvedUrl = resolveExerciseVideoUrl(videoUrl, {
+    allowDefault: useDefaultVideo,
+    exerciseId,
+    exerciseName,
+  });
   const youtubeId = resolvedUrl ? getYouTubeVideoId(resolvedUrl) : null;
   const isCompact = variant === 'compact';
   const titleVisible = showTitle ?? !isCompact;

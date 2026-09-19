@@ -69,6 +69,7 @@ export interface GWExercise {
   protocol_params?: ProtocolConfig | null;
   sets_data?: SetData[] | null;
   exercises?: {
+    id?: string | null;
     name: string;
     category?: string | null;
     image_url?: string | null;
@@ -81,6 +82,7 @@ export interface GWExercise {
 function exerciseMeta(ex?: GWExercise | null) {
   const joined = ex?.exercises;
   return {
+    id: joined?.id ?? null,
     name: joined?.name ?? 'Esercizio',
     category: joined?.category ?? null,
     image_url: joined?.image_url ?? null,
@@ -321,6 +323,7 @@ export function GuidedWorkoutFlow({
         protocol_type: currentExercise.protocol_type ?? null,
         protocol_params: currentExercise.protocol_params ?? null,
         exercises: {
+          id: currentMeta.id ?? undefined,
           name: currentMeta.name,
           category: currentMeta.category ?? undefined,
           video_url: currentMeta.video_url ?? undefined,
@@ -876,6 +879,7 @@ export function GuidedWorkoutFlow({
                 key={`vid-${currentExercise.id}`}
                 videoUrl={currentMeta.video_url}
                 imageUrl={currentMeta.image_url}
+                exerciseId={currentMeta.id}
                 exerciseName={currentMeta.name}
                 setNumber={state.setNumber}
                 totalSets={totalSetsForCurrent}
@@ -950,6 +954,7 @@ export function GuidedWorkoutFlow({
                 key={`vid-${currentExercise.id}`}
                 videoUrl={currentMeta.video_url}
                 imageUrl={currentMeta.image_url}
+                exerciseId={currentMeta.id}
                 exerciseName={currentMeta.name}
                 setNumber={state.setNumber}
                 totalSets={totalSetsForCurrent}

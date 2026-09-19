@@ -320,6 +320,7 @@ export function AtletaCourseStepRunPage() {
             key={`course-vid-${current?.id ?? exerciseIndex}`}
             videoUrl={videoUrl}
             imageUrl={imageUrl}
+            exerciseId={current?.exercises?.id}
             exerciseName={name}
             setNumber={currentSet}
             totalSets={setsTotal}

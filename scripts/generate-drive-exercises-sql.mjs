@@ -292,7 +292,7 @@ for (const line of lines) {
   const equipment = inferEquipment(folder, variant);
   const variantLabel = stripFolderFromVariant(folder, variant);
   const description = `${meta.blurb}${variantLabel ? ` Variante: ${titleCase(variantLabel)}.` : ''}`;
-  const instructions = `Esegui ${name} con controllo, scapole attive e core chiuso. Progressione della famiglia ${folder}. Video dimostrativo in arrivo.`;
+  const instructions = `${meta.blurb} Esegui la variante con controllo e senza slancio.\nGuarda il video e ripeti lo stesso setup: scapole attive, bacino chiuso, range pulito.`;
   rows.push({ folder, oldName, name, description, instructions, difficulty, muscles: meta.muscles, equipment });
 }
 

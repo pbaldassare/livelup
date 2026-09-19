@@ -183,7 +183,7 @@ export function AtletaWorkoutDetailPage() {
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
             prescribed_duration_seconds, rest_seconds, notes, block_id,
             protocol_type, protocol_params, sets_data, phase,
-            exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
+            exercises:exercise_id (id, name, category, video_url, image_url, instructions, muscle_groups)
           )
         `)
         .eq('id', workoutId)
@@ -202,7 +202,7 @@ export function AtletaWorkoutDetailPage() {
                 prescribed_reps_min, prescribed_reps_max, prescribed_weight,
                 prescribed_duration_seconds, rest_seconds, notes, block_id,
                 protocol_type, protocol_params, sets_data,
-                exercises:exercise_id (name, category, video_url, image_url, instructions, muscle_groups)
+                exercises:exercise_id (id, name, category, video_url, image_url, instructions, muscle_groups)
               )
             `)
             .eq('id', workoutId)

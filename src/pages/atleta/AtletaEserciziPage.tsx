@@ -98,7 +98,7 @@ const SELECT_CLAUSE = `
     sets_data,
     protocol_type,
     protocol_params,
-    exercises:exercise_id ( name, category, video_url, image_url, instructions, muscle_groups )
+    exercises:exercise_id ( id, name, category, video_url, image_url, instructions, muscle_groups )
   )
 `;
 

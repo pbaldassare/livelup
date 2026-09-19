@@ -11,6 +11,7 @@ import { TemplateExerciseBuilder } from '@/components/pt/TemplateExerciseBuilder
 import { CreateExerciseDialog } from '@/components/pt/CreateExerciseDialog';
 import { useFavoriteExercises, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
 import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialog';
+import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 import { Star, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1219,12 +1220,20 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                           <div className="relative h-14 w-14 overflow-hidden rounded-lg border bg-muted shrink-0 flex items-center justify-center">
                             {ex.image_url ? (
                               <img src={ex.image_url} alt={ex.name} className="h-full w-full object-cover" loading="lazy" />
-                            ) : ex.video_url ? (
+                            ) : resolveExerciseVideoUrl(ex.video_url, {
+                              allowDefault: false,
+                              exerciseId: ex.id,
+                              exerciseName: ex.name,
+                            }) ? (
                               <Video className="h-5 w-5 text-primary" />
                             ) : (
                               <Dumbbell className="h-5 w-5 text-muted-foreground" />
                             )}
-                            {ex.video_url && ex.image_url && (
+                            {resolveExerciseVideoUrl(ex.video_url, {
+                              allowDefault: false,
+                              exerciseId: ex.id,
+                              exerciseName: ex.name,
+                            }) && ex.image_url && (
                               <span className="absolute bottom-1 right-1 rounded-full bg-background/90 p-1 shadow-sm">
                                 <Video className="h-3 w-3 text-primary" />
                               </span>
