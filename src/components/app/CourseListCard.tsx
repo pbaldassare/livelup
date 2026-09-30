@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CourseProgressBar } from '@/components/app/CourseProgressBar';
 import { FollowStarButton } from '@/components/app/FollowStarButton';
 import { cn } from '@/lib/utils';
+import { formatEstimatedDuration } from '@/lib/workoutDuration';
 import type { AtletaCourseCard, CourseDifficulty } from '@/lib/api/courses';
 
 const DIFFICULTY_LABELS: Record<CourseDifficulty, string> = {
@@ -94,6 +95,11 @@ export function CourseListCard({
               <Badge variant="outline" className="text-[10px] border-app-border text-app-muted-foreground">
                 {course.steps_count} step
               </Badge>
+              {course.estimated_seconds > 0 ? (
+                <Badge variant="outline" className="text-[10px] border-app-border text-app-muted-foreground">
+                  {formatEstimatedDuration(course.estimated_seconds)}
+                </Badge>
+              ) : null}
               <Badge
                 variant="outline"
                 className={cn(

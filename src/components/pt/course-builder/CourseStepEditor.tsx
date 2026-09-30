@@ -38,6 +38,7 @@ import {
   type PtCourseStep,
   type PtCourseStepExercise,
 } from '@/lib/api/courses';
+import { estimateCourseStepSeconds, formatEstimatedDuration } from '@/lib/workoutDuration';
 import { StepExercisePicker } from './StepExercisePicker';
 import { VideoEmbed } from '@/components/common/VideoEmbed';
 import { dndDragHandleClassName } from '@/lib/dnd/helloPangea';
@@ -520,7 +521,14 @@ export function CourseStepEditor({
       {!isVideoStep ? (
         <div className="space-y-2 pl-7">
           <div className="flex items-center justify-between">
-            <Label className="text-sm">Esercizi</Label>
+            <Label className="text-sm">
+              Esercizi
+              {exercises.length > 0 && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {formatEstimatedDuration(estimateCourseStepSeconds(step))}
+                </span>
+              )}
+            </Label>
             <Button
               type="button"
               size="sm"

@@ -19,6 +19,7 @@ import {
 import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
 import { useWallClockElapsed } from '@/hooks/useDeadlineCountdown';
 import { isSummaryPhase } from '@/lib/pt/templateRoles';
+import { estimateSheetDuration, formatEstimatedDuration, type DurationExerciseRow } from '@/lib/workoutDuration';
 import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetailSheet';
 import {
   AlertDialog,
@@ -437,6 +438,10 @@ export function AtletaWorkoutDetailPage() {
   const exercises = workout?.workout_exercises || [];
   const currentExercise = exercises[currentExerciseIndex] as WorkoutExercise | undefined;
   const totalExercises = exercises.length;
+  const estimatedDuration = useMemo(
+    () => estimateSheetDuration(exercises as DurationExerciseRow[]),
+    [exercises],
+  );
   const workoutProgress = totalExercises > 0 
     ? ((currentExerciseIndex + 1) / totalExercises) * 100 
     : 0;
@@ -970,10 +975,12 @@ export function AtletaWorkoutDetailPage() {
                 <Dumbbell className="h-4 w-4" />
                 <span>{totalExercises} esercizi</span>
               </div>
-              <div className="flex items-center gap-1 text-sm text-app-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>~{totalExercises * 5} min</span>
-              </div>
+              {estimatedDuration.mainSeconds > 0 && (
+                <div className="flex items-center gap-1 text-sm text-app-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>{formatEstimatedDuration(estimatedDuration.mainSeconds)}</span>
+                </div>
+              )}
             </div>
             {isRepeatAssignment(resolveRepeatState(workout as any).repeatTarget) && (
               <p className="text-sm font-medium text-app-accent pt-1">

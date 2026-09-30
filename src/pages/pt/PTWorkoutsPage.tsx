@@ -73,6 +73,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { useTemplateDurations } from '@/hooks/useSheetDuration';
+import { formatEstimatedDuration } from '@/lib/workoutDuration';
 
 // =====================================================
 // PT WORKOUTS PAGE - Gestione Allenamenti
@@ -160,7 +162,6 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     description: string;
     difficulty_level: string;
     category: string;
-    estimated_duration: number;
     muscle_groups: string[];
     template_kind: TemplateKind;
   }>({
@@ -168,7 +169,6 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     description: '',
     difficulty_level: '',
     category: '',
-    estimated_duration: 60,
     muscle_groups: [],
     template_kind: 'libera',
   });
@@ -213,6 +213,8 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     enabled: !!user?.id,
   });
 
+  const { data: templateDurations } = useTemplateDurations(templates.map((t) => t.id));
+
   // Fetch only PT's favorite exercises
   const { data: exercises = [], isLoading: exercisesLoading } = useFavoriteExercises();
   const toggleFav = useToggleFavorite();
@@ -255,7 +257,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
             | 'agonista'
             | 'nessuno',
           category: newTemplate.category || null,
-          estimated_duration: newTemplate.estimated_duration,
+          estimated_duration: null,
           muscle_groups: newTemplate.muscle_groups,
           template_kind: newTemplate.template_kind,
           template_role: 'main',
@@ -292,7 +294,6 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
         description: '',
         difficulty_level: '',
         category: '',
-        estimated_duration: 60,
         muscle_groups: [],
         template_kind: 'libera',
       });
@@ -490,6 +491,9 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
     });
   };
 
+  const templateSeconds = (template: WorkoutTemplate) =>
+    templateDurations?.[template.id] ?? (template.estimated_duration ?? 0) * 60;
+
   const templateColumns: Column<WorkoutTemplate>[] = [
     {
       key: 'title',
@@ -551,7 +555,7 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
       key: 'duration',
       header: 'Durata',
       cell: (template) => (
-        <span>{template.estimated_duration ? `${template.estimated_duration} min` : 'N/A'}</span>
+        <span>{formatEstimatedDuration(templateSeconds(template))}</span>
       ),
     },
   ];
@@ -1079,9 +1083,9 @@ export function PTWorkoutsPage({ embedded = false }: { embedded?: boolean } = {}
                                   {template.category && (
                                     <Badge variant="outline" className="text-xs">{template.category}</Badge>
                                   )}
-                                  {template.estimated_duration && (
+                                  {templateSeconds(template) > 0 && (
                                     <Badge variant="outline" className="text-xs">
-                                      {template.estimated_duration} min
+                                      {formatEstimatedDuration(templateSeconds(template))}
                                     </Badge>
                                   )}
                                 </div>

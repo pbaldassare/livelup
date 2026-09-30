@@ -65,6 +65,8 @@ import {
   firstCreatedWorkoutToActivate,
   type AssignmentDelivery,
 } from '@/lib/workoutAssignmentDelivery';
+import { TEMPLATE_DURATION_FIELDS } from '@/lib/api/sheetDuration';
+import { estimateSheetDuration, formatEstimatedDuration } from '@/lib/workoutDuration';
 
 // =====================================================
 // ASSIGN WORKOUT DIALOG
@@ -89,6 +91,7 @@ interface WorkoutTemplate {
   template_kind: 'libera' | 'propedeutica' | 'progressiva';
   estimated_duration: number | null;
   exerciseCount: number;
+  durationSeconds: number;
 }
 
 type Frequency = WorkoutRepetitionMode;
@@ -195,7 +198,7 @@ export function AssignWorkoutDialog({
           template_kind,
           template_role,
           estimated_duration,
-          template_exercises (id)
+          template_exercises (${TEMPLATE_DURATION_FIELDS})
         `)
         .eq('pt_user_id', user.id)
         .order('title');
@@ -212,6 +215,11 @@ export function AssignWorkoutDialog({
           template_kind: (t.template_kind ?? 'libera') as WorkoutTemplate['template_kind'],
           estimated_duration: t.estimated_duration,
           exerciseCount: t.template_exercises?.length || 0,
+          durationSeconds: estimateSheetDuration(
+            [...(t.template_exercises || [])].sort(
+              (a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0),
+            ),
+          ).mainSeconds,
         })) as WorkoutTemplate[];
     },
     enabled: !!user?.id && open,
@@ -458,6 +466,11 @@ export function AssignWorkoutDialog({
                 <Badge variant="outline" className="flex-shrink-0">
                   {selectedTemplate.exerciseCount} es.
                 </Badge>
+                {selectedTemplate.durationSeconds > 0 && (
+                  <Badge variant="outline" className="flex-shrink-0">
+                    {formatEstimatedDuration(selectedTemplate.durationSeconds)}
+                  </Badge>
+                )}
               </div>
             )}
 
@@ -634,6 +647,11 @@ export function AssignWorkoutDialog({
                             <Badge variant="outline" className="text-xs">
                               {template.exerciseCount} es.
                             </Badge>
+                            {template.durationSeconds > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                {formatEstimatedDuration(template.durationSeconds)}
+                              </Badge>
+                            )}
                           </div>
                         </SelectItem>
                       ))
