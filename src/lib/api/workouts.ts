@@ -8,6 +8,12 @@ import type { TemplateKind } from '@/lib/pt/templateKinds';
 import { isSummaryPhase, type WorkoutPhase } from '@/lib/pt/templateRoles';
 import { buildAssignmentCalendarEvent } from '@/lib/workoutAssignmentDelivery';
 import {
+  describeConflict,
+  findSlotConflicts,
+  suggestFreeTime,
+  type CalendarSlotEvent,
+} from '@/lib/calendarSlots';
+import {
   applyRepeatCompletion,
   encodeRepeatDescription,
   encodeRepeatProgressNotes,
@@ -513,6 +519,72 @@ export async function unassignWorkoutAssignment(workoutId: string, ptUserId: str
 // ATTIVA ASSEGNAZIONE (Programmate → In corso; calendario opzionale)
 // =====================================================
 
+const CALENDAR_SLOT_COLUMNS =
+  'id, title, start_datetime, end_datetime, is_all_day, is_cancelled, is_recurring, recurrence_rule';
+
+/** Eventi (anche ricorrenti) che coinvolgono PT o atleta nel giorno indicato; solo quelli visibili via RLS. */
+export async function fetchCalendarEventsForDay(params: {
+  ptUserId: string;
+  atletaUserId?: string | null;
+  day: Date;
+}): Promise<CalendarSlotEvent[]> {
+  const dayStart = new Date(params.day);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+  const lookBack = new Date(dayStart.getTime() - 86_400_000);
+
+  const owners = [params.ptUserId, params.atletaUserId].filter(Boolean) as string[];
+  const ownerFilter = owners
+    .flatMap((id) => [`pt_user_id.eq.${id}`, `creator_user_id.eq.${id}`, `atleta_user_id.eq.${id}`])
+    .join(',');
+
+  const [sameDay, recurring] = await Promise.all([
+    supabase
+      .from('calendar_events')
+      .select(CALENDAR_SLOT_COLUMNS)
+      .or(ownerFilter)
+      .eq('is_cancelled', false)
+      .gte('start_datetime', lookBack.toISOString())
+      .lt('start_datetime', dayEnd.toISOString()),
+    supabase
+      .from('calendar_events')
+      .select(CALENDAR_SLOT_COLUMNS)
+      .or(ownerFilter)
+      .eq('is_cancelled', false)
+      .eq('is_recurring', true)
+      .lt('start_datetime', lookBack.toISOString()),
+  ]);
+
+  if (sameDay.error) throw new Error('Errore lettura calendario: ' + sameDay.error.message);
+  const byId = new Map<string, CalendarSlotEvent>();
+  for (const row of [...(sameDay.data ?? []), ...(recurring.data ?? [])]) {
+    byId.set(row.id, row as CalendarSlotEvent);
+  }
+  const events = [...byId.values()];
+
+  if (params.atletaUserId) {
+    // Appuntamenti dell'atleta con altri PT: RLS non li espone, la RPC restituisce solo le fasce.
+    const { data: busy } = await (supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: Array<{ start_datetime: string; end_datetime: string | null; is_all_day: boolean }> | null }>)(
+      'get_athlete_busy_slots',
+      { _atleta_user_id: params.atletaUserId, _from: lookBack.toISOString(), _to: dayEnd.toISOString() },
+    );
+    (busy ?? []).forEach((slot, i) => {
+      events.push({
+        id: `athlete-busy-${i}`,
+        title: "Impegno dell'atleta",
+        start_datetime: slot.start_datetime,
+        end_datetime: slot.end_datetime,
+        is_all_day: slot.is_all_day,
+      });
+    });
+  }
+
+  return events;
+}
+
 export async function activateWorkoutAssignment(
   workoutId: string,
   params: {
@@ -520,6 +592,9 @@ export async function activateWorkoutAssignment(
     scheduledDate: Date;
     /** Default false: In corso senza riquadro nel calendario PT. */
     addToCalendar?: boolean;
+    /** HH:mm locale dell'appuntamento (default 10:00). */
+    startTime?: string;
+    durationMinutes?: number;
   },
 ) {
   const { data: workout, error: fetchErr } = await supabase
@@ -541,6 +616,34 @@ export async function activateWorkoutAssignment(
   const scheduled = new Date(params.scheduledDate);
   scheduled.setHours(0, 0, 0, 0);
 
+  const calendarRow = buildAssignmentCalendarEvent({
+    addToCalendar: params.addToCalendar,
+    ptUserId: params.ptUserId,
+    atletaUserId: workout.atleta_user_id,
+    title: workout.title,
+    scheduledDate: scheduled,
+    startTime: params.startTime,
+    durationMinutes: params.durationMinutes,
+  });
+
+  if (calendarRow) {
+    const dayEvents = await fetchCalendarEventsForDay({
+      ptUserId: params.ptUserId,
+      atletaUserId: workout.atleta_user_id,
+      day: scheduled,
+    });
+    const slot = { start: new Date(calendarRow.start_datetime), end: new Date(calendarRow.end_datetime) };
+    const conflicts = findSlotConflicts(slot, dayEvents);
+    if (conflicts.length > 0) {
+      const durationMinutes = Math.round((slot.end.getTime() - slot.start.getTime()) / 60_000);
+      const free = suggestFreeTime(scheduled, dayEvents, durationMinutes, params.startTime);
+      throw new Error(
+        `Orario occupato: ${conflicts.map(describeConflict).join(', ')}.` +
+          (free ? ` Primo orario libero: ${free}.` : ' Nessun orario libero in questo giorno.'),
+      );
+    }
+  }
+
   const { data: updated, error: updateErr } = await supabase
     .from('workouts')
     .update({
@@ -555,13 +658,6 @@ export async function activateWorkoutAssignment(
     throw new Error('Errore attivazione scheda: ' + (updateErr?.message ?? 'unknown'));
   }
 
-  const calendarRow = buildAssignmentCalendarEvent({
-    addToCalendar: params.addToCalendar,
-    ptUserId: params.ptUserId,
-    atletaUserId: workout.atleta_user_id,
-    title: workout.title,
-    scheduledDate: scheduled,
-  });
   if (calendarRow) {
     const { error: calErr } = await supabase.from('calendar_events').insert(calendarRow);
     if (calErr) {
