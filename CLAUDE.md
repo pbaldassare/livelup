@@ -226,7 +226,7 @@ public/
 
 | Superficie | Prefisso | Route guard |
 |---|---|---|
-| Pubblico | `/`, `/install`, `/blog/:slug`, `/pt-discovery`, `/pt/:slug`, `/auth` | — |
+| Pubblico | `/`, `/install`, `/blog/:slug`, `/pts`, `/pts/:userId` (profilo pubblico PT), `/auth` | — |
 | Admin | `/admin/*` | `AdminRoute` |
 | PT web | `/pt/*` | `PTDashboardRoute` (redirect mobile → `/pt/app/*`) |
 | PT PWA | `/pt/app/*` | `PTAppRoute` |
@@ -441,7 +441,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Durata min|sec negli editor PT.** Campo riusabile `DurationUnitInput`: si inserisce in minuti o secondi, storage canonico in secondi (`duration_seconds`, `round_duration`, `exercise_duration_seconds`, set timed). In minuti i secondi residui scattano al minuto più vicino. Player atleta invariati. |
 | 2026-09-19 | **Notifiche PT come in app.** Campanella + inbox su `/pt/app/notifications` (stesso hook `useNotifications`); realtime anche sulla dashboard web `/pt`; tap apre la route corretta per web/PWA. |
 | 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
+| 2026-09-30 | **"Vedi profilo pubblico" funziona per tutti.** Le policy RLS di `pt_profiles`/`profiles` mostrano un PT solo ad atleti/admin/se stesso, quindi PT colleghi (Cerca PT e professionisti, web e PWA) e visitatori anonimi vedevano "Profilo non trovato" su `/pts/:userId`. Nuova RPC `get_public_pt_profile` (SECURITY DEFINER, solo campi pubblici, PT discoverable `attivo`/`premium`) usata da `PTProfilePage` come fallback. Migration `20260930210000_public_pt_profile_rpc.sql`. |
 
 ---
 
-_Ultimo aggiornamento: 2026-09-19_
+_Ultimo aggiornamento: 2026-09-30_
