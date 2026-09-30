@@ -75,6 +75,7 @@ import {
   requiresFullCompletion,
 } from '@/lib/pt/templateKinds';
 import { ExportSheetPdfButton } from '@/components/shared/ExportSheetPdfButton';
+import { WorkoutHistoryList } from '@/components/shared/WorkoutHistoryList';
 
 // =====================================================
 // ATLETA WORKOUT DETAIL PAGE - Workout execution
@@ -1307,6 +1308,19 @@ export function AtletaWorkoutDetailPage() {
               </Button>
             )}
           </motion.div>
+
+          {user?.id && (
+            <section className="space-y-3 pt-2">
+              <h3 className="font-semibold text-app-foreground">Storico di questa scheda</h3>
+              <WorkoutHistoryList
+                atletaUserId={user.id}
+                variant="atleta"
+                workoutTitle={workout.title}
+                defaultOpenFirst={isCompleted}
+                emptyMessage="Non hai ancora completato questa scheda"
+              />
+            </section>
+          )}
         </div>
 
         {/* Exercise detail sheet */}
