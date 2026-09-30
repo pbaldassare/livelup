@@ -10,7 +10,7 @@
 
 1. **Prima di ogni task:** rileggi le sezioni *Panoramica*, *Regole critiche* e *Task aperti* rilevanti.
 2. **Lingua UI:** italiano. **Stati DB:** inglese (`active`, `pending`, `completato`…). Non mescolare.
-3. **Backend:** chiamalo "Lovable Cloud" / "backend" con l'utente — non "Supabase".
+3. **Backend:** unico database **`kxgaqnksylntokyrpaxp`** (Supabase). Lovable non è più collegato come database: niente prompt/SQL per Lovable, niente vecchio progetto `uiowzycolsmgcsvihmhy`.
 4. **Scope minimo:** cambia solo ciò che serve; rispetta convenzioni esistenti in `src/`.
 5. **Dopo modifiche workout:** verifica la checklist qualità (sezione 15, regola 7).
 6. **Nuove migration SQL:** sempre GRANT + RLS + policy.
@@ -33,8 +33,8 @@ npx vitest run       # oppure: bunx vitest run
 | Produzione | https://elevate-roles-hub.lovable.app |
 | Dominio custom | https://livelapp.iaconnect.it |
 | Lovable project ID | `05f7b58c-39e8-4ba3-a7bf-bd051bc56040` |
-| Backend project ref | `kxgaqnksylntokyrpaxp` (Livelapp, eu-central-1). Vecchio: `uiowzycolsmgcsvihmhy` |
-| Branch principale | `main` (sync bidirezionale con Lovable) |
+| Database (unico) | `kxgaqnksylntokyrpaxp` — https://kxgaqnksylntokyrpaxp.supabase.co (Livelapp, eu-central-1). Il vecchio `uiowzycolsmgcsvihmhy` non si usa più |
+| Branch principale | `main` |
 
 ---
 
@@ -59,7 +59,7 @@ npx vitest run       # oppure: bunx vitest run
 | Styling | Tailwind CSS v3 + shadcn/ui + CSS variables (token semantici) |
 | Routing | react-router-dom v6 |
 | State / Data | TanStack Query (React Query) + Supabase realtime |
-| Backend | **Lovable Cloud** (Supabase) — Postgres, Auth, Storage, Edge Functions, Realtime |
+| Backend | **Supabase `kxgaqnksylntokyrpaxp`** — Postgres, Auth, Storage, Edge Functions, Realtime |
 | Auth | Supabase Auth (email/password + Google OAuth) |
 | Animations | Framer Motion |
 | Charts | Recharts |
@@ -328,11 +328,11 @@ atleta → app_atleta + sito pubblico
 
 ## 10. VARIABILI AMBIENTE
 
-Frontend (`.env` — gestito da Lovable, **non modificare**):
+Frontend (`.env`, versionato, punta a `kxgaqnksylntokyrpaxp`):
 
-- `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`
+- `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (chiave anon pubblica), `VITE_SUPABASE_PROJECT_ID`
 
-Secrets Edge Functions: `SUPABASE_*`, `KIMI_API_KEY` / `RESEND_API_KEY` — `SERVICE_ROLE_KEY` non accessibile agli utenti Lovable Cloud.
+Secrets Edge Functions (sul progetto `kxgaqnksylntokyrpaxp`): `SUPABASE_*`, `KIMI_API_KEY` / `RESEND_API_KEY`.
 
 ---
 
@@ -405,8 +405,8 @@ Testimonianze video PT, highlights atleta, badge verificato; catalogo discipline
 ## 14. REGOLE CRITICHE PER ASSISTENTI AI
 
 1. **Non modificare** `src/integrations/supabase/client.ts` o `types.ts` — auto-generati.
-2. **Non modificare** `.env` — gestito da Lovable.
-3. **Non modificare** `supabase/config.toml` a livello progetto — auto-generato.
+2. **`.env`** punta solo a `kxgaqnksylntokyrpaxp`: non rimettere il vecchio progetto.
+3. **`supabase/config.toml`:** `project_id = "kxgaqnksylntokyrpaxp"`; non cambiarlo.
 4. **Stati DB in inglese** — localizza solo in UI.
 5. **Ruoli solo in `user_roles`** + RPC `has_role()` — mai su `profiles`.
 6. **Storage:** path `${user.id}/` per RLS.
@@ -416,9 +416,9 @@ Testimonianze video PT, highlights atleta, badge verificato; catalogo discipline
 10. **Terminologia:** "Attività", "Calisthenics", "Professionista".
 11. **Routing:** Admin `/admin`, PT web `/pt`, PT PWA `/pt/app`, Atleta `/app` — non mescolare.
 12. **PT mobile:** `usePTSurface` redirect → `/pt/app/*`; override `?view=web`.
-13. **Push su `main`:** Lovable applica migration da `supabase/migrations/*.sql`.
+13. **Migration:** salva il file in `supabase/migrations/*.sql` **e applicala direttamente su `kxgaqnksylntokyrpaxp`** (MCP / CLI). Nessuno la applica in automatico al push.
 14. **Edge Functions:** `verify_jwt = true` di default; `service_role` solo server-side.
-15. **Con l'utente:** dire "Lovable Cloud" / "backend", non "Supabase".
+15. **Lovable:** non è più il database e non va usato per SQL o migrazioni.
 
 ---
 
@@ -442,6 +442,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Notifiche PT come in app.** Campanella + inbox su `/pt/app/notifications` (stesso hook `useNotifications`); realtime anche sulla dashboard web `/pt`; tap apre la route corretta per web/PWA. |
 | 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
 
+| 2026-09-30 | **Lovable scollegato come database.** Unico database `kxgaqnksylntokyrpaxp`: `.env` versionato punta lì, migration applicate direttamente su quel progetto. Regole su `.env`, `config.toml` e terminologia "Lovable Cloud" aggiornate. |
+
 ---
 
-_Ultimo aggiornamento: 2026-09-19_
+_Ultimo aggiornamento: 2026-09-30_
