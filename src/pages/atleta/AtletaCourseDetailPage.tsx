@@ -18,6 +18,7 @@ import {
   type PtCourseStepProgress,
 } from '@/lib/api/courses';
 import { toast } from 'sonner';
+import { estimateCourseSeconds, formatEstimatedDuration } from '@/lib/workoutDuration';
 
 const DIFFICULTY_LABELS: Record<CourseDifficulty, string> = {
   beginner: 'Principiante',
@@ -253,7 +254,8 @@ export function AtletaCourseDetailPage() {
 
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider">
-            Percorso ({steps.length} step)
+            Percorso ({steps.length} step
+            {estimateCourseSeconds(steps) > 0 ? ` · ${formatEstimatedDuration(estimateCourseSeconds(steps))}` : ''})
           </h2>
 
           {steps.length === 0 ? (

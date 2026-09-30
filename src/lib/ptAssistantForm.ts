@@ -152,7 +152,6 @@ export function previewFromExercise(f: ExerciseFormState): PreviewField[] {
 export function previewFromTemplate(f: TemplateFormState, catalog: PTCatalog): PreviewField[] {
   return [
     pf('title', 'Titolo', f.title, true),
-    pf('estimatedDuration', 'Durata (min)', f.estimatedDuration, false),
     pf('difficultyLevel', 'Livello', f.difficultyLevel === 'nessuno' ? 'Non specificato' : f.difficultyLevel, false),
     pf('muscleGroups', 'Gruppi muscolari', f.muscleGroups, false),
     pf('category', 'Categoria', f.category, false),

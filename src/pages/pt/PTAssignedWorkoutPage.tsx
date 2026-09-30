@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, Clock, FileText } from 'lucide-react';
+import { useWorkoutSheetDuration } from '@/hooks/useSheetDuration';
+import { formatEstimatedDuration } from '@/lib/workoutDuration';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
@@ -94,6 +96,8 @@ export function PTAssignedWorkoutPage() {
     },
     onError: (e: Error) => toast.error(e.message || 'Errore salvataggio'),
   });
+
+  const { duration } = useWorkoutSheetDuration(workout?.id);
 
   const backTo = workout?.atleta_user_id
     ? routes.athlete(workout.atleta_user_id)
@@ -201,6 +205,27 @@ export function PTAssignedWorkoutPage() {
               <p className="text-[11px] text-muted-foreground leading-snug">
                 {TEMPLATE_KIND_DESCRIPTION[kind]}
               </p>
+            </div>
+            <div className="flex items-start justify-between gap-2 text-sm">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5" />
+                Durata
+              </span>
+              <span className="text-right">
+                <span className="font-medium">{formatEstimatedDuration(duration.mainSeconds)}</span>
+                {(duration.warmupSeconds > 0 || duration.cooldownSeconds > 0) && (
+                  <span className="block text-[11px] text-muted-foreground">
+                    {[
+                      duration.warmupSeconds > 0 &&
+                        `+ ${formatEstimatedDuration(duration.warmupSeconds)} riscaldamento`,
+                      duration.cooldownSeconds > 0 &&
+                        `+ ${formatEstimatedDuration(duration.cooldownSeconds)} stretching`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                )}
+              </span>
             </div>
             {workout.template_id && (
               <Button

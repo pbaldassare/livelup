@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +44,9 @@ import {
   TEMPLATE_ROLE_LABEL,
 } from '@/lib/pt/templateRoles';
 import { ExportSheetPdfButton } from '@/components/shared/ExportSheetPdfButton';
+import { useTemplateSheetDuration } from '@/hooks/useSheetDuration';
+import { persistTemplateEstimatedDuration } from '@/lib/api/sheetDuration';
+import { formatEstimatedDuration, secondsToRoundedMinutes } from '@/lib/workoutDuration';
 
 // =====================================================
 // PT TEMPLATE DETAIL PAGE
@@ -108,6 +112,37 @@ export function PTTemplateDetailPage() {
     },
     enabled: !!templateId,
   });
+
+  const t = template as Record<string, unknown> | null | undefined;
+  const { duration, isSuccess: durationReady, dataUpdatedAt: durationUpdatedAt } =
+    useTemplateSheetDuration(templateId, {
+      include_warmup: !!t?.include_warmup,
+      include_cooldown: !!t?.include_cooldown,
+      warmup_template_id: (t?.warmup_template_id as string | null) ?? null,
+      cooldown_template_id: (t?.cooldown_template_id as string | null) ?? null,
+      warmup_exercise_id: (t?.warmup_exercise_id as string | null) ?? null,
+      cooldown_exercise_id: (t?.cooldown_exercise_id as string | null) ?? null,
+      warmup_exercise_ids: t?.warmup_exercise_ids ?? null,
+      cooldown_exercise_ids: t?.cooldown_exercise_ids ?? null,
+    });
+
+  const storedMinutes = template?.estimated_duration ?? null;
+  const computedMinutes = secondsToRoundedMinutes(duration.mainSeconds);
+  useEffect(() => {
+    if (!templateId || !template || !durationReady) return;
+    if (computedMinutes === storedMinutes) return;
+    persistTemplateEstimatedDuration(templateId, duration.mainSeconds)
+      .then((minutes) => {
+        queryClient.setQueryData(['pt-template-detail', templateId], (prev: unknown) =>
+          prev ? { ...(prev as object), estimated_duration: minutes } : prev,
+        );
+        queryClient.invalidateQueries({ queryKey: ['template-durations'] });
+      })
+      .catch(() => {
+        /* cache non critica: la UI mostra comunque il valore calcolato */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateId, durationReady, durationUpdatedAt, computedMinutes, storedMinutes]);
 
   if (isLoading) {
     return <PageLoader text="Caricamento template..." />;
@@ -278,12 +313,27 @@ export function PTTemplateDetailPage() {
                 </>
               )}
 
-              <dt className="text-muted-foreground flex items-center gap-1">
+              <dt className="text-muted-foreground flex items-center gap-1 self-start">
                 <Clock className="h-3.5 w-3.5" />
                 Durata
               </dt>
-              <dd className="font-medium text-sm">
-                {template.estimated_duration ? `${template.estimated_duration} min` : 'N/A'}
+              <dd className="text-sm">
+                <span className="font-medium">{formatEstimatedDuration(duration.mainSeconds)}</span>
+                {(duration.warmupSeconds > 0 || duration.cooldownSeconds > 0) && (
+                  <span className="block text-[11px] text-muted-foreground leading-snug">
+                    {[
+                      duration.warmupSeconds > 0 &&
+                        `+ ${formatEstimatedDuration(duration.warmupSeconds)} riscaldamento`,
+                      duration.cooldownSeconds > 0 &&
+                        `+ ${formatEstimatedDuration(duration.cooldownSeconds)} stretching`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                )}
+                <span className="block text-[11px] text-muted-foreground leading-snug">
+                  Calcolata da serie, recuperi e protocolli
+                </span>
               </dd>
 
               <dt className="text-muted-foreground flex items-center gap-1">

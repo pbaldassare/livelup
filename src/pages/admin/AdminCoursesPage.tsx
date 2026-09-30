@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { CourseBuilder } from '@/components/admin/CourseBuilder';
 import { GraduationCap, Plus, Edit, Trash2, Eye, Settings, Loader2, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatEstimatedDuration } from '@/lib/workoutDuration';
 
 export function AdminCoursesPage() {
   const { user } = useAuth();
@@ -25,15 +26,24 @@ export function AdminCoursesPage() {
   const [builderCourseId, setBuilderCourseId] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: '', description: '', cover_image_url: '', price: '0',
-    is_free: true, difficulty_level: 'principiante', duration_minutes: '30', category: '',
+    is_free: true, difficulty_level: 'principiante', category: '',
   });
 
   const { data: courses = [], isLoading } = useQuery({
     queryKey: ['admin-courses'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('courses').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*, course_sessions(duration_minutes)')
+        .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return (data || []).map((c: any) => ({
+        ...c,
+        total_minutes: (c.course_sessions || []).reduce(
+          (acc: number, s: { duration_minutes: number | null }) => acc + (s.duration_minutes || 0),
+          0,
+        ),
+      }));
     },
   });
 
@@ -46,7 +56,6 @@ export function AdminCoursesPage() {
         price: form.is_free ? 0 : parseFloat(form.price) || 0,
         is_free: form.is_free,
         difficulty_level: form.difficulty_level,
-        duration_minutes: parseInt(form.duration_minutes) || null,
         category: form.category || null,
       };
 
@@ -93,7 +102,7 @@ export function AdminCoursesPage() {
     setForm({
       title: course.title, description: course.description || '', cover_image_url: course.cover_image_url || '',
       price: String(course.price || 0), is_free: course.is_free, difficulty_level: course.difficulty_level || 'principiante',
-      duration_minutes: String(course.duration_minutes || 30), category: course.category || '',
+      category: course.category || '',
     });
     setDialogOpen(true);
   };
@@ -101,7 +110,7 @@ export function AdminCoursesPage() {
   const closeDialog = () => {
     setDialogOpen(false);
     setEditingCourse(null);
-    setForm({ title: '', description: '', cover_image_url: '', price: '0', is_free: true, difficulty_level: 'principiante', duration_minutes: '30', category: '' });
+    setForm({ title: '', description: '', cover_image_url: '', price: '0', is_free: true, difficulty_level: 'principiante', category: '' });
   };
 
   if (builderCourseId) {
@@ -155,7 +164,7 @@ export function AdminCoursesPage() {
               <CardContent className="pt-0">
                 <Separator className="mb-3" />
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground capitalize">{course.difficulty_level} · {course.duration_minutes || '?'} min</span>
+                  <span className="text-xs text-muted-foreground capitalize">{course.difficulty_level} · {formatEstimatedDuration(course.total_minutes * 60)}</span>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="sm" onClick={() => setBuilderCourseId(course.id)} title="Gestisci sessioni">
                       <BookOpen className="h-4 w-4" />
@@ -201,8 +210,13 @@ export function AdminCoursesPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Durata (min)</Label>
-                <Input type="number" value={form.duration_minutes} onChange={e => setForm(p => ({ ...p, duration_minutes: e.target.value }))} />
+                <Label>Durata</Label>
+                <p className="h-10 flex items-center text-sm text-muted-foreground">
+                  {editingCourse?.total_minutes
+                    ? formatEstimatedDuration(editingCourse.total_minutes * 60)
+                    : '—'}
+                  <span className="ml-1 text-xs">(somma sessioni)</span>
+                </p>
               </div>
             </div>
             <div className="space-y-1.5">

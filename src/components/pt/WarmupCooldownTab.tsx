@@ -92,7 +92,7 @@ export function WarmupCooldownTab({ embedded = false, className }: WarmupCooldow
           template_role: createRole,
           template_kind: 'libera',
           difficulty_level: 'nessuno',
-          estimated_duration: 10,
+          estimated_duration: null,
           muscle_groups: [],
           is_public: false,
         } as any)

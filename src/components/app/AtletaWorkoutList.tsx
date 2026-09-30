@@ -20,6 +20,7 @@ import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { formatRepeatProgress, isRepeatAssignment, resolveRepeatState } from '@/lib/workoutRepeat';
+import { estimateSheetDuration, formatEstimatedDuration } from '@/lib/workoutDuration';
 
 // =====================================================
 // ATLETA WORKOUT LIST
@@ -61,10 +62,17 @@ export function AtletaWorkoutList() {
           repeat_done,
           workout_exercises (
             id,
+            phase,
             exercise_id,
             prescribed_sets,
             prescribed_reps_min,
             prescribed_reps_max,
+            prescribed_duration_seconds,
+            rest_seconds,
+            sets_data,
+            protocol_type,
+            protocol_params,
+            order_index,
             exercises:exercise_id (
               name,
               category
@@ -88,6 +96,12 @@ export function AtletaWorkoutList() {
             prescribed_sets,
             prescribed_reps_min,
             prescribed_reps_max,
+            prescribed_duration_seconds,
+            rest_seconds,
+            sets_data,
+            protocol_type,
+            protocol_params,
+            order_index,
             exercises:exercise_id (
               name,
               category
@@ -191,6 +205,11 @@ export function AtletaWorkoutList() {
 }
 
 function WorkoutCard({ workout }: { workout: any }) {
+  const durationSeconds = estimateSheetDuration(
+    [...(workout.workout_exercises || [])].sort(
+      (a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0),
+    ),
+  ).mainSeconds;
   const statusConfig =
     STATUS_CONFIG[workout.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.attivo;
   const StatusIcon = statusConfig.icon;
@@ -229,6 +248,12 @@ function WorkoutCard({ workout }: { workout: any }) {
                   <Dumbbell className="h-3 w-3" />
                   {workout.workout_exercises?.length || 0} esercizi
                 </span>
+                {durationSeconds > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatEstimatedDuration(durationSeconds)}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2 mt-2">
