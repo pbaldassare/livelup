@@ -33,7 +33,13 @@ import { AtletaExerciseDetailSheet } from '@/components/app/AtletaExerciseDetail
 import { ExerciseVideoPlayer } from '@/components/app/ExerciseVideoPlayer';
 import { WorkoutProgressBar } from '@/components/app/WorkoutProgressBar';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
-import { logExerciseSet } from '@/lib/api/workouts';
+import { isMissingProtocolResultsError, logExerciseSet } from '@/lib/api/workouts';
+import {
+  sumDoneReps,
+  sumDoneSeconds,
+  type ProtocolResultEntry,
+  type ProtocolResults,
+} from '@/lib/protocols/protocolResults';
 import type { ProtocolConfig, SetData, WorkoutRowUpdate } from '@/types/database';
 import {
   formatSetTarget,
@@ -390,11 +396,12 @@ export function GuidedWorkoutFlow({
       weight: number;
       restPlanned: number;
       rpe?: number;
+      protocolResults?: ProtocolResults | null;
     }) => {
       if (ptOnBehalfMode) {
         // PT executing the session in person on the athlete's behalf.
         // Use SECURITY DEFINER RPC to bypass athlete-only RLS after server-side checks.
-        const { error } = await supabase.rpc('pt_save_workout_log', {
+        const baseArgs = {
           _workout_exercise_id: payload.workoutExerciseId,
           _set_number: payload.setNumber,
           _reps_completed: payload.reps || null,
@@ -402,7 +409,17 @@ export function GuidedWorkoutFlow({
           _duration_seconds: payload.durationSeconds || null,
           _rpe: payload.rpe ?? null,
           _notes: `rest_planned:${payload.restPlanned}`,
-        });
+        };
+        let { error } = await supabase.rpc(
+          'pt_save_workout_log',
+          // _protocol_results non è ancora nei tipi generati.
+          (payload.protocolResults
+            ? { ...baseArgs, _protocol_results: payload.protocolResults }
+            : baseArgs) as typeof baseArgs,
+        );
+        if (error && payload.protocolResults && isMissingProtocolResultsError(error)) {
+          ({ error } = await supabase.rpc('pt_save_workout_log', baseArgs));
+        }
         if (error) throw error;
         return;
       }
@@ -415,9 +432,30 @@ export function GuidedWorkoutFlow({
         weightUsed: payload.weight || undefined,
         rpe: payload.rpe,
         notes: `rest_planned:${payload.restPlanned}`,
+        protocolResults: payload.protocolResults,
       });
     },
   });
+
+  const saveProtocolLog = async (
+    protocol: string,
+    results: ProtocolResultEntry[],
+    extra: { durationSeconds: number; roundsCompleted?: number; fallbackReps: number },
+  ) => {
+    if (!currentExercise) return;
+    const protocolResults: ProtocolResults | null = results.length
+      ? { version: 1, protocol, rounds_completed: extra.roundsCompleted, entries: results }
+      : null;
+    await saveSet.mutateAsync({
+      workoutExerciseId: currentExercise.id,
+      setNumber: 1,
+      reps: protocolResults ? sumDoneReps(results) : extra.fallbackReps,
+      durationSeconds: extra.durationSeconds,
+      weight: 0,
+      restPlanned: 0,
+      protocolResults,
+    });
+  };
 
   const advance = useCallback(
     (afterCompletion: boolean) => {
@@ -677,16 +715,13 @@ export function GuidedWorkoutFlow({
             notes={currentExercise.notes ?? null}
             onShowDetails={openDetails}
             requireFullCompletion={fullCompletion}
-            onFinished={async () => {
+            onFinished={async ({ results }) => {
               try {
                 const { rounds, roundDuration } = getEmomLogMetrics(currentExercise.protocol_params);
-                await saveSet.mutateAsync({
-                  workoutExerciseId: currentExercise.id,
-                  setNumber: 1,
-                  reps: rounds,
+                await saveProtocolLog('EMOM', results, {
                   durationSeconds: rounds * roundDuration,
-                  weight: 0,
-                  restPlanned: 0,
+                  roundsCompleted: rounds,
+                  fallbackReps: rounds,
                 });
               } catch (e: unknown) {
                 const message = e instanceof Error ? e.message : 'Errore salvataggio EMOM';
@@ -728,15 +763,12 @@ export function GuidedWorkoutFlow({
             notes={currentExercise.notes ?? null}
             onShowDetails={openDetails}
             requireFullCompletion={fullCompletion}
-            onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
+            onFinished={async ({ roundsCompleted, totalDurationSeconds, results }) => {
               try {
-                await saveSet.mutateAsync({
-                  workoutExerciseId: currentExercise.id,
-                  setNumber: 1,
-                  reps: roundsCompleted,
+                await saveProtocolLog(protocolLabel, results, {
                   durationSeconds: totalDurationSeconds,
-                  weight: 0,
-                  restPlanned: 0,
+                  roundsCompleted,
+                  fallbackReps: roundsCompleted,
                 });
               } catch (e: unknown) {
                 const message =
@@ -777,15 +809,12 @@ export function GuidedWorkoutFlow({
             notes={currentExercise.notes ?? null}
             onShowDetails={openDetails}
             requireFullCompletion={fullCompletion}
-            onFinished={async ({ roundsCompleted, totalDurationSeconds }) => {
+            onFinished={async ({ roundsCompleted, totalDurationSeconds, results }) => {
               try {
-                await saveSet.mutateAsync({
-                  workoutExerciseId: currentExercise.id,
-                  setNumber: 1,
-                  reps: roundsCompleted,
+                await saveProtocolLog('AMRAP', results, {
                   durationSeconds: totalDurationSeconds,
-                  weight: 0,
-                  restPlanned: 0,
+                  roundsCompleted,
+                  fallbackReps: roundsCompleted,
                 });
               } catch (e: unknown) {
                 const message = e instanceof Error ? e.message : 'Errore salvataggio AMRAP';
@@ -825,15 +854,12 @@ export function GuidedWorkoutFlow({
             notes={currentExercise.notes ?? null}
             onShowDetails={openDetails}
             requireFullCompletion={fullCompletion}
-            onFinished={async () => {
+            onFinished={async ({ results }) => {
               try {
-                await saveSet.mutateAsync({
-                  workoutExerciseId: currentExercise.id,
-                  setNumber: 1,
-                  reps: 1,
-                  durationSeconds: 0,
-                  weight: 0,
-                  restPlanned: 0,
+                await saveProtocolLog('SUPERSET', results, {
+                  durationSeconds: sumDoneSeconds(results),
+                  roundsCompleted: new Set(results.map((r) => r.round)).size,
+                  fallbackReps: 1,
                 });
               } catch (e: unknown) {
                 const message = e instanceof Error ? e.message : 'Errore salvataggio SUPERSET';
