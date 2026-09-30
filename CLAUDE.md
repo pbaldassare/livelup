@@ -441,7 +441,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Durata min|sec negli editor PT.** Campo riusabile `DurationUnitInput`: si inserisce in minuti o secondi, storage canonico in secondi (`duration_seconds`, `round_duration`, `exercise_duration_seconds`, set timed). In minuti i secondi residui scattano al minuto più vicino. Player atleta invariati. |
 | 2026-09-19 | **Notifiche PT come in app.** Campanella + inbox su `/pt/app/notifications` (stesso hook `useNotifications`); realtime anche sulla dashboard web `/pt`; tap apre la route corretta per web/PWA. |
 | 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
+| 2026-09-30 | **Trigger registrazione ripristinato.** Con l'import del DB (agosto) era sparito `on_auth_user_created` su `auth.users`: le nuove registrazioni restavano senza `user_roles`/`profiles`/`pt_profiles`/`atleta_profiles`. Migration `20260930230000_restore_auth_user_triggers.sql` ricrea il trigger → `handle_new_user_role()` (unico trigger mai definito su `auth.users`) + backfill idempotente. Dopo un import/restore del DB verificare sempre `pg_trigger` su `auth.users`. |
 
 ---
 
-_Ultimo aggiornamento: 2026-09-19_
+_Ultimo aggiornamento: 2026-09-30_
