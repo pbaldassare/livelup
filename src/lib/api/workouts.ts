@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { TemplateKind } from '@/lib/pt/templateKinds';
 import { isSummaryPhase, type WorkoutPhase } from '@/lib/pt/templateRoles';
 import { buildAssignmentCalendarEvent } from '@/lib/workoutAssignmentDelivery';
+import type { ProtocolResults } from '@/lib/protocols/protocolResults';
 import {
   applyRepeatCompletion,
   encodeRepeatDescription,
@@ -633,30 +634,49 @@ export async function logExerciseSet(params: {
   durationSeconds?: number;
   rpe?: number;
   notes?: string;
+  protocolResults?: ProtocolResults | null;
 }) {
-  const { data, error } = await supabase
-    .from('workout_logs')
-    .upsert(
-      {
-        workout_exercise_id: params.workoutExerciseId,
-        set_number: params.setNumber,
-        reps_completed: params.repsCompleted,
-        weight_used: params.weightUsed,
-        duration_seconds: params.durationSeconds,
-        is_completed: true,
-        rpe: params.rpe,
-        notes: params.notes,
-      },
-      { onConflict: 'workout_exercise_id,set_number' },
-    )
-    .select()
-    .single();
+  const row = {
+    workout_exercise_id: params.workoutExerciseId,
+    set_number: params.setNumber,
+    reps_completed: params.repsCompleted,
+    weight_used: params.weightUsed,
+    duration_seconds: params.durationSeconds,
+    is_completed: true,
+    rpe: params.rpe,
+    notes: params.notes,
+  };
+  const upsert = (payload: typeof row & { protocol_results?: ProtocolResults }) =>
+    supabase
+      .from('workout_logs')
+      // protocol_results non è ancora nei tipi generati.
+      .upsert(payload as typeof row, { onConflict: 'workout_exercise_id,set_number' })
+      .select()
+      .single();
+
+  let { data, error } = await upsert(
+    params.protocolResults ? { ...row, protocol_results: params.protocolResults } : row,
+  );
+  if (error && params.protocolResults && isMissingProtocolResultsError(error)) {
+    ({ data, error } = await upsert(row));
+  }
 
   if (error) {
     throw new Error('Errore log esercizio: ' + error.message);
   }
 
   return data;
+}
+
+export function isMissingProtocolResultsError(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  const msg = error.message ?? '';
+  return (
+    msg.includes('protocol_results') ||
+    error.code === 'PGRST204' ||
+    error.code === 'PGRST202' ||
+    msg.includes('Could not find the function')
+  );
 }
 
 // =====================================================

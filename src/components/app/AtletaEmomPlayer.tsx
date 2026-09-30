@@ -4,7 +4,7 @@
 // Mostra un round alla volta. Alterna i blocchi in loop:
 //   currentBlock = blocks[(round - 1) % blocks.length]
 // Pulsanti: Start, Pausa/Riprendi, Prossimo round.
-// A fine ultimo round chiama onFinished().
+// A fine ultimo round: riepilogo "fatto davvero" → onFinished(results).
 // =====================================================
 
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -12,6 +12,12 @@ import { Pause, Play, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ExerciseHeader } from '@/components/app/ExerciseHeader';
+import { ActualValueStepper, ProtocolResultsReview } from '@/components/app/ProtocolResultInputs';
+import {
+  actualValueLabel,
+  buildResultEntry,
+  type ProtocolResultEntry,
+} from '@/lib/protocols/protocolResults';
 import {
   normalizeEmomParams,
   formatRoundDurationSeconds,
@@ -24,10 +30,10 @@ import { deadlineFromRemaining, remainingFromDeadline } from '@/lib/workoutClock
 interface AtletaEmomPlayerProps {
   exerciseName: string;
   protocolParams: Record<string, unknown> | null | undefined;
-  onFinished: () => void;
+  onFinished: (summary: { results: ProtocolResultEntry[] }) => void;
   notes?: string | null;
   onShowDetails?: () => void;
-  /** Scheda progressiva: reserved for future tighter EMOM gates */
+  /** Scheda progressiva: il riepilogo richiede almeno i valori previsti */
   requireFullCompletion?: boolean;
 }
 
@@ -45,7 +51,7 @@ export function AtletaEmomPlayer({
   onFinished,
   notes,
   onShowDetails,
-  requireFullCompletion: _requireFullCompletion = false,
+  requireFullCompletion = false,
 }: AtletaEmomPlayerProps) {
   const emom = useMemo(
     () => normalizeEmomParams(protocolParams ?? {}, exerciseName),
@@ -58,6 +64,35 @@ export function AtletaEmomPlayer({
   const [isRunning, setIsRunning] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const finishedRef = useRef(false);
+  const [doneValues, setDoneValues] = useState<Record<string, number>>({});
+  const doneValuesRef = useRef(doneValues);
+  doneValuesRef.current = doneValues;
+  const [reviewEntries, setReviewEntries] = useState<ProtocolResultEntry[] | null>(null);
+
+  const entryFor = useCallback(
+    (r: number, idx: number, done?: number) => {
+      const block = emom.blocks[(r - 1) % emom.blocks.length];
+      return buildResultEntry({
+        round: r,
+        exerciseIndex: idx,
+        source: block?.exercises[idx],
+        fallbackName: exerciseName || 'Esercizio',
+        done,
+      });
+    },
+    [emom.blocks, exerciseName],
+  );
+
+  const openReview = useCallback(() => {
+    const entries: ProtocolResultEntry[] = [];
+    for (let r = 1; r <= emom.rounds; r++) {
+      const block = emom.blocks[(r - 1) % emom.blocks.length];
+      block?.exercises.forEach((_, idx) => {
+        entries.push(entryFor(r, idx, doneValuesRef.current[`${r}:${idx}`]));
+      });
+    }
+    setReviewEntries(entries);
+  }, [emom.rounds, emom.blocks, entryFor]);
 
   const currentBlock = emom.blocks[(round - 1) % emom.blocks.length];
   const blockLabel =
@@ -80,8 +115,8 @@ export function AtletaEmomPlayer({
     finishedRef.current = true;
     setIsRunning(false);
     setEndsAt(null);
-    onFinished();
-  }, [round, emom.rounds, emom.round_duration, onFinished, startRoundClock]);
+    openReview();
+  }, [round, emom.rounds, emom.round_duration, openReview, startRoundClock]);
 
   const tickingLeft = useDeadlineCountdown(isRunning ? endsAt : null, handleRoundExpired);
   const secondsLeft = isRunning ? tickingLeft : pausedLeft;
@@ -110,7 +145,7 @@ export function AtletaEmomPlayer({
         finishedRef.current = true;
         setIsRunning(false);
         setEndsAt(null);
-        onFinished();
+        openReview();
       }
       return;
     }
@@ -122,6 +157,22 @@ export function AtletaEmomPlayer({
     emom.round_duration > 0
       ? ((emom.round_duration - secondsLeft) / emom.round_duration) * 100
       : 0;
+
+  if (reviewEntries) {
+    return (
+      <ProtocolResultsReview
+        protocol="EMOM"
+        entries={reviewEntries}
+        requireFullCompletion={requireFullCompletion}
+        onChange={(index, value) =>
+          setReviewEntries((prev) =>
+            prev ? prev.map((e, i) => (i === index ? { ...e, done: value } : e)) : prev,
+          )
+        }
+        onConfirm={() => onFinished({ results: reviewEntries })}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col items-center px-5 py-6">
@@ -184,23 +235,31 @@ export function AtletaEmomPlayer({
       <div className="w-full max-w-md rounded-2xl border border-app-border/70 bg-app-card/60 p-4 mb-6">
         <p className="text-sm font-bold text-app-foreground mb-2">{blockLabel}</p>
         <ul className="space-y-1.5">
-          {currentBlock?.exercises.map((ex) => (
-            <li
-              key={ex.id}
-              className="flex items-baseline gap-2 text-sm text-app-foreground/90"
-            >
-              <span className="text-app-accent">•</span>
-              <span className="flex-1">
-                <span className="font-semibold">
-                  {ex.name?.trim() || exerciseName || 'Esercizio'}
+          {currentBlock?.exercises.map((ex, idx) => (
+            <li key={ex.id} className="space-y-1.5">
+              <div className="flex items-baseline gap-2 text-sm text-app-foreground/90">
+                <span className="text-app-accent">•</span>
+                <span className="flex-1">
+                  <span className="font-semibold">
+                    {ex.name?.trim() || exerciseName || 'Esercizio'}
+                  </span>
+                  <span className="text-app-muted-foreground">
+                    {' '}
+                    {formatProtocolTargetLabel(ex)}
+                    {' · '}
+                    {formatLoadLabel(ex)}
+                  </span>
                 </span>
-                <span className="text-app-muted-foreground">
-                  {' '}
-                  {formatProtocolTargetLabel(ex)}
-                  {' · '}
-                  {formatLoadLabel(ex)}
-                </span>
-              </span>
+              </div>
+              {hasStarted && (
+                <ActualValueStepper
+                  size="sm"
+                  mode={entryFor(round, idx).mode}
+                  label={actualValueLabel(entryFor(round, idx).mode)}
+                  value={doneValues[`${round}:${idx}`] ?? entryFor(round, idx).done}
+                  onChange={(v) => setDoneValues((prev) => ({ ...prev, [`${round}:${idx}`]: v }))}
+                />
+              )}
             </li>
           ))}
         </ul>
