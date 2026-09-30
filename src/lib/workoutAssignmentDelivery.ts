@@ -1,3 +1,9 @@
+import {
+  DEFAULT_ASSIGNMENT_DURATION_MINUTES,
+  DEFAULT_ASSIGNMENT_TIME,
+  buildSlotRange,
+} from '@/lib/calendarSlots';
+
 export type AssignmentDelivery = 'schedule' | 'assign';
 
 /** Con "Assegna subito" si attiva solo la prima sessione; le altre restano programmate. */
@@ -22,20 +28,26 @@ export type AssignmentCalendarEventInsert = {
   visibility: 'connected_only';
 };
 
-/** Evento calendario PT (10:00–11:00). Default: non creare nulla. */
+/** Evento calendario PT (default 10:00, 60 min). Default: non creare nulla. */
 export function buildAssignmentCalendarEvent(params: {
   addToCalendar?: boolean;
   ptUserId: string;
   atletaUserId: string | null;
   title: string;
   scheduledDate: Date;
+  /** HH:mm locale. */
+  startTime?: string;
+  durationMinutes?: number;
 }): AssignmentCalendarEventInsert | null {
   if (!params.addToCalendar) return null;
 
-  const start = new Date(params.scheduledDate);
-  start.setHours(10, 0, 0, 0);
-  const end = new Date(start);
-  end.setHours(end.getHours() + 1);
+  const slot =
+    buildSlotRange(
+      params.scheduledDate,
+      params.startTime ?? DEFAULT_ASSIGNMENT_TIME,
+      params.durationMinutes ?? DEFAULT_ASSIGNMENT_DURATION_MINUTES,
+    ) ?? buildSlotRange(params.scheduledDate, DEFAULT_ASSIGNMENT_TIME, DEFAULT_ASSIGNMENT_DURATION_MINUTES)!;
+  const { start, end } = slot;
 
   return {
     creator_user_id: params.ptUserId,

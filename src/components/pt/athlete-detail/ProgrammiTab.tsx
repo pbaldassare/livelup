@@ -42,6 +42,11 @@ import {
   canUnassignWorkout,
 } from '@/lib/api/workouts';
 import { getAthleteDisplayName, getAthleteInitials } from '@/lib/athleteName';
+import {
+  AssignmentCalendarTimeField,
+  useAssignmentSlotCheck,
+} from '@/components/pt/AssignmentCalendarTimeField';
+import { DEFAULT_ASSIGNMENT_DURATION_MINUTES, DEFAULT_ASSIGNMENT_TIME } from '@/lib/calendarSlots';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -363,6 +368,8 @@ function ActivateWorkoutDialog({
     return d;
   });
   const [addToCalendar, setAddToCalendar] = useState(false);
+  const [calendarTime, setCalendarTime] = useState(DEFAULT_ASSIGNMENT_TIME);
+  const [calendarDuration, setCalendarDuration] = useState(DEFAULT_ASSIGNMENT_DURATION_MINUTES);
 
   useEffect(() => {
     if (!open || !workout) return;
@@ -370,12 +377,29 @@ function ActivateWorkoutDialog({
     base.setHours(0, 0, 0, 0);
     setScheduledDate(base);
     setAddToCalendar(false);
+    setCalendarTime(DEFAULT_ASSIGNMENT_TIME);
+    setCalendarDuration(DEFAULT_ASSIGNMENT_DURATION_MINUTES);
   }, [open, workout?.id, workout?.scheduled_date]);
+
+  const slotCheck = useAssignmentSlotCheck({
+    enabled: open && addToCalendar,
+    ptUserId,
+    atletaUserId,
+    day: scheduledDate,
+    time: calendarTime,
+    durationMinutes: calendarDuration,
+  });
 
   const activateMutation = useMutation({
     mutationFn: () => {
       if (!workout) throw new Error('Scheda non selezionata');
-      return activateWorkoutAssignment(workout.id, { ptUserId, scheduledDate, addToCalendar });
+      return activateWorkoutAssignment(workout.id, {
+        ptUserId,
+        scheduledDate,
+        addToCalendar,
+        startTime: calendarTime,
+        durationMinutes: calendarDuration,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-athlete-workouts', atletaUserId, ptUserId] });
@@ -423,28 +447,43 @@ function ActivateWorkoutDialog({
               />
             </PopoverContent>
           </Popover>
-          <div className="flex items-start justify-between gap-3 rounded-md border border-border p-3">
-            <div className="min-w-0 space-y-0.5">
-              <Label htmlFor="activate-add-to-calendar" className="text-sm font-medium">
-                Metti nel calendario
-              </Label>
-              <p className="text-xs text-muted-foreground leading-snug">
-                Crea un appuntamento alle 10:00 nel calendario PT. L&apos;atleta vede comunque la
-                scheda in In corso.
-              </p>
+          <div className="space-y-2 rounded-md border border-border p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-0.5">
+                <Label htmlFor="activate-add-to-calendar" className="text-sm font-medium">
+                  Metti nel calendario
+                </Label>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  Crea un appuntamento all&apos;orario che scegli nel calendario PT. L&apos;atleta
+                  vede comunque la scheda in In corso.
+                </p>
+              </div>
+              <Switch
+                id="activate-add-to-calendar"
+                checked={addToCalendar}
+                onCheckedChange={setAddToCalendar}
+              />
             </div>
-            <Switch
-              id="activate-add-to-calendar"
-              checked={addToCalendar}
-              onCheckedChange={setAddToCalendar}
-            />
+            {addToCalendar && (
+              <AssignmentCalendarTimeField
+                idPrefix="activate-calendar"
+                time={calendarTime}
+                onTimeChange={setCalendarTime}
+                durationMinutes={calendarDuration}
+                onDurationChange={setCalendarDuration}
+                check={slotCheck}
+              />
+            )}
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annulla
           </Button>
-          <Button onClick={() => activateMutation.mutate()} disabled={activateMutation.isPending}>
+          <Button
+            onClick={() => activateMutation.mutate()}
+            disabled={activateMutation.isPending || (addToCalendar && slotCheck.blocked)}
+          >
             {activateMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -46,4 +46,17 @@ describe('buildAssignmentCalendarEvent', () => {
     expect(start.getHours()).toBe(10);
     expect(end.getHours()).toBe(11);
   });
+
+  it('usa orario e durata scelti dal PT', () => {
+    const row = buildAssignmentCalendarEvent({
+      ...base,
+      addToCalendar: true,
+      startTime: '18:30',
+      durationMinutes: 45,
+    });
+    const start = new Date(row!.start_datetime);
+    const end = new Date(row!.end_datetime);
+    expect([start.getHours(), start.getMinutes()]).toEqual([18, 30]);
+    expect([end.getHours(), end.getMinutes()]).toEqual([19, 15]);
+  });
 });
