@@ -441,7 +441,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Durata min|sec negli editor PT.** Campo riusabile `DurationUnitInput`: si inserisce in minuti o secondi, storage canonico in secondi (`duration_seconds`, `round_duration`, `exercise_duration_seconds`, set timed). In minuti i secondi residui scattano al minuto più vicino. Player atleta invariati. |
 | 2026-09-19 | **Notifiche PT come in app.** Campanella + inbox su `/pt/app/notifications` (stesso hook `useNotifications`); realtime anche sulla dashboard web `/pt`; tap apre la route corretta per web/PWA. |
 | 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
+| 2026-09-30 | **Reps fatte davvero nei protocolli.** Superset: campo "Ripetizioni fatte" (precompilato col previsto) a ogni esercizio. EMOM: campi in linea per round + riepilogo finale. AMRAP: riepilogo con totale per esercizio. HIIT/Tabata: riepilogo reps per intervallo. Salvate in `workout_logs.protocol_results` (jsonb, round × esercizio: target/done); `reps_completed` = totale reps fatte. RPC `pt_save_workout_log` ha `_protocol_results` (PT per conto atleta). Storico PT/atleta mostra fatto/previsto per esercizio, in rosso se sotto. Helper `src/lib/protocols/protocolResults.ts`. |
 
 ---
 
-_Ultimo aggiornamento: 2026-09-19_
+_Ultimo aggiornamento: 2026-09-30_
