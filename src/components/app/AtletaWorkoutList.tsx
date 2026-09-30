@@ -19,7 +19,12 @@ import {
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { formatRepeatProgress, isRepeatAssignment, resolveRepeatState } from '@/lib/workoutRepeat';
+import {
+  formatRepeatProgress,
+  formatRepeatSessionLabel,
+  isRepeatAssignment,
+  resolveRepeatState,
+} from '@/lib/workoutRepeat';
 
 // =====================================================
 // ATLETA WORKOUT LIST
@@ -235,7 +240,11 @@ function WorkoutCard({ workout }: { workout: any }) {
                 <Badge className="text-xs bg-app-muted border-app-border text-app-muted-foreground">
                   {statusConfig.label}
                 </Badge>
-                {isRepeatAssignment(resolveRepeatState(workout).repeatTarget) && (
+                {isCompleted && formatRepeatSessionLabel(workout) ? (
+                  <Badge className="text-xs bg-app-accent/15 border-app-border text-app-foreground">
+                    {formatRepeatSessionLabel(workout)}
+                  </Badge>
+                ) : isRepeatAssignment(resolveRepeatState(workout).repeatTarget) && (
                   <Badge className="text-xs bg-app-accent/15 border-app-border text-app-foreground">
                     {formatRepeatProgress(
                       resolveRepeatState(workout).repeatDone,

@@ -15,6 +15,7 @@ import {
   formatRepeatProgress,
   isRepeatAssignment,
   resolveRepeatState,
+  stripRepeatMarkers,
 } from '@/lib/workoutRepeat';
 import { PhasedGuidedWorkout } from '@/components/app/PhasedGuidedWorkout';
 import { useWallClockElapsed } from '@/hooks/useDeadlineCountdown';
@@ -475,7 +476,7 @@ export function AtletaWorkoutDetailPage() {
 
   /** Nasconde marker interni (es. course_step:uuid) — non utili all'atleta. */
   const visibleDescription = (() => {
-    const d = (workout as { description?: string | null } | undefined)?.description?.trim();
+    const d = stripRepeatMarkers((workout as { description?: string | null } | undefined)?.description);
     if (!d) return null;
     if (/^course_step:/i.test(d)) return null;
     return d;

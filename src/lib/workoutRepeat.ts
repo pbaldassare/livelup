@@ -4,6 +4,9 @@ export const MAX_WORKOUT_REPEATS = 60;
 export const REPEAT_TARGET_MARKER_RE = /<!--livelapp-repeat:(\d+)-->/;
 export const REPEAT_DONE_MARKER_RE = /<!--livelapp-repeat-done:(\d+)-->/;
 export const REPEAT_TICK_MARKER = '<!--livelapp-repeat-tick-->';
+/** Copia storica di una sessione intermedia, creata dal trigger DB. */
+export const REPEAT_SESSION_MARKER_RE =
+  /<!--livelapp-repeat-session:(\d+)\/(\d+):([0-9a-fA-F-]+)-->/;
 
 export type RepeatSource = {
   repeat_target?: number | null;
@@ -26,11 +29,36 @@ export function parseRepeatDoneMarker(text: string | null | undefined): number |
   return n;
 }
 
+export function parseRepeatSessionMarker(text: string | null | undefined): {
+  session: number;
+  target: number;
+  parentWorkoutId: string;
+} | null {
+  const m = (text ?? '').match(REPEAT_SESSION_MARKER_RE);
+  if (!m) return null;
+  const target = clampRepeatTarget(m[2]);
+  const session = Math.max(1, Math.min(target, Math.floor(Number(m[1])) || 1));
+  return { session, target, parentWorkoutId: m[3] };
+}
+
+/**
+ * Etichetta «Sessione K / N» per una riga di storico di una scheda ripetuta:
+ * copia intermedia (marker sessione) o scheda madre chiusa all'ultima volta.
+ */
+export function formatRepeatSessionLabel(row: RepeatSource | null | undefined): string | null {
+  const snap = parseRepeatSessionMarker(row?.description);
+  if (snap) return `Sessione ${snap.session} / ${snap.target}`;
+  const { repeatTarget, repeatDone } = resolveRepeatState(row);
+  if (repeatTarget <= 1) return null;
+  return `Sessione ${Math.max(1, repeatDone)} / ${repeatTarget}`;
+}
+
 /** Toglie i marker interni prima di mostrare description/note in UI. */
 export function stripRepeatMarkers(text: string | null | undefined): string {
   return (text ?? '')
     .replace(REPEAT_TARGET_MARKER_RE, '')
     .replace(REPEAT_DONE_MARKER_RE, '')
+    .replace(REPEAT_SESSION_MARKER_RE, '')
     .split(REPEAT_TICK_MARKER)
     .join('')
     .replace(/\s+/g, ' ')
@@ -158,7 +186,7 @@ export function formatRepeatCompletionToast(done: unknown, target: unknown): {
     finished: false,
     message:
       remaining === 1
-        ? `Sessione ${repeatDone} / ${repeatTarget} registrata. Ne resta 1.`
-        : `Sessione ${repeatDone} / ${repeatTarget} registrata. Ne restano ${remaining}.`,
+        ? `Sessione ${repeatDone} / ${repeatTarget} salvata nello storico. Ne resta 1.`
+        : `Sessione ${repeatDone} / ${repeatTarget} salvata nello storico. Ne restano ${remaining}.`,
   };
 }

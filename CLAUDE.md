@@ -441,7 +441,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Durata min|sec negli editor PT.** Campo riusabile `DurationUnitInput`: si inserisce in minuti o secondi, storage canonico in secondi (`duration_seconds`, `round_duration`, `exercise_duration_seconds`, set timed). In minuti i secondi residui scattano al minuto più vicino. Player atleta invariati. |
 | 2026-09-19 | **Notifiche PT come in app.** Campanella + inbox su `/pt/app/notifications` (stesso hook `useNotifications`); realtime anche sulla dashboard web `/pt`; tap apre la route corretta per web/PWA. |
 | 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
+| 2026-09-30 | **«N volte»: storico a ogni sessione.** Migration `20260930200000_workout_repeat_session_history.sql`: a ogni sessione intermedia il trigger `workouts_reset_logs_mid_repeat` non cancella più i log ma chiama `snapshot_workout_repeat_session` (copia `completato` di workout + blocchi + esercizi, log spostati, marker `<!--livelapp-repeat-session:K/N:<parentId>-->`, `repeat_target=1` → mai tra le «da fare»); la madre resta `in_corso` col contatore. Nuovo trigger `notify_pt_workout_completed`: notifica `workout_completed` al PT a ogni completamento (anche «(K/N)»), non se registra il PT stesso. Badge e decremento pacchetto contano **una volta per sessione**. UI: badge «Sessione K / N» in storico PT/atleta (`formatRepeatSessionLabel`). |
 
 ---
 
-_Ultimo aggiornamento: 2026-09-19_
+_Ultimo aggiornamento: 2026-09-30_
