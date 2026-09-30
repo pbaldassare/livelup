@@ -143,7 +143,10 @@ export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
   // dedicated mobile shell (/pt/app/*) — NOT on a shrunk web dashboard.
   // Override available with ?view=web for support sessions.
   if (surface === 'app' && !location.pathname.startsWith('/pt/app') && !location.pathname.startsWith('/pt/onboarding')) {
-    return <Navigate to={mapPTWebToApp(location.pathname)} replace />;
+    const appPath = mapPTWebToApp(location.pathname);
+    return (
+      <Navigate to={appPath.includes('?') ? appPath : `${appPath}${location.search}`} replace />
+    );
   }
 
   const isActiveRoute = (href: string, exact?: boolean) => {

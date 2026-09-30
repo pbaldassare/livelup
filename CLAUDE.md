@@ -443,5 +443,6 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
 
 ---
+| 2026-09-30 | **Filtro «Poco attivi».** L'avviso Home PT «N atleti poco attivi» apre `/pt/app/athletes?filtro=poco-attivi` (anche `/pt/athletes?filtro=poco-attivi` sul web; il redirect mobile conserva la query) mostrando solo quegli atleti, con banner «Poco attivi (N)» e «Mostra tutti». Conteggio e filtro usano lo stesso helper `src/lib/pt/athleteEngagement.ts` e gli stessi dati di `usePTHomeData`, quindi i numeri coincidono. |
 
-_Ultimo aggiornamento: 2026-09-19_
+_Ultimo aggiornamento: 2026-09-30_

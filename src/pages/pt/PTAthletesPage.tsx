@@ -42,6 +42,7 @@ import {
   Tags,
   ArrowRightLeft,
   RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddAthleteDialog } from '@/components/pt/AddAthleteDialog';
@@ -57,6 +58,14 @@ import {
 } from '@/hooks/usePTAthleteRosterMeta';
 import { recallAthleteFromTransfer } from '@/lib/api/connections';
 import { ptRoutes } from '@/lib/pt/routes';
+import { usePTHomeData } from '@/hooks/usePTHomeData';
+import {
+  ATHLETES_FILTER_PARAM,
+  INACTIVE_DAYS_THRESHOLD,
+  filterByLowEngagement,
+  getLowEngagementAthleteIds,
+  isLowEngagementFilter,
+} from '@/lib/pt/athleteEngagement';
 
 // =====================================================
 // PT ATHLETES PAGE - CRM Atleti con paginazione
@@ -97,8 +106,11 @@ export function PTAthletesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'active');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const lowEngagementOnly = isLowEngagementFilter(searchParams);
+  const [activeTab, setActiveTab] = useState(
+    lowEngagementOnly ? 'active' : searchParams.get('tab') || 'active',
+  );
   const [selectedAthlete, setSelectedAthlete] = useState<AtletaConnection | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
@@ -112,6 +124,21 @@ export function PTAthletesPage() {
   const [pageSize, setPageSize] = useState(10);
 
   const roster = usePTAthleteRosterMeta(user?.id);
+
+  const { data: homeData, isLoading: engagementLoading } = usePTHomeData({
+    enabled: lowEngagementOnly,
+  });
+  const lowEngagementIds = useMemo(
+    () => new Set(getLowEngagementAthleteIds(homeData?.athletes ?? [])),
+    [homeData],
+  );
+
+  const clearLowEngagementFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete(ATHLETES_FILTER_PARAM);
+    setSearchParams(next, { replace: true });
+    setCurrentPage(1);
+  };
 
   const { data: athleteCategories = [] } = useQuery({
     queryKey: ['pt-athlete-categories'],
@@ -241,7 +268,11 @@ export function PTAthletesPage() {
 
   // Filter and paginate
   const filteredConnections = useMemo(() => {
-    return connections.filter((conn) => {
+    const base =
+      activeTab === 'active' && lowEngagementOnly
+        ? filterByLowEngagement(connections, lowEngagementIds)
+        : connections;
+    return base.filter((conn) => {
       const fullName = `${conn.profiles?.first_name || ''} ${conn.profiles?.last_name || ''}`.toLowerCase();
       const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
                             conn.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -273,6 +304,8 @@ export function PTAthletesPage() {
     athleteCategories,
     relationFilter,
     roster,
+    lowEngagementOnly,
+    lowEngagementIds,
   ]);
 
   const totalPages = Math.ceil(filteredConnections.length / pageSize);
@@ -288,6 +321,7 @@ export function PTAthletesPage() {
     if (tab !== 'active') {
       setCategoryFilter('all');
       setRelationFilter('all');
+      if (lowEngagementOnly) clearLowEngagementFilter();
     }
   };
 
@@ -470,6 +504,34 @@ export function PTAthletesPage() {
             </div>
           </div>
 
+          {activeTab === 'active' && lowEngagementOnly && (
+            <div
+              className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2"
+              role="status"
+            >
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                  Poco attivi{engagementLoading ? '' : ` (${lowEngagementIds.size})`}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Nessun allenamento o messaggio da oltre {INACTIVE_DAYS_THRESHOLD} giorni
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1 text-xs"
+                onClick={clearLowEngagementFilter}
+                aria-label="Rimuovi filtro poco attivi"
+              >
+                <X className="h-3.5 w-3.5" />
+                Mostra tutti
+              </Button>
+            </div>
+          )}
+
           {activeTab === 'active' && (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2 items-center">
@@ -539,7 +601,7 @@ export function PTAthletesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
+                {isLoading || (lowEngagementOnly && engagementLoading) ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
                       <LoadingSpinner variant="dots" size="sm" />
@@ -548,7 +610,11 @@ export function PTAthletesPage() {
                 ) : paginatedConnections.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      {activeTab === 'pending' ? 'Nessuna richiesta pendente' : 'Nessun atleta trovato'}
+                      {activeTab === 'pending'
+                        ? 'Nessuna richiesta pendente'
+                        : lowEngagementOnly
+                          ? 'Nessun atleta poco attivo'
+                          : 'Nessun atleta trovato'}
                     </TableCell>
                   </TableRow>
                 ) : (
