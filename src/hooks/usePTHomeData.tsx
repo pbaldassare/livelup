@@ -11,6 +11,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { getPTConnectionsWithPtActive } from '@/lib/api/connections';
 import { addDays, endOfDay, startOfDay } from 'date-fns';
+import {
+  INACTIVE_DAYS_THRESHOLD,
+  isLowEngagement,
+  lowEngagementAthletesUrl,
+} from '@/lib/pt/athleteEngagement';
 
 export type AthleteWorkoutStatus = 'active' | 'in_session' | 'inactive';
 
@@ -72,7 +77,6 @@ interface PTHomeData {
   analytics: PTHomeAnalytics;
 }
 
-const INACTIVE_DAYS_THRESHOLD = 7;
 const EXPIRING_SUB_DAYS = 14;
 const WORKOUT_DUE_DAYS = 3;
 const APPOINTMENT_SOON_MINUTES = 60;
@@ -90,7 +94,7 @@ function latestTimestamp(...values: (string | null | undefined)[]): string | nul
   return best;
 }
 
-export function usePTHomeData() {
+export function usePTHomeData(options: { enabled?: boolean } = {}) {
   const { user } = useAuth();
 
   return useQuery({
@@ -169,17 +173,13 @@ export function usePTHomeData() {
       }
 
       const now = Date.now();
-      const inactiveCutoff = now - INACTIVE_DAYS_THRESHOLD * 24 * 60 * 60 * 1000;
 
       // Costruzione lista atleti con stato PT-manuale + engagement secondario
       const athletes: PTHomeAthlete[] = athleteIds.map((aid) => {
         const profile = profilesMap.get(aid);
         const lastActivity = lastActivityMap.get(aid) || profile?.updated_at || null;
-        const lastActivityTs = lastActivity ? new Date(lastActivity).getTime() : 0;
         const isPtActive = ptActiveMap.get(aid) !== false;
-        const lowEngagement =
-          isPtActive &&
-          (lastActivityTs === 0 || lastActivityTs < inactiveCutoff);
+        const lowEngagement = isLowEngagement({ isPtActive, lastActivityAt: lastActivity }, now);
 
         let priority = 0;
         if (!isPtActive) {
@@ -234,7 +234,7 @@ export function usePTHomeData() {
           severity: 'warning',
           title: `${lowEngagementAthletes.length} atleti poco attivi`,
           description: `Nessun allenamento o messaggio da oltre ${INACTIVE_DAYS_THRESHOLD} giorni`,
-          action_url: '/pt/app/athletes',
+          action_url: lowEngagementAthletesUrl('/pt/app/athletes'),
         });
       }
 
@@ -438,7 +438,7 @@ export function usePTHomeData() {
 
       return { athletes, alerts, appointments, appointments_scope: appointmentsScope, analytics };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && options.enabled !== false,
     refetchInterval: 60000,
   });
 }
