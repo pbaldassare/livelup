@@ -12,6 +12,13 @@ import {
   resolveSetsData,
 } from '@/lib/setsData';
 import { formatLoadLabel, getLoadMode } from '@/lib/loadPrescription';
+import {
+  formatEntryValue,
+  groupEntriesByRound,
+  isEntryShort,
+  parseProtocolResults,
+  roundLabel,
+} from '@/lib/protocols/protocolResults';
 
 function formatDuration(seconds: number | null | undefined): string | null {
   if (seconds == null || seconds < 0) return null;
@@ -71,7 +78,39 @@ type LogRow = {
   rpe: number | null;
   is_completed: boolean;
   notes: string | null;
+  protocol_results?: unknown;
 };
+
+function ProtocolResultsBreakdown({ raw, variant }: { raw: unknown; variant: 'pt' | 'atleta' }) {
+  const results = parseProtocolResults(raw);
+  if (!results) return null;
+  const isAtleta = variant === 'atleta';
+  return (
+    <div className={cn('ml-7 space-y-1 text-xs', isAtleta ? 'text-app-foreground' : '')}>
+      {groupEntriesByRound(results.entries).map((group) => (
+        <div key={`g-${group.round ?? 'total'}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span
+            className={cn(
+              'font-medium shrink-0',
+              isAtleta ? 'text-app-muted-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {roundLabel(results.protocol, group.round)}:
+          </span>
+          {group.entries.map((entry, i) => (
+            <span
+              key={`${entry.exercise_index}-${i}`}
+              className={cn(isEntryShort(entry) && 'text-destructive font-medium')}
+            >
+              {entry.name} {formatEntryValue(entry)}
+              {i < group.entries.length - 1 ? ' ·' : ''}
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function repsLabel(min: number | null, max: number | null): string {
   if (min != null && max != null && max !== min) return `${min}–${max}`;
@@ -422,7 +461,10 @@ function WorkoutRow({ workout, variant }: { workout: Workout; variant: 'pt' | 'a
                     ) : (
                       <div className="space-y-1">
                         {exLogs.map((log) => (
-                          <SetRow key={log.id} log={log} ex={ex} variant={variant} />
+                          <div key={log.id} className="space-y-1">
+                            <SetRow log={log} ex={ex} variant={variant} />
+                            <ProtocolResultsBreakdown raw={log.protocol_results} variant={variant} />
+                          </div>
                         ))}
                       </div>
                     )}
