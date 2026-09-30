@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   conversationFallbackPreview,
   conversationRelationLabel,
+  findPersistedConversation,
   mergeConversationPeers,
 } from '@/lib/conversations';
 
@@ -55,6 +56,26 @@ describe('mergeConversationPeers', () => {
         ['pt-new', ''],
       ),
     ).toEqual([{ peerId: 'pt-new', relation: 'inquiry' }]);
+  });
+});
+
+describe('findPersistedConversation', () => {
+  const rows = [
+    { id: 'pending-pt-a', recipientUserId: 'pt-a', _hasChat: false },
+    { id: 'chat-b', recipientUserId: 'pt-b', _hasChat: true },
+  ];
+
+  it('ignores connection placeholders without a chat row', () => {
+    expect(findPersistedConversation(rows, 'pt-a')).toBeUndefined();
+  });
+
+  it('returns the real chat for the recipient', () => {
+    expect(findPersistedConversation(rows, 'pt-b')?.id).toBe('chat-b');
+  });
+
+  it('handles missing list or recipient', () => {
+    expect(findPersistedConversation(undefined, 'pt-b')).toBeUndefined();
+    expect(findPersistedConversation(rows, undefined)).toBeUndefined();
   });
 });
 
