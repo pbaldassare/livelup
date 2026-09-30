@@ -441,7 +441,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Durata min|sec negli editor PT.** Campo riusabile `DurationUnitInput`: si inserisce in minuti o secondi, storage canonico in secondi (`duration_seconds`, `round_duration`, `exercise_duration_seconds`, set timed). In minuti i secondi residui scattano al minuto più vicino. Player atleta invariati. |
 | 2026-09-19 | **Notifiche PT come in app.** Campanella + inbox su `/pt/app/notifications` (stesso hook `useNotifications`); realtime anche sulla dashboard web `/pt`; tap apre la route corretta per web/PWA. |
 | 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
+| 2026-09-30 | **"Metti nel calendario" con orario.** Assegna/Attiva scheda: il PT sceglie ora inizio + durata (default 10:00, durata template o 60 min). Controllo sovrapposizioni con eventi PT/atleta del giorno (anche ricorrenti e tutto il giorno) via `src/lib/calendarSlots.ts`; conferma bloccata se c'è conflitto, con proposta del primo orario libero. RPC `get_athlete_busy_slots` (solo fasce, niente titoli) per gli impegni dell'atleta con altri PT. |
 
 ---
 
-_Ultimo aggiornamento: 2026-09-19_
+_Ultimo aggiornamento: 2026-09-30_
