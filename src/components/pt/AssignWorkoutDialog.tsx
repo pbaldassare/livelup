@@ -4,6 +4,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { createWorkout, activateWorkoutAssignment } from '@/lib/api/workouts';
+import {
+  AssignmentCalendarTimeField,
+  useAssignmentSlotCheck,
+} from '@/components/pt/AssignmentCalendarTimeField';
+import {
+  DEFAULT_ASSIGNMENT_DURATION_MINUTES,
+  DEFAULT_ASSIGNMENT_TIME,
+  describeConflict,
+  normalizeDurationMinutes,
+} from '@/lib/calendarSlots';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -119,6 +129,8 @@ export function AssignWorkoutDialog({
   const [instanceTitle, setInstanceTitle] = useState('');
   const [delivery, setDelivery] = useState<AssignmentDelivery>('assign');
   const [addToCalendar, setAddToCalendar] = useState(false);
+  const [calendarTime, setCalendarTime] = useState(DEFAULT_ASSIGNMENT_TIME);
+  const [calendarDuration, setCalendarDuration] = useState(DEFAULT_ASSIGNMENT_DURATION_MINUTES);
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [notes, setNotes] = useState('');
@@ -141,6 +153,7 @@ export function AssignWorkoutDialog({
         setSelectedAthleteId(preselectedAthleteId);
       }
       setAddToCalendar(false);
+      setCalendarTime(DEFAULT_ASSIGNMENT_TIME);
     }
   }, [open, preselectedTemplateId, preselectedAthleteId]);
 
@@ -229,6 +242,12 @@ export function AssignWorkoutDialog({
     }
   }, [selectedTemplateId, workoutSource, selectedTemplate?.template_kind]);
 
+  useEffect(() => {
+    setCalendarDuration(
+      normalizeDurationMinutes(workoutSource === 'template' ? selectedTemplate?.estimated_duration : null),
+    );
+  }, [workoutSource, selectedTemplate?.estimated_duration]);
+
 
   const assignmentPlan = useMemo(() => {
     if (!scheduledDate) return { dates: [] as Date[], repeatTarget: 1 };
@@ -244,6 +263,16 @@ export function AssignWorkoutDialog({
   const generatedDates = assignmentPlan.dates;
   const repeatTarget = assignmentPlan.repeatTarget;
 
+  const wantsCalendarEvent = delivery === 'assign' && addToCalendar;
+  const slotCheck = useAssignmentSlotCheck({
+    enabled: open && wantsCalendarEvent,
+    ptUserId: user?.id,
+    atletaUserId: selectedAthleteId || null,
+    day: generatedDates[0] ?? scheduledDate,
+    time: calendarTime,
+    durationMinutes: calendarDuration,
+  });
+
   // Assign workout mutation (supports multi)
   const assignMutation = useMutation({
     mutationFn: async () => {
@@ -253,6 +282,11 @@ export function AssignWorkoutDialog({
 
       const athleteConn = athletes.find((a) => a.atleta_user_id === selectedAthleteId);
       if (!athleteConn) throw new Error('Atleta non trovato');
+      if (wantsCalendarEvent && slotCheck.conflicts.length > 0) {
+        throw new Error(
+          `Orario occupato: ${slotCheck.conflicts.map(describeConflict).join(', ')}. Scegli un altro orario.`,
+        );
+      }
 
       // Resolve title + exercises payload + circuiti
       let title: string;
@@ -340,6 +374,8 @@ export function AssignWorkoutDialog({
           ptUserId: user.id,
           scheduledDate: generatedDates[0],
           addToCalendar,
+          startTime: calendarTime,
+          durationMinutes: calendarDuration,
         });
       }
 
@@ -411,6 +447,7 @@ export function AssignWorkoutDialog({
     setInstanceTitle('');
     setDelivery('assign');
     setAddToCalendar(false);
+    setCalendarTime(DEFAULT_ASSIGNMENT_TIME);
     setScheduledDate(new Date());
     setEndDate(undefined);
     setNotes('');
@@ -425,7 +462,8 @@ export function AssignWorkoutDialog({
     !scheduledDate ||
     (workoutSource === 'template' && !selectedTemplateId) ||
     (workoutSource === 'custom' && !customTitle) ||
-    generatedDates.length === 0;
+    generatedDates.length === 0 ||
+    (wantsCalendarEvent && slotCheck.blocked);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -921,21 +959,33 @@ export function AssignWorkoutDialog({
                 </Label>
               </RadioGroup>
               {delivery === 'assign' && (
-                <div className="flex items-start justify-between gap-3 rounded-md border border-border bg-muted/20 p-3">
-                  <div className="min-w-0 space-y-0.5">
-                    <Label htmlFor="add-to-calendar" className="text-sm font-medium">
-                      Metti nel calendario
-                    </Label>
-                    <p className="text-xs text-muted-foreground leading-snug">
-                      Crea un appuntamento alle 10:00 nel calendario PT. L&apos;atleta vede
-                      comunque la scheda in In corso.
-                    </p>
+                <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-0.5">
+                      <Label htmlFor="add-to-calendar" className="text-sm font-medium">
+                        Metti nel calendario
+                      </Label>
+                      <p className="text-xs text-muted-foreground leading-snug">
+                        Crea un appuntamento all&apos;orario che scegli nel calendario PT.
+                        L&apos;atleta vede comunque la scheda in In corso.
+                      </p>
+                    </div>
+                    <Switch
+                      id="add-to-calendar"
+                      checked={addToCalendar}
+                      onCheckedChange={setAddToCalendar}
+                    />
                   </div>
-                  <Switch
-                    id="add-to-calendar"
-                    checked={addToCalendar}
-                    onCheckedChange={setAddToCalendar}
-                  />
+                  {addToCalendar && (
+                    <AssignmentCalendarTimeField
+                      idPrefix="assign-calendar"
+                      time={calendarTime}
+                      onTimeChange={setCalendarTime}
+                      durationMinutes={calendarDuration}
+                      onDurationChange={setCalendarDuration}
+                      check={slotCheck}
+                    />
+                  )}
                 </div>
               )}
             </section>
