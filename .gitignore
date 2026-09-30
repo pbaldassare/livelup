@@ -36,5 +36,6 @@ e2e/artifacts/*.json
 scripts/migrate/.env.migrate
 scripts/migrate/.env.resend
 scripts/migrate/.env.kimi
+scripts/migrate/.env.sync
 scripts/migrate/*.sql
 scripts/migrate/dumps/

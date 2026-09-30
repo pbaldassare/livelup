@@ -441,7 +441,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Durata min|sec negli editor PT.** Campo riusabile `DurationUnitInput`: si inserisce in minuti o secondi, storage canonico in secondi (`duration_seconds`, `round_duration`, `exercise_duration_seconds`, set timed). In minuti i secondi residui scattano al minuto più vicino. Player atleta invariati. |
 | 2026-09-19 | **Notifiche PT come in app.** Campanella + inbox su `/pt/app/notifications` (stesso hook `useNotifications`); realtime anche sulla dashboard web `/pt`; tap apre la route corretta per web/PWA. |
 | 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
+| 2026-09-30 | **Import dal vecchio backend Lovable.** L'app pubblicata su Lovable scrive ancora su `uiowzycolsmgcsvihmhy`. Edge Function `export-old-data` (da deployare sul vecchio backend, token pinnato via SHA-256) + schema privato `migration` su kxgaqnks: `fetch_old_snapshot` / `apply_snapshot` inseriscono le righe mancanti in ordine FK e aggiornano solo se il vecchio `updated_at` è più recente. Rilanciabile; non cancella nulla. Istruzioni in `scripts/LOVABLE_DEPLOY_EXPORT_PROMPT.md`. Primo import parziale già fatto con la sessione del coach `coachbance1` (tutto ciò che il suo RLS vede sul vecchio backend: 26 schede, log, calendario, catalogo). |
 
 ---
 
-_Ultimo aggiornamento: 2026-09-19_
+_Ultimo aggiornamento: 2026-09-30_
