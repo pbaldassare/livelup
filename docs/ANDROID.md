@@ -73,11 +73,11 @@ Sul web `--sat` e `--sab` valgono 0 (o il notch dell'iPhone), quindi non cambia 
 ## 2. Cosa serve sul PC
 
 - **Android Studio** recente, con Android SDK 36.
-- **JDK 21**: Capacitor 8 compila a livello 21, con un JDK più vecchio Gradle si
-  ferma su `invalid source release`. Attenzione: le versioni recenti di Android
-  Studio includono il JDK 25, su cui Gradle 8.14 non parte. In Android Studio
-  scegli un JDK 21 in *Settings › Build Tools › Gradle › Gradle JDK*; da riga di
-  comando passa `JAVA_HOME` (per esempio `~/.jdks/jbr-21.*`).
+- **JDK**: va bene quello incluso in Android Studio (provato il 15/10/2026 con
+  JBR 25.0.3 e Gradle 8.14.3) oppure un JDK 21. Se Gradle si ferma su
+  `Unsupported class file major version` o `invalid source release`, scegli un
+  JDK 21 in *Settings › Build Tools › Gradle › Gradle JDK*; da riga di comando
+  passa `JAVA_HOME` (per esempio `~/.jdks/jbr-21.*`).
 
 Node non serve sul PC dove costruisci: il sito compilato e la libreria di
 Capacitor sono versionati in `android/`. Serve solo dove si rigenera (punto 6).
