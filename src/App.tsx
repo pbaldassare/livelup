@@ -43,6 +43,7 @@ import {
   AboutPage,
   ContactPage,
   CookiesPage,
+  DeleteAccountPage,
   FaqPage,
   HelpPage,
   PricingPage,
@@ -249,6 +250,7 @@ const App = () => {
               <Route path="/contact" element={soloSito(<ContactPage />)} />
               <Route path="/faq" element={soloSito(<FaqPage />)} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/elimina-account" element={<DeleteAccountPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/cookies" element={<CookiesPage />} />
 
