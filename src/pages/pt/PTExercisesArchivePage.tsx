@@ -461,18 +461,20 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
               )}
             </div>
           ) : (
-            <Table>
+            // Sul telefono (app PT) la tabella deve stare nello schermo: celle strette,
+            // difficoltà sotto il nome, niente colonna Video. Da sm in su resta com'era.
+            <Table className="[&_td]:px-1.5 [&_th]:px-1.5 sm:[&_td]:px-4 sm:[&_th]:px-4">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12"></TableHead>
                   <TableHead className="w-12"></TableHead>
-                  <TableHead className="w-[76px]">Media</TableHead>
+                  <TableHead className="w-[60px] sm:w-[76px]">Media</TableHead>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Difficoltà</TableHead>
+                  <TableHead className="hidden sm:table-cell">Difficoltà</TableHead>
                   <TableHead className="hidden md:table-cell">Categoria</TableHead>
                   <TableHead className="hidden md:table-cell">Muscoli</TableHead>
                   <TableHead className="hidden lg:table-cell">Anteprima</TableHead>
-                  <TableHead className="text-right">Video</TableHead>
+                  <TableHead className="hidden sm:table-cell text-right">Video</TableHead>
                   <TableHead className="w-[88px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -516,7 +518,7 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                         <ExerciseCatalogAssignPopover exerciseId={ex.id} />
                       </TableCell>
                       <TableCell>
-                        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                        <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center overflow-hidden rounded-lg border bg-muted">
                           {ex.image_url ? (
                             <img src={ex.image_url} alt={ex.name} className="h-full w-full object-cover" loading="lazy" />
                           ) : (
@@ -525,8 +527,8 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{ex.name}</span>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="font-medium break-words">{ex.name}</span>
                           {personal && (
                             <Badge
                               variant="outline"
@@ -552,8 +554,11 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                             />
                           )}
                         </div>
+                        <Badge variant="outline" className={cn('sm:hidden mt-1', difficultyColor(ex.difficulty_level))}>
+                          {ex.difficulty_level}
+                        </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline" className={difficultyColor(ex.difficulty_level)}>
                           {ex.difficulty_level}
                         </Badge>
@@ -574,7 +579,7 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                       <TableCell className="hidden lg:table-cell text-muted-foreground text-sm max-w-xs truncate">
                         {resolveExerciseInstructions(ex.name, ex.category, ex.instructions) || ex.description || '—'}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="hidden sm:table-cell text-right">
                         {resolveExerciseVideoUrl(ex.video_url, {
                           allowDefault: false,
                           exerciseId: ex.id,

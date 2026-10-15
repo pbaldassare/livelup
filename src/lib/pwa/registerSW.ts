@@ -7,6 +7,8 @@
  * viene rifiutata e le eventuali registrazioni residue rimosse.
  */
 
+import { isNativeApp } from '@/lib/native';
+
 const SW_URL = '/sw.js';
 
 function isInIframe(): boolean {
@@ -31,6 +33,9 @@ function isBlockedHost(host: string): boolean {
 }
 
 export function shouldRegisterServiceWorker(): boolean {
+  // Nell'app Android i file sono gia' nel pacchetto: il SW terrebbe solo in
+  // cache una versione vecchia.
+  if (isNativeApp()) return false;
   if (!import.meta.env.PROD) return false;
   if (isInIframe()) return false;
   if (isBlockedHost(window.location.hostname)) return false;

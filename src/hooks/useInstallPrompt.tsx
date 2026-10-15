@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { safeGet, safeSet } from '@/lib/safeStorage';
+import { isNativeApp } from '@/lib/native';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -27,7 +28,8 @@ export function useInstallPrompt() {
     const checkInstalled = () => {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
       const isIOSStandalone = (navigator as any).standalone === true;
-      setIsInstalled(isStandalone || isIOSStandalone);
+      // L'app nativa e' gia' installata: niente banner ne' pulsanti "Installa".
+      setIsInstalled(isNativeApp() || isStandalone || isIOSStandalone);
     };
 
     // Check if iOS (iPadOS 13+ si presenta come "Macintosh" con touch)

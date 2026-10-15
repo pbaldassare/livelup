@@ -152,8 +152,13 @@ import { GroupJoinPage } from "./pages/groups/GroupJoinPage";
 
 // PT pages
 import PTOnboardingPage from "./pages/pt/PTOnboardingPage";
+import { isNativeApp, BarreDiSistema } from "@/lib/native";
+import { SchermoPieno } from "@/components/app/BarraDiStato";
 
 const queryClient = new QueryClient();
+
+/** Pagina del sito pubblico: nell'app nativa si parte dall'accesso. */
+const soloSito = (pagina: JSX.Element) => (isNativeApp() ? <Navigate to="/auth" replace /> : pagina);
 
 function RedirectAuthAtleta() {
   const [params] = useSearchParams();
@@ -188,6 +193,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="livellapp-theme">
       <TooltipProvider>
+        <BarreDiSistema />
         <Toaster />
         <Sonner />
         
@@ -217,28 +223,31 @@ const App = () => {
             <Routes>
               {/* ============================================= */}
               {/* PUBLIC ROUTES - Accessibili a tutti          */}
+              {/* Nell'app nativa le pagine del sito (soloSito)  */}
+              {/* rimandano all'accesso; restano profili PT,     */}
+              {/* inviti e pagine legali.                        */}
               {/* ============================================= */}
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/auth/reset-password" element={<AuthResetPasswordPage />} />
               <Route path="/auth/atleta" element={<RedirectAuthAtleta />} />
-              <Route path="/install" element={<InstallPage />} />
+              <Route path="/install" element={soloSito(<InstallPage />)} />
               <Route path="/g/:token" element={<GroupInviteLandingPage />} />
               {/* Dev: anteprima localhost app atleta (cornice mobile) */}
-              <Route path="/utente" element={<UtenteAppPreviewPage />} />
+              <Route path="/utente" element={soloSito(<UtenteAppPreviewPage />)} />
               
               {/* Public PT Discovery page */}
-              <Route path="/pts" element={<PTDiscoveryPage />} />
+              <Route path="/pts" element={soloSito(<PTDiscoveryPage />)} />
               <Route path="/pts/:userId" element={<PTProfilePage />} />
               <Route path="/pt-discovery" element={<Navigate to="/pts" replace />} />
-              <Route path="/blog" element={<BlogIndexPage />} />
-              <Route path="/blog/:slug" element={<BlogPostPage />} />
-              <Route path="/pricing" element={<PricingPage />} />
-              <Route path="/about" element={<AboutPage />} />
+              <Route path="/blog" element={soloSito(<BlogIndexPage />)} />
+              <Route path="/blog/:slug" element={soloSito(<BlogPostPage />)} />
+              <Route path="/pricing" element={soloSito(<PricingPage />)} />
+              <Route path="/about" element={soloSito(<AboutPage />)} />
               <Route path="/chi-siamo" element={<Navigate to="/about" replace />} />
-              <Route path="/help" element={<HelpPage />} />
-              <Route path="/contact" element={<ContactPage />} />
-              <Route path="/faq" element={<FaqPage />} />
+              <Route path="/help" element={soloSito(<HelpPage />)} />
+              <Route path="/contact" element={soloSito(<ContactPage />)} />
+              <Route path="/faq" element={soloSito(<FaqPage />)} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/cookies" element={<CookiesPage />} />
@@ -794,7 +803,7 @@ const App = () => {
               } />
               <Route path="/app/onboarding" element={
                 <AtletaRoute>
-                  <AtletaOnboardingPage />
+                  <SchermoPieno><AtletaOnboardingPage /></SchermoPieno>
                 </AtletaRoute>
               } />
               <Route path="/app/discover" element={
@@ -840,7 +849,7 @@ const App = () => {
               } />
               <Route path="/app/workout/:workoutId" element={
                 <AtletaRoute>
-                  <AtletaWorkoutDetailPage />
+                  <SchermoPieno><AtletaWorkoutDetailPage /></SchermoPieno>
                 </AtletaRoute>
               } />
               <Route path="/app/progress" element={
@@ -887,7 +896,7 @@ const App = () => {
               } />
               <Route path="/app/subscription" element={
                 <AtletaRoute>
-                  <AtletaSubscriptionPage />
+                  <SchermoPieno><AtletaSubscriptionPage /></SchermoPieno>
                 </AtletaRoute>
               } />
               <Route path="/app/notifications" element={
@@ -948,7 +957,7 @@ const App = () => {
               } />
               <Route path="/app/booking" element={
                 <AtletaRoute>
-                  <AtletaBookingPage />
+                  <SchermoPieno><AtletaBookingPage /></SchermoPieno>
                 </AtletaRoute>
               } />
               <Route path="/app/attivita" element={
@@ -961,7 +970,7 @@ const App = () => {
               <Route path="/app/appuntamenti" element={<Navigate to="/app/attivita" replace />} />
               <Route path="/app/coupons" element={
                 <AtletaRoute>
-                  <AtletaCouponsPage />
+                  <SchermoPieno><AtletaCouponsPage /></SchermoPieno>
                 </AtletaRoute>
               } />
               <Route path="/app/groups" element={
@@ -1003,7 +1012,7 @@ const App = () => {
               {/* PT Onboarding */}
               <Route path="/pt/onboarding" element={
                 <PTAppRoute>
-                  <PTOnboardingPage />
+                  <SchermoPieno><PTOnboardingPage /></SchermoPieno>
                 </PTAppRoute>
               } />
 

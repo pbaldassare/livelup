@@ -21,6 +21,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { isNativeApp } from '@/lib/native';
 import type { Json } from '@/integrations/supabase/types';
 
 // =====================================================
@@ -208,54 +209,56 @@ export function AtletaNotificationsPage() {
       </div>
 
       <div className="p-4 space-y-6 pb-24">
-        {/* Push Notifications Section */}
-        <Card className="bg-app-card border-app-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-app-muted-foreground uppercase tracking-wider">
-              Push
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-app-accent/10">
-                  <Bell className="h-5 w-5 text-app-accent" />
+        {/* Push Notifications Section: nell'app nativa le web push non arrivano (docs/ANDROID.md) */}
+        {!isNativeApp() && (
+          <Card className="bg-app-card border-app-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-app-muted-foreground uppercase tracking-wider">
+                Push
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-app-accent/10">
+                    <Bell className="h-5 w-5 text-app-accent" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-app-foreground">Notifiche Push</p>
+                    <p className="text-sm text-app-muted-foreground">
+                      Ricevi notifiche anche ad app chiusa
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-app-foreground">Notifiche Push</p>
+                <Switch
+                  checked={isSubscribed}
+                  onCheckedChange={handlePushToggle}
+                  disabled={pushLoading || !isSupported}
+                  className="data-[state=checked]:bg-app-accent"
+                />
+              </div>
+              
+              {/* Permission status messages */}
+              {!isSupported && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-app-muted/50">
+                  <AlertCircle className="h-4 w-4 text-app-muted-foreground mt-0.5" />
                   <p className="text-sm text-app-muted-foreground">
-                    Ricevi notifiche anche ad app chiusa
+                    Le notifiche push non sono supportate su questo dispositivo/browser.
                   </p>
                 </div>
-              </div>
-              <Switch
-                checked={isSubscribed}
-                onCheckedChange={handlePushToggle}
-                disabled={pushLoading || !isSupported}
-                className="data-[state=checked]:bg-app-accent"
-              />
-            </div>
-            
-            {/* Permission status messages */}
-            {!isSupported && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-app-muted/50">
-                <AlertCircle className="h-4 w-4 text-app-muted-foreground mt-0.5" />
-                <p className="text-sm text-app-muted-foreground">
-                  Le notifiche push non sono supportate su questo dispositivo/browser.
-                </p>
-              </div>
-            )}
-            
-            {isSupported && permission === 'denied' && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10">
-                <AlertCircle className="h-4 w-4 text-red-400 mt-0.5" />
-                <p className="text-sm text-red-400">
-                  Permesso negato. Modifica le impostazioni del browser per abilitare le notifiche.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+              
+              {isSupported && permission === 'denied' && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10">
+                  <AlertCircle className="h-4 w-4 text-red-400 mt-0.5" />
+                  <p className="text-sm text-red-400">
+                    Permesso negato. Modifica le impostazioni del browser per abilitare le notifiche.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Categories Section */}
         <Card className="bg-app-card border-app-border">

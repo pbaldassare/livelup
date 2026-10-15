@@ -18,6 +18,7 @@ import {
 import { RequireUserName } from '@/components/auth/RequireUserName';
 import { InstallBanner } from '@/components/pwa/InstallBanner';
 import { PTMoreDrawer } from '@/components/app/PTMoreDrawer';
+import { BarraDiStato } from '@/components/app/BarraDiStato';
 
 // =====================================================
 // APP LAYOUT - Mobile/PWA Layout
@@ -74,10 +75,11 @@ export function AppLayout({ children }: AppLayoutProps) {
       )}
       data-role={roleClass}
     >
+      <BarraDiStato />
       {/* Main content — no opacity page transitions (causavano pagina bianca al remount route) */}
       <main
         className={cn(
-          'flex-1 pb-20 safe-top text-app-foreground min-h-0 overflow-x-hidden',
+          'flex-1 pb-[calc(5rem+var(--sab))] safe-top text-app-foreground min-h-0 overflow-x-hidden',
           lockViewport && 'overflow-hidden',
         )}
       >

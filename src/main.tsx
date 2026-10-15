@@ -3,6 +3,16 @@ import App from "./App.tsx";
 import "./index.css";
 import { registerServiceWorker } from "@/lib/pwa/registerSW";
 import { redirectIfColdStartNeedsRestore } from "@/lib/lastAppPath";
+import { isNativeApp } from "@/lib/native";
+import { installaTastoIndietro } from "@/lib/native-back";
+import { installaDownloadNativi } from "@/lib/native-download";
+import { installaCondivisioneNativa } from "@/lib/native-share";
+
+if (isNativeApp()) {
+  installaTastoIndietro();
+  installaDownloadNativi();
+  installaCondivisioneNativa();
+}
 
 /**
  * Emergency recovery: if the URL contains ?reset=1 we wipe all local

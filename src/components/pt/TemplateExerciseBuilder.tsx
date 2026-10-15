@@ -946,7 +946,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                   <DrawerHeader className="pb-2 text-left">
                     <DrawerTitle>Aggiungi esercizio</DrawerTitle>
                   </DrawerHeader>
-                  <div className="min-h-0 overflow-hidden px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                  <div className="min-h-0 overflow-hidden px-2 pb-4">
                     <ExerciseArchivePickerPanel
                       open={searchOpen}
                       className="max-h-[min(65vh,480px)]"

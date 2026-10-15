@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LivelAPP</string>
+    <string name="title_activity_main">LivelAPP</string>
+    <string name="package_name">it.livelapp.app</string>
+    <string name="custom_url_scheme">it.livelapp.app</string>
+</resources>

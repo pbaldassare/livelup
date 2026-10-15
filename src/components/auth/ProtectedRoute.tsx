@@ -5,6 +5,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRole } from '@/types/roles';
 import { ROLE_ACCESS_MATRIX, getHomeRoute } from '@/types/roles';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { isNativeApp } from '@/lib/native';
 
 // =====================================================
 // PROTECTED ROUTE
@@ -78,10 +80,24 @@ export function ProtectedRoute({
 // SPECIALIZED PROTECTED ROUTES
 // =====================================================
 
+/** L'area admin e' pensata per lo schermo grande: nell'app nativa non c'e'. */
+function AdminSoloDaBrowser() {
+  const { signOut } = useAuth();
+  return (
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-background px-6 pt-[var(--sat)] pb-[var(--sab)] text-center text-foreground">
+      <h1 className="text-xl font-bold">Area admin solo da browser</h1>
+      <p className="max-w-sm text-sm text-muted-foreground">
+        La gestione della piattaforma si fa dal sito, da computer. L'app è per Professionisti e Atleti.
+      </p>
+      <Button onClick={() => void signOut()}>Esci</Button>
+    </div>
+  );
+}
+
 export function AdminRoute({ children, ...props }: Omit<ProtectedRouteProps, 'allowedRoles' | 'requiredResource'>) {
   return (
     <ProtectedRoute allowedRoles={['admin']} requiredResource="dashboard_admin" {...props}>
-      {children}
+      {isNativeApp() ? <AdminSoloDaBrowser /> : children}
     </ProtectedRoute>
   );
 }

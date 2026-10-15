@@ -10,6 +10,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      // Nell'app Android i toast non vanno sotto barra di stato e barra dei gesti.
+      mobileOffset={{ top: "calc(16px + var(--sat))", bottom: "calc(16px + var(--sab))" }}
       toastOptions={{
         classNames: {
           toast:

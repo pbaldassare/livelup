@@ -1,0 +1,15 @@
+{
+	"appId": "it.livelapp.app",
+	"appName": "LivelAPP",
+	"webDir": "dist",
+	"backgroundColor": "#000000",
+	"android": {
+		"allowMixedContent": false
+	},
+	"plugins": {
+		"SystemBars": {
+			"style": "DARK",
+			"insetsHandling": "css"
+		}
+	}
+}

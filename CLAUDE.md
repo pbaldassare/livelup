@@ -441,7 +441,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Durata min|sec negli editor PT.** Campo riusabile `DurationUnitInput`: si inserisce in minuti o secondi, storage canonico in secondi (`duration_seconds`, `round_duration`, `exercise_duration_seconds`, set timed). In minuti i secondi residui scattano al minuto più vicino. Player atleta invariati. |
 | 2026-09-19 | **Notifiche PT come in app.** Campanella + inbox su `/pt/app/notifications` (stesso hook `useNotifications`); realtime anche sulla dashboard web `/pt`; tap apre la route corretta per web/PWA. |
 | 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
+| 2026-10-15 | **App Android (Capacitor 8).** Pacchetto `it.livelapp.app`, nome LivelAPP, progetto nativo in `android/` (sito compilato versionato). Nell'app: si parte da `/auth`, sito pubblico e admin fuori, PT sempre su `/pt/app`, niente service worker né web push, link condivisi su `publicAppOrigin()`. Barre di sistema con `--sat`/`--sab` (`src/index.css`), `BarraDiStato`/`SchermoPieno`; tabelle Esercizi, Coupon e Pagamenti adattate al telefono. Regole e procedura in `docs/ANDROID.md`. |
 
 ---
 
-_Ultimo aggiornamento: 2026-09-19_
+_Ultimo aggiornamento: 2026-10-15_

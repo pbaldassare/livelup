@@ -1,0 +1,5 @@
+// GENERATO da scripts/vendor-capacitor-android.mjs dopo `cap sync`.
+// Punta alle copie in android/capacitor-libs/, versionate nel repository,
+// cosi il progetto si costruisce anche senza node_modules.
+include ':capacitor-android'
+project(':capacitor-android').projectDir = new File(rootDir, 'capacitor-libs/capacitor-android')

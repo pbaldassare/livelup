@@ -552,7 +552,7 @@ function BroadcastComposer({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border p-3 space-y-2 max-w-md mx-auto">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border p-3 pb-[calc(0.75rem+var(--sab))] space-y-2 max-w-md mx-auto">
       <p className="text-xs text-muted-foreground font-medium">
         Invio a {selectedCount} {selectedCount === 1 ? 'atleta selezionato' : 'atleti selezionati'}
       </p>

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { isNativeApp } from '@/lib/native';
 import { useAuth } from '@/hooks/useAuth';
 import { resolvePostAuthRedirect } from '@/lib/lastAppPath';
 import { peekPendingGroupInvite } from '@/lib/groupInvite';
@@ -46,6 +47,9 @@ const Index = () => {
       />
     );
   }
+
+  // Nell'app nativa il sito non c'e': si parte dall'accesso.
+  if (isNativeApp()) return <Navigate to="/auth" replace />;
 
   // Se non autenticato, mostra landing page
   return (

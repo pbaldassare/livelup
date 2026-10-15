@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tag, Plus, Copy, MoreHorizontal, Trash2, Loader2, Share2, ArrowLeft, Layers, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
+import { publicAppOrigin } from '@/lib/publicOrigin';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
 // =====================================================
@@ -416,7 +417,7 @@ export function PTCouponsPage({ embedded = false }: { embedded?: boolean } = {})
     setStep(2);
   };
 
-  const buildShareLink = (c: Coupon) => `${window.location.origin}/auth/atleta?coupon=${encodeURIComponent(c.code)}`;
+  const buildShareLink = (c: Coupon) => `${publicAppOrigin()}/auth/atleta?coupon=${encodeURIComponent(c.code)}`;
 
   const copyShareLink = (c: Coupon) => {
     navigator.clipboard.writeText(buildShareLink(c));
@@ -576,15 +577,17 @@ export function PTCouponsPage({ embedded = false }: { embedded?: boolean } = {})
 
       <SectionCard title="Lista Coupon" subtitle="Tutti i tuoi codici sconto e offerte" icon={Tag} iconColor="yellow">
         <div className="rounded-md border overflow-x-auto">
-          <Table>
+          {/* Sul telefono restano codice, sconto, attivo e azioni; utilizzo e
+              scadenza vanno sotto il codice. Da sm in su la tabella e' intera. */}
+          <Table className="[&_td]:px-2 [&_th]:px-2 sm:[&_td]:px-4 sm:[&_th]:px-4">
             <TableHeader>
               <TableRow>
                 <TableHead>Codice</TableHead>
-                <TableHead>Tipologia</TableHead>
+                <TableHead className="hidden sm:table-cell">Tipologia</TableHead>
                 <TableHead>Sconto</TableHead>
-                <TableHead>Destinatari</TableHead>
-                <TableHead>Utilizzo</TableHead>
-                <TableHead>Scadenza</TableHead>
+                <TableHead className="hidden sm:table-cell">Destinatari</TableHead>
+                <TableHead className="hidden sm:table-cell">Utilizzo</TableHead>
+                <TableHead className="hidden sm:table-cell">Scadenza</TableHead>
                 <TableHead>Attivo</TableHead>
                 <TableHead className="text-right">Azioni</TableHead>
               </TableRow>
@@ -604,14 +607,17 @@ export function PTCouponsPage({ embedded = false }: { embedded?: boolean } = {})
                           <Copy className="h-3 w-3" />
                         </Button>
                       </div>
+                      <p className="sm:hidden mt-1 text-xs text-muted-foreground">
+                        {c.current_uses}/{c.max_uses ?? '∞'} usi · {c.valid_until ? `scade ${new Date(c.valid_until).toLocaleDateString('it-IT')}` : 'nessuna scadenza'}
+                      </p>
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell className="hidden sm:table-cell text-xs">
                       {c.template_id ? <Badge variant="secondary">{templateMap.get(c.template_id)?.name ?? '—'}</Badge> : '—'}
                     </TableCell>
                     <TableCell className="font-medium">{formatDiscount(c)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{targetLabel(c)}</TableCell>
-                    <TableCell>{c.current_uses}/{c.max_uses ?? '∞'}</TableCell>
-                    <TableCell>{c.valid_until ? new Date(c.valid_until).toLocaleDateString('it-IT') : 'Nessuna'}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-xs text-muted-foreground max-w-[200px] truncate">{targetLabel(c)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{c.current_uses}/{c.max_uses ?? '∞'}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{c.valid_until ? new Date(c.valid_until).toLocaleDateString('it-IT') : 'Nessuna'}</TableCell>
                     <TableCell>
                       <Switch checked={c.is_active} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, isActive: v })} />
                     </TableCell>

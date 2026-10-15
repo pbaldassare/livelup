@@ -66,7 +66,7 @@ export function GroupsHubPage({ basePath }: GroupsHubPageProps) {
 
   return (
     <div className="min-h-screen bg-app-background pb-24">
-      <div className="sticky top-0 z-40 bg-app-background/95 backdrop-blur border-b border-app-border p-4 safe-top">
+      <div className="sticky top-0 z-40 bg-app-background/95 backdrop-blur border-b border-app-border p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1 min-w-0">
             {isPtApp && (

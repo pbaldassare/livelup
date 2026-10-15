@@ -305,7 +305,7 @@ export function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 pt-[calc(1rem+var(--sat))] pb-[calc(1rem+var(--sab))]">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">

@@ -99,7 +99,7 @@ export function PTMoreDrawer({ trigger }: PTMoreDrawerProps) {
         side="bottom"
         className={cn(
           'z-[60] bg-app-card border-app-border text-app-foreground rounded-t-3xl',
-          'max-h-[85vh] overflow-y-auto pb-24 safe-bottom',
+          'max-h-[85vh] overflow-y-auto pb-24',
         )}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
