@@ -1,0 +1,9 @@
+App/build
+App/Pods
+App/output
+DerivedData
+xcuserdata
+
+# Il sito compilato (App/App/public), capacitor.config.json, config.xml e
+# capacitor-cordova-ios-plugins sono versionati apposta, come in android/:
+# sul Mac basta Xcode, senza Node. Si rigenerano con `npm run ios:sync`.

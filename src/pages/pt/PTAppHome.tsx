@@ -41,6 +41,7 @@ import {
 import { format, formatDistanceToNow, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { vendeAbbonamenti } from '@/lib/native';
 
 // =====================================================
 // PT APP HOME — Atleti → appuntamenti → guadagni → avvisi
@@ -159,7 +160,8 @@ export function PTAppHome() {
             isLoading={isLoading}
             monthlyRevenue={analytics?.monthly_revenue ?? 0}
             pendingPayments={analytics?.pending_payments ?? 0}
-            onViewDetails={() => navigate(routes.payments)}
+            // Pagamenti non c'e' nell'app iOS (vedi vendeAbbonamenti).
+            onViewDetails={vendeAbbonamenti() ? () => navigate(routes.payments) : undefined}
           />
         </section>
 
@@ -189,7 +191,7 @@ function EarningsPanel({
   isLoading: boolean;
   monthlyRevenue: number;
   pendingPayments: number;
-  onViewDetails: () => void;
+  onViewDetails?: () => void;
 }) {
   return (
     <div>
@@ -200,13 +202,15 @@ function EarningsPanel({
         >
           Guadagni
         </h2>
-        <button
-          type="button"
-          onClick={onViewDetails}
-          className="text-xs font-semibold text-app-accent flex items-center gap-0.5"
-        >
-          Vedi dettagli <ChevronRight className="h-3.5 w-3.5" />
-        </button>
+        {onViewDetails && (
+          <button
+            type="button"
+            onClick={onViewDetails}
+            className="text-xs font-semibold text-app-accent flex items-center gap-0.5"
+          >
+            Vedi dettagli <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       {isLoading ? (

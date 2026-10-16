@@ -1,0 +1,20 @@
+Accesso per la revisione (App Store Connect › Versione 1.0 › Informazioni sulla verifica dell'app)
+
+Nome utente: pt@demo.it
+Password: quella dell'account demo (inseriscila tu, non scriverla qui)
+
+Note:
+
+LivelAPP connects athletes with their Personal Trainer: workout programs, sessions, chat and progress tracking.
+
+Demo accounts (one per role):
+- Personal Trainer: pt@demo.it (credentials in the fields above)
+- Athlete: atleta@demo.it (same password as the PT account)
+
+The two demo accounts are linked to each other, with sample programs, appointments and chat messages.
+
+There are no purchases in the iOS app. Personal Trainers are business customers and have plans on our website; on iOS there is no pricing, no checkout and no link to buy, and sign-up from the app creates athlete accounts only (free). Trainers sign in with the account created on the website (Guideline 3.1.3(c)).
+
+Location is requested only when the user searches for trainers, events or groups nearby. Camera, photo library and microphone are requested only when the user chooses to upload a photo or a video.
+
+Athletes (the only accounts that can be created in the iOS app) can delete their account in the app: Settings > Elimina account. Any user can also request deletion at https://livelapp.iaconnect.it/elimina-account

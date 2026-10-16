@@ -153,13 +153,17 @@ import { GroupJoinPage } from "./pages/groups/GroupJoinPage";
 
 // PT pages
 import PTOnboardingPage from "./pages/pt/PTOnboardingPage";
-import { isNativeApp, BarreDiSistema } from "@/lib/native";
+import { isNativeApp, vendeAbbonamenti, BarreDiSistema } from "@/lib/native";
 import { SchermoPieno } from "@/components/app/BarraDiStato";
 
 const queryClient = new QueryClient();
 
 /** Pagina del sito pubblico: nell'app nativa si parte dall'accesso. */
 const soloSito = (pagina: JSX.Element) => (isNativeApp() ? <Navigate to="/auth" replace /> : pagina);
+
+/** Pagina d'acquisto: nell'app iOS non c'e' (vedi vendeAbbonamenti). */
+const soloSeVende = (pagina: JSX.Element, home: string) =>
+  vendeAbbonamenti() ? pagina : <Navigate to={home} replace />;
 
 function RedirectAuthAtleta() {
   const [params] = useSearchParams();
@@ -677,9 +681,12 @@ const App = () => {
               } />
               <Route path="/pt/app/payments" element={
                 <PTAppRoute>
-                  <AppLayout>
-                    <PTAppPaymentsPage />
-                  </AppLayout>
+                  {soloSeVende(
+                    <AppLayout>
+                      <PTAppPaymentsPage />
+                    </AppLayout>,
+                    '/pt/app',
+                  )}
                 </PTAppRoute>
               } />
               <Route path="/pt/app/blog" element={

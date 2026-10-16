@@ -24,6 +24,7 @@ import { Logo } from '@/components/common/Logo';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { vendeAbbonamenti } from '@/lib/native';
 import { getAuthEmailOtpFromLocation, isPasswordRecoveryLocation } from '@/lib/passwordRecovery';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import AuthResetPasswordPage from '@/pages/auth/AuthResetPasswordPage';
@@ -354,7 +355,7 @@ export function AuthPage() {
 
               <TabsContent value="signup" className="mt-4">
                 <CardTitle>Crea un account</CardTitle>
-                <CardDescription>Scegli il tuo ruolo e inizia</CardDescription>
+                <CardDescription>{vendeAbbonamenti() ? 'Scegli il tuo ruolo e inizia' : 'Crea il tuo account atleta'}</CardDescription>
               </TabsContent>
             </Tabs>
           </CardHeader>
@@ -444,7 +445,11 @@ export function AuthPage() {
               </div>
             ) : (
               <form onSubmit={handleSignup} className="space-y-4">
-                {/* Role selection */}
+                {/* Role selection. Nell'app iOS ci si registra solo come atleta:
+                    per Apple creare un account PT, che ha piani a pagamento, e' un
+                    acquisto fuori dall'App Store. I PT si registrano sul sito e
+                    nell'app accedono (vedi vendeAbbonamenti). */}
+                {vendeAbbonamenti() && (
                 <div className="space-y-3">
                   <Label>Seleziona il tuo ruolo</Label>
                   <RadioGroup
@@ -483,6 +488,7 @@ export function AuthPage() {
                     Nota: Gli account Admin vengono creati solo dall'amministratore di sistema.
                   </p>
                 </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
