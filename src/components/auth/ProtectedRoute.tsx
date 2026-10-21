@@ -6,7 +6,7 @@ import type { AppRole } from '@/types/roles';
 import { ROLE_ACCESS_MATRIX, getHomeRoute } from '@/types/roles';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Button } from '@/components/ui/button';
-import { isNativeApp } from '@/lib/native';
+import { areaProfessionistaNellApp, isNativeApp } from '@/lib/native';
 
 // =====================================================
 // PROTECTED ROUTE
@@ -94,6 +94,25 @@ function AdminSoloDaBrowser() {
   );
 }
 
+/**
+ * Nell'app iOS l'area Professionista non c'e' (vedi areaProfessionistaNellApp).
+ * Niente link ne' pulsanti verso il sito: Apple li tratta come invito a
+ * comprare fuori dall'App Store.
+ */
+function ProfessionistaNonSuIphone() {
+  const { signOut } = useAuth();
+  return (
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-background px-6 pt-[var(--sat)] pb-[var(--sab)] text-center text-foreground">
+      <h1 className="text-xl font-bold">Area Professionista non disponibile su iPhone</h1>
+      <p className="max-w-sm text-sm text-muted-foreground">
+        Questa app per iPhone è dedicata agli atleti. Per gestire atleti, schede e calendario
+        usa LivelAPP dal browser.
+      </p>
+      <Button onClick={() => void signOut()}>Esci</Button>
+    </div>
+  );
+}
+
 export function AdminRoute({ children, ...props }: Omit<ProtectedRouteProps, 'allowedRoles' | 'requiredResource'>) {
   return (
     <ProtectedRoute allowedRoles={['admin']} requiredResource="dashboard_admin" {...props}>
@@ -105,7 +124,7 @@ export function AdminRoute({ children, ...props }: Omit<ProtectedRouteProps, 'al
 export function PTDashboardRoute({ children, ...props }: Omit<ProtectedRouteProps, 'allowedRoles' | 'requiredResource'>) {
   return (
     <ProtectedRoute allowedRoles={['pt']} requiredResource="dashboard_pt" {...props}>
-      {children}
+      {areaProfessionistaNellApp() ? children : <ProfessionistaNonSuIphone />}
     </ProtectedRoute>
   );
 }
@@ -113,7 +132,7 @@ export function PTDashboardRoute({ children, ...props }: Omit<ProtectedRouteProp
 export function PTAppRoute({ children, ...props }: Omit<ProtectedRouteProps, 'allowedRoles' | 'requiredResource'>) {
   return (
     <ProtectedRoute allowedRoles={['pt']} requiredResource="app_pt" {...props}>
-      {children}
+      {areaProfessionistaNellApp() ? children : <ProfessionistaNonSuIphone />}
     </ProtectedRoute>
   );
 }

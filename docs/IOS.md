@@ -34,9 +34,19 @@ home. Impaginazione e regole sono quelle di Android; qui solo le differenze.
   versione perché dall'app si poteva creare un account business, che ha piani
   a pagamento. Qui su iOS la registrazione non mostra la scelta del ruolo e crea
   solo atleti; i PT si registrano sul sito e nell'app accedono e basta.
-- **Restano** i pacchetti dei PT verso gli atleti (sono una richiesta al
-  trainer, senza pagamento in app, per allenamenti di persona) e i corsi
-  "solo su assegnazione".
+- **Niente area Professionista.** Apple ha respinto la 1.0 (1) il 16/10/2026
+  per le regole 3.1.1 e 3.1.3(c): i PT sono persone singole che comprano i
+  piani sul sito, e usarli nell'app richiederebbe In-App Purchase. Su iOS
+  `areaProfessionistaNellApp()` è falso: un PT che accede vede "Area
+  Professionista non disponibile su iPhone" con il solo Esci (guardie
+  `PTAppRoute`/`PTDashboardRoute` in `ProtectedRoute.tsx`), senza link al
+  sito. L'app iOS è per gli atleti; i PT usano la web app installata da
+  Safari (*Condividi › Aggiungi alla schermata Home*, provata il 21/10/2026)
+  o Android.
+- **Corsi.** Su iOS al posto del prezzo compare "Su assegnazione" e non si
+  parla di "corso a pagamento".
+- **Restano** i pacchetti dei PT verso gli atleti: sono una richiesta al
+  trainer, senza pagamento in app, per allenamenti tra persone (3.1.3(d)/(e)).
 - **Plugin nativi.** Stessi nomi e stesso JavaScript di Android, in Swift in
   `ios/App/App/LivelAPPNativo.swift`: `Salva` ("Salva in File" per CSV e PDF)
   e `Condividi` (pannello di condivisione). Li registra `ViewController`, che
@@ -98,14 +108,15 @@ Android, su fondo nero.
 
 ## 4. App Store Connect
 
-- **Accesso per la revisione:** un account atleta e uno PT di prova, con la
-  password nelle note per il revisore (non nel repository).
+- **Accesso per la revisione:** l'account atleta demo; la password si
+  inserisce su App Store Connect, mai nel repository.
 - **Privacy:** l'URL dell'informativa e le etichette sulla privacy (email,
   nome, foto, posizione approssimativa, dati di allenamento). La cancellazione
   dell'account è raggiungibile dall'app, come chiede Apple.
 - **Crittografia:** `ITSAppUsesNonExemptEncryption` è `false` in `Info.plist`,
   quindi niente documentazione per l'esportazione.
-- **Screenshot:** App Store Connect chiede iPhone 6,3" (1206×2622), in
+- **Screenshot:** solo lato atleta (le tavole `05`–`08` del PT non vanno
+  caricate dalla 1.0 (2)). App Store Connect chiede iPhone 6,3" (1206×2622), in
   `store-assets/app-store/6.3/`; in `6.9/` le stesse a 1320×2868. Le catture
   sono quelle del simulatore iPhone 18 Pro (`store-assets/app-store/raw/`,
   account demo PT e atleta, barra di stato con `xcrun simctl status_bar …
@@ -116,6 +127,8 @@ Android, su fondo nero.
   elimina account); `livelapp.it` al 16/10/2026 dava errore SSL.
 - **Prima versione:** 1.0 (1) inviata in revisione il 16/10/2026, rilascio
   manuale, età 18+, gratuita, operatore commerciale ai sensi del DSA.
+  Respinta per 3.1.1/3.1.3(c) (vedi sopra); la 1.0 (2) toglie l'area
+  Professionista e ha come account demo l'atleta.
 
 ---
 

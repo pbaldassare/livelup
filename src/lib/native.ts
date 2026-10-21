@@ -22,6 +22,17 @@ export const isNativeApp = (): boolean => Capacitor.isNativePlatform();
 export const vendeAbbonamenti = (): boolean => Capacitor.getPlatform() !== 'ios';
 
 /**
+ * Falso nell'app iOS: li' l'area Professionista non c'e'.
+ *
+ * Apple ha respinto la 1.0 (1) il 16/10/2026 per le regole 3.1.1 e 3.1.3(c):
+ * i PT sono persone singole che comprano i piani sul sito, quindi usare
+ * nell'app le funzioni pagate fuori richiede In-App Purchase. L'app iOS e'
+ * per gli atleti; i PT usano la web app installata da Safari (o Android).
+ * Vedi docs/IOS.md.
+ */
+export const areaProfessionistaNellApp = (): boolean => Capacitor.getPlatform() !== 'ios';
+
+/**
  * Icone della barra di stato leggibili sul tema in uso: chiare sul tema
  * scuro (il default, vedi capacitor.config.ts), scure sul tema chiaro.
  * Va montato una volta dentro il ThemeProvider.

@@ -6,6 +6,7 @@ import { CourseProgressBar } from '@/components/app/CourseProgressBar';
 import { FollowStarButton } from '@/components/app/FollowStarButton';
 import { cn } from '@/lib/utils';
 import type { AtletaCourseCard, CourseDifficulty } from '@/lib/api/courses';
+import { vendeAbbonamenti } from '@/lib/native';
 
 const DIFFICULTY_LABELS: Record<CourseDifficulty, string> = {
   beginner: 'Principiante',
@@ -105,7 +106,9 @@ export function CourseListCard({
               >
                 {course.is_free !== false
                   ? 'Gratuito'
-                  : `€ ${Number(course.price || 0).toFixed(2)}`}
+                  : vendeAbbonamenti()
+                    ? `€ ${Number(course.price || 0).toFixed(2)}`
+                    : 'Su assegnazione'}
               </Badge>
             </div>
           </div>
@@ -125,7 +128,9 @@ export function CourseListCard({
         <div className="px-3 pb-3">
           {course.is_free === false ? (
             <p className="text-xs text-app-muted-foreground text-center mb-2">
-              Corso a pagamento — chiedi al Professionista di assegnartelo
+              {vendeAbbonamenti()
+                ? 'Corso a pagamento — chiedi al Professionista di assegnartelo'
+                : 'Te lo assegna il tuo Professionista'}
             </p>
           ) : null}
           <Button
