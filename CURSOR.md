@@ -25,7 +25,7 @@
 | Styling | Tailwind CSS v3 + shadcn/ui + CSS variables (semantic tokens) |
 | Routing | react-router-dom v6 |
 | State / Data | TanStack Query (React Query) + Supabase realtime |
-| Backend | **Lovable Cloud** (Supabase) — Postgres, Auth, Storage, Edge Functions, Realtime |
+| Backend | **Supabase `kxgaqnksylntokyrpaxp`** — Postgres, Auth, Storage, Edge Functions, Realtime |
 | Auth | Supabase Auth (email/password + Google OAuth) |
 | Animations | Framer Motion |
 | Charts | Recharts |
@@ -389,7 +389,7 @@ atleta→ app_atleta + public site
 
 ## 10. ENVIRONMENT VARIABLES
 
-Frontend (`.env` — Lovable-managed, never edit):
+Frontend (`.env`, versioned, points to the only database `kxgaqnksylntokyrpaxp`):
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
 - `VITE_SUPABASE_PROJECT_ID`
@@ -399,7 +399,7 @@ Supabase Secrets (Edge Functions):
 - `SUPABASE_JWKS`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`
 - `KIMI_API_KEY` (Moonshot / Kimi)
 
-> `SUPABASE_SERVICE_ROLE_KEY` and the DB password are **not accessible** to users on Lovable Cloud.
+> Secrets live on project `kxgaqnksylntokyrpaxp`. Lovable is no longer the database.
 
 ---
 
@@ -487,11 +487,11 @@ Supabase Secrets (Edge Functions):
 - **Development**: VS Code + Claude Code / Cursor (locally) **or** Lovable web editor
 - **Repo**: https://github.com/pbaldassare/elevate-roles-hub.git
 - **Lovable project ID**: `05f7b58c-39e8-4ba3-a7bf-bd051bc56040`
-- **Backend project ref**: `kxgaqnksylntokyrpaxp` (Livelapp). Vecchio: `uiowzycolsmgcsvihmhy`
+- **Database (only one)**: `kxgaqnksylntokyrpaxp` — https://kxgaqnksylntokyrpaxp.supabase.co. The old `uiowzycolsmgcsvihmhy` is no longer used.
 - **Preview URL**: https://id-preview--05f7b58c-39e8-4ba3-a7bf-bd051bc56040.lovable.app
 - **Published URL**: https://elevate-roles-hub.lovable.app
 - **Custom domain**: https://livelapp.iaconnect.it
-- **Branch**: `main` — Lovable auto-syncs bidirectionally from/to `main` and applies migrations on push.
+- **Branch**: `main`. Migrations are not applied automatically on push.
 
 ### Local dev
 ```bash
@@ -524,8 +524,8 @@ bunx vitest run  # tests
 ## 15. CRITICAL RULES FOR AI ASSISTANTS
 
 1. **Never edit** `src/integrations/supabase/client.ts` or `src/integrations/supabase/types.ts` — both auto-generated.
-2. **Never edit** `.env` — Lovable-managed (`VITE_SUPABASE_*` vars).
-3. **Never edit** `supabase/config.toml` for project-level settings — auto-generated.
+2. **`.env`** points only to `kxgaqnksylntokyrpaxp`; never switch it back to the old project.
+3. **`supabase/config.toml`**: `project_id = "kxgaqnksylntokyrpaxp"`; do not change it.
 4. **DB statuses stay in English**: `active`, `pending`, `completato`, `attivo`, `terminated`. Localize only in UI.
 5. **Roles**: Never store roles on `profiles`. Always use `user_roles` + `has_role()` security-definer RPC. Storing roles on profiles enables privilege escalation.
 6. **Storage paths**: Always prefix with `${user.id}/` so RLS policies match.
@@ -539,9 +539,9 @@ bunx vitest run  # tests
 10. **Terminology**: "Attività" (not Workout), "Calisthenics" (not Crossfit), "Professionista" (covers PT/nutritionist/physio).
 11. **Routing**: Admin → `/admin`, PT web → `/pt`, PT PWA → `/pt/app`, Athlete → `/app`. Never mix.
 12. **PT mobile**: `usePTSurface` auto-redirects `/pt/*` → `/pt/app/*` on narrow viewports or PWA standalone. `?view=web` overrides.
-13. **Pushing to `main`**: Lovable auto-syncs and applies any new `supabase/migrations/*.sql`. Never run stateful git commands locally inside the Lovable sandbox.
+13. **Migrations**: save the file in `supabase/migrations/*.sql` **and apply it directly on `kxgaqnksylntokyrpaxp`** (MCP / CLI). Nothing applies it on push.
 14. **Edge Functions**: Default `verify_jwt = true` unless explicitly public. Use `service_role` only server-side, never expose to client.
-15. **Don't say "Supabase" to users** — say "Lovable Cloud" / "backend" / "database" / "auth".
+15. **Lovable** is no longer the database: no SQL, prompts or migrations through Lovable.
 
 ---
 
