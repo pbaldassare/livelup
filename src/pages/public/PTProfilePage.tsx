@@ -99,7 +99,19 @@ export function PTProfilePage() {
         .maybeSingle();
 
       if (ptError) throw ptError;
-      if (!ptProfile) return null;
+
+      type PublicPTData = { pt: PTProfile & { gallery_photos?: string[] }; profile: Profile };
+      // RLS su pt_profiles/profiles espone un PT solo ad atleti/admin/se stesso:
+      // PT colleghi e visitatori anonimi passano dalla RPC con i soli campi pubblici.
+      const fetchPublic = async (): Promise<PublicPTData | null> => {
+        const { data, error } = await (supabase.rpc as any)('get_public_pt_profile', {
+          _user_id: userId,
+        });
+        if (error) throw error;
+        return (data as PublicPTData | null) ?? null;
+      };
+
+      if (!ptProfile) return fetchPublic();
       if (!ptProfile.is_discoverable && !isOwnPreview) return null;
 
       const { data: profile, error: profileError } = await supabase
@@ -109,7 +121,7 @@ export function PTProfilePage() {
         .maybeSingle();
 
       if (profileError) throw profileError;
-      if (!profile) return null;
+      if (!profile) return fetchPublic();
 
       return {
         pt: ptProfile as PTProfile & { gallery_photos?: string[] },
