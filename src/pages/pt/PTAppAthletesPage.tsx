@@ -45,6 +45,14 @@ import {
   type CededMeta,
 } from '@/hooks/usePTAthleteRosterMeta';
 import { ptRoutes } from '@/lib/pt/routes';
+import { usePTHomeData } from '@/hooks/usePTHomeData';
+import {
+  ATHLETES_FILTER_PARAM,
+  INACTIVE_DAYS_THRESHOLD,
+  filterByLowEngagement,
+  getLowEngagementAthleteIds,
+  isLowEngagementFilter,
+} from '@/lib/pt/athleteEngagement';
 import { 
   Users, 
   Search, 
@@ -60,6 +68,7 @@ import {
   Tags,
   ArrowRightLeft,
   RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -84,8 +93,9 @@ export function PTAppAthletesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const lowEngagementOnly = isLowEngagementFilter(searchParams);
   const [activeTab, setActiveTab] = useState<string>(
-    normalizeTab(searchParams.get('tab')) ?? 'active',
+    lowEngagementOnly ? 'active' : normalizeTab(searchParams.get('tab')) ?? 'active',
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
@@ -97,6 +107,20 @@ export function PTAppAthletesPage() {
   const [recallingId, setRecallingId] = useState<string | null>(null);
 
   const roster = usePTAthleteRosterMeta(user?.id);
+
+  const { data: homeData, isLoading: engagementLoading } = usePTHomeData({
+    enabled: lowEngagementOnly,
+  });
+  const lowEngagementIds = useMemo(
+    () => new Set(getLowEngagementAthleteIds(homeData?.athletes ?? [])),
+    [homeData],
+  );
+
+  const clearLowEngagementFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete(ATHLETES_FILTER_PARAM);
+    setSearchParams(next, { replace: true });
+  };
 
   const categoryFilterParam = searchParams.get('category') ?? searchParams.get('modality');
 
@@ -126,7 +150,10 @@ export function PTAppAthletesPage() {
     setActiveTab(value);
     const next = new URLSearchParams(searchParams);
     if (value === 'active') next.delete('tab');
-    else next.set('tab', value);
+    else {
+      next.set('tab', value);
+      next.delete(ATHLETES_FILTER_PARAM);
+    }
     setSearchParams(next, { replace: true });
     if (value !== 'active') {
       setRelationFilter('all');
@@ -147,6 +174,10 @@ export function PTAppAthletesPage() {
 
   useEffect(() => {
     const t = normalizeTab(searchParams.get('tab'));
+    if (isLowEngagementFilter(searchParams)) {
+      if (activeTab !== 'active') setActiveTab('active');
+      return;
+    }
     if (t && t !== activeTab) {
       setActiveTab(t);
       return;
@@ -275,7 +306,11 @@ export function PTAppAthletesPage() {
 
   const filteredConnections = useMemo(() => {
     if (!connections) return [];
-    return connections.filter((conn) => {
+    const base =
+      activeTab === 'active' && lowEngagementOnly
+        ? filterByLowEngagement(connections, lowEngagementIds)
+        : connections;
+    return base.filter((conn) => {
       if (activeTab === 'active') {
         if (activeCategoryId !== 'all') {
           const connCategoryId = resolveCategoryId(
@@ -301,6 +336,8 @@ export function PTAppAthletesPage() {
     athleteCategories,
     relationFilter,
     roster,
+    lowEngagementOnly,
+    lowEngagementIds,
   ]);
 
   const activeCount = connections?.length || 0;
@@ -346,6 +383,34 @@ export function PTAppAthletesPage() {
             className="pl-9"
           />
         </div>
+
+        {activeTab === 'active' && lowEngagementOnly && (
+          <div
+            className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2"
+            role="status"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                Poco attivi{engagementLoading ? '' : ` (${lowEngagementIds.size})`}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                Nessun allenamento o messaggio da oltre {INACTIVE_DAYS_THRESHOLD} giorni
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8 shrink-0 gap-1 text-xs"
+              onClick={clearLowEngagementFilter}
+              aria-label="Rimuovi filtro poco attivi"
+            >
+              <X className="h-3.5 w-3.5" />
+              Mostra tutti
+            </Button>
+          </div>
+        )}
 
         {activeTab === 'active' && (
           <div className="space-y-2">
@@ -426,7 +491,7 @@ export function PTAppAthletesPage() {
         </TabsList>
 
         <TabsContent value="active" className="mt-4 space-y-3">
-          {isLoading ? (
+          {isLoading || (lowEngagementOnly && engagementLoading) ? (
             Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-20 w-full" />
             ))
@@ -447,6 +512,7 @@ export function PTAppAthletesPage() {
           ) : (
             <EmptyState
               type="active"
+              lowEngagementOnly={lowEngagementOnly}
               categoryLabel={
                 activeCategoryId === 'all'
                   ? null
@@ -700,14 +766,24 @@ function AthleteCard({
 function EmptyState({
   type,
   categoryLabel,
+  lowEngagementOnly = false,
 }: {
   type: 'active' | 'pending';
   categoryLabel?: string | null;
+  lowEngagementOnly?: boolean;
 }) {
   return (
     <Card className="border-dashed">
       <CardContent className="p-8 text-center">
-        {type === 'active' ? (
+        {type === 'active' && lowEngagementOnly ? (
+          <>
+            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="font-semibold mb-2">Nessun atleta poco attivo</h3>
+            <p className="text-sm text-muted-foreground">
+              Tutti i tuoi atleti si sono allenati o ti hanno scritto di recente
+            </p>
+          </>
+        ) : type === 'active' ? (
           <>
             <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="font-semibold mb-2">
