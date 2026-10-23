@@ -175,6 +175,8 @@ WHERE public.is_pt_feedback_category(t.category)
 -- get_admin_stats: counter feedback PT da rispondere
 -- -----------------------------------------------------
 
+DROP FUNCTION IF EXISTS public.get_admin_stats();
+
 CREATE OR REPLACE FUNCTION public.get_admin_stats()
 RETURNS TABLE(
   total_pts integer,
