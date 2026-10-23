@@ -5,3 +5,4 @@ export * from './foodLookup';
 export * from './recipes';
 export * from './ptTemplates';
 export * from './mealTargets';
+export * from './ptFoods';

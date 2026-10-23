@@ -19,8 +19,21 @@ export const localFoodLookupProvider: FoodLookupProvider = {
 };
 
 function remoteBaseUrl(): string | null {
+  if (import.meta.env.VITE_NUTRITION_FOOD_PROXY === 'true') {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
+    if (supabaseUrl) return `${supabaseUrl}/functions/v1/nutrition-food-proxy`;
+  }
   const url = import.meta.env.VITE_NUTRITION_FOOD_API_URL?.trim();
   return url || null;
+}
+
+async function authorizedFetch(url: string): Promise<Response> {
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (import.meta.env.VITE_NUTRITION_FOOD_PROXY === 'true' && key) {
+    headers.Authorization = `Bearer ${key}`;
+  }
+  return fetch(url, { headers });
 }
 
 function mapRemoteFood(row: Record<string, unknown>): FoodTemplate {
@@ -40,7 +53,7 @@ async function remoteSearch(query: string): Promise<FoodTemplate[]> {
   const base = remoteBaseUrl();
   if (!base || query.trim().length < 2) return [];
   try {
-    const res = await fetch(`${base.replace(/\/$/, '')}/search?q=${encodeURIComponent(query)}`);
+    const res = await authorizedFetch(`${base.replace(/\/$/, '')}/search?q=${encodeURIComponent(query)}`);
     if (!res.ok) return [];
     const json = (await res.json()) as { items?: Record<string, unknown>[] } | Record<string, unknown>[];
     const items = Array.isArray(json) ? json : json.items ?? [];
@@ -54,7 +67,7 @@ async function remoteBarcode(barcode: string): Promise<FoodTemplate | null> {
   const base = remoteBaseUrl();
   if (!base || !barcode.trim()) return null;
   try {
-    const res = await fetch(`${base.replace(/\/$/, '')}/barcode/${encodeURIComponent(barcode)}`);
+    const res = await authorizedFetch(`${base.replace(/\/$/, '')}/barcode/${encodeURIComponent(barcode)}`);
     if (!res.ok) return null;
     const json = (await res.json()) as Record<string, unknown>;
     return mapRemoteFood(json);

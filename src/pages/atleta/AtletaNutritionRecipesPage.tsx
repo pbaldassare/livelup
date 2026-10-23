@@ -8,15 +8,18 @@ import {
 } from '@/types/nutrition';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChevronRight } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 const CATEGORIES = Object.keys(NUTRITION_RECIPE_CATEGORY_LABELS) as NutritionRecipeCategory[];
 
 export function AtletaNutritionRecipesPage({ embedded = false }: { embedded?: boolean }) {
   const [tab, setTab] = useState<NutritionRecipeCategory | 'tutte'>('tutte');
+  const [search, setSearch] = useState('');
 
   const { data: recipes = [], isLoading } = useQuery({
-    queryKey: nutritionRecipeKeys.list(tab === 'tutte' ? undefined : tab),
-    queryFn: () => listTemplateRecipes(tab === 'tutte' ? undefined : tab),
+    queryKey: [...nutritionRecipeKeys.list(tab === 'tutte' ? undefined : tab), search],
+    queryFn: () =>
+      listTemplateRecipes(tab === 'tutte' ? undefined : tab, search || undefined),
   });
 
   return (
@@ -27,6 +30,12 @@ export function AtletaNutritionRecipesPage({ embedded = false }: { embedded?: bo
           <p className="text-sm text-app-muted-foreground">Suggerimenti dal catalogo Livelapp</p>
         </div>
       )}
+      <Input
+        placeholder="Cerca ricetta…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="mb-2"
+      />
       <Tabs value={tab} onValueChange={(v) => setTab(v as NutritionRecipeCategory | 'tutte')}>
         <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="tutte">Tutte</TabsTrigger>

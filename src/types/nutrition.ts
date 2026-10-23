@@ -37,6 +37,7 @@ export interface FoodTemplate {
   per_100g_carbs_g: number;
   per_100g_fat_g: number;
   is_platform: boolean;
+  pt_user_id?: string | null;
 }
 
 export interface NutritionPlan {
@@ -63,6 +64,7 @@ export interface NutritionDiaryEntry {
   logged_on: string;
   meal_type: NutritionMealType;
   food_template_id: string | null;
+  recipe_id?: string | null;
   custom_name: string | null;
   grams: number;
   kcal: number;

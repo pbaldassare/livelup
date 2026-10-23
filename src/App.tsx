@@ -124,6 +124,7 @@ import PTAppNutritionTemplatesPage from "./pages/pt/PTAppNutritionTemplatesPage"
 import PTAppNutritionRecipesPage from "./pages/pt/PTAppNutritionRecipesPage";
 import PTAppNutritionRecipeDetailPage from "./pages/pt/PTAppNutritionRecipeDetailPage";
 import PTAppNutritionAthleteDiaryPage from "./pages/pt/PTAppNutritionAthleteDiaryPage";
+import PTAppNutritionFoodsPage from "./pages/pt/PTAppNutritionFoodsPage";
 import PTNutritionPage from "./pages/pt/PTNutritionPage";
 
 // Atleta App pages (Mobile/PWA)
@@ -595,6 +596,13 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/nutrition/alimenti" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAppNutritionFoodsPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
               <Route path="/pt/nutrition/ricette" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>
@@ -772,6 +780,13 @@ const App = () => {
                 <PTAppRoute>
                   <AppLayout>
                     <PTAppNutritionTemplatesPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/nutrition/alimenti" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppNutritionFoodsPage />
                   </AppLayout>
                 </PTAppRoute>
               } />

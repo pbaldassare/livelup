@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getTemplateRecipeBySlug, nutritionRecipeKeys } from '@/lib/api/nutrition';
 import { RecipeDetailView } from '@/components/nutrition/RecipeDetailView';
+import { AddRecipeToDiaryDialog } from '@/components/nutrition/AddRecipeToDiaryDialog';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
 
@@ -26,7 +27,10 @@ export function AtletaNutritionRecipeDetailPage() {
       ) : !recipe ? (
         <p className="text-sm text-app-muted-foreground">Ricetta non trovata.</p>
       ) : (
-        <RecipeDetailView recipe={recipe} />
+        <>
+          <RecipeDetailView recipe={recipe} />
+          <AddRecipeToDiaryDialog recipe={recipe} />
+        </>
       )}
     </div>
   );

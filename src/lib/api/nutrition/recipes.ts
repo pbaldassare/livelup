@@ -8,6 +8,7 @@ export const nutritionRecipeKeys = {
 
 export async function listTemplateRecipes(
   category?: NutritionRecipeCategory,
+  search?: string,
 ): Promise<NutritionTemplateRecipe[]> {
   let q = nutritionDb()
     .from('nutrition_template_recipes')
@@ -15,6 +16,8 @@ export async function listTemplateRecipes(
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
   if (category) q = q.eq('category', category);
+  const term = search?.trim();
+  if (term && term.length >= 2) q = q.ilike('name', `%${term}%`);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as NutritionTemplateRecipe[];

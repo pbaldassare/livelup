@@ -7,7 +7,7 @@ import { listActivePlansForPtAthletes, nutritionPlanKeys } from '@/lib/api/nutri
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Salad, BookOpen, LayoutTemplate } from 'lucide-react';
+import { ChevronRight, Salad, BookOpen, LayoutTemplate, Apple } from 'lucide-react';
 
 export function PTAppNutritionPage() {
   const { user } = useAuth();
@@ -56,6 +56,12 @@ export function PTAppNutritionPage() {
           <Link to="/pt/app/nutrition/ricette">
             <BookOpen className="mr-1 h-4 w-4" />
             Ricette
+          </Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/pt/app/nutrition/alimenti">
+            <Apple className="mr-1 h-4 w-4" />
+            Alimenti
           </Link>
         </Button>
       </div>
