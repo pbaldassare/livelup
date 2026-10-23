@@ -30,6 +30,7 @@ import {
   FileText,
   GraduationCap,
   Users,
+  Salad,
 } from 'lucide-react';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
@@ -240,6 +241,7 @@ export function AtletaProfilePage() {
   const menuItems = [
     ...(showInstallOption ? [{ icon: Download, label: 'Installa App', href: '/install' }] : []),
     { icon: GraduationCap, label: 'Corsi', href: '/app/courses' },
+    { icon: Salad, label: 'Nutrizione', href: '/app/nutrition' },
     { icon: Ticket, label: 'I miei Coupon', href: '/app/coupons' },
     { icon: FileText, label: 'Documenti & Scadenze', href: '/app/documenti' },
     { icon: Bell, label: 'Notifiche', href: '/app/notifications' },

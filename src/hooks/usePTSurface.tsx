@@ -110,6 +110,7 @@ export function mapPTWebToApp(pathname: string): string {
   // Assistant is web-only for now — keep PT on a useful app surface
   if (pathname.startsWith('/pt/assistant')) return '/pt/app';
   if (pathname.startsWith('/pt/courses')) return '/pt/app/courses';
+  if (pathname.startsWith('/pt/nutrition')) return pathname.replace('/pt/nutrition', '/pt/app/nutrition');
   // Onboarding is shared — keep as is
   if (pathname.startsWith('/pt/onboarding')) return pathname;
   return '/pt/app';
@@ -153,6 +154,9 @@ export function mapPTAppToWeb(pathname: string): string {
   if (pathname.startsWith('/pt/app/cerca-professionisti')) return '/pt/cerca-professionisti';
   if (pathname.startsWith('/pt/app/athlete-transfer')) return '/pt/athlete-transfer';
   if (pathname.startsWith('/pt/app/courses')) return '/pt/courses';
+  if (pathname.startsWith('/pt/app/nutrition')) {
+    return pathname.replace('/pt/app/nutrition', '/pt/nutrition');
+  }
   return '/pt';
 }
 

@@ -24,6 +24,7 @@ import {
   GraduationCap,
   ArrowRightLeft,
   Lightbulb,
+  Salad,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -49,6 +50,7 @@ const navigationItems = [
   { label: 'Assistente', href: '/pt/assistant', icon: Bot },
   { label: 'Archivio Esercizi', href: '/pt/exercises', icon: Library },
   { label: 'Corsi', href: '/pt/courses', icon: GraduationCap },
+  { label: 'Nutrizione', href: '/pt/nutrition', icon: Salad },
   { label: 'Eventi', href: '/pt/events', icon: Calendar },
   { label: 'Gruppi', href: '/pt/groups', icon: UsersRound },
   { label: 'Cerca PT e professionisti', href: '/pt/cerca-professionisti', icon: Search },

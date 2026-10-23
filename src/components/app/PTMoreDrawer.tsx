@@ -30,6 +30,7 @@ import {
   PartyPopper,
   Bell,
   Lightbulb,
+  Salad,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { vendeAbbonamenti } from '@/lib/native';
@@ -52,6 +53,7 @@ const SECTIONS: Array<{ label: string; href: string; icon: typeof Calendar; grou
   { group: 'Lavoro', label: 'Esercizi', href: '/pt/app/exercises', icon: Library },
   { group: 'Lavoro', label: 'Template', href: '/pt/app/templates', icon: ClipboardList },
   { group: 'Lavoro', label: 'Corsi', href: '/pt/app/courses', icon: GraduationCap },
+  { group: 'Lavoro', label: 'Nutrizione', href: '/pt/app/nutrition', icon: Salad },
   { group: 'Lavoro', label: 'Collaborazioni', href: '/pt/app/athlete-transfer', icon: ArrowRightLeft },
   { group: 'Business', label: 'Coupons', href: '/pt/app/coupons', icon: Tag },
   { group: 'Business', label: 'Pagamenti', href: '/pt/app/payments', icon: CreditCard },

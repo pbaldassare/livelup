@@ -118,6 +118,9 @@ import PTAppFeedbackNewPage from "./pages/pt/PTAppFeedbackNewPage";
 import PTAppFeedbackDetailPage from "./pages/pt/PTAppFeedbackDetailPage";
 import PTAppAthleteTransferPage from "./pages/pt/PTAppAthleteTransferPage";
 import PTAppColleagueSearchPage from "./pages/pt/PTAppColleagueSearchPage";
+import PTAppNutritionPage from "./pages/pt/PTAppNutritionPage";
+import PTAppNutritionPlanPage from "./pages/pt/PTAppNutritionPlanPage";
+import PTNutritionPage from "./pages/pt/PTNutritionPage";
 
 // Atleta App pages (Mobile/PWA)
 import AtletaAppHome from "./pages/atleta/AtletaAppHome";
@@ -134,6 +137,7 @@ import AtletaSubscriptionPage from "./pages/atleta/AtletaSubscriptionPage";
 import AtletaNotificationsPage from "./pages/atleta/AtletaNotificationsPage";
 import AtletaSettingsPage from "./pages/atleta/AtletaSettingsPage";
 import AtletaHelpPage from "./pages/atleta/AtletaHelpPage";
+import AtletaNutritionPage from "./pages/atleta/AtletaNutritionPage";
 import AtletaEventDetailPage from "./pages/atleta/AtletaEventDetailPage";
 import AtletaProfessionalProfilePage from "./pages/atleta/AtletaProfessionalProfilePage";
 import AtletaBookingPage from "./pages/atleta/AtletaBookingPage";
@@ -558,6 +562,20 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/nutrition" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTNutritionPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/nutrition/atleta/:atletaUserId" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAppNutritionPlanPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
               <Route path="/pt/cerca-professionisti" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>
@@ -693,6 +711,20 @@ const App = () => {
                 <PTAppRoute>
                   <AppLayout>
                     <PTAppCoursesPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/nutrition" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppNutritionPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/nutrition/atleta/:atletaUserId" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppNutritionPlanPage />
                   </AppLayout>
                 </PTAppRoute>
               } />
@@ -978,6 +1010,13 @@ const App = () => {
                 <AtletaRoute>
                   <AppLayout>
                     <AtletaHelpPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/nutrition" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaNutritionPage />
                   </AppLayout>
                 </AtletaRoute>
               } />
