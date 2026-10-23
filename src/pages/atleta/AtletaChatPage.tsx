@@ -11,14 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Users, Search, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-<<<<<<< Updated upstream
-import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from '@/lib/api/messages';
-import {
-  conversationFallbackPreview,
-  findPersistedConversation,
-  mergeConversationPeers,
-} from '@/lib/conversations';
-=======
 import {
   getOrCreateChat,
   getChatMessages,
@@ -31,8 +23,11 @@ import {
   toggleMessageReaction,
 } from '@/lib/api/messages';
 import { useChatTyping } from '@/hooks/useChatTyping';
-import { conversationFallbackPreview, mergeConversationPeers } from '@/lib/conversations';
->>>>>>> Stashed changes
+import {
+  conversationFallbackPreview,
+  findPersistedConversation,
+  mergeConversationPeers,
+} from '@/lib/conversations';
 import { uploadChatAttachment } from '@/lib/api/chatAttachments';
 import { toast } from 'sonner';
 import { buildCoachFullName } from '@/lib/coachName';
