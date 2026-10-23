@@ -84,8 +84,9 @@ export function DataTable<T extends { id: string }>({
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-lg border bg-card">
+      {/* Table — scroll orizzontale su mobile */}
+      <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
+        <div className="min-w-[min(100%,640px)] rounded-lg border bg-card md:min-w-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -142,11 +143,12 @@ export function DataTable<T extends { id: string }>({
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {/* Pagination */}
       {showPagination && totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Mostrando {(currentPage - 1) * pageSize + 1}-
             {Math.min(currentPage * pageSize, filteredData.length)} di{' '}

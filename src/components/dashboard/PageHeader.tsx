@@ -40,14 +40,16 @@ export function PageHeader({
             </div>
           )}
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h1>
             {description && (
               <p className="text-muted-foreground">{description}</p>
             )}
           </div>
         </div>
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+      )}
     </div>
   );
 }
