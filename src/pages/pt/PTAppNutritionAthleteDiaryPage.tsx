@@ -7,8 +7,10 @@ import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 import {
   getActiveNutritionPlan,
   listDiaryEntries,
+  listPantryItems,
   listRecentDiaryDays,
   nutritionDiaryKeys,
+  nutritionPantryKeys,
   nutritionPlanKeys,
 } from '@/lib/api/nutrition';
 import { sumMacroTotals } from '@/lib/nutritionMacros';
@@ -31,6 +33,12 @@ export function PTAppNutritionAthleteDiaryPage() {
     queryKey: ['nutrition-diary-recent', atletaUserId],
     enabled: !!atletaUserId,
     queryFn: () => listRecentDiaryDays(atletaUserId),
+  });
+
+  const { data: pantry = [] } = useQuery({
+    queryKey: nutritionPantryKeys.list(atletaUserId),
+    enabled: !!atletaUserId,
+    queryFn: () => listPantryItems(atletaUserId),
   });
 
   const { data: entries = [], isLoading } = useQuery({
@@ -113,6 +121,19 @@ export function PTAppNutritionAthleteDiaryPage() {
       )}
 
       <MacroSummaryBar actual={totals} target={target} className="mb-4" />
+
+      {pantry.length > 0 && (
+        <div className="rounded-xl border border-app-border bg-app-card p-3 mb-4">
+          <p className="text-xs font-semibold uppercase text-app-muted-foreground mb-2">Dispensa atleta</p>
+          <ul className="text-sm space-y-1 max-h-32 overflow-y-auto">
+            {pantry.slice(0, 12).map((p) => (
+              <li key={p.id} className="text-app-muted-foreground">
+                {p.custom_name} — {p.quantity} {p.unit}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-center text-app-muted-foreground">Caricamento…</p>

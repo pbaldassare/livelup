@@ -7,6 +7,8 @@
 - Modelli piano PT, target per pasto, monitor diario PT
 - Alimenti personalizzati PT (visibili agli atleti collegati in ricerca)
 - Aggiunta ricetta al diario (porzioni)
+- **Dispensa** atleta (`nutrition_pantry_items`) — tab Dispensa, senza ristorante
+- Catalogo ricette JSON: `scripts/seed/data/nutrition_recipes_catalog.json` (~178 ricette, espandibile)
 
 ## Backend
 
@@ -43,6 +45,11 @@ VITE_NUTRITION_FOOD_PROXY=true
 2. `node scripts/seed/import_cibarius_recipes.mjs data.json supabase/migrations/YYYYMMDD_import.sql`
 3. Applica migration su Lovable Cloud.
 
-Rigenera catalogo sintetico:
+Rigenera catalogo ricette (JSON + SQL):
 
-`node scripts/seed/generate_nutrition_recipes_bulk.mjs`
+```bash
+node scripts/seed/generate_recipes_catalog.mjs
+node scripts/seed/import_cibarius_recipes.mjs scripts/seed/data/nutrition_recipes_catalog.json supabase/migrations/20261023210001_nutrition_recipes_catalog.sql
+```
+
+Il file JSON è versionato nel repo: puoi modificarlo manualmente o sostituirlo con un export Cibarius normalizzato allo stesso schema.

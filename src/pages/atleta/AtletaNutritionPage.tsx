@@ -16,6 +16,7 @@ import {
   nutritionPlanKeys,
 } from '@/lib/api/nutrition';
 import { AtletaNutritionRecipesPage } from '@/pages/atleta/AtletaNutritionRecipesPage';
+import { AtletaNutritionPantryPage } from '@/pages/atleta/AtletaNutritionPantryPage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NUTRITION_MEAL_LABELS as MEAL_LABELS } from '@/types/nutrition';
 import { macrosForGrams, sumMacroTotals } from '@/lib/nutritionMacros';
@@ -59,7 +60,7 @@ export function AtletaNutritionPage() {
   const [grams, setGrams] = useState('100');
   const [customName, setCustomName] = useState('');
   const [barcode, setBarcode] = useState('');
-  const [mainTab, setMainTab] = useState<'diario' | 'ricette'>('diario');
+  const [mainTab, setMainTab] = useState<'diario' | 'ricette' | 'dispensa'>('diario');
 
   const { data: plan } = useQuery({
     queryKey: nutritionPlanKeys.activeForAtleta(user?.id ?? ''),
@@ -181,13 +182,17 @@ export function AtletaNutritionPage() {
           </div>
         </div>
 
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'diario' | 'ricette')}>
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'diario' | 'ricette' | 'dispensa')}>
           <TabsList className="w-full">
             <TabsTrigger value="diario" className="flex-1">Diario</TabsTrigger>
             <TabsTrigger value="ricette" className="flex-1">Ricette</TabsTrigger>
+            <TabsTrigger value="dispensa" className="flex-1">Dispensa</TabsTrigger>
           </TabsList>
           <TabsContent value="ricette" className="mt-4">
             <AtletaNutritionRecipesPage embedded />
+          </TabsContent>
+          <TabsContent value="dispensa" className="mt-4">
+            <AtletaNutritionPantryPage embedded />
           </TabsContent>
           <TabsContent value="diario" className="mt-4 space-y-4">
 
