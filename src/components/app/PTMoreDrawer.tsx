@@ -29,6 +29,7 @@ import {
   GraduationCap,
   PartyPopper,
   Bell,
+  Lightbulb,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -56,6 +57,7 @@ const SECTIONS: Array<{ label: string; href: string; icon: typeof Calendar; grou
   { group: 'Business', label: 'Blog & Q&A', href: '/pt/app/blog', icon: BookOpen },
   { group: 'Account', label: 'Profilo', href: '/pt/app/profile', icon: User },
   { group: 'Account', label: 'Notifiche', href: '/pt/app/notifications', icon: Bell },
+  { group: 'Account', label: 'Suggerimenti e modifiche', href: '/pt/app/feedback', icon: Lightbulb },
   { group: 'Account', label: 'Impostazioni', href: '/pt/app/settings', icon: Settings },
 ];
 

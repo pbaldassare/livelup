@@ -112,6 +112,9 @@ import PTAppPaymentsPage from "./pages/pt/PTAppPaymentsPage";
 import PTAppBlogPage from "./pages/pt/PTAppBlogPage";
 import PTAppSettingsPage from "./pages/pt/PTAppSettingsPage";
 import PTAppNotificationsPage from "./pages/pt/PTAppNotificationsPage";
+import PTAppFeedbackPage from "./pages/pt/PTAppFeedbackPage";
+import PTAppFeedbackNewPage from "./pages/pt/PTAppFeedbackNewPage";
+import PTAppFeedbackDetailPage from "./pages/pt/PTAppFeedbackDetailPage";
 import PTAppAthleteTransferPage from "./pages/pt/PTAppAthleteTransferPage";
 import PTAppColleagueSearchPage from "./pages/pt/PTAppColleagueSearchPage";
 
@@ -484,6 +487,27 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/feedback" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAppFeedbackPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/feedback/new" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAppFeedbackNewPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/feedback/:ticketId" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAppFeedbackDetailPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
               <Route path="/pt/blog" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>
@@ -689,6 +713,27 @@ const App = () => {
                 <PTAppRoute>
                   <AppLayout>
                     <PTAppNotificationsPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/feedback" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppFeedbackPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/feedback/new" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppFeedbackNewPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/feedback/:ticketId" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppFeedbackDetailPage />
                   </AppLayout>
                 </PTAppRoute>
               } />

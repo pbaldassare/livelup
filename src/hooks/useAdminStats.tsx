@@ -11,6 +11,7 @@ interface AdminStats {
   premium_athletes: number;
   active_subscriptions: number;
   open_tickets: number;
+  pt_feedback_pending_replies: number;
 }
 
 export function useAdminStats() {
@@ -37,6 +38,7 @@ export function useAdminStats() {
         premium_athletes: stats?.premium_athletes ?? 0,
         active_subscriptions: stats?.active_subscriptions ?? 0,
         open_tickets: stats?.open_tickets ?? 0,
+        pt_feedback_pending_replies: stats?.pt_feedback_pending_replies ?? 0,
       };
     },
     refetchInterval: 30000, // Refresh ogni 30 secondi

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import {
 // =====================================================
 
 export function AdminDashboard() {
+  const navigate = useNavigate();
   const { data: stats, isLoading } = useAdminStats();
 
   // Fetch pending PT approvals
@@ -157,11 +158,21 @@ export function AdminDashboard() {
             color="green"
           />
           <KPICardColored
-            title="Ticket Aperti"
-            value={stats?.open_tickets ?? 0}
-            subtitle="Da gestire"
+            title="Feedback PT da rispondere"
+            value={stats?.pt_feedback_pending_replies ?? 0}
+            subtitle="Risposte in sospeso — clicca per aprire"
             icon={Clock}
             color="yellow"
+            onClick={() =>
+              navigate('/admin/support?type=pt&pending_reply=1&status=all')
+            }
+          />
+          <KPICardColored
+            title="Ticket Aperti"
+            value={stats?.open_tickets ?? 0}
+            subtitle="Tutti gli utenti"
+            icon={Clock}
+            color="blue"
           />
           <KPICardColored
             title="In attesa"

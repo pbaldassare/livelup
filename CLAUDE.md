@@ -441,7 +441,10 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-09-19 | **Durata min|sec negli editor PT.** Campo riusabile `DurationUnitInput`: si inserisce in minuti o secondi, storage canonico in secondi (`duration_seconds`, `round_duration`, `exercise_duration_seconds`, set timed). In minuti i secondi residui scattano al minuto più vicino. Player atleta invariati. |
 | 2026-09-19 | **Notifiche PT come in app.** Campanella + inbox su `/pt/app/notifications` (stesso hook `useNotifications`); realtime anche sulla dashboard web `/pt`; tap apre la route corretta per web/PWA. |
 | 2026-09-19 | **Chat senza connessione.** L'atleta può scrivere a un Professionista per fargli domande senza essere collegato; "Richiedi connessione" resta separato. `can_chat_with` + liste chat PT/atleta includono i thread inquiry. |
+| 2026-10-12 | **Chat 1:1: Letto/Inviato + "sta scrivendo".** `ChatMessages` mostra lo stato `is_read` già in DB; `subscribeToMessages` ascolta anche UPDATE. Typing via broadcast realtime (`subscribeToChatTyping` / `useChatTyping`) su PWA atleta/PT e dashboard web `/pt`. Nessuna migration. |
+| 2026-10-12 | **Chat: reply, pin, reazioni.** Migration `20261012120000_chat_reply_pin_reactions.sql`: `messages.reply_to_id` / `is_pinned`, tabella `message_reactions` (GRANT+RLS), RPC `set_message_pinned`. Tap sul messaggio per Rispondi / Fissa / emoji su PWA e dashboard web `/pt`. |
+| 2026-10-23 | **Feedback PT (suggerimenti e modifiche).** Riuso `support_tickets` / `ticket_messages` con categorie `pt_*`, flag `needs_admin_reply`, allegati bucket `feedback-attachments`, notifica al PT su risposta admin, counter `pt_feedback_pending_replies` in `get_admin_stats`. UI: `/pt/app/feedback` (PWA) e `/pt/feedback` (web), admin filtro `/admin/support?type=pt&pending_reply=1`. Migration `20261023140000_pt_feedback_tickets.sql`. |
 
 ---
 
-_Ultimo aggiornamento: 2026-09-19_
+_Ultimo aggiornamento: 2026-10-23_

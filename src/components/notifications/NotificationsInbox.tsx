@@ -29,6 +29,7 @@ const notificationIcons: Record<string, typeof Bell> = {
   booking: Calendar,
   event_registration: Calendar,
   event_comment: MessageSquare,
+  support: MessageSquare,
 };
 
 export function NotificationsInbox() {

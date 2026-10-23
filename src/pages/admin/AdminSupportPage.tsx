@@ -29,6 +29,7 @@ interface SupportTicket {
   category: string | null;
   status: string;
   priority: string;
+  needs_admin_reply?: boolean;
   created_at: string;
   profiles: {
     first_name: string | null;
@@ -47,15 +48,17 @@ const priorityColors: Record<string, string> = {
 export function AdminSupportPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get('status') || 'open';
+  const ptOnly = searchParams.get('type') === 'pt';
+  const pendingReplyOnly = searchParams.get('pending_reply') === '1';
   const queryClient = useQueryClient();
 
   // Fetch tickets
   const { data: tickets, isLoading } = useQuery({
-    queryKey: ['support-tickets', statusFilter],
+    queryKey: ['support-tickets', statusFilter, ptOnly, pendingReplyOnly],
     queryFn: async () => {
       const { data: ticketData, error } = await supabase
         .from('support_tickets')
-        .select('id, user_id, subject, description, category, status, priority, created_at')
+        .select('id, user_id, subject, description, category, status, priority, needs_admin_reply, created_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -75,6 +78,17 @@ export function AdminSupportPage() {
 
       if (statusFilter !== 'all') {
         result = result.filter(t => t.status === statusFilter);
+      }
+      if (ptOnly) {
+        result = result.filter((t) => t.category?.startsWith('pt_'));
+      }
+      if (pendingReplyOnly) {
+        result = result.filter(
+          (t) =>
+            t.category?.startsWith('pt_') &&
+            (t as SupportTicket & { needs_admin_reply?: boolean }).needs_admin_reply &&
+            ['open', 'in_progress'].includes(t.status),
+        );
       }
 
       return result as SupportTicket[];
@@ -198,13 +212,23 @@ export function AdminSupportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Supporto"
-        description="Gestisci i ticket di supporto degli utenti"
+        title={ptOnly ? 'Feedback Professionisti' : 'Supporto'}
+        description={
+          pendingReplyOnly
+            ? 'Ticket PT in attesa di una tua risposta'
+            : 'Gestisci i ticket di supporto degli utenti'
+        }
         icon={Ticket}
       />
 
       {/* Filters */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
+        {ptOnly && (
+          <Badge variant="secondary">Solo feedback PT</Badge>
+        )}
+        {pendingReplyOnly && (
+          <Badge className="bg-warning/15 text-warning border-warning/30">Da rispondere</Badge>
+        )}
         <Select
           value={statusFilter}
           onValueChange={(value) => {
