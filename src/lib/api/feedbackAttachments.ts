@@ -52,13 +52,30 @@ export async function uploadFeedbackAttachment(
   return path;
 }
 
+export function parseFeedbackAttachmentPaths(value: unknown): string[] {
+  if (value == null) return [];
+  if (Array.isArray(value)) {
+    return value.filter((p): p is string => typeof p === 'string' && p.length > 0);
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parseFeedbackAttachmentPaths(parsed);
+    } catch {
+      return value.length > 0 ? [value] : [];
+    }
+  }
+  return [];
+}
+
 export async function signedFeedbackAttachmentUrl(
   storagePath: string,
   expiresSeconds = 3600,
-): Promise<string | null> {
+): Promise<{ url: string | null; error?: string }> {
   const { data, error } = await supabase.storage
     .from('feedback-attachments')
     .createSignedUrl(storagePath, expiresSeconds);
-  if (error || !data?.signedUrl) return null;
-  return data.signedUrl;
+  if (error) return { url: null, error: error.message };
+  if (!data?.signedUrl) return { url: null, error: 'URL non disponibile' };
+  return { url: data.signedUrl };
 }

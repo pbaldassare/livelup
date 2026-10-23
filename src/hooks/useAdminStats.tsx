@@ -22,7 +22,18 @@ export function useAdminStats() {
 
       if (error) {
         console.error('Error fetching admin stats:', error);
-        throw error;
+        return {
+          total_pts: 0,
+          active_pts: 0,
+          pending_pts: 0,
+          suspended_pts: 0,
+          total_athletes: 0,
+          connected_athletes: 0,
+          premium_athletes: 0,
+          active_subscriptions: 0,
+          open_tickets: 0,
+          pt_feedback_pending_replies: 0,
+        };
       }
 
       // Handle the case where data is an array

@@ -86,7 +86,7 @@ export function DataTable<T extends { id: string }>({
 
       {/* Table — scroll orizzontale su mobile */}
       <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
-        <div className="min-w-[min(100%,640px)] rounded-lg border bg-card md:min-w-0">
+        <div className="min-w-full rounded-lg border bg-card md:min-w-0">
         <Table>
           <TableHeader>
             <TableRow>

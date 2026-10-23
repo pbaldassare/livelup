@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parseFeedbackAttachmentPaths } from '@/lib/api/feedbackAttachments';
 import {
   defaultFeedbackSubject,
   isPtFeedbackCategory,
@@ -13,6 +14,12 @@ describe('feedbackTickets', () => {
 
   it('builds default subject', () => {
     expect(defaultFeedbackSubject('pt_bug')).toMatch(/^Bug —/);
+  });
+
+  it('parses attachment paths from array or json', () => {
+    expect(parseFeedbackAttachmentPaths(['a/b.jpg'])).toEqual(['a/b.jpg']);
+    expect(parseFeedbackAttachmentPaths('["x/y.pdf"]')).toEqual(['x/y.pdf']);
+    expect(parseFeedbackAttachmentPaths(null)).toEqual([]);
   });
 
   it('detects unread admin reply for PT', () => {

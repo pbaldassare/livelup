@@ -31,6 +31,9 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
+import { FeedbackAttachmentList } from '@/components/feedback/FeedbackAttachmentList';
+import { isPtFeedbackCategory } from '@/lib/feedbackTickets';
+import { parseFeedbackAttachmentPaths } from '@/lib/api/feedbackAttachments';
 
 type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -146,6 +149,8 @@ export function AdminTicketDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-ticket-detail', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['support-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       setReplyMessage('');
       toast.success('Risposta inviata');
     },
@@ -166,17 +171,24 @@ export function AdminTicketDetailPage() {
   }
 
   if (!ticket) {
+    const fallbackList = '/admin/support';
     return (
       <div className="text-center py-12">
         <AlertTriangle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
         <h2 className="text-xl font-semibold">Ticket non trovato</h2>
-        <Button variant="ghost" onClick={() => navigate('/admin/support')} className="mt-4">
+        <Button variant="ghost" onClick={() => navigate(fallbackList)} className="mt-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Torna alla lista
         </Button>
       </div>
     );
   }
+
+  const listPath = isPtFeedbackCategory(ticket.category)
+    ? '/admin/pt-feedback'
+    : '/admin/support';
+  const ticketAttachments = parseFeedbackAttachmentPaths(ticket.attachments);
+  const listLabel = isPtFeedbackCategory(ticket.category) ? 'Suggerimenti PT' : 'Supporto';
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -195,11 +207,11 @@ export function AdminTicketDetailPage() {
         icon={<Ticket className="h-6 w-6" />}
         breadcrumbs={[
           { label: 'Admin', href: '/admin' },
-          { label: 'Supporto', href: '/admin/support' },
+          { label: listLabel, href: listPath },
           { label: `Ticket #${ticket.id.slice(0, 8)}` }
         ]}
         actions={
-          <Button variant="outline" onClick={() => navigate('/admin/support')}>
+          <Button variant="outline" onClick={() => navigate(listPath)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Indietro
           </Button>
@@ -312,6 +324,12 @@ export function AdminTicketDetailPage() {
             <div className="prose prose-sm max-w-none">
               <p className="whitespace-pre-wrap">{ticket.description}</p>
             </div>
+            {ticketAttachments.length > 0 && (
+              <div className="mt-4 border-t pt-4">
+                <p className="text-sm font-medium text-muted-foreground mb-2">Allegati</p>
+                <FeedbackAttachmentList paths={ticketAttachments} />
+              </div>
+            )}
           </SectionCard>
 
           {/* Messages Thread */}
@@ -328,6 +346,7 @@ export function AdminTicketDetailPage() {
                   message: string;
                   is_internal: boolean;
                   created_at: string;
+                  attachments?: unknown;
                   senderProfile?: { first_name?: string; last_name?: string };
                 }) => {
                   const isAdmin = msg.sender_id !== ticket.user_id;
@@ -357,6 +376,7 @@ export function AdminTicketDetailPage() {
                             : 'bg-muted'
                         }`}>
                           <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                          <FeedbackAttachmentList paths={msg.attachments} className="mt-2" />
                         </div>
                       </div>
                     </div>
