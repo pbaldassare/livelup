@@ -18,6 +18,7 @@ import {
   type PtCourseStepProgress,
 } from '@/lib/api/courses';
 import { toast } from 'sonner';
+import { vendeAbbonamenti } from '@/lib/native';
 
 const DIFFICULTY_LABELS: Record<CourseDifficulty, string> = {
   beginner: 'Principiante',
@@ -200,7 +201,9 @@ export function AtletaCourseDetailPage() {
               >
                 {course.is_free !== false
                   ? 'Gratuito'
-                  : `€ ${Number(course.price || 0).toFixed(2)}`}
+                  : vendeAbbonamenti()
+                    ? `€ ${Number(course.price || 0).toFixed(2)}`
+                    : 'Su assegnazione'}
               </Badge>
               {course.target_exercise ? (
                 <Badge className="bg-app-accent/15 text-app-accent border-0">
@@ -232,7 +235,10 @@ export function AtletaCourseDetailPage() {
         {!enrolled ? (
           course.is_free === false ? (
             <div className="rounded-xl border border-app-border bg-app-card p-4 text-center space-y-1">
-              <p className="text-sm font-medium text-app-foreground">Corso a pagamento</p>
+              {/* Nell'app iOS niente "a pagamento" (vedi vendeAbbonamenti). */}
+              <p className="text-sm font-medium text-app-foreground">
+                {vendeAbbonamenti() ? 'Corso a pagamento' : 'Su assegnazione'}
+              </p>
               <p className="text-xs text-app-muted-foreground">
                 Chiedi al tuo Professionista di assegnarti questo corso
               </p>

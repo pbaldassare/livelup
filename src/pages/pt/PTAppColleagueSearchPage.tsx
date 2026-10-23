@@ -354,7 +354,7 @@ function ColleagueScheda({
     <Sheet open={!!selected} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="z-[60] bg-app-card border-app-border text-app-foreground rounded-t-3xl max-h-[85vh] overflow-y-auto pb-10 safe-bottom"
+        className="z-[60] bg-app-card border-app-border text-app-foreground rounded-t-3xl max-h-[85vh] overflow-y-auto pb-10"
       >
         {common && (
           <>

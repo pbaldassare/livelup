@@ -27,6 +27,7 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { vendeAbbonamenti } from '@/lib/native';
 
 // =====================================================
 // ATLETA SUBSCRIPTION PAGE - Abbonamento PIATTAFORMA
@@ -235,7 +236,9 @@ export function AtletaSubscriptionPage() {
                             <AlertTriangle className="h-4 w-4 text-red-400" />
                             <AlertTitle className="text-red-400">Abbonamento scaduto</AlertTitle>
                             <AlertDescription className="text-red-300/80">
-                              Rinnova il tuo abbonamento per continuare ad utilizzare tutte le funzionalità.
+                              {vendeAbbonamenti()
+                                ? 'Rinnova il tuo abbonamento per continuare ad utilizzare tutte le funzionalità.'
+                                : 'Il tuo abbonamento è scaduto.'}
                             </AlertDescription>
                           </Alert>
                         )}
@@ -258,110 +261,115 @@ export function AtletaSubscriptionPage() {
                 </Card>
               </motion.div>
 
-              {/* Available Plans */}
-              <div className="space-y-4">
-                <h2 className="text-lg font-bold text-white">Piani disponibili</h2>
+              {/* Piani in vendita: non nell'app iOS (vedi vendeAbbonamenti) */}
+              {vendeAbbonamenti() && (
+                <>
+                {/* Available Plans */}
+                <div className="space-y-4">
+                  <h2 className="text-lg font-bold text-white">Piani disponibili</h2>
 
-                {!PAYMENTS_ENABLED && (
-                  <Alert className="bg-yellow-500/10 border-yellow-500/20">
-                    <Clock className="h-4 w-4 text-yellow-400" />
-                    <AlertTitle className="text-yellow-400">Pagamenti in arrivo</AlertTitle>
-                    <AlertDescription className="text-yellow-300/80">
-                      Puoi consultare i piani, ma l&apos;upgrade online non è ancora disponibile.
-                      Contatta il supporto per informazioni sull&apos;abbonamento.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                {plans.length === 0 ? (
-                  <Card className="bg-gray-900/60 border-white/10">
-                    <CardContent className="py-8 text-center">
-                      <p className="text-white/50">Nessun piano disponibile al momento</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  plans.map((plan, index) => (
-                    <motion.div
-                      key={plan.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      <Card 
-                        className={`bg-gray-900/60 border transition-all cursor-pointer ${
-                          plan.is_featured 
-                            ? 'border-app-accent ring-1 ring-app-accent/50' 
-                            : 'border-white/10 hover:border-white/20'
-                        } ${selectedPlan === plan.id ? 'ring-2 ring-app-accent' : ''}`}
-                        onClick={() => setSelectedPlan(plan.id)}
+                  {!PAYMENTS_ENABLED && (
+                    <Alert className="bg-yellow-500/10 border-yellow-500/20">
+                      <Clock className="h-4 w-4 text-yellow-400" />
+                      <AlertTitle className="text-yellow-400">Pagamenti in arrivo</AlertTitle>
+                      <AlertDescription className="text-yellow-300/80">
+                        Puoi consultare i piani, ma l&apos;upgrade online non è ancora disponibile.
+                        Contatta il supporto per informazioni sull&apos;abbonamento.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {plans.length === 0 ? (
+                    <Card className="bg-gray-900/60 border-white/10">
+                      <CardContent className="py-8 text-center">
+                        <p className="text-white/50">Nessun piano disponibile al momento</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    plans.map((plan, index) => (
+                      <motion.div
+                        key={plan.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
                       >
-                        <CardHeader className="pb-2">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-white flex items-center gap-2">
-                              {plan.is_featured && <Crown className="h-5 w-5 text-app-accent" />}
-                              {plan.name}
-                            </CardTitle>
-                            {plan.is_featured && (
-                              <Badge className="bg-app-accent text-black">Consigliato</Badge>
+                        <Card 
+                          className={`bg-gray-900/60 border transition-all cursor-pointer ${
+                            plan.is_featured 
+                              ? 'border-app-accent ring-1 ring-app-accent/50' 
+                              : 'border-white/10 hover:border-white/20'
+                          } ${selectedPlan === plan.id ? 'ring-2 ring-app-accent' : ''}`}
+                          onClick={() => setSelectedPlan(plan.id)}
+                        >
+                          <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-white flex items-center gap-2">
+                                {plan.is_featured && <Crown className="h-5 w-5 text-app-accent" />}
+                                {plan.name}
+                              </CardTitle>
+                              {plan.is_featured && (
+                                <Badge className="bg-app-accent text-black">Consigliato</Badge>
+                              )}
+                            </div>
+                            {plan.description && (
+                              <CardDescription className="text-white/60">
+                                {plan.description}
+                              </CardDescription>
                             )}
-                          </div>
-                          {plan.description && (
-                            <CardDescription className="text-white/60">
-                              {plan.description}
-                            </CardDescription>
-                          )}
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex items-baseline gap-1 mb-4">
-                            <span className="text-3xl font-bold text-white">€{plan.price_monthly}</span>
-                            <span className="text-white/50">/mese</span>
-                          </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex items-baseline gap-1 mb-4">
+                              <span className="text-3xl font-bold text-white">€{plan.price_monthly}</span>
+                              <span className="text-white/50">/mese</span>
+                            </div>
 
-                          <div className="space-y-2">
-                            {plan.features.map((feature, i) => (
-                              <div key={i} className="flex items-center gap-2 text-sm text-white/80">
-                                <Check className="h-4 w-4 text-app-accent flex-shrink-0" />
-                                <span>{String(feature)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                        <CardFooter>
-                          <Button 
-                            className={`w-full ${
-                              plan.is_featured 
-                                ? 'bg-app-accent hover:bg-app-accent/90 text-black' 
-                                : 'bg-white/10 hover:bg-white/20 text-white'
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!PAYMENTS_ENABLED) return;
-                              upgradeMutation.mutate(plan.id);
-                            }}
-                            disabled={
-                              upgradeMutation.isPending ||
-                              !PAYMENTS_ENABLED ||
-                              subscription?.subscription_type === plan.name.toLowerCase()
-                            }
-                          >
-                            {!PAYMENTS_ENABLED
-                              ? 'Pagamenti in arrivo'
-                              : subscription?.subscription_type === plan.name.toLowerCase()
-                                ? 'Piano attuale'
-                                : 'Scegli questo piano'}
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    </motion.div>
-                  ))
-                )}
-              </div>
+                            <div className="space-y-2">
+                              {plan.features.map((feature, i) => (
+                                <div key={i} className="flex items-center gap-2 text-sm text-white/80">
+                                  <Check className="h-4 w-4 text-app-accent flex-shrink-0" />
+                                  <span>{String(feature)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                          <CardFooter>
+                            <Button 
+                              className={`w-full ${
+                                plan.is_featured 
+                                  ? 'bg-app-accent hover:bg-app-accent/90 text-black' 
+                                  : 'bg-white/10 hover:bg-white/20 text-white'
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!PAYMENTS_ENABLED) return;
+                                upgradeMutation.mutate(plan.id);
+                              }}
+                              disabled={
+                                upgradeMutation.isPending ||
+                                !PAYMENTS_ENABLED ||
+                                subscription?.subscription_type === plan.name.toLowerCase()
+                              }
+                            >
+                              {!PAYMENTS_ENABLED
+                                ? 'Pagamenti in arrivo'
+                                : subscription?.subscription_type === plan.name.toLowerCase()
+                                  ? 'Piano attuale'
+                                  : 'Scegli questo piano'}
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
 
-              {/* Security Note */}
-              <div className="flex items-center gap-2 text-xs text-white/40 justify-center">
-                <Shield className="h-4 w-4" />
-                <span>I pagamenti online saranno gestiti in modo sicuro quando attivi</span>
-              </div>
+                {/* Security Note */}
+                <div className="flex items-center gap-2 text-xs text-white/40 justify-center">
+                  <Shield className="h-4 w-4" />
+                  <span>I pagamenti online saranno gestiti in modo sicuro quando attivi</span>
+                </div>
+                </>
+              )}
             </TabsContent>
           </Tabs>
         )}

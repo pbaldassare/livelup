@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lo stesso nero dello sfondo dell'icona PWA (public/livelapp-icon.png). -->
+    <color name="livelapp_nero">#000000</color>
+</resources>

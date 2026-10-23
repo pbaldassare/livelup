@@ -236,7 +236,7 @@ export function PTAppEventsPage() {
       <button
         type="button"
         onClick={() => setShowCreate(true)}
-        className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full bg-app-accent text-app-accent-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+        className="fixed bottom-[calc(6rem+var(--sab))] right-4 z-40 h-14 w-14 rounded-full bg-app-accent text-app-accent-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform"
         aria-label="Crea evento"
       >
         <Plus className="h-6 w-6" />

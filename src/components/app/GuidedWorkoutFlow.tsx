@@ -1105,7 +1105,7 @@ function SoftContinueBar({
   onContinue: () => void;
 }) {
   return (
-    <div className="border-t border-app-border bg-app-card/40 px-4 py-3 safe-bottom">
+    <div className="border-t border-app-border bg-app-card/40 px-4 pt-3 pb-[calc(0.75rem+var(--sab))]">
       <button
         type="button"
         onClick={onContinue}

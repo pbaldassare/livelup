@@ -1,4 +1,5 @@
 import type { AppRole } from '@/types/roles';
+import { publicAppOrigin } from '@/lib/publicOrigin';
 
 /** Deep link pubblico di invito gruppo: /g/{invite_token} */
 export const GROUP_INVITE_PATH_PREFIX = '/g';
@@ -36,11 +37,8 @@ export function getGroupInvitePath(inviteToken: string): string {
 }
 
 export function getGroupInviteUrl(inviteToken: string): string {
-  const origin =
-    typeof window !== 'undefined' && window.location?.origin
-      ? window.location.origin
-      : 'https://livelapp.iaconnect.it';
-  return `${origin}${getGroupInvitePath(inviteToken)}`;
+  // Nell'app Android l'origine e' https://localhost: il link deve aprire il sito.
+  return `${publicAppOrigin()}${getGroupInvitePath(inviteToken)}`;
 }
 
 /** Destinazione in-app per iscriversi, in base al ruolo. */

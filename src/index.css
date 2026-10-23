@@ -10,6 +10,14 @@
 
 @layer base {
   :root {
+    /* Margini di sistema (barra di stato in alto, barra dei gesti in basso).
+       Nell'app Android la WebView disegna sotto le barre, e prima di Chrome
+       140 env(safe-area-inset-*) vale 0: Capacitor inietta i valori giusti in
+       --safe-area-inset-*. Sul web restano env(), cioe' 0 fuori dagli iPhone.
+       Regole per la UI nuova in docs/ANDROID.md. */
+    --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+    --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+
     /* Core palette - Light mode */
     --background: 0 0% 98%;
     --foreground: 220 20% 10%;
@@ -456,13 +464,13 @@
     display: none;
   }
 
-  /* Safe area insets for PWA */
+  /* Safe area insets per PWA e app nativa (--sat / --sab in :root) */
   .safe-top {
-    padding-top: env(safe-area-inset-top);
+    padding-top: var(--sat);
   }
   
   .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: var(--sab);
   }
   
   .safe-left {
@@ -472,4 +480,36 @@
   .safe-right {
     padding-right: env(safe-area-inset-right);
   }
+}
+
+/* Pagine a schermo pieno (<SchermoPieno>): la fascia della barra di stato
+   e' coperta da <BarraDiStato />, quindi le intestazioni sticky top-0 si
+   fermano sotto di lei invece di finirle sotto. In AppLayout non serve:
+   <main> ha overflow-x-hidden e safe-top, e le sticky partono gia' sotto il
+   suo padding. Sul web --sat vale 0 e non cambia niente. */
+.schermo-pieno .sticky.top-0 {
+  top: var(--sat);
+}
+/* SchermoPieno ha gia' il margine in alto: la pagina dentro non deve
+   superare lo schermo solo per quello. */
+.schermo-pieno > .min-h-screen {
+  min-height: calc(100vh - var(--sat));
+}
+
+/* Sheet a tutta altezza o ancorate in basso: uno spaziatore lascia libera la
+   fascia della barra di stato o dei gesti. E' un elemento in piu' e non un
+   padding, cosi' non si scontra con i p-0 / px-0 passati dalle pagine. */
+[data-sheet-side="bottom"]::after {
+  content: "";
+  display: block;
+  flex: none;
+  height: var(--sab);
+}
+[data-sheet-side="left"]::before,
+[data-sheet-side="right"]::before,
+[data-sheet-side="top"]::before {
+  content: "";
+  display: block;
+  flex: none;
+  height: var(--sat);
 }

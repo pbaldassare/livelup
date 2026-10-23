@@ -48,7 +48,8 @@ export function AtletaCoursesPage({ embedded = false }: { embedded?: boolean } =
     : discover;
 
   return (
-    <div className="space-y-4 pb-4">
+    // Da sola (/app/courses) fa da pagina: margini come le altre; dentro Scopri li ha gia'.
+    <div className={embedded ? 'space-y-4 pb-4' : 'space-y-4 p-4'}>
       {!embedded && (
         <div className="flex items-center gap-3">
           <GraduationCap className="h-6 w-6 text-app-accent" />

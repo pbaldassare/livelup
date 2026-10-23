@@ -173,7 +173,7 @@ export function AtletaOnboardingPage() {
   return (
     <div className="min-h-screen bg-app-background flex flex-col" data-role="atleta">
       {/* Progress bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-app-muted">
+      <div className="fixed top-[var(--sat)] left-0 right-0 z-50 h-1 bg-app-muted">
         <motion.div 
           className="h-full bg-app-accent"
           initial={{ width: 0 }}
@@ -530,7 +530,7 @@ export function AtletaOnboardingPage() {
       </div>
 
       {/* Navigation buttons */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-app-background border-t border-app-border safe-bottom">
+      <div className="fixed bottom-0 left-0 right-0 p-4 pb-[calc(1rem+var(--sab))] bg-app-background border-t border-app-border">
         <div className="flex gap-3 max-w-lg mx-auto">
           {step > 1 && (
             <Button 

@@ -6,6 +6,7 @@ import { usePTBilling } from '@/hooks/usePTBilling';
 import { formatEur, needsPaidUpgrade, planAthleteLabel } from '@/lib/api/ptBilling';
 import { usePTRoutes } from '@/hooks/usePTRoutes';
 import { cn } from '@/lib/utils';
+import { vendeAbbonamenti } from '@/lib/native';
 
 export function PTBillingBanner({ forceApp = false }: { forceApp?: boolean }) {
   const { data, isLoading } = usePTBilling();
@@ -24,6 +25,9 @@ export function PTBillingBanner({ forceApp = false }: { forceApp?: boolean }) {
   if (!blocked && !pastDue && !upgrade) return null;
 
   const href = routes.payments;
+  // Nell'app iOS il banner dice solo lo stato: niente prezzi ne' pulsanti
+  // verso Pagamenti (vedi vendeAbbonamenti).
+  const vende = vendeAbbonamenti();
 
   if (blocked) {
     return (
@@ -35,9 +39,11 @@ export function PTBillingBanner({ forceApp = false }: { forceApp?: boolean }) {
             Il pagamento non è andato a buon fine. Non puoi accettare nuovi atleti finché
             l&apos;abbonamento non viene riattivato.
           </span>
-          <Button asChild size="sm" variant="destructive">
-            <Link to={href}>Vai a Pagamenti</Link>
-          </Button>
+          {vende && (
+            <Button asChild size="sm" variant="destructive">
+              <Link to={href}>Vai a Pagamenti</Link>
+            </Button>
+          )}
         </AlertDescription>
       </Alert>
     );
@@ -56,9 +62,11 @@ export function PTBillingBanner({ forceApp = false }: { forceApp?: boolean }) {
             Hai 7 giorni di grazia{grace ? ` (fino al ${grace})` : ''}. Non puoi accettare nuovi
             atleti. Poi l&apos;account verrà disattivato.
           </span>
-          <Button asChild size="sm">
-            <Link to={href}>Regolarizza</Link>
-          </Button>
+          {vende && (
+            <Button asChild size="sm">
+              <Link to={href}>Regolarizza</Link>
+            </Button>
+          )}
         </AlertDescription>
       </Alert>
     );
@@ -77,12 +85,14 @@ export function PTBillingBanner({ forceApp = false }: { forceApp?: boolean }) {
         <span>
           Hai {data.athlete_count} atleti attivi. Serve il piano {data.required_plan?.name} (
           {planAthleteLabel(data.required_plan)}
-          {data.required_plan ? ` · ${formatEur(data.required_plan.price_monthly)}/mese` : ''}).
+          {vende && data.required_plan ? ` · ${formatEur(data.required_plan.price_monthly)}/mese` : ''}).
           Non puoi accettare altri atleti sul piano attuale.
         </span>
-        <Button asChild size="sm">
-          <Link to={href}>Aggiorna piano</Link>
-        </Button>
+        {vende && (
+          <Button asChild size="sm">
+            <Link to={href}>Aggiorna piano</Link>
+          </Button>
+        )}
       </AlertDescription>
     </Alert>
   );

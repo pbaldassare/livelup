@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isNativeApp } from '@/lib/native';
 
 /**
  * usePTSurface
@@ -20,6 +21,8 @@ export type PTSurface = 'web' | 'app';
 
 function computeSurface(): PTSurface {
   if (typeof window === 'undefined') return 'web';
+  // Nell'app nativa la dashboard web non c'e', nemmeno sul tablet.
+  if (isNativeApp()) return 'app';
 
   // Manual override via ?view=web — useful when a PT needs the desktop UX from a phone
   const params = new URLSearchParams(window.location.search);

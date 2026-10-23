@@ -38,3 +38,9 @@ scripts/migrate/.env.resend
 scripts/migrate/.env.kimi
 scripts/migrate/*.sql
 scripts/migrate/dumps/
+
+# Firma Android: la chiave non entra mai nel repo, chi la perde non puo' piu'
+# aggiornare l'app su Play Store.
+*.jks
+*.keystore
+android/keystore.properties

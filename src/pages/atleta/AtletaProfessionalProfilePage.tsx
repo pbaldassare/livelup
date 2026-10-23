@@ -221,7 +221,7 @@ export default function AtletaProfessionalProfilePage() {
         )}
 
         {/* CTA Contatta */}
-        <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-app-background via-app-background to-transparent">
+        <div className="fixed bottom-[calc(5rem+var(--sab))] left-0 right-0 p-4 bg-gradient-to-t from-app-background via-app-background to-transparent">
           <Button 
             className="w-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 h-12 text-base font-semibold"
             onClick={() => {

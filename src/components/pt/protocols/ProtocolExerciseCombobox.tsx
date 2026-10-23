@@ -94,7 +94,7 @@ export function ProtocolExerciseCombobox({
             <DrawerHeader className="pb-2 text-left">
               <DrawerTitle>Seleziona esercizio</DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 overflow-hidden px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="min-h-0 overflow-hidden px-2 pb-4">
               {panel}
             </div>
           </DrawerContent>

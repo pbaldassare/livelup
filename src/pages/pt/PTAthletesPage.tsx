@@ -10,6 +10,7 @@ import { SectionCard } from '@/components/dashboard/SectionCard';
 import { DashboardStatusBadge } from '@/components/dashboard/DashboardStatusBadge';
 import { DetailSheet, ProfileInfo } from '@/components/dashboard/DetailSheet';
 import { TablePagination } from '@/components/dashboard/TablePagination';
+import { publicAppOrigin } from '@/lib/publicOrigin';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -392,7 +393,7 @@ export function PTAthletesPage() {
               Aggiungi atleta
             </Button>
             <Button variant="outline" size="sm" onClick={() => {
-              const link = `${window.location.origin}/auth?mode=signup&ref=${user?.id || ''}`;
+              const link = `${publicAppOrigin()}/auth?mode=signup&ref=${user?.id || ''}`;
               navigator.clipboard.writeText(link);
               toast.success('Link di invito copiato!');
             }}>

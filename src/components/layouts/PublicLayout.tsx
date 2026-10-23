@@ -110,6 +110,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               <h4 className="font-medium mb-3">Legale</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link></li>
+                <li><Link to="/elimina-account" className="hover:text-foreground transition-colors">Elimina account</Link></li>
                 <li><Link to="/terms" className="hover:text-foreground transition-colors">Termini</Link></li>
                 <li><Link to="/cookies" className="hover:text-foreground transition-colors">Cookie</Link></li>
               </ul>

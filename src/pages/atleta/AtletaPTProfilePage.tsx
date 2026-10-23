@@ -469,7 +469,7 @@ export function AtletaPTProfilePage() {
       )}
 
       {/* Fixed CTA */}
-      <div className="fixed bottom-20 left-0 right-0 p-4 bg-app-card border-t border-app-border safe-bottom">
+      <div className="fixed bottom-[calc(5rem+var(--sab))] left-0 right-0 p-4 bg-app-card border-t border-app-border">
         <div className="max-w-lg mx-auto space-y-2">
           {isConnectedToThisPT ? (
             <>

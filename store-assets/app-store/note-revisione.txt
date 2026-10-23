@@ -1,0 +1,19 @@
+Accesso per la revisione (App Store Connect › Versione 1.0 › Informazioni sulla verifica dell'app)
+
+Nome utente: atleta@demo.it
+Password: quella dell'account demo (inseriscila tu, non scriverla qui)
+
+Note:
+
+LivelAPP for iPhone is an app for athletes who train with a Personal Trainer: they follow the workout programs assigned by their trainer, log their sets, track progress, chat with the trainer and find trainers, events and groups nearby.
+
+Changes since the previous submission (Guidelines 3.1.1 and 3.1.3(c)):
+- The iOS app no longer gives access to the Personal Trainer area. If a trainer signs in, the app only shows "Area Professionista non disponibile su iPhone" and a sign-out button, with no link to the website or to any purchase.
+- Athletes never pay LivelAPP anything: the app is free for them and contains no paid digital content, prices or links to buy. Paid courses are not sold: a trainer can only assign them, and on iOS no price is shown.
+- Athletes can send their trainer a request for a training package (in-person or real-time sessions between the athlete and the trainer, Guideline 3.1.3(d)/(e)); there is no payment in the app.
+
+Demo account: atleta@demo.it (credentials in the fields above), linked to a demo trainer with sample programs, appointments and chat messages.
+
+Location is requested only when the user searches for trainers, events or groups nearby. Camera, photo library and microphone are requested only when the user chooses to upload a photo or a video.
+
+Athletes can delete their account in the app: Settings > Elimina account. Anyone can also request deletion at https://livelapp.iaconnect.it/elimina-account

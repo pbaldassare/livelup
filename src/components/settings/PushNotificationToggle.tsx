@@ -3,6 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bell, BellOff, Loader2, AlertTriangle } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { isNativeApp } from '@/lib/native';
 import { cn } from '@/lib/utils';
 
 // =====================================================
@@ -19,6 +20,8 @@ export function PushNotificationToggle() {
   } = usePushNotifications();
 
   if (!isSupported) {
+    // Nell'app nativa le push non ci sono ancora (docs/ANDROID.md): niente avviso sul "browser".
+    if (isNativeApp()) return null;
     return (
       <Card className="border-warning/30 bg-warning/5">
         <CardContent className="pt-6">

@@ -187,7 +187,7 @@ export function PTAppProfilePage() {
 
   return (
     <div className="pb-4" data-tour="pt-profile-page">
-      <div className="sticky top-0 z-40 safe-top bg-app-background/95 backdrop-blur border-b border-app-border">
+      <div className="sticky top-0 z-40 bg-app-background/95 backdrop-blur border-b border-app-border">
         <div className="flex items-center gap-1 px-2 py-2">
           <Button
             type="button"

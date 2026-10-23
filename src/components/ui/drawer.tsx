@@ -38,6 +38,8 @@ const DrawerContent = React.forwardRef<
     >
       <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
       {children}
+      {/* Fascia della barra dei gesti nell'app Android (vaul usa gia' ::after). */}
+      <div aria-hidden className="h-[var(--sab)] shrink-0" />
     </DrawerPrimitive.Content>
   </DrawerPortal>
 ));

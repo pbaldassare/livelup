@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { isNativeApp } from '@/lib/native';
 import { toast } from 'sonner';
 
 // =====================================================
@@ -36,7 +37,8 @@ export function usePushNotifications() {
 
   // Check if push is supported
   useEffect(() => {
-    const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+    // Nell'app nativa non c'e' service worker: le push web non arrivano.
+    const supported = !isNativeApp() && 'serviceWorker' in navigator && 'PushManager' in window;
     setIsSupported(supported);
 
     if (supported) {

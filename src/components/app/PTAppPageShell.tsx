@@ -10,7 +10,7 @@ import { NotificationBellButton } from '@/components/notifications/NotificationB
 // PT APP PAGE SHELL
 // Shell mobile uniforme per le pagine PT-PWA:
 // - header sticky compatto con titolo + descrizione + slot azioni
-// - safe-top per non finire sotto la status-bar in PWA standalone
+// - sotto la barra di stato ci pensa AppLayout (safe-top su main, che fa da contenitore delle sticky)
 // - container con padding orizzontale e bottom-padding per la bottom-nav
 // - overflow-x-hidden per neutralizzare tabelle/grafici desktop
 //
@@ -62,7 +62,7 @@ export function PTAppPageShell({
 
   return (
     <div className={cn('min-h-full overflow-x-hidden', className)}>
-      <header className="sticky top-0 z-30 safe-top bg-app-background/95 backdrop-blur border-b border-app-border">
+      <header className="sticky top-0 z-30 bg-app-background/95 backdrop-blur border-b border-app-border">
         <div className="flex items-start gap-1 px-2 py-3 sm:px-4">
           {showBack && (
             <Button

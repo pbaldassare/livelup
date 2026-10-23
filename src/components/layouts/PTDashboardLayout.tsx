@@ -59,6 +59,7 @@ const navigationItems = [
   { label: 'Blog & Q&A', href: '/pt/blog', icon: BookOpen },
   { label: 'Suggerimenti e modifiche', href: '/pt/feedback', icon: Lightbulb },
   { label: 'Impostazioni', href: '/pt/settings', icon: Settings },
+];
 
 export function PTDashboardLayout({ children }: PTDashboardLayoutProps) {
   const location = useLocation();

@@ -165,6 +165,8 @@ export function PTPaymentsPage({ embedded = false }: { embedded?: boolean } = {}
     {
       key: 'paid_at',
       header: 'Pagato il',
+      // Sul telefono la tabella non ci starebbe: la data di addebito basta.
+      className: 'hidden sm:table-cell',
       cell: (payment) => (
         <span className="text-sm text-muted-foreground">
           {payment.paid_at

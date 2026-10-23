@@ -32,6 +32,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { vendeAbbonamenti } from '@/lib/native';
 import { cn } from '@/lib/utils';
 
 interface PTMoreDrawerProps {
@@ -72,7 +73,8 @@ export function PTMoreDrawer({ trigger }: PTMoreDrawerProps) {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const groups = Array.from(new Set(SECTIONS.map((s) => s.group)));
+  const sezioni = vendeAbbonamenti() ? SECTIONS : SECTIONS.filter((s) => s.href !== '/pt/app/payments');
+  const groups = Array.from(new Set(sezioni.map((s) => s.group)));
 
   const goTo = useCallback(
     (href: string) => {
@@ -101,7 +103,7 @@ export function PTMoreDrawer({ trigger }: PTMoreDrawerProps) {
         side="bottom"
         className={cn(
           'z-[60] bg-app-card border-app-border text-app-foreground rounded-t-3xl',
-          'max-h-[85vh] overflow-y-auto pb-24 safe-bottom',
+          'max-h-[85vh] overflow-y-auto pb-24',
         )}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
@@ -116,7 +118,7 @@ export function PTMoreDrawer({ trigger }: PTMoreDrawerProps) {
                 {group}
               </p>
               <div className="grid grid-cols-3 gap-2">
-                {SECTIONS.filter((s) => s.group === group).map((s) => (
+                {sezioni.filter((s) => s.group === group).map((s) => (
                   <SheetClose key={s.href} asChild>
                     <button
                       type="button"

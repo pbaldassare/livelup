@@ -2,6 +2,7 @@ import { safeGet, safeSet, safeRemove } from '@/lib/safeStorage';
 import { isGroupInvitePath } from '@/lib/groupInvite';
 import { isAuthColdStartEntry } from '@/lib/passwordRecovery';
 import { getHomeRoute, type AppRole } from '@/types/roles';
+import { isNativeApp } from '@/lib/native';
 
 /**
  * Last mobile-app path (localStorage). Previously restored on PWA cold start at `/`.
@@ -129,6 +130,7 @@ export function shouldRestoreLastAppPath(): boolean {
   const params = new URLSearchParams(window.location.search);
   if (params.get('view') === 'web') return false;
   const isStandalone =
+    isNativeApp() ||
     window.matchMedia('(display-mode: standalone)').matches ||
     (navigator as unknown as { standalone?: boolean }).standalone === true;
   const isNarrow = window.matchMedia('(max-width: 767px)').matches;

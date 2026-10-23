@@ -87,6 +87,11 @@ test.use({
   deviceScaleFactor: 3,
 });
 
+// Niente banner "Installa Livelapp" nelle schermate (vanno anche sugli store).
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('pwa-banner-dismissed', String(Date.now())));
+});
+
 test.describe('Mobile screenshots — Atleta', () => {
   test.describe.configure({ mode: 'serial', timeout: 300_000 });
 
@@ -126,7 +131,7 @@ test.describe('Mobile screenshots — Atleta', () => {
     // Bonus: player allenamento se disponibile dalla home
     await gotoScreen(page, '/app', ATHLETE_OUT, '01-home');
     const workoutCta = page.getByRole('button', {
-      name: /Continua allenamento|Inizia allenamento|Riprendi/i,
+      name: /^Allenati$|Continua allenamento|Inizia allenamento|Riprendi/i,
     });
     if (await waitVisible(workoutCta, 4000)) {
       await workoutCta.click();
