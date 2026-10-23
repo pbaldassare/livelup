@@ -12,7 +12,23 @@ import { MessageSquare, Send, Search, Users, Plus, Settings, Globe } from 'lucid
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { getOrCreateChat, markMessagesAsRead } from '@/lib/api/messages';
+import {
+  getOrCreateChat,
+  markMessagesAsRead,
+  subscribeToMessages,
+  subscribeToMessageReactions,
+  getMessageReactions,
+  setMessagePinned,
+  toggleMessageReaction,
+} from '@/lib/api/messages';
+import { ownMessageReceiptLabel, scheduleTypingSignal } from '@/lib/chatReceipts';
+import { useChatTyping } from '@/hooks/useChatTyping';
+import {
+  CHAT_REACTION_EMOJIS,
+  groupReactions,
+  resolveReplyPreview,
+  type ChatReaction,
+} from '@/lib/chatThread';
 import {
   conversationFallbackPreview,
   conversationRelationLabel,
@@ -69,6 +85,10 @@ interface Message {
   created_at: string;
   is_read: boolean;
   senderName?: string;
+  reply_to_id?: string | null;
+  is_pinned?: boolean;
+  replyTo?: { senderName: string; content: string };
+  reactions?: ChatReaction[];
 }
 
 type Selection =
@@ -111,6 +131,84 @@ function MessageMedia({ message }: { message: Message }) {
   );
 }
 
+async function decorateWebMessages(rows: Message[], currentUserId: string): Promise<Message[]> {
+  const reactionMap = groupReactions(
+    await getMessageReactions(rows.map((r) => r.id)),
+    currentUserId,
+  );
+  const named = rows.map((r) => ({
+    id: r.id,
+    content: r.content,
+    senderName: r.senderName || (r.sender_user_id === currentUserId ? 'Tu' : 'Atleta'),
+  }));
+  return rows.map((r) => ({
+    ...r,
+    senderName: named.find((n) => n.id === r.id)?.senderName,
+    replyTo: resolveReplyPreview(named, r.reply_to_id),
+    reactions: reactionMap.get(r.id) ?? [],
+  }));
+}
+
+function WebThreadExtras({
+  message,
+  active,
+  isOwn,
+  onReply,
+  onPin,
+  onReact,
+}: {
+  message: Message;
+  active: boolean;
+  isOwn: boolean;
+  onReply: () => void;
+  onPin: () => void;
+  onReact: (emoji: string) => void;
+}) {
+  return (
+    <>
+      {message.replyTo && (
+        <div className="mb-1 border-l-2 border-white/50 pl-2 text-xs opacity-80">
+          <p className="font-medium">{message.replyTo.senderName}</p>
+          <p className="line-clamp-2">{message.replyTo.content}</p>
+        </div>
+      )}
+      {(message.reactions?.length ?? 0) > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {message.reactions!.map((r) => (
+            <button
+              key={r.emoji}
+              type="button"
+              onClick={() => onReact(r.emoji)}
+              className={cn(
+                'rounded-full px-1.5 text-[10px]',
+                isOwn ? 'bg-white/20' : 'bg-background',
+                r.mine && 'ring-1 ring-role-pt',
+              )}
+            >
+              {r.emoji} {r.count}
+            </button>
+          ))}
+        </div>
+      )}
+      {active && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={onReply}>
+            Rispondi
+          </Button>
+          <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={onPin}>
+            {message.is_pinned ? 'Togli' : 'Fissa'}
+          </Button>
+          {CHAT_REACTION_EMOJIS.map((emoji) => (
+            <button key={emoji} type="button" className="text-sm" onClick={() => onReact(emoji)}>
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 export function PTMessagesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -122,6 +220,9 @@ export function PTMessagesPage() {
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [manageGroupOpen, setManageGroupOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pendingReply, setPendingReply] = useState<Message | null>(null);
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
 
   // Fetch tutti gli atleti collegati + chat (se esistente)
   const { data: rows = [], isLoading: rowsLoading } = useQuery({
@@ -275,6 +376,10 @@ export function PTMessagesPage() {
 
   const selectedRow = rows.find((r) => r.atleta_user_id === selectedAthleteId) || null;
   const selectedChatId = selectedRow?.chat_id || null;
+  const { isPeerTyping, setTyping } = useChatTyping(
+    selection?.kind === 'athlete' ? selectedChatId : null,
+    user?.id,
+  );
   const selectedChatGroup = chatGroups.find((g) => g.id === selectedChatGroupId) || null;
   const selectedCommunity =
     communityGroups.find((g) => g.id === selectedCommunityId) || null;
@@ -329,9 +434,10 @@ export function PTMessagesPage() {
         .eq('chat_id', selectedChatId)
         .order('created_at', { ascending: true });
       if (error) throw error;
-      return data as Message[];
+      const rows = (data || []) as Message[];
+      return user?.id ? decorateWebMessages(rows, user.id) : rows;
     },
-    enabled: !!selectedChatId && selection?.kind === 'athlete',
+    enabled: !!selectedChatId && selection?.kind === 'athlete' && !!user?.id,
   });
 
   // Messaggi gruppo chat PT
@@ -349,7 +455,7 @@ export function PTMessagesPage() {
         : { data: [] };
       const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
 
-      return messagesData.map((msg) => {
+      const mapped = messagesData.map((msg) => {
         const profile = profileMap.get(msg.sender_user_id);
         const senderName = profile
           ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Atleta'
@@ -364,10 +470,13 @@ export function PTMessagesPage() {
           created_at: msg.created_at,
           is_read: true,
           senderName,
+          reply_to_id: msg.reply_to_id,
+          is_pinned: msg.is_pinned,
         } as Message;
       });
+      return user?.id ? decorateWebMessages(mapped, user.id) : mapped;
     },
-    enabled: !!selectedChatGroupId && selection?.kind === 'chatGroup',
+    enabled: !!selectedChatGroupId && selection?.kind === 'chatGroup' && !!user?.id,
   });
 
   const { data: groupMembers } = useQuery({
@@ -381,7 +490,7 @@ export function PTMessagesPage() {
     selection?.kind === 'chatGroup' ? groupMessagesLoading : athleteMessagesLoading;
 
   const sendAthleteMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, replyToId }: { content: string; replyToId?: string }) => {
       if (!user?.id || !selectedAthleteId) throw new Error('Stato non valido');
 
       let chatId = selectedChatId;
@@ -390,10 +499,11 @@ export function PTMessagesPage() {
         chatId = chat.id;
       }
 
-      const { error } = await supabase.from('messages').insert({
+      const { error } = await (supabase as any).from('messages').insert({
         chat_id: chatId,
         sender_user_id: user.id,
         content,
+        reply_to_id: replyToId ?? null,
       });
 
       if (error) throw error;
@@ -409,6 +519,8 @@ export function PTMessagesPage() {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', chatId] });
       queryClient.invalidateQueries({ queryKey: ['pt-athletes-chats'] });
       setMessageInput('');
+      setPendingReply(null);
+      scheduleTypingSignal(false, setTyping, typingTimerRef);
     },
     onError: (e: Error) => {
       toast.error(e?.message || "Errore durante l'invio del messaggio");
@@ -416,18 +528,20 @@ export function PTMessagesPage() {
   });
 
   const sendGroupMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, replyToId }: { content: string; replyToId?: string }) => {
       if (!user?.id || !selectedChatGroupId) throw new Error('Stato non valido');
       return sendChatGroupMessage({
         groupId: selectedChatGroupId,
         senderUserId: user.id,
         content,
+        replyToId,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-group-messages', selectedChatGroupId] });
       queryClient.invalidateQueries({ queryKey: ['pt-chat-groups'] });
       setMessageInput('');
+      setPendingReply(null);
     },
     onError: (e: Error) => {
       toast.error(e?.message || "Errore durante l'invio del messaggio");
@@ -467,27 +581,18 @@ export function PTMessagesPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Realtime 1:1
+  // Realtime 1:1 (INSERT + UPDATE so "Letto" updates live)
   useEffect(() => {
     if (selection?.kind !== 'athlete' || !selectedChatId) return;
-    const channel = supabase
-      .channel(`messages:${selectedChatId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${selectedChatId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['chat-messages', selectedChatId] });
-        }
-      )
-      .subscribe();
-
+    const unsubMessages = subscribeToMessages(selectedChatId, () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', selectedChatId] });
+    });
+    const unsubReactions = subscribeToMessageReactions(selectedChatId, () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', selectedChatId] });
+    });
     return () => {
-      supabase.removeChannel(channel);
+      unsubMessages();
+      unsubReactions();
     };
   }, [selection?.kind, selectedChatId, queryClient]);
 
@@ -500,7 +605,13 @@ export function PTMessagesPage() {
         .then(() => queryClient.invalidateQueries({ queryKey: ['pt-chat-groups'] }))
         .catch(() => {});
     });
-    return unsubscribe;
+    const unsubReactions = subscribeToMessageReactions(`group:${selectedChatGroupId}`, () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-group-messages', selectedChatGroupId] });
+    });
+    return () => {
+      unsubscribe();
+      unsubReactions();
+    };
   }, [selection?.kind, selectedChatGroupId, user?.id, queryClient]);
 
   const term = searchTerm.toLowerCase().trim();
@@ -562,24 +673,32 @@ export function PTMessagesPage() {
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageInput.trim()) return;
+    const payload = { content: messageInput.trim(), replyToId: pendingReply?.id };
     if (selection?.kind === 'chatGroup') {
-      sendGroupMutation.mutate(messageInput.trim());
+      sendGroupMutation.mutate(payload);
     } else if (selection?.kind === 'athlete') {
-      sendAthleteMutation.mutate(messageInput.trim());
+      sendAthleteMutation.mutate(payload);
     }
   };
 
   const selectAthlete = (id: string) => {
+    scheduleTypingSignal(false, setTyping, typingTimerRef);
+    setPendingReply(null);
+    setActiveMessageId(null);
     setSelection({ kind: 'athlete', id });
     setMessageInput('');
   };
 
   const selectChatGroup = (id: string) => {
+    setPendingReply(null);
+    setActiveMessageId(null);
     setSelection({ kind: 'chatGroup', id });
     setMessageInput('');
   };
 
   const selectCommunityGroup = (id: string) => {
+    setPendingReply(null);
+    setActiveMessageId(null);
     setSelection({ kind: 'communityGroup', id });
     setMessageInput('');
   };
@@ -921,8 +1040,39 @@ export function PTMessagesPage() {
                                   {message.senderName}
                                 </p>
                               )}
-                              <MessageMedia message={message} />
-                              {message.content && <p>{message.content}</p>}
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() =>
+                                  setActiveMessageId((id) => (id === message.id ? null : message.id))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setActiveMessageId((id) => (id === message.id ? null : message.id));
+                                  }
+                                }}
+                              >
+                                <MessageMedia message={message} />
+                                {message.content && <p>{message.content}</p>}
+                              </div>
+                              <WebThreadExtras
+                                message={message}
+                                active={activeMessageId === message.id}
+                                isOwn={isOwn}
+                                onReply={() => setPendingReply(message)}
+                                onPin={() => {
+                                  setMessagePinned(message.id, !message.is_pinned)
+                                    .then(() => queryClient.invalidateQueries({ queryKey: ['chat-group-messages', selectedChatGroupId] }))
+                                    .catch((e: Error) => toast.error(e.message));
+                                }}
+                                onReact={(emoji) => {
+                                  if (!user?.id) return;
+                                  toggleMessageReaction(message.id, user.id, emoji)
+                                    .then(() => queryClient.invalidateQueries({ queryKey: ['chat-group-messages', selectedChatGroupId] }))
+                                    .catch((e: Error) => toast.error(e.message));
+                                }}
+                              />
                               <p
                                 className={cn(
                                   'text-[10px] mt-1',
@@ -930,6 +1080,7 @@ export function PTMessagesPage() {
                                 )}
                               >
                                 {format(new Date(message.created_at), 'HH:mm')}
+                                {message.is_pinned ? ' · Fissato' : ''}
                               </p>
                             </div>
                           </div>
@@ -939,7 +1090,13 @@ export function PTMessagesPage() {
                     </div>
                   )}
                 </ScrollArea>
-                <form onSubmit={handleSendMessage} className="p-4 border-t">
+                <form onSubmit={handleSendMessage} className="p-4 border-t space-y-2">
+                  {pendingReply && selection?.kind === 'chatGroup' && (
+                    <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-xs">
+                      <span className="truncate">Risposta a {pendingReply.senderName}: {pendingReply.content || 'Allegato'}</span>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setPendingReply(null)}>Annulla</Button>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Input
                       placeholder="Scrivi un messaggio al gruppo..."
@@ -976,11 +1133,13 @@ export function PTMessagesPage() {
                     <CardTitle className="text-lg">
                       {selectedRow.profile?.first_name} {selectedRow.profile?.last_name}
                     </CardTitle>
-                    {conversationRelationLabel(selectedRow.relation) && (
+                    {(isPeerTyping || conversationRelationLabel(selectedRow.relation)) && (
                       <p className="text-xs text-muted-foreground">
-                        {selectedRow.relation === 'inquiry'
-                          ? 'Ti ha scritto senza essere collegato'
-                          : 'Richiesta di connessione in attesa'}
+                        {isPeerTyping
+                          ? 'sta scrivendo…'
+                          : selectedRow.relation === 'inquiry'
+                            ? 'Ti ha scritto senza essere collegato'
+                            : 'Richiesta di connessione in attesa'}
                       </p>
                     )}
                   </div>
@@ -1015,8 +1174,39 @@ export function PTMessagesPage() {
                                 isOwn ? 'bg-role-pt text-white' : 'bg-muted'
                               )}
                             >
-                              <MessageMedia message={message} />
-                              {message.content && <p>{message.content}</p>}
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() =>
+                                  setActiveMessageId((id) => (id === message.id ? null : message.id))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setActiveMessageId((id) => (id === message.id ? null : message.id));
+                                  }
+                                }}
+                              >
+                                <MessageMedia message={message} />
+                                {message.content && <p>{message.content}</p>}
+                              </div>
+                              <WebThreadExtras
+                                message={message}
+                                active={activeMessageId === message.id}
+                                isOwn={isOwn}
+                                onReply={() => setPendingReply(message)}
+                                onPin={() => {
+                                  setMessagePinned(message.id, !message.is_pinned)
+                                    .then(() => queryClient.invalidateQueries({ queryKey: ['chat-messages', selectedChatId] }))
+                                    .catch((e: Error) => toast.error(e.message));
+                                }}
+                                onReact={(emoji) => {
+                                  if (!user?.id) return;
+                                  toggleMessageReaction(message.id, user.id, emoji)
+                                    .then(() => queryClient.invalidateQueries({ queryKey: ['chat-messages', selectedChatId] }))
+                                    .catch((e: Error) => toast.error(e.message));
+                                }}
+                              />
                               <p
                                 className={cn(
                                   'text-[10px] mt-1',
@@ -1024,6 +1214,8 @@ export function PTMessagesPage() {
                                 )}
                               >
                                 {format(new Date(message.created_at), 'HH:mm')}
+                                {isOwn && ` · ${ownMessageReceiptLabel(message.is_read)}`}
+                                {message.is_pinned ? ' · Fissato' : ''}
                               </p>
                             </div>
                           </div>
@@ -1033,12 +1225,21 @@ export function PTMessagesPage() {
                     </div>
                   )}
                 </ScrollArea>
-                <form onSubmit={handleSendMessage} className="p-4 border-t">
+                <form onSubmit={handleSendMessage} className="p-4 border-t space-y-2">
+                  {pendingReply && selection?.kind === 'athlete' && (
+                    <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-xs">
+                      <span className="truncate">Risposta a {pendingReply.senderName || 'messaggio'}: {pendingReply.content || 'Allegato'}</span>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setPendingReply(null)}>Annulla</Button>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Input
                       placeholder="Scrivi un messaggio..."
                       value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
+                      onChange={(e) => {
+                        setMessageInput(e.target.value);
+                        scheduleTypingSignal(!!e.target.value.trim(), setTyping, typingTimerRef);
+                      }}
                       disabled={sendPending}
                     />
                     <Button type="submit" disabled={!messageInput.trim() || sendPending}>

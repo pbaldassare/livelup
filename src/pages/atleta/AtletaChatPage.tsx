@@ -11,12 +11,28 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Users, Search, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+<<<<<<< Updated upstream
 import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from '@/lib/api/messages';
 import {
   conversationFallbackPreview,
   findPersistedConversation,
   mergeConversationPeers,
 } from '@/lib/conversations';
+=======
+import {
+  getOrCreateChat,
+  getChatMessages,
+  sendMessage,
+  markMessagesAsRead,
+  subscribeToMessages,
+  subscribeToMessageReactions,
+  toChatBubbles,
+  setMessagePinned,
+  toggleMessageReaction,
+} from '@/lib/api/messages';
+import { useChatTyping } from '@/hooks/useChatTyping';
+import { conversationFallbackPreview, mergeConversationPeers } from '@/lib/conversations';
+>>>>>>> Stashed changes
 import { uploadChatAttachment } from '@/lib/api/chatAttachments';
 import { toast } from 'sonner';
 import { buildCoachFullName } from '@/lib/coachName';
@@ -211,6 +227,7 @@ export function AtletaChatPage() {
         unreadCount: 0,
       }
     : undefined);
+  const { isPeerTyping, setTyping } = useChatTyping(currentChat?.id, user?.id);
 
   // Fetch messages for selected chat
   const { data: messages, isLoading: messagesLoading } = useQuery({
@@ -218,39 +235,14 @@ export function AtletaChatPage() {
     queryFn: async () => {
       if (!currentChat?.id) return [];
       
-      const messagesData = await getChatMessages(currentChat.id);
-      
-      // Fetch sender profiles
-      const messagesWithProfiles = await Promise.all(
-        messagesData.map(async (msg) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, avatar_url')
-            .eq('user_id', msg.sender_user_id)
-            .single();
-
-          return {
-            id: msg.id,
-            content: msg.content || '',
-            senderUserId: msg.sender_user_id,
-            senderName: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User' : 'User',
-            senderAvatar: profile?.avatar_url,
-            createdAt: msg.created_at,
-            isRead: msg.is_read,
-            attachmentUrl: msg.attachment_url,
-            attachmentType: msg.attachment_type,
-          };
-        })
-      );
-
-      return messagesWithProfiles;
+      return toChatBubbles(await getChatMessages(currentChat.id), user.id);
     },
-    enabled: !!currentChat?.id,
+    enabled: !!currentChat?.id && !!user?.id,
   });
 
   // Send message mutation (testo e/o allegato immagine/video)
   const sendMutation = useMutation({
-    mutationFn: async ({ content, file }: { content: string; file?: File | null }) => {
+    mutationFn: async ({ content, file, replyToId }: { content: string; file?: File | null; replyToId?: string }) => {
       if (!currentChat?.id || !user?.id) throw new Error('Chat not found');
       let attachmentUrl: string | undefined;
       let attachmentType: string | undefined;
@@ -265,6 +257,7 @@ export function AtletaChatPage() {
         content,
         attachmentUrl,
         attachmentType,
+        replyToId,
       });
     },
     onSuccess: () => {
@@ -300,9 +293,13 @@ export function AtletaChatPage() {
         });
       }
     });
+    const unsubReactions = subscribeToMessageReactions(currentChat.id, () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', currentChat.id] });
+    });
 
     return () => {
       unsubscribe();
+      unsubReactions();
     };
   }, [currentChat?.id, user?.id, queryClient]);
 
@@ -334,8 +331,21 @@ export function AtletaChatPage() {
           messages={messages || []}
           currentUserId={user?.id || ''}
           onBack={() => navigate('/app/chat')}
-          onSend={(content, file) => sendMutation.mutateAsync({ content, file })}
+          onSend={(content, file, replyToId) => sendMutation.mutateAsync({ content, file, replyToId })}
           isLoading={messagesLoading || creatingChat}
+          isPeerTyping={isPeerTyping}
+          onTypingChange={setTyping}
+          onPin={(id, pinned) => {
+            setMessagePinned(id, pinned)
+              .then(() => queryClient.invalidateQueries({ queryKey: ['chat-messages', currentChat?.id] }))
+              .catch((e: Error) => toast.error(e.message));
+          }}
+          onReact={(id, emoji) => {
+            if (!user?.id) return;
+            toggleMessageReaction(id, user.id, emoji)
+              .then(() => queryClient.invalidateQueries({ queryKey: ['chat-messages', currentChat?.id] }))
+              .catch((e: Error) => toast.error(e.message));
+          }}
         />
       </div>
     );

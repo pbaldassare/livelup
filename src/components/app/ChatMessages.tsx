@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronLeft, Paperclip, Send, Pin, X, Loader2, Play } from 'lucide-react';
+import { ChevronLeft, Paperclip, Send, Pin, Reply, X, Loader2, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -14,6 +14,8 @@ import {
 } from '@/lib/api/chatAttachments';
 import { SharedExerciseChatCard } from '@/components/exercises/SharedExerciseChatCard';
 import { isExerciseShareAttachment } from '@/lib/exerciseShare';
+import { ownMessageReceiptLabel, scheduleTypingSignal } from '@/lib/chatReceipts';
+import { CHAT_REACTION_EMOJIS, type ChatReaction } from '@/lib/chatThread';
 
 // =====================================================
 // CHAT MESSAGES - Conversation view (1:1 e gruppi)
@@ -35,6 +37,7 @@ interface Message {
     senderName: string;
     content: string;
   };
+  reactions?: ChatReaction[];
 }
 
 interface ChatMessagesProps {
@@ -46,11 +49,15 @@ interface ChatMessagesProps {
   currentUserId: string;
   onBack: () => void;
   /** Invia testo e/o un allegato (immagine/video). Deve restituire una Promise per gestire lo stato di invio. */
-  onSend: (content: string, file?: File | null) => Promise<unknown> | void;
+  onSend: (content: string, file?: File | null, replyToId?: string) => Promise<unknown> | void;
   isLoading?: boolean;
   showPinnedButton?: boolean;
   /** Azione extra nell'header (es. bottone "Gestisci" per i gruppi PT) */
   headerAction?: React.ReactNode;
+  isPeerTyping?: boolean;
+  onTypingChange?: (typing: boolean) => void;
+  onPin?: (messageId: string, pinned: boolean) => void;
+  onReact?: (messageId: string, emoji: string) => void;
 }
 
 export function ChatMessages({
@@ -64,15 +71,24 @@ export function ChatMessages({
   isLoading,
   showPinnedButton,
   headerAction,
+  isPeerTyping,
+  onTypingChange,
+  onPin,
+  onReact,
 }: ChatMessagesProps) {
   const [inputValue, setInputValue] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
   const [pendingKind, setPendingKind] = useState<ChatAttachmentKind | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingReply, setPendingReply] = useState<Message | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [showPinned, setShowPinned] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initials = recipientName.split(' ').map(n => n[0]).join('').slice(0, 2);
+  const pinned = messages.filter((m) => m.isPinned);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -83,6 +99,13 @@ export function ChatMessages({
       if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
     };
   }, [pendingPreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      onTypingChange?.(false);
+    };
+  }, [onTypingChange]);
 
   const clearPendingFile = () => {
     if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
@@ -114,9 +137,11 @@ export function ChatMessages({
     if (!trimmed && !pendingFile) return;
     setIsSubmitting(true);
     try {
-      await onSend(trimmed, pendingFile);
+      await onSend(trimmed, pendingFile, pendingReply?.id);
       setInputValue('');
+      setPendingReply(null);
       clearPendingFile();
+      scheduleTypingSignal(false, (typing) => onTypingChange?.(typing), typingTimerRef);
     } catch {
       // L'errore è già gestito/mostrato dal chiamante (toast su mutation onError)
     } finally {
@@ -153,24 +178,38 @@ export function ChatMessages({
 
         <div className="flex-1 min-w-0">
           <h2 className="font-semibold text-app-foreground truncate">{recipientName}</h2>
-          {subtitle && (
-            <p className="text-xs text-app-muted-foreground truncate">{subtitle}</p>
+          {(isPeerTyping || subtitle) && (
+            <p className="text-xs text-app-muted-foreground truncate">
+              {isPeerTyping ? 'sta scrivendo…' : subtitle}
+            </p>
           )}
         </div>
 
-        {showPinnedButton && (
+        {(showPinnedButton || pinned.length > 0) && (
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setShowPinned((v) => !v)}
             className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 border-none"
           >
             <Pin className="h-4 w-4 mr-1" />
-            Coach Pins
+            {pinned.length > 0 ? pinned.length : 'Fissati'}
           </Button>
         )}
 
         {headerAction}
       </div>
+
+      {showPinned && pinned.length > 0 && (
+        <div className="px-4 py-2 border-b border-app-border space-y-1 bg-app-muted/40">
+          {pinned.map((m) => (
+            <p key={m.id} className="text-xs text-app-muted-foreground truncate">
+              <Pin className="h-3 w-3 inline mr-1" />
+              {m.senderName}: {m.content || 'Allegato'}
+            </p>
+          ))}
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
@@ -188,6 +227,11 @@ export function ChatMessages({
               key={message.id}
               message={message}
               isOwn={message.senderUserId === currentUserId}
+              active={activeId === message.id}
+              onToggle={() => setActiveId((id) => (id === message.id ? null : message.id))}
+              onReply={() => setPendingReply(message)}
+              onPin={onPin ? () => onPin(message.id, !message.isPinned) : undefined}
+              onReact={onReact ? (emoji) => onReact(message.id, emoji) : undefined}
             />
           ))
         )}
@@ -196,6 +240,23 @@ export function ChatMessages({
 
       {/* Input */}
       <div className="p-4 border-t border-app-border space-y-2">
+        {pendingReply && (
+          <div className="flex items-center gap-2 bg-app-muted rounded-lg px-3 py-2">
+            <Reply className="h-4 w-4 text-app-accent shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-app-accent truncate">{pendingReply.senderName}</p>
+              <p className="text-xs text-app-muted-foreground truncate">{pendingReply.content || 'Allegato'}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              onClick={() => setPendingReply(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
         {pendingFile && (
           <div className="flex items-center gap-2 bg-app-muted rounded-lg p-2">
             {pendingKind === 'image' ? (
@@ -240,7 +301,11 @@ export function ChatMessages({
             <Input
               placeholder="Scrivi un messaggio..."
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setInputValue(next);
+                scheduleTypingSignal(!!next.trim(), (typing) => onTypingChange?.(typing), typingTimerRef);
+              }}
               onKeyPress={handleKeyPress}
               disabled={isSubmitting}
               className="bg-app-muted border-app-border text-app-foreground placeholder:text-app-muted-foreground pr-10 rounded-full"
@@ -285,7 +350,23 @@ function AttachmentPreview({ url, type }: { url: string; type: string | null | u
   );
 }
 
-function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean }) {
+function MessageBubble({
+  message,
+  isOwn,
+  active,
+  onToggle,
+  onReply,
+  onPin,
+  onReact,
+}: {
+  message: Message;
+  isOwn: boolean;
+  active: boolean;
+  onToggle: () => void;
+  onReply: () => void;
+  onPin?: () => void;
+  onReact?: (emoji: string) => void;
+}) {
   const initials = message.senderName.split(' ').map(n => n[0]).join('').slice(0, 2);
   const time = format(new Date(message.createdAt), 'HH:mm', { locale: it });
   const isExerciseShare = isExerciseShareAttachment(message.attachmentType);
@@ -318,7 +399,7 @@ function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean })
         )}
 
         {isExerciseShare ? (
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 cursor-pointer" onClick={onToggle}>
             {message.content && (
               <p
                 className="text-sm leading-relaxed px-1 text-app-muted-foreground"
@@ -333,8 +414,17 @@ function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean })
           </div>
         ) : (
           <div
+            role="button"
+            tabIndex={0}
+            onClick={onToggle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onToggle();
+              }
+            }}
             className={cn(
-              'px-3 py-2 rounded-2xl',
+              'px-3 py-2 rounded-2xl cursor-pointer',
               message.attachmentUrl && !message.content && 'p-1.5',
               isOwn
                 ? 'bg-purple-600 text-white rounded-br-md'
@@ -350,8 +440,54 @@ function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean })
           </div>
         )}
 
+        {(message.reactions?.length ?? 0) > 0 && (
+          <div className={cn('flex flex-wrap gap-1', isOwn && 'justify-end')}>
+            {message.reactions!.map((r) => (
+              <button
+                key={r.emoji}
+                type="button"
+                onClick={() => onReact?.(r.emoji)}
+                className={cn(
+                  'text-xs px-1.5 py-0.5 rounded-full bg-app-muted',
+                  r.mine && 'ring-1 ring-app-accent',
+                )}
+              >
+                {r.emoji} {r.count}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {active && (
+          <div className={cn('flex flex-wrap items-center gap-1', isOwn && 'justify-end')}>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onReply}>
+              <Reply className="h-3 w-3 mr-1" />
+              Rispondi
+            </Button>
+            {onPin && (
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onPin}>
+                <Pin className="h-3 w-3 mr-1" />
+                {message.isPinned ? 'Togli' : 'Fissa'}
+              </Button>
+            )}
+            {onReact && CHAT_REACTION_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => onReact(emoji)}
+                className="text-sm px-1"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
         {isOwn && (
-          <p className="text-xs text-app-muted-foreground text-right">{time}</p>
+          <p className="text-xs text-app-muted-foreground text-right">
+            {time} · {ownMessageReceiptLabel(message.isRead)}
+            {message.isPinned ? ' · Fissato' : ''}
+          </p>
         )}
       </div>
     </div>

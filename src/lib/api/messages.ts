@@ -5,6 +5,10 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type { Chat, Message } from '@/types/database';
+import { groupReactions, resolveReplyPreview, type ChatReaction } from '@/lib/chatThread';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = () => supabase as any;
 
 // =====================================================
 // OTTIENI O CREA CHAT
@@ -127,8 +131,9 @@ export async function sendMessage(params: {
   content: string;
   attachmentUrl?: string;
   attachmentType?: string;
+  replyToId?: string;
 }) {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('messages')
     .insert({
       chat_id: params.chatId,
@@ -136,6 +141,7 @@ export async function sendMessage(params: {
       content: params.content,
       attachment_url: params.attachmentUrl,
       attachment_type: params.attachmentType,
+      reply_to_id: params.replyToId ?? null,
     })
     .select()
     .single();
@@ -198,6 +204,102 @@ export async function countUnreadMessages(userId: string): Promise<number> {
   return data ?? 0;
 }
 
+export async function getMessageReactions(messageIds: string[]) {
+  if (messageIds.length === 0) return [];
+  const { data, error } = await db()
+    .from('message_reactions')
+    .select('message_id, user_id, emoji')
+    .in('message_id', messageIds);
+  if (error) throw new Error(error.message);
+  return (data || []) as { message_id: string; user_id: string; emoji: string }[];
+}
+
+export async function toggleMessageReaction(messageId: string, userId: string, emoji: string) {
+  const { data: existing } = await db()
+    .from('message_reactions')
+    .select('id')
+    .eq('message_id', messageId)
+    .eq('user_id', userId)
+    .eq('emoji', emoji)
+    .maybeSingle();
+  if (existing?.id) {
+    const { error } = await db().from('message_reactions').delete().eq('id', existing.id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const { error } = await db()
+    .from('message_reactions')
+    .insert({ message_id: messageId, user_id: userId, emoji });
+  if (error) throw new Error(error.message);
+}
+
+export async function setMessagePinned(messageId: string, pinned: boolean) {
+  const { error } = await db().rpc('set_message_pinned', {
+    _message_id: messageId,
+    _pinned: pinned,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export type ChatBubbleView = {
+  id: string;
+  content: string;
+  senderUserId: string;
+  senderName: string;
+  senderAvatar?: string | null;
+  createdAt: string;
+  isRead: boolean;
+  isPinned: boolean;
+  attachmentUrl?: string | null;
+  attachmentType?: string | null;
+  replyTo?: { senderName: string; content: string };
+  reactions: ChatReaction[];
+};
+
+export async function toChatBubbles(
+  rows: Message[],
+  currentUserId: string,
+): Promise<ChatBubbleView[]> {
+  const senderIds = [...new Set(rows.map((m) => m.sender_user_id))];
+  const { data: profiles } = senderIds.length
+    ? await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, email, avatar_url')
+        .in('user_id', senderIds)
+    : { data: [] as { user_id: string; first_name: string | null; last_name: string | null; email: string | null; avatar_url: string | null }[] };
+
+  const nameOf = (userId: string) => {
+    const p = (profiles || []).find((row) => row.user_id === userId);
+    const name = `${p?.first_name || ''} ${p?.last_name || ''}`.trim();
+    return name || p?.email || 'Utente';
+  };
+
+  const withNames = rows.map((msg) => ({
+    id: msg.id,
+    content: msg.content,
+    senderName: nameOf(msg.sender_user_id),
+  }));
+  const reactionMap = groupReactions(await getMessageReactions(rows.map((m) => m.id)), currentUserId);
+
+  return rows.map((msg) => {
+    const profile = (profiles || []).find((p) => p.user_id === msg.sender_user_id);
+    return {
+      id: msg.id,
+      content: msg.content || '',
+      senderUserId: msg.sender_user_id,
+      senderName: nameOf(msg.sender_user_id),
+      senderAvatar: profile?.avatar_url,
+      createdAt: msg.created_at,
+      isRead: msg.is_read,
+      isPinned: !!msg.is_pinned,
+      attachmentUrl: msg.attachment_url,
+      attachmentType: msg.attachment_type,
+      replyTo: resolveReplyPreview(withNames, msg.reply_to_id),
+      reactions: reactionMap.get(msg.id) ?? [],
+    };
+  });
+}
+
 // =====================================================
 // SUBSCRIBE A NUOVI MESSAGGI (REALTIME)
 // =====================================================
@@ -206,24 +308,85 @@ export function subscribeToMessages(
   chatId: string,
   callback: (message: Message) => void
 ) {
+  const filter = {
+    schema: 'public' as const,
+    table: 'messages',
+    filter: `chat_id=eq.${chatId}`,
+  };
   const channel = supabase
     .channel(`messages:${chatId}`)
+    .on('postgres_changes', { event: 'INSERT', ...filter }, (payload) => {
+      callback(payload.new as Message);
+    })
+    .on('postgres_changes', { event: 'UPDATE', ...filter }, (payload) => {
+      callback(payload.new as Message);
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+export function subscribeToMessageReactions(scope: string, callback: () => void) {
+  const channel = supabase
+    .channel(`message-reactions:${scope}`)
     .on(
       'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `chat_id=eq.${chatId}`,
-      },
-      (payload) => {
-        callback(payload.new as Message);
-      }
+      { event: '*', schema: 'public', table: 'message_reactions' },
+      callback,
     )
     .subscribe();
 
   return () => {
     supabase.removeChannel(channel);
+  };
+}
+
+const TYPING_STALE_MS = 4000;
+
+export type ChatTypingHandle = {
+  setTyping: (typing: boolean) => void;
+  unsubscribe: () => void;
+};
+
+export function subscribeToChatTyping(
+  chatId: string,
+  currentUserId: string,
+  onPeerTyping: (typing: boolean) => void,
+): ChatTypingHandle {
+  let staleTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const channel = supabase
+    .channel(`typing:${chatId}`)
+    .on('broadcast', { event: 'typing' }, ({ payload }) => {
+      if (!payload || payload.userId === currentUserId) return;
+      if (staleTimer) clearTimeout(staleTimer);
+      staleTimer = null;
+      if (payload.typing) {
+        onPeerTyping(true);
+        staleTimer = setTimeout(() => onPeerTyping(false), TYPING_STALE_MS);
+      } else {
+        onPeerTyping(false);
+      }
+    })
+    .subscribe();
+
+  const send = (typing: boolean) => {
+    void channel.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId: currentUserId, typing },
+    });
+  };
+
+  return {
+    setTyping: send,
+    unsubscribe() {
+      if (staleTimer) clearTimeout(staleTimer);
+      send(false);
+      supabase.removeChannel(channel);
+    },
   };
 }
 

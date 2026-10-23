@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { ChatMessages } from '@/components/app/ChatMessages';
 import {
   getChatGroup,
@@ -13,6 +12,7 @@ import {
   markChatGroupRead,
 } from '@/lib/api/chatGroups';
 import { uploadChatAttachment, groupConversationKey } from '@/lib/api/chatAttachments';
+import { toChatBubbles, setMessagePinned, toggleMessageReaction, subscribeToMessageReactions } from '@/lib/api/messages';
 import { toast } from 'sonner';
 
 // =====================================================
@@ -41,36 +41,13 @@ export function AtletaChatGroupDetailPage() {
     queryKey: ['chat-group-messages', groupId],
     queryFn: async () => {
       if (!groupId) return [];
-      const messagesData = await getChatGroupMessages(groupId);
-
-      const senderIds = [...new Set(messagesData.map((m) => m.sender_user_id))];
-      const { data: profiles } = senderIds.length
-        ? await supabase.from('profiles').select('user_id, first_name, last_name, avatar_url').in('user_id', senderIds)
-        : { data: [] };
-      const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
-
-      return messagesData.map((msg) => {
-        const profile = profileMap.get(msg.sender_user_id);
-        return {
-          id: msg.id,
-          content: msg.content || '',
-          senderUserId: msg.sender_user_id,
-          senderName: profile
-            ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Utente'
-            : 'Il tuo Coach',
-          senderAvatar: profile?.avatar_url,
-          createdAt: msg.created_at,
-          isRead: true,
-          attachmentUrl: msg.attachment_url,
-          attachmentType: msg.attachment_type,
-        };
-      });
+      return toChatBubbles(await getChatGroupMessages(groupId), user!.id);
     },
-    enabled: !!groupId,
+    enabled: !!groupId && !!user?.id,
   });
 
   const sendMutation = useMutation({
-    mutationFn: async ({ content, file }: { content: string; file?: File | null }) => {
+    mutationFn: async ({ content, file, replyToId }: { content: string; file?: File | null; replyToId?: string }) => {
       if (!groupId || !user?.id) throw new Error('Gruppo non trovato');
       let attachmentUrl: string | undefined;
       let attachmentType: string | undefined;
@@ -79,7 +56,7 @@ export function AtletaChatGroupDetailPage() {
         attachmentUrl = uploaded.url;
         attachmentType = uploaded.type;
       }
-      return sendChatGroupMessage({ groupId, senderUserId: user.id, content, attachmentUrl, attachmentType });
+      return sendChatGroupMessage({ groupId, senderUserId: user.id, content, attachmentUrl, attachmentType, replyToId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-group-messages', groupId] });
@@ -100,7 +77,13 @@ export function AtletaChatGroupDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['chat-group-messages', groupId] });
       if (user?.id) markChatGroupRead(groupId, user.id).catch(() => {});
     });
-    return unsubscribe;
+    const unsubReactions = subscribeToMessageReactions(`group:${groupId}`, () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-group-messages', groupId] });
+    });
+    return () => {
+      unsubscribe();
+      unsubReactions();
+    };
   }, [groupId, user?.id, queryClient]);
 
   const membersCount = members?.length ?? 0;
@@ -114,8 +97,19 @@ export function AtletaChatGroupDetailPage() {
         messages={messages || []}
         currentUserId={user?.id || ''}
         onBack={() => navigate('/app/chat')}
-        onSend={(content, file) => sendMutation.mutateAsync({ content, file })}
+        onSend={(content, file, replyToId) => sendMutation.mutateAsync({ content, file, replyToId })}
         isLoading={groupLoading || messagesLoading}
+        onPin={(id, pinned) => {
+          setMessagePinned(id, pinned)
+            .then(() => queryClient.invalidateQueries({ queryKey: ['chat-group-messages', groupId] }))
+            .catch((e: Error) => toast.error(e.message));
+        }}
+        onReact={(id, emoji) => {
+          if (!user?.id) return;
+          toggleMessageReaction(id, user.id, emoji)
+            .then(() => queryClient.invalidateQueries({ queryKey: ['chat-group-messages', groupId] }))
+            .catch((e: Error) => toast.error(e.message));
+        }}
       />
     </div>
   );

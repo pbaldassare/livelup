@@ -4,7 +4,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatMessages } from '@/components/app/ChatMessages';
-import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from '@/lib/api/messages';
+import {
+  getOrCreateChat,
+  getChatMessages,
+  sendMessage,
+  markMessagesAsRead,
+  subscribeToMessages,
+  subscribeToMessageReactions,
+  toChatBubbles,
+  setMessagePinned,
+  toggleMessageReaction,
+} from '@/lib/api/messages';
+import { useChatTyping } from '@/hooks/useChatTyping';
 import { uploadChatAttachment } from '@/lib/api/chatAttachments';
 import { toast } from 'sonner';
 
@@ -30,6 +41,7 @@ export function PTAppChatDetailPage() {
     enabled: !!user?.id && !!atletaId,
     retry: false,
   });
+  const { isPeerTyping, setTyping } = useChatTyping(chatData?.chatId, user?.id);
 
   // Fetch atleta profile
   const { data: atletaProfile } = useQuery({
@@ -54,41 +66,14 @@ export function PTAppChatDetailPage() {
     queryFn: async () => {
       if (!chatData?.chatId) return [];
 
-      const messagesData = await getChatMessages(chatData.chatId);
-
-      // Fetch sender profiles
-      const messagesWithProfiles = await Promise.all(
-        messagesData.map(async (msg) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, email, avatar_url')
-            .eq('user_id', msg.sender_user_id)
-            .single();
-
-          return {
-            id: msg.id,
-            content: msg.content || '',
-            senderUserId: msg.sender_user_id,
-            senderName: profile
-              ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email || 'Utente'
-              : 'Utente',
-            senderAvatar: profile?.avatar_url,
-            createdAt: msg.created_at,
-            isRead: msg.is_read,
-            attachmentUrl: msg.attachment_url,
-            attachmentType: msg.attachment_type,
-          };
-        })
-      );
-
-      return messagesWithProfiles;
+      return toChatBubbles(await getChatMessages(chatData.chatId), user!.id);
     },
-    enabled: !!chatData?.chatId,
+    enabled: !!chatData?.chatId && !!user?.id,
   });
 
   // Send message mutation (testo e/o allegato immagine/video)
   const sendMutation = useMutation({
-    mutationFn: async ({ content, file }: { content: string; file?: File | null }) => {
+    mutationFn: async ({ content, file, replyToId }: { content: string; file?: File | null; replyToId?: string }) => {
       if (!chatData?.chatId || !user?.id) throw new Error('Chat not found');
       let attachmentUrl: string | undefined;
       let attachmentType: string | undefined;
@@ -103,6 +88,7 @@ export function PTAppChatDetailPage() {
         content,
         attachmentUrl,
         attachmentType,
+        replyToId,
       });
     },
     onSuccess: () => {
@@ -142,9 +128,13 @@ export function PTAppChatDetailPage() {
           .catch(() => {});
       }
     });
+    const unsubReactions = subscribeToMessageReactions(chatData.chatId, () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', chatData.chatId] });
+    });
 
     return () => {
       unsubscribe();
+      unsubReactions();
     };
   }, [chatData?.chatId, user?.id, queryClient]);
 
@@ -160,9 +150,22 @@ export function PTAppChatDetailPage() {
         messages={messages || []}
         currentUserId={user?.id || ''}
         onBack={() => navigate('/pt/app/chat')}
-        onSend={(content, file) => sendMutation.mutateAsync({ content, file })}
+        onSend={(content, file, replyToId) => sendMutation.mutateAsync({ content, file, replyToId })}
         isLoading={chatLoading || messagesLoading}
         showPinnedButton={true}
+        isPeerTyping={isPeerTyping}
+        onTypingChange={setTyping}
+        onPin={(id, pinned) => {
+          setMessagePinned(id, pinned)
+            .then(() => queryClient.invalidateQueries({ queryKey: ['chat-messages', chatData?.chatId] }))
+            .catch((e: Error) => toast.error(e.message));
+        }}
+        onReact={(id, emoji) => {
+          if (!user?.id) return;
+          toggleMessageReaction(id, user.id, emoji)
+            .then(() => queryClient.invalidateQueries({ queryKey: ['chat-messages', chatData?.chatId] }))
+            .catch((e: Error) => toast.error(e.message));
+        }}
       />
     </div>
   );

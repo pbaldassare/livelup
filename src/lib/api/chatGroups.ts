@@ -234,6 +234,7 @@ export async function sendChatGroupMessage(params: {
   content: string;
   attachmentUrl?: string;
   attachmentType?: string;
+  replyToId?: string;
 }): Promise<Message> {
   const { data, error } = await db()
     .from('messages')
@@ -243,6 +244,7 @@ export async function sendChatGroupMessage(params: {
       content: params.content || null,
       attachment_url: params.attachmentUrl,
       attachment_type: params.attachmentType,
+      reply_to_id: params.replyToId ?? null,
     })
     .select()
     .single();
@@ -251,20 +253,19 @@ export async function sendChatGroupMessage(params: {
 }
 
 export function subscribeToChatGroupMessages(groupId: string, callback: (message: Message) => void) {
+  const filter = {
+    schema: 'public' as const,
+    table: 'messages',
+    filter: `chat_group_id=eq.${groupId}`,
+  };
   const channel = supabase
     .channel(`chat-group-messages:${groupId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `chat_group_id=eq.${groupId}`,
-      },
-      (payload) => {
-        callback(payload.new as Message);
-      },
-    )
+    .on('postgres_changes', { event: 'INSERT', ...filter }, (payload) => {
+      callback(payload.new as Message);
+    })
+    .on('postgres_changes', { event: 'UPDATE', ...filter }, (payload) => {
+      callback(payload.new as Message);
+    })
     .subscribe();
 
   return () => {
