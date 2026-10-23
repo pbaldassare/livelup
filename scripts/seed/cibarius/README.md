@@ -1,16 +1,19 @@
-# Import ricette Cibarius → Livelapp
+# Ricette Cibarius → Livelapp
 
-Quando hai l’export (zip o `nutrition.sql`):
+**Fonte ufficiale:** `cibarius-ricette.json` (480 ricette, piani digiuno/dimagrimento/keto/massa/mediterranea).
 
-1. Estrai il file SQL o esporta le righe `template_recipes` in JSON.
-2. Metti il file qui, es. `scripts/seed/cibarius/nutrition.sql` (non committare dati sensibili se non serve).
-3. Esegui:
+## Rigenerare catalogo + migration SQL
 
 ```bash
-node scripts/seed/convert_cibarius_sql.mjs scripts/seed/cibarius/nutrition.sql
+node scripts/seed/convert_cibarius_json.mjs scripts/seed/cibarius/cibarius-ricette.json
 node scripts/seed/import_cibarius_recipes.mjs scripts/seed/data/nutrition_recipes_catalog.json supabase/migrations/20261023210001_nutrition_recipes_catalog.sql
 ```
 
-Il convertitore mappa le categorie Cibarius alle categorie Livelapp (`colazione`, `spuntino`, `pranzo`, `cena`, `post_allenamento`, `vegetariano`, `veloce`).
+Applica su Lovable Cloud (dopo `20261023220000_nutrition_recipes_diet_plan.sql`):
 
-Finché non arriva il file ufficiale, il catalogo temporaneo resta in `scripts/seed/data/nutrition_recipes_catalog.json`.
+- `20261023220000_nutrition_recipes_diet_plan.sql` — colonne `diet_plan`, `prep_time_min`
+- `20261023210001_nutrition_recipes_catalog.sql` — DELETE catalogo piattaforma + INSERT 480 ricette
+
+## Export SQL legacy
+
+Se ricevi solo `.sql`: `node scripts/seed/convert_cibarius_sql.mjs path/to/nutrition.sql`

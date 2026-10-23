@@ -1,5 +1,9 @@
 import type { NutritionTemplateRecipe } from '@/types/nutrition';
-import { NUTRITION_RECIPE_CATEGORY_LABELS } from '@/types/nutrition';
+import {
+  NUTRITION_DIET_PLAN_LABELS,
+  NUTRITION_RECIPE_CATEGORY_LABELS,
+  type NutritionDietPlan,
+} from '@/types/nutrition';
 
 export function RecipeDetailView({ recipe }: { recipe: NutritionTemplateRecipe }) {
   return (
@@ -7,6 +11,14 @@ export function RecipeDetailView({ recipe }: { recipe: NutritionTemplateRecipe }
       <div>
         <p className="text-xs uppercase tracking-wide text-app-muted-foreground">
           {NUTRITION_RECIPE_CATEGORY_LABELS[recipe.category]}
+          {recipe.diet_plan && (
+            <>
+              {' · '}
+              {NUTRITION_DIET_PLAN_LABELS[recipe.diet_plan as NutritionDietPlan] ??
+                recipe.diet_plan}
+            </>
+          )}
+          {recipe.prep_time_min ? ` · ${recipe.prep_time_min} min` : ''}
         </p>
         <h2 className="text-xl font-bold text-app-foreground">{recipe.name}</h2>
         {recipe.description && (

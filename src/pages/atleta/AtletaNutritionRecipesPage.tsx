@@ -3,23 +3,42 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { listTemplateRecipes, nutritionRecipeKeys } from '@/lib/api/nutrition';
 import {
+  NUTRITION_DIET_PLAN_LABELS,
   NUTRITION_RECIPE_CATEGORY_LABELS,
+  type NutritionDietPlan,
   type NutritionRecipeCategory,
 } from '@/types/nutrition';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-const CATEGORIES = Object.keys(NUTRITION_RECIPE_CATEGORY_LABELS) as NutritionRecipeCategory[];
+const CATEGORIES = (['colazione', 'spuntino', 'pranzo', 'cena'] as const) satisfies readonly NutritionRecipeCategory[];
+const DIETS = Object.keys(NUTRITION_DIET_PLAN_LABELS) as NutritionDietPlan[];
 
 export function AtletaNutritionRecipesPage({ embedded = false }: { embedded?: boolean }) {
   const [tab, setTab] = useState<NutritionRecipeCategory | 'tutte'>('tutte');
   const [search, setSearch] = useState('');
+  const [diet, setDiet] = useState<NutritionDietPlan | 'tutte'>('tutte');
 
   const { data: recipes = [], isLoading } = useQuery({
-    queryKey: [...nutritionRecipeKeys.list(tab === 'tutte' ? undefined : tab), search],
+    queryKey: nutritionRecipeKeys.list(
+      tab === 'tutte' ? undefined : tab,
+      diet === 'tutte' ? undefined : diet,
+      search,
+    ),
     queryFn: () =>
-      listTemplateRecipes(tab === 'tutte' ? undefined : tab, search || undefined),
+      listTemplateRecipes(
+        tab === 'tutte' ? undefined : tab,
+        search || undefined,
+        diet === 'tutte' ? undefined : diet,
+      ),
   });
 
   return (
@@ -30,12 +49,25 @@ export function AtletaNutritionRecipesPage({ embedded = false }: { embedded?: bo
           <p className="text-sm text-app-muted-foreground">Suggerimenti dal catalogo Livelapp</p>
         </div>
       )}
-      <Input
-        placeholder="Cerca ricetta…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="mb-2"
-      />
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Input
+          placeholder="Cerca ricetta…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1"
+        />
+        <Select value={diet} onValueChange={(v) => setDiet(v as NutritionDietPlan | 'tutte')}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Piano" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutte">Tutti i piani</SelectItem>
+            {DIETS.map((d) => (
+              <SelectItem key={d} value={d}>{NUTRITION_DIET_PLAN_LABELS[d]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <Tabs value={tab} onValueChange={(v) => setTab(v as NutritionRecipeCategory | 'tutte')}>
         <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="tutte">Tutte</TabsTrigger>

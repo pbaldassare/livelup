@@ -41,24 +41,35 @@ const values = list
     const pg = Number(r.protein_g ?? r.per_serving_protein_g) || 0;
     const cg = Number(r.carbs_g ?? r.per_serving_carbs_g) || 0;
     const fg = Number(r.fat_g ?? r.per_serving_fat_g) || 0;
-    return `  ('${slug}', '${cat}', '${esc(r.name)}', '${esc(r.description || '')}', ${kcal}, ${pg}, ${cg}, ${fg}, '${esc(r.ingredients || '—')}', '${esc(r.instructions || '')}', ${Number(r.sort_order) || 1000 + i})`;
+    const diet = r.diet_plan ? `'${esc(r.diet_plan)}'` : 'NULL';
+    const prep = r.prep_time_min != null ? Number(r.prep_time_min) : 'NULL';
+    return `  ('${slug}', '${cat}', '${esc(r.name)}', '${esc(r.description || '')}', ${kcal}, ${pg}, ${cg}, ${fg}, '${esc(r.ingredients || '—')}', '${esc(r.instructions || '')}', ${Number(r.sort_order) || 1000 + i}, ${diet}, ${prep})`;
   })
   .join(',\n');
 
-const sql = `INSERT INTO public.nutrition_template_recipes (
+const sql = `-- Sostituisce il catalogo piattaforma (import Cibarius)
+DELETE FROM public.nutrition_template_recipes WHERE is_platform = true;
+
+INSERT INTO public.nutrition_template_recipes (
   slug, category, name, description, per_serving_kcal, per_serving_protein_g,
-  per_serving_carbs_g, per_serving_fat_g, ingredients, instructions, sort_order
+  per_serving_carbs_g, per_serving_fat_g, ingredients, instructions, sort_order,
+  diet_plan, prep_time_min
 )
 VALUES
 ${values}
 ON CONFLICT (slug) DO UPDATE SET
+  category = EXCLUDED.category,
   name = EXCLUDED.name,
+  description = EXCLUDED.description,
   per_serving_kcal = EXCLUDED.per_serving_kcal,
   per_serving_protein_g = EXCLUDED.per_serving_protein_g,
   per_serving_carbs_g = EXCLUDED.per_serving_carbs_g,
   per_serving_fat_g = EXCLUDED.per_serving_fat_g,
   ingredients = EXCLUDED.ingredients,
-  instructions = EXCLUDED.instructions;
+  instructions = EXCLUDED.instructions,
+  sort_order = EXCLUDED.sort_order,
+  diet_plan = EXCLUDED.diet_plan,
+  prep_time_min = EXCLUDED.prep_time_min;
 `;
 
 if (outPath) writeFileSync(outPath, sql);

@@ -450,7 +450,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-10-23 | **Modulo nutrizione (MVP).** Migration `20261023160000_livelapp_nutrition_module.sql`: template macro di sistema, `food_templates`, piani PT→atleta (un piano attivo globale per atleta, RPC `activate_nutrition_plan`), diario atleta. UI: PT drawer/sidebar **Nutrizione**; atleta da profilo → `/app/nutrition`. Stub `FoodLookupProvider` per API barcode futura. |
 | 2026-10-23 | **Nutrizione fase 2.** Migration `20261023170000_nutrition_recipes_pt_templates.sql`: modelli piano PT (`nutrition_pt_plan_templates`), ricette piattaforma (`nutrition_template_recipes` + seed), target per pasto (`nutrition_plan_meal_targets`). UI: modelli/ricette/monitor diario PT; tab Ricette atleta; lookup alimenti con `VITE_NUTRITION_FOOD_API_URL` opzionale. |
 | 2026-10-23 | **Nutrizione fase 3.** `20261023180000_*` alimenti PT + `recipe_id` diario; bulk ricette `20261023180001_*`; aggiunta ricetta al diario; ricerca ricette; Edge `nutrition-food-proxy`; script import Cibarius JSON. Doc `docs/NUTRITION.md`. |
-| 2026-10-23 | **Nutrizione dispensa + catalogo ricette JSON.** `nutrition_pantry_items` (tab Dispensa atleta; lettura PT nel monitor diario). `scripts/seed/data/nutrition_recipes_catalog.json` (~178 ricette) + migration `20261023210001`. Niente ristorante. |
+| 2026-10-23 | **Nutrizione dispensa + catalogo ricette JSON.** `nutrition_pantry_items` (tab Dispensa atleta; lettura PT nel monitor diario). Niente ristorante. |
+| 2026-10-23 | **Ricette Cibarius (480).** `scripts/seed/cibarius/cibarius-ricette.json` → catalogo + migration `20261023210001`; colonne `diet_plan` / `prep_time_min` (`20261023220000`). Filtro piano in UI ricette. |
 
 ---
 

@@ -91,6 +91,21 @@ export type NutritionRecipeCategory =
   | 'vegetariano'
   | 'veloce';
 
+export type NutritionDietPlan =
+  | 'digiuno'
+  | 'dimagrimento'
+  | 'keto'
+  | 'massa'
+  | 'mediterranea';
+
+export const NUTRITION_DIET_PLAN_LABELS: Record<NutritionDietPlan, string> = {
+  digiuno: 'Digiuno intermittente',
+  dimagrimento: 'Dimagrimento',
+  keto: 'Cheto',
+  massa: 'Massa',
+  mediterranea: 'Mediterranea',
+};
+
 export const NUTRITION_RECIPE_CATEGORY_LABELS: Record<NutritionRecipeCategory, string> = {
   colazione: 'Colazione',
   spuntino: 'Spuntino',
@@ -115,6 +130,8 @@ export interface NutritionTemplateRecipe {
   ingredients: string;
   instructions: string | null;
   sort_order: number;
+  diet_plan?: NutritionDietPlan | string | null;
+  prep_time_min?: number | null;
 }
 
 export interface NutritionPtPlanTemplate {
