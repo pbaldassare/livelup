@@ -39,6 +39,11 @@ export interface WorkoutHistoryListProps {
   atletaUserId: string;
   ptUserId?: string;
   variant?: 'pt' | 'atleta';
+  /** Solo le sessioni della stessa scheda (stesso titolo; "Rifai allenamento" lo mantiene). */
+  workoutTitle?: string;
+  /** Apre la sessione più recente. */
+  defaultOpenFirst?: boolean;
+  emptyMessage?: string;
 }
 
 type WorkoutExercise = {
@@ -269,8 +274,16 @@ function SetRow({
 }
 
 // ---- collapsible workout row ----
-function WorkoutRow({ workout, variant }: { workout: Workout; variant: 'pt' | 'atleta' }) {
-  const [open, setOpen] = useState(false);
+function WorkoutRow({
+  workout,
+  variant,
+  initialOpen = false,
+}: {
+  workout: Workout;
+  variant: 'pt' | 'atleta';
+  initialOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(initialOpen);
   const exerciseIds = workout.workout_exercises.map((e) => e.id);
   const isAtleta = variant === 'atleta';
 
@@ -501,9 +514,12 @@ export function WorkoutHistoryList({
   atletaUserId,
   ptUserId,
   variant = 'pt',
+  workoutTitle,
+  defaultOpenFirst = false,
+  emptyMessage,
 }: WorkoutHistoryListProps) {
   const qc = useQueryClient();
-  const queryKey = ['workout-history', atletaUserId, ptUserId ?? 'self'];
+  const queryKey = ['workout-history', atletaUserId, ptUserId ?? 'self', workoutTitle ?? 'all'];
   const { data: workouts = [], isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
@@ -525,6 +541,9 @@ export function WorkoutHistoryList({
       if (ptUserId) {
         q = q.eq('pt_user_id', ptUserId);
       }
+      if (workoutTitle) {
+        q = q.eq('title', workoutTitle);
+      }
 
       const { data, error } = await q
         .order('completed_at', { ascending: false, nullsFirst: false })
@@ -540,7 +559,7 @@ export function WorkoutHistoryList({
   useEffect(() => {
     if (!atletaUserId) return;
     const channel = supabase
-      .channel(`workout-history-${atletaUserId}`)
+      .channel(`workout-history-${atletaUserId}-${ptUserId ?? 'self'}-${workoutTitle ?? 'all'}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'workouts', filter: `atleta_user_id=eq.${atletaUserId}` },
@@ -553,7 +572,7 @@ export function WorkoutHistoryList({
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [atletaUserId, ptUserId, qc]);
+  }, [atletaUserId, ptUserId, workoutTitle, qc]);
 
   const isAtleta = variant === 'atleta';
 
@@ -579,18 +598,20 @@ export function WorkoutHistoryList({
         )}
       >
         <Dumbbell className="h-12 w-12 mx-auto mb-3 opacity-30" />
-        <p className="font-medium">Nessun allenamento completato</p>
-        <p className="text-xs mt-1 opacity-60">
-          Completa il tuo primo workout per vedere lo storico
-        </p>
+        <p className="font-medium">{emptyMessage ?? 'Nessun allenamento completato'}</p>
+        {!emptyMessage && (
+          <p className="text-xs mt-1 opacity-60">
+            Completa il tuo primo workout per vedere lo storico
+          </p>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      {workouts.map((w) => (
-        <WorkoutRow key={w.id} workout={w} variant={variant} />
+      {workouts.map((w, i) => (
+        <WorkoutRow key={w.id} workout={w} variant={variant} initialOpen={defaultOpenFirst && i === 0} />
       ))}
     </div>
   );

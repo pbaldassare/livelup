@@ -34,6 +34,7 @@ import { ExerciseVideoPlayer } from '@/components/app/ExerciseVideoPlayer';
 import { WorkoutProgressBar } from '@/components/app/WorkoutProgressBar';
 import { resolveRampingUnit } from '@/lib/protocols/registry';
 import { isMissingProtocolResultsError, logExerciseSet } from '@/lib/api/workouts';
+import { ExercisePreviousSessions } from '@/components/app/ExercisePreviousSessions';
 import {
   sumDoneReps,
   sumDoneSeconds,
@@ -964,6 +965,11 @@ export function GuidedWorkoutFlow({
                 <Play className="h-5 w-5 mr-2" />
                 Inizia serie
               </Button>
+              <ExercisePreviousSessions
+                workoutId={workoutId}
+                exerciseId={currentMeta.id ?? currentExercise.exercise_id}
+                setNumber={state.setNumber}
+              />
               </div>
             </motion.div>
           )}
