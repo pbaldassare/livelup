@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,11 +7,19 @@ import {
   activateNutritionPlan,
   createNutritionPlan,
   getActiveNutritionPlan,
+  createPtPlanTemplate,
   listMacroTemplates,
   listNutritionPlansForAtleta,
+  listPlanMealTargets,
+  listPtPlanTemplates,
+  nutritionMealTargetKeys,
   nutritionPlanKeys,
+  nutritionPtTemplateKeys,
+  replacePlanMealTargets,
   updateNutritionPlan,
 } from '@/lib/api/nutrition';
+import { defaultMealTargetsFromDaily } from '@/lib/nutritionMealSplit';
+import { NUTRITION_MEAL_LABELS, type NutritionMealType } from '@/types/nutrition';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +48,10 @@ export function PTAppNutritionPlanPage() {
   const [proteinG, setProteinG] = useState('140');
   const [carbsG, setCarbsG] = useState('200');
   const [fatG, setFatG] = useState('65');
+  const [saveTemplateName, setSaveTemplateName] = useState('');
+  const [mealTargets, setMealTargets] = useState<
+    Array<{ meal_type: NutritionMealType; kcal: string; protein_g: string; carbs_g: string; fat_g: string }>
+  >([]);
 
   const { data: athleteName } = useQuery({
     queryKey: ['profile-name', atletaUserId],
@@ -59,11 +71,37 @@ export function PTAppNutritionPlanPage() {
     queryFn: listMacroTemplates,
   });
 
+  const { data: ptTemplates = [] } = useQuery({
+    queryKey: nutritionPtTemplateKeys.list(user?.id ?? ''),
+    enabled: !!user?.id,
+    queryFn: () => listPtPlanTemplates(user!.id),
+  });
+
   const { data: activePlan, isLoading: loadingActive } = useQuery({
     queryKey: nutritionPlanKeys.activeForAtleta(atletaUserId),
     enabled: !!atletaUserId,
     queryFn: () => getActiveNutritionPlan(atletaUserId),
   });
+
+  const { data: loadedMealTargets = [] } = useQuery({
+    queryKey: nutritionMealTargetKeys.plan(activePlan?.id ?? ''),
+    enabled: !!activePlan?.id,
+    queryFn: () => listPlanMealTargets(activePlan!.id),
+  });
+
+  useEffect(() => {
+    if (loadedMealTargets.length > 0) {
+      setMealTargets(
+        loadedMealTargets.map((t) => ({
+          meal_type: t.meal_type,
+          kcal: String(t.kcal),
+          protein_g: String(t.protein_g),
+          carbs_g: String(t.carbs_g),
+          fat_g: String(t.fat_g),
+        })),
+      );
+    }
+  }, [loadedMealTargets]);
 
   const { data: history = [] } = useQuery({
     queryKey: nutritionPlanKeys.forAtleta(atletaUserId),
@@ -153,6 +191,84 @@ export function PTAppNutritionPlanPage() {
 
   const canEditActive = activePlan?.pt_user_id === user?.id;
 
+  const applyPtTemplate = (templateId: string) => {
+    const t = ptTemplates.find((x) => x.id === templateId);
+    if (!t) return;
+    setTitle(t.title);
+    setNotes(t.notes ?? '');
+    setDailyKcal(String(t.daily_kcal));
+    setProteinG(String(t.protein_g));
+    setCarbsG(String(t.carbs_g));
+    setFatG(String(t.fat_g));
+    setMacroTemplateId(t.macro_template_id ?? '');
+  };
+
+  const fillDefaultMeals = () => {
+    const rows = defaultMealTargetsFromDaily({
+      kcal: Number(dailyKcal) || 0,
+      protein_g: Number(proteinG) || 0,
+      carbs_g: Number(carbsG) || 0,
+      fat_g: Number(fatG) || 0,
+    });
+    setMealTargets(
+      rows.map((r) => ({
+        meal_type: r.meal_type,
+        kcal: String(r.kcal),
+        protein_g: String(r.protein_g),
+        carbs_g: String(r.carbs_g),
+        fat_g: String(r.fat_g),
+      })),
+    );
+  };
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error('Sessione non valida');
+      const name = saveTemplateName.trim();
+      if (!name) throw new Error('Nome modello obbligatorio');
+      return createPtPlanTemplate({
+        ptUserId: user.id,
+        name,
+        title,
+        notes: notes.trim() || null,
+        macroTemplateId: macroTemplateId || null,
+        dailyKcal: Number(dailyKcal),
+        proteinG: Number(proteinG),
+        carbsG: Number(carbsG),
+        fatG: Number(fatG),
+      });
+    },
+    onSuccess: () => {
+      toast.success('Modello salvato');
+      setSaveTemplateName('');
+      queryClient.invalidateQueries({ queryKey: nutritionPtTemplateKeys.list(user!.id) });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveMealsMutation = useMutation({
+    mutationFn: async () => {
+      if (!activePlan) throw new Error('Nessun piano attivo');
+      return replacePlanMealTargets(
+        activePlan.id,
+        mealTargets.map((m) => ({
+          meal_type: m.meal_type,
+          kcal: Number(m.kcal) || 0,
+          protein_g: Number(m.protein_g) || 0,
+          carbs_g: Number(m.carbs_g) || 0,
+          fat_g: Number(m.fat_g) || 0,
+        })),
+      );
+    },
+    onSuccess: () => {
+      toast.success('Pasti aggiornati');
+      if (activePlan) {
+        queryClient.invalidateQueries({ queryKey: nutritionMealTargetKeys.plan(activePlan.id) });
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <PTAppPageShell
       title={athleteName ?? 'Piano nutrizionale'}
@@ -164,6 +280,12 @@ export function PTAppNutritionPlanPage() {
         <p className="text-sm text-center py-8 text-app-muted-foreground">Caricamento…</p>
       ) : (
         <div className="space-y-6 pb-8">
+          <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
+            <Link to={`/pt/app/nutrition/atleta/${atletaUserId}/diario`}>
+              Monitora diario atleta
+            </Link>
+          </Button>
+
           {activePlan && (
             <div className="rounded-2xl border border-app-border bg-app-card p-4 space-y-2">
               <div className="flex items-center justify-between gap-2">
@@ -188,8 +310,24 @@ export function PTAppNutritionPlanPage() {
           )}
 
           <div className="space-y-4 rounded-2xl border border-app-border bg-app-card p-4">
+            {ptTemplates.length > 0 && (
+              <div className="space-y-2">
+                <Label>I tuoi modelli salvati</Label>
+                <Select onValueChange={applyPtTemplate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Applica un modello" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ptTemplates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label>Modello di partenza</Label>
+              <Label>Modello macro di sistema</Label>
               <Select
                 value={macroTemplateId || 'none'}
                 onValueChange={(v) => (v === 'none' ? setMacroTemplateId('') : applyTemplate(v))}
@@ -266,7 +404,76 @@ export function PTAppNutritionPlanPage() {
                 </>
               )}
             </div>
+
+            <div className="space-y-2 border-t border-app-border pt-4">
+              <Label>Salva come modello personale</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nome modello (es. Deficit estate)"
+                  value={saveTemplateName}
+                  onChange={(e) => setSaveTemplateName(e.target.value)}
+                />
+                <Button
+                  variant="secondary"
+                  disabled={saveTemplateMutation.isPending}
+                  onClick={() => saveTemplateMutation.mutate()}
+                >
+                  Salva
+                </Button>
+              </div>
+            </div>
           </div>
+
+          {canEditActive && activePlan && (
+            <div className="space-y-3 rounded-2xl border border-app-border bg-app-card p-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium text-app-foreground">Target per pasto</p>
+                <Button type="button" variant="outline" size="sm" onClick={fillDefaultMeals}>
+                  Auto-riparti
+                </Button>
+              </div>
+              {mealTargets.length === 0 ? (
+                <p className="text-sm text-app-muted-foreground">
+                  Nessun pasto configurato. Usa Auto-riparti per generare una proposta.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {mealTargets.map((m, idx) => (
+                    <li key={m.meal_type} className="grid grid-cols-2 gap-2 text-sm">
+                      <span className="col-span-2 font-medium">{NUTRITION_MEAL_LABELS[m.meal_type]}</span>
+                      <Input
+                        type="number"
+                        value={m.kcal}
+                        onChange={(e) => {
+                          const next = [...mealTargets];
+                          next[idx] = { ...m, kcal: e.target.value };
+                          setMealTargets(next);
+                        }}
+                        placeholder="kcal"
+                      />
+                      <Input
+                        type="number"
+                        value={m.protein_g}
+                        onChange={(e) => {
+                          const next = [...mealTargets];
+                          next[idx] = { ...m, protein_g: e.target.value };
+                          setMealTargets(next);
+                        }}
+                        placeholder="P (g)"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Button
+                className="w-full bg-pt-primary text-pt-primary-foreground"
+                disabled={saveMealsMutation.isPending || mealTargets.length === 0}
+                onClick={() => saveMealsMutation.mutate()}
+              >
+                Salva ripartizione pasti
+              </Button>
+            </div>
+          )}
 
           {history.length > 0 && (
             <div className="space-y-2">

@@ -120,6 +120,10 @@ import PTAppAthleteTransferPage from "./pages/pt/PTAppAthleteTransferPage";
 import PTAppColleagueSearchPage from "./pages/pt/PTAppColleagueSearchPage";
 import PTAppNutritionPage from "./pages/pt/PTAppNutritionPage";
 import PTAppNutritionPlanPage from "./pages/pt/PTAppNutritionPlanPage";
+import PTAppNutritionTemplatesPage from "./pages/pt/PTAppNutritionTemplatesPage";
+import PTAppNutritionRecipesPage from "./pages/pt/PTAppNutritionRecipesPage";
+import PTAppNutritionRecipeDetailPage from "./pages/pt/PTAppNutritionRecipeDetailPage";
+import PTAppNutritionAthleteDiaryPage from "./pages/pt/PTAppNutritionAthleteDiaryPage";
 import PTNutritionPage from "./pages/pt/PTNutritionPage";
 
 // Atleta App pages (Mobile/PWA)
@@ -138,6 +142,7 @@ import AtletaNotificationsPage from "./pages/atleta/AtletaNotificationsPage";
 import AtletaSettingsPage from "./pages/atleta/AtletaSettingsPage";
 import AtletaHelpPage from "./pages/atleta/AtletaHelpPage";
 import AtletaNutritionPage from "./pages/atleta/AtletaNutritionPage";
+import AtletaNutritionRecipeDetailPage from "./pages/atleta/AtletaNutritionRecipeDetailPage";
 import AtletaEventDetailPage from "./pages/atleta/AtletaEventDetailPage";
 import AtletaProfessionalProfilePage from "./pages/atleta/AtletaProfessionalProfilePage";
 import AtletaBookingPage from "./pages/atleta/AtletaBookingPage";
@@ -576,6 +581,34 @@ const App = () => {
                   </PTDashboardLayout>
                 </PTDashboardRoute>
               } />
+              <Route path="/pt/nutrition/atleta/:atletaUserId/diario" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAppNutritionAthleteDiaryPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/nutrition/modelli" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAppNutritionTemplatesPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/nutrition/ricette" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAppNutritionRecipesPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
+              <Route path="/pt/nutrition/ricette/:slug" element={
+                <PTDashboardRoute>
+                  <PTDashboardLayout>
+                    <PTAppNutritionRecipeDetailPage />
+                  </PTDashboardLayout>
+                </PTDashboardRoute>
+              } />
               <Route path="/pt/cerca-professionisti" element={
                 <PTDashboardRoute>
                   <PTDashboardLayout>
@@ -725,6 +758,34 @@ const App = () => {
                 <PTAppRoute>
                   <AppLayout>
                     <PTAppNutritionPlanPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/nutrition/atleta/:atletaUserId/diario" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppNutritionAthleteDiaryPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/nutrition/modelli" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppNutritionTemplatesPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/nutrition/ricette" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppNutritionRecipesPage />
+                  </AppLayout>
+                </PTAppRoute>
+              } />
+              <Route path="/pt/app/nutrition/ricette/:slug" element={
+                <PTAppRoute>
+                  <AppLayout>
+                    <PTAppNutritionRecipeDetailPage />
                   </AppLayout>
                 </PTAppRoute>
               } />
@@ -1017,6 +1078,13 @@ const App = () => {
                 <AtletaRoute>
                   <AppLayout>
                     <AtletaNutritionPage />
+                  </AppLayout>
+                </AtletaRoute>
+              } />
+              <Route path="/app/nutrition/ricette/:slug" element={
+                <AtletaRoute>
+                  <AppLayout>
+                    <AtletaNutritionRecipeDetailPage />
                   </AppLayout>
                 </AtletaRoute>
               } />

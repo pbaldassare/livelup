@@ -8,11 +8,16 @@ import {
   addDiaryEntry,
   deleteDiaryEntry,
   getActiveNutritionPlan,
+  getNutritionFoodLookupProvider,
   listDiaryEntries,
+  listPlanMealTargets,
   nutritionDiaryKeys,
+  nutritionMealTargetKeys,
   nutritionPlanKeys,
-  searchFoodTemplates,
 } from '@/lib/api/nutrition';
+import { AtletaNutritionRecipesPage } from '@/pages/atleta/AtletaNutritionRecipesPage';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { NUTRITION_MEAL_LABELS as MEAL_LABELS } from '@/types/nutrition';
 import { macrosForGrams, sumMacroTotals } from '@/lib/nutritionMacros';
 import { MacroSummaryBar } from '@/components/nutrition/MacroSummaryBar';
 import {
@@ -53,6 +58,8 @@ export function AtletaNutritionPage() {
   const [selectedFood, setSelectedFood] = useState<FoodTemplate | null>(null);
   const [grams, setGrams] = useState('100');
   const [customName, setCustomName] = useState('');
+  const [barcode, setBarcode] = useState('');
+  const [mainTab, setMainTab] = useState<'diario' | 'ricette'>('diario');
 
   const { data: plan } = useQuery({
     queryKey: nutritionPlanKeys.activeForAtleta(user?.id ?? ''),
@@ -66,9 +73,15 @@ export function AtletaNutritionPage() {
     queryFn: () => listDiaryEntries(user!.id, day),
   });
 
+  const { data: mealTargets = [] } = useQuery({
+    queryKey: nutritionMealTargetKeys.plan(plan?.id ?? ''),
+    enabled: !!plan?.id,
+    queryFn: () => listPlanMealTargets(plan!.id),
+  });
+
   const { data: foods = [] } = useQuery({
     queryKey: ['food-search', foodQuery],
-    queryFn: () => searchFoodTemplates(foodQuery),
+    queryFn: () => getNutritionFoodLookupProvider().searchByText(foodQuery),
     enabled: addOpen,
   });
 
@@ -168,6 +181,16 @@ export function AtletaNutritionPage() {
           </div>
         </div>
 
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'diario' | 'ricette')}>
+          <TabsList className="w-full">
+            <TabsTrigger value="diario" className="flex-1">Diario</TabsTrigger>
+            <TabsTrigger value="ricette" className="flex-1">Ricette</TabsTrigger>
+          </TabsList>
+          <TabsContent value="ricette" className="mt-4">
+            <AtletaNutritionRecipesPage embedded />
+          </TabsContent>
+          <TabsContent value="diario" className="mt-4 space-y-4">
+
         {plan ? (
           <div className="rounded-2xl border border-app-border bg-app-card p-4">
             <p className="font-medium text-app-foreground">{plan.title}</p>
@@ -194,6 +217,17 @@ export function AtletaNutritionPage() {
         </div>
 
         <MacroSummaryBar actual={totals} target={target} />
+
+        {mealTargets.length > 0 && (
+          <div className="rounded-xl border border-app-border bg-app-card p-3 text-xs space-y-1">
+            <p className="font-medium text-app-foreground">Target per pasto (PT)</p>
+            {mealTargets.map((m) => (
+              <p key={m.id} className="text-app-muted-foreground">
+                {MEAL_LABELS[m.meal_type]}: {m.kcal} kcal
+              </p>
+            ))}
+          </div>
+        )}
 
         <Button className="w-full bg-app-accent text-app-accent-foreground" onClick={() => setAddOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
@@ -240,6 +274,8 @@ export function AtletaNutritionPage() {
             })}
           </div>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -260,6 +296,23 @@ export function AtletaNutritionPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Barcode (opzionale)</Label>
+              <Input
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                placeholder="Se hai un lettore o API collegata"
+                onBlur={async () => {
+                  if (!barcode.trim()) return;
+                  const found = await getNutritionFoodLookupProvider().lookupBarcode(barcode.trim());
+                  if (found) {
+                    setSelectedFood(found);
+                    setCustomName('');
+                    toast.success(`Trovato: ${found.name}`);
+                  }
+                }}
+              />
             </div>
             <div className="space-y-2">
               <Label>Cerca alimento</Label>

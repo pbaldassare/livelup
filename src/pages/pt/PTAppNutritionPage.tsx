@@ -6,7 +6,8 @@ import { getPTConnections } from '@/lib/api/connections';
 import { listActivePlansForPtAthletes, nutritionPlanKeys } from '@/lib/api/nutrition';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Salad } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChevronRight, Salad, BookOpen, LayoutTemplate } from 'lucide-react';
 
 export function PTAppNutritionPage() {
   const { user } = useAuth();
@@ -44,6 +45,20 @@ export function PTAppNutritionPage() {
       showBack
       backTo="/pt/app"
     >
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/pt/app/nutrition/modelli">
+            <LayoutTemplate className="mr-1 h-4 w-4" />
+            Modelli
+          </Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/pt/app/nutrition/ricette">
+            <BookOpen className="mr-1 h-4 w-4" />
+            Ricette
+          </Link>
+        </Button>
+      </div>
       {isLoading ? (
         <p className="text-sm text-app-muted-foreground py-8 text-center">Caricamento…</p>
       ) : athletes.length === 0 ? (

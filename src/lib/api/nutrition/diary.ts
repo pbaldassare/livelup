@@ -58,3 +58,28 @@ export async function deleteDiaryEntry(entryId: string): Promise<void> {
   const { error } = await nutritionDb().from('nutrition_diary_entries').delete().eq('id', entryId);
   if (error) throw error;
 }
+
+/** Ultimi N giorni con almeno una voce (per monitor PT). */
+export async function listRecentDiaryDays(
+  atletaUserId: string,
+  limit = 14,
+): Promise<string[]> {
+  const { data, error } = await nutritionDb()
+    .from('nutrition_diary_entries')
+    .select('logged_on')
+    .eq('atleta_user_id', atletaUserId)
+    .order('logged_on', { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  const days: string[] = [];
+  const seen = new Set<string>();
+  for (const row of data ?? []) {
+    const d = row.logged_on as string;
+    if (!seen.has(d)) {
+      seen.add(d);
+      days.push(d);
+      if (days.length >= limit) break;
+    }
+  }
+  return days;
+}

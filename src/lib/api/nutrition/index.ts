@@ -2,3 +2,6 @@ export * from './plans';
 export * from './diary';
 export * from './foods';
 export * from './foodLookup';
+export * from './recipes';
+export * from './ptTemplates';
+export * from './mealTargets';

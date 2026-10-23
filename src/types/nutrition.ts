@@ -79,3 +79,63 @@ export interface MacroTotals {
   carbs_g: number;
   fat_g: number;
 }
+
+export type NutritionRecipeCategory =
+  | 'colazione'
+  | 'spuntino'
+  | 'pranzo'
+  | 'cena'
+  | 'post_allenamento'
+  | 'vegetariano'
+  | 'veloce';
+
+export const NUTRITION_RECIPE_CATEGORY_LABELS: Record<NutritionRecipeCategory, string> = {
+  colazione: 'Colazione',
+  spuntino: 'Spuntino',
+  pranzo: 'Pranzo',
+  cena: 'Cena',
+  post_allenamento: 'Post allenamento',
+  vegetariano: 'Vegetariano',
+  veloce: 'Veloci',
+};
+
+export interface NutritionTemplateRecipe {
+  id: string;
+  slug: string;
+  category: NutritionRecipeCategory;
+  name: string;
+  description: string | null;
+  servings: number;
+  per_serving_kcal: number;
+  per_serving_protein_g: number;
+  per_serving_carbs_g: number;
+  per_serving_fat_g: number;
+  ingredients: string;
+  instructions: string | null;
+  sort_order: number;
+}
+
+export interface NutritionPtPlanTemplate {
+  id: string;
+  pt_user_id: string;
+  name: string;
+  title: string;
+  notes: string | null;
+  macro_template_id: string | null;
+  daily_kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NutritionPlanMealTarget {
+  id: string;
+  plan_id: string;
+  meal_type: NutritionMealType;
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
