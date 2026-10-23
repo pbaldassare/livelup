@@ -5,6 +5,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { createProgram, type ProgramMode } from '@/lib/api/programs';
 import { getDefaultParamsForProtocol, type ProtocolType } from '@/lib/protocols/registry';
+import { syncTemplateEstimatedDuration } from '@/lib/api/sheetDuration';
 import type {
   CreatePayload,
   ExerciseCreatePayload,
@@ -60,7 +61,7 @@ async function createAssistantTemplate(
       title: input.title.trim(),
       description: input.description,
       difficulty_level: input.difficultyLevel as 'nessuno',
-      estimated_duration: input.estimatedDuration,
+      estimated_duration: null,
       muscle_groups: input.muscleGroups,
       category: input.category,
       tags: input.tags,
@@ -93,6 +94,7 @@ async function createAssistantTemplate(
     }));
     const { error: exErr } = await supabase.from('template_exercises').insert(rows);
     if (exErr) throw new Error(exErr.message);
+    await syncTemplateEstimatedDuration(template.id).catch(() => null);
   }
 
   return template;
@@ -126,6 +128,7 @@ async function configureAssistantProtocol(input: ProtocolCreatePayload) {
   if (existing) {
     const { error } = await supabase.from('template_exercises').update(row).eq('id', existing.id);
     if (error) throw new Error(error.message);
+    await syncTemplateEstimatedDuration(input.templateId).catch(() => null);
     return { templateId: input.templateId, templateExerciseId: existing.id, updated: true };
   }
 
@@ -149,6 +152,7 @@ async function configureAssistantProtocol(input: ProtocolCreatePayload) {
     .single();
 
   if (error) throw new Error(error.message);
+  await syncTemplateEstimatedDuration(input.templateId).catch(() => null);
   return { templateId: input.templateId, templateExerciseId: inserted.id, updated: false };
 }
 

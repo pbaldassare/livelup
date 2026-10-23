@@ -46,6 +46,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { useTemplateDurations } from '@/hooks/useSheetDuration';
+import { formatEstimatedDuration } from '@/lib/workoutDuration';
 import { cn } from '@/lib/utils';
 
 // =====================================================
@@ -151,6 +153,10 @@ export function PTAppTemplatesPage() {
     },
     enabled: !!user?.id,
   });
+
+  const { data: templateDurations } = useTemplateDurations(templates.map((t) => t.id));
+  const templateSeconds = (template: WorkoutTemplate) =>
+    templateDurations?.[template.id] ?? (template.estimated_duration ?? 0) * 60;
 
   const filteredTemplates = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -359,12 +365,12 @@ export function PTAppTemplatesPage() {
                               {template.category}
                             </Badge>
                           )}
-                          {template.estimated_duration != null && (
+                          {templateSeconds(template) > 0 && (
                             <Badge
                               variant="outline"
                               className="text-[10px] border-app-border text-app-muted-foreground"
                             >
-                              {template.estimated_duration} min
+                              {formatEstimatedDuration(templateSeconds(template))}
                             </Badge>
                           )}
                         </div>

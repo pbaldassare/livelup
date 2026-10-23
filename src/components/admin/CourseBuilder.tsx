@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Edit, Trash2, Loader2, Play } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatEstimatedDuration } from '@/lib/workoutDuration';
 
 interface CourseBuilderProps {
   courseId: string;
@@ -42,6 +43,23 @@ export function CourseBuilder({ courseId, onBack }: CourseBuilderProps) {
       return data;
     },
   });
+
+  const totalMinutes = sessions.reduce((acc: number, s: any) => acc + (s.duration_minutes || 0), 0);
+
+  useEffect(() => {
+    if (!course || isLoading) return;
+    const next = totalMinutes > 0 ? totalMinutes : null;
+    if (next === (course.duration_minutes ?? null)) return;
+    supabase
+      .from('courses')
+      .update({ duration_minutes: next })
+      .eq('id', courseId)
+      .then(({ error }) => {
+        if (error) return;
+        queryClient.invalidateQueries({ queryKey: ['course-detail', courseId] });
+        queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
+      });
+  }, [course, isLoading, totalMinutes, courseId, queryClient]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -106,7 +124,10 @@ export function CourseBuilder({ courseId, onBack }: CourseBuilderProps) {
         <Button variant="outline" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-2" />Indietro</Button>
         <div>
           <h1 className="text-xl font-bold">{course?.title || 'Corso'}</h1>
-          <p className="text-sm text-muted-foreground">Gestisci le sessioni del corso</p>
+          <p className="text-sm text-muted-foreground">
+            Gestisci le sessioni del corso
+            {totalMinutes > 0 && ` · Durata totale ${formatEstimatedDuration(totalMinutes * 60)}`}
+          </p>
         </div>
       </div>
 

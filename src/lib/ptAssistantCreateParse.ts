@@ -470,7 +470,6 @@ export function parseCreateCommand(
 
     const fields: PreviewField[] = [
       field('title', 'Titolo', title || null, title ? 'text' : 'default', true),
-      field('estimatedDuration', 'Durata (min)', duration.value, duration.fromText ? 'text' : 'default', false),
       field('difficultyLevel', 'Livello', difficulty.value === 'nessuno' ? 'Non specificato' : difficulty.value, difficulty.fromText ? 'text' : 'default', false),
       field('muscleGroups', 'Gruppi muscolari', muscles.groups, muscles.fromText ? 'text' : 'default', false),
       field('category', 'Categoria scheda', category.fromText ? category.value : null, category.fromText ? 'text' : 'default', false),

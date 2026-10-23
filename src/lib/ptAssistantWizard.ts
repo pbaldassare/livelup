@@ -72,7 +72,6 @@ export function getWizardSteps(intent: AssistantIntent, catalog?: PTCatalog): Wi
     case 'template':
       return [
         { key: 'title', label: 'Titolo', prompt: 'Come si chiama la scheda?', type: 'text', required: true },
-        { key: 'estimatedDuration', label: 'Durata', prompt: 'Quanti minuti dura?', hint: 'Es. 45, 60, 90', type: 'number', suffix: 'min', skipAllowed: true },
         { key: 'difficultyLevel', label: 'Livello', prompt: 'A che livello è pensata?', type: 'select', options: FITNESS_LEVELS, skipAllowed: true },
         { key: 'muscleGroups', label: 'Gruppi muscolari', prompt: 'Quali gruppi muscolari coinvolge?', type: 'multiselect', options: MUSCLE_GROUPS.map((m) => ({ value: m, label: m })), skipAllowed: true },
         { key: 'category', label: 'Categoria', prompt: 'Che tipo di allenamento è?', type: 'select', options: CATEGORIES.map((c) => ({ value: c, label: c })), skipAllowed: true },
@@ -366,9 +365,7 @@ export function getSentenceParts(intent: AssistantIntent, catalog?: PTCatalog): 
       return [
         { kind: 'text', value: 'Creo una scheda con titolo' },
         f('title'),
-        { kind: 'text', value: ' di durata' },
-        f('estimatedDuration'),
-        { kind: 'text', value: ' minuti, livello' },
+        { kind: 'text', value: ', livello' },
         f('difficultyLevel'),
         { kind: 'text', value: ', muscoli' },
         f('muscleGroups', 'block'),

@@ -5,9 +5,14 @@
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';
+import { estimateCourseSeconds, secondsToRoundedMinutes } from '@/lib/workoutDuration';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => supabase as any;
+
+/** Campi step minimi per stimare la durata del corso nelle liste. */
+const COURSE_STEPS_DURATION_EMBED =
+  'pt_course_steps(id, step_type, video_duration_minutes, pt_course_step_exercises(sets, reps, rest_seconds))';
 
 export type CourseStatus = 'draft' | 'published' | 'archived';
 export type CourseDifficulty = 'beginner' | 'intermediate' | 'advanced';
@@ -106,6 +111,8 @@ export interface PtCourseWithSteps extends PtCourse {
 export interface PtCourseListItem extends PtCourse {
   enrolled_count: number;
   steps_count: number;
+  /** Somma delle durate stimate degli step (esercizi + video). */
+  estimated_seconds: number;
 }
 
 export type StepProgressStatus = 'locked' | 'in_progress' | 'completed';
@@ -138,6 +145,7 @@ export interface PtCourseStepProgress {
 
 export interface AtletaCourseCard extends PtCourse {
   steps_count: number;
+  estimated_seconds: number;
   pt_name: string | null;
   enrollment?: PtCourseEnrollment | null;
 }
@@ -232,7 +240,7 @@ export async function listPTCourses(ptUserId: string): Promise<PtCourseListItem[
     .from('pt_courses')
     .select(`
       *,
-      pt_course_steps(id)
+      ${COURSE_STEPS_DURATION_EMBED}
     `)
     .eq('pt_user_id', ptUserId)
     .order('created_at', { ascending: false });
@@ -278,6 +286,7 @@ export async function listPTCourses(ptUserId: string): Promise<PtCourseListItem[
   return rows.map((row) => ({
     ...row,
     steps_count: Array.isArray(row.pt_course_steps) ? row.pt_course_steps.length : 0,
+    estimated_seconds: estimateCourseSeconds(row.pt_course_steps),
     enrolled_count: enrolledByCourse.get(row.id) || 0,
     pt_course_steps: undefined,
   })) as PtCourseListItem[];
@@ -395,6 +404,20 @@ export async function updateCourse(courseId: string, input: UpdateCourseInput): 
 
   if (error) throw new Error('Errore aggiornamento corso: ' + error.message);
   return data as PtCourse;
+}
+
+/** Allinea `pt_courses.duration_minutes` alla durata calcolata dagli step. */
+export async function persistCourseDuration(
+  courseId: string,
+  estimatedSeconds: number,
+): Promise<number | null> {
+  const minutes = secondsToRoundedMinutes(estimatedSeconds);
+  const { error } = await db()
+    .from('pt_courses')
+    .update({ duration_minutes: minutes })
+    .eq('id', courseId);
+  if (error) throw new Error('Errore aggiornamento durata corso: ' + error.message);
+  return minutes;
 }
 
 export async function deleteCourse(courseId: string): Promise<void> {
@@ -653,7 +676,7 @@ export async function listPublishedCoursesForAthlete(
     .from('pt_courses')
     .select(`
       *,
-      pt_course_steps(id)
+      ${COURSE_STEPS_DURATION_EMBED}
     `)
     .eq('status', 'published')
     .order('created_at', { ascending: false });
@@ -684,6 +707,7 @@ export async function listPublishedCoursesForAthlete(
     const card: AtletaCourseCard = {
       ...(row as PtCourse),
       steps_count: Array.isArray(row.pt_course_steps) ? row.pt_course_steps.length : 0,
+      estimated_seconds: estimateCourseSeconds(row.pt_course_steps),
       pt_name: ptNames.get(row.pt_user_id) || null,
       enrollment,
     };

@@ -11,6 +11,7 @@ import {
   type PtCourseStepExercise,
   type PtCourseStepProgress,
 } from '@/lib/api/courses';
+import { estimateCourseStepSeconds, formatEstimatedDuration } from '@/lib/workoutDuration';
 
 interface CourseStepCardProps {
   step: PtCourseStep;
@@ -98,10 +99,10 @@ export function CourseStepCard({
                       {step.description}
                     </p>
                   ) : null}
-                  {isVideoStep && step.video_duration_minutes ? (
+                  {estimateCourseStepSeconds(step) > 0 ? (
                     <p className="text-xs text-app-muted-foreground mt-1 flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      ~{step.video_duration_minutes} min
+                      {formatEstimatedDuration(estimateCourseStepSeconds(step))}
                     </p>
                   ) : null}
                 </div>

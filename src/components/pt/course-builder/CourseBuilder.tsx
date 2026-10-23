@@ -41,6 +41,7 @@ import {
 import {
   addStep,
   courseQueryKeys,
+  persistCourseDuration,
   createCourse,
   getCourseWithSteps,
   reorderSteps,
@@ -50,6 +51,11 @@ import {
   type PtCourse,
 } from '@/lib/api/courses';
 import { CourseStepEditor } from './CourseStepEditor';
+import {
+  estimateCourseSeconds,
+  formatEstimatedDuration,
+  secondsToRoundedMinutes,
+} from '@/lib/workoutDuration';
 import { cn } from '@/lib/utils';
 
 const DIFFICULTY_OPTIONS: { value: CourseDifficulty; label: string }[] = [
@@ -128,6 +134,22 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
     setIsFree(course.is_free !== false);
     setPrice(String(course.price ?? 0));
   }, [open, activeCourseId, course]);
+
+  useEffect(() => {
+    if (!course || !activeCourseId || course.id !== activeCourseId) return;
+    const minutes = secondsToRoundedMinutes(estimateCourseSeconds(course.pt_course_steps));
+    if (minutes === (course.duration_minutes ?? null)) return;
+    persistCourseDuration(course.id, estimateCourseSeconds(course.pt_course_steps))
+      .then((saved) => {
+        queryClient.setQueryData(courseQueryKeys.detail(course.id), (prev: unknown) =>
+          prev ? { ...(prev as object), duration_minutes: saved } : prev,
+        );
+        if (user?.id) queryClient.invalidateQueries({ queryKey: courseQueryKeys.list(user.id) });
+      })
+      .catch(() => {
+        /* cache non critica: le liste ricalcolano dagli step */
+      });
+  }, [course, activeCourseId, queryClient, user?.id]);
 
   const invalidateList = () => {
     if (user?.id) {
@@ -249,6 +271,7 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
 
   const saving = createMutation.isPending || updateMetaMutation.isPending;
   const steps = course?.pt_course_steps || [];
+  const estimatedSeconds = estimateCourseSeconds(course?.pt_course_steps);
   const isCreating = !courseId && !activeCourseId;
   const showCoverPreview =
     !!coverImageUrl && isLikelyImageUrl(coverImageUrl) && !coverImageBroken;
@@ -430,6 +453,9 @@ export function CourseBuilder({ open, onOpenChange, courseId, onSaved }: CourseB
                     <h3 className="text-sm font-semibold">Step del corso</h3>
                     <p className="text-xs text-muted-foreground">
                       Trascina per riordinare · {steps.length} step
+                      {estimatedSeconds > 0 && (
+                        <> · Durata {formatEstimatedDuration(estimatedSeconds)} (calcolata)</>
+                      )}
                     </p>
                   </div>
                   <DropdownMenu>

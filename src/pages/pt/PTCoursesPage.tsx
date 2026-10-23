@@ -22,10 +22,12 @@ import {
   Eye,
   EyeOff,
   Users,
+  Clock,
   ListOrdered,
   UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatEstimatedDuration } from '@/lib/workoutDuration';
 import { CourseBuilder } from '@/components/pt/course-builder/CourseBuilder';
 import { AssignCourseDialog } from '@/components/pt/course-builder/AssignCourseDialog';
 import { CoursePreviewDialog } from '@/components/pt/course-builder/CoursePreviewDialog';
@@ -293,6 +295,12 @@ export default function PTCoursesPage({ embedded = false }: { embedded?: boolean
                       <ListOrdered className="h-3.5 w-3.5" />
                       {course.steps_count} step
                     </span>
+                    {course.estimated_seconds > 0 && (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        {formatEstimatedDuration(course.estimated_seconds)}
+                      </span>
+                    )}
                     <span className="inline-flex items-center gap-1">
                       <Users className="h-3.5 w-3.5" />
                       {course.enrolled_count} iscritti
