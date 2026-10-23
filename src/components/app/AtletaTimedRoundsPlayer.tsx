@@ -3,7 +3,7 @@
 // Player condiviso per HIIT e TABATA.
 // Sequenza per round: E1 (work) → rest_ex → E2 → rest_ex → … → En
 //   r < R → rest_round → round r+1
-//   r = R → onFinished() auto-advance (no schermata finale, no bottone).
+//   r = R → riepilogo reps fatte per intervallo → onFinished().
 // =====================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -11,10 +11,12 @@ import { Pause, Play, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ExerciseHeader } from '@/components/app/ExerciseHeader';
+import { ProtocolResultsReview } from '@/components/app/ProtocolResultInputs';
 import {
   normalizeTimedRoundsParams,
   type TimedRoundsParams,
 } from '@/lib/protocols/timedRounds';
+import { buildResultEntry, type ProtocolResultEntry } from '@/lib/protocols/protocolResults';
 
 type Phase = 'work' | 'rest_between_exercises' | 'rest_between_rounds';
 
@@ -25,6 +27,7 @@ interface AtletaTimedRoundsPlayerProps {
   onFinished: (summary: {
     roundsCompleted: number;
     totalDurationSeconds: number;
+    results: ProtocolResultEntry[];
   }) => void;
   notes?: string | null;
   onShowDetails?: () => void;
@@ -91,14 +94,29 @@ export function AtletaTimedRoundsPlayer({
   const phaseTotalRef = useRef(phaseTotal);
   phaseTotalRef.current = phaseTotal;
 
+  const [reviewEntries, setReviewEntries] = useState<ProtocolResultEntry[] | null>(null);
+
   const finish = () => {
     if (isCompletingRef.current) return;
     isCompletingRef.current = true;
     setIsRunning(false);
-    onFinished({
-      roundsCompleted: totalRounds,
-      totalDurationSeconds: accumulatedWorkSecondsRef.current,
-    });
+    const entries: ProtocolResultEntry[] = [];
+    for (let r = 1; r <= totalRounds; r++) {
+      params.exercises.forEach((ex, idx) => {
+        entries.push(
+          buildResultEntry({
+            round: r,
+            exerciseIndex: idx,
+            source: { exercise_id: ex.exercise_id, name: ex.name },
+            fallbackName: exerciseName || 'Esercizio',
+            mode: 'reps',
+            target: null,
+            done: 0,
+          }),
+        );
+      });
+    }
+    setReviewEntries(entries);
   };
 
   // Setta una nuova fase (con skip automatico se duration === 0)
@@ -252,6 +270,28 @@ export function AtletaTimedRoundsPlayer({
 
   const ringColor =
     phase === 'work' ? 'hsl(var(--app-accent))' : 'hsl(var(--app-muted-foreground))';
+
+  if (reviewEntries) {
+    return (
+      <ProtocolResultsReview
+        protocol={protocolLabel}
+        entries={reviewEntries}
+        subtitle={`Inserisci quante ripetizioni hai fatto in ogni intervallo da ${params.exercise_duration_seconds}s.`}
+        onChange={(index, value) =>
+          setReviewEntries((prev) =>
+            prev ? prev.map((e, i) => (i === index ? { ...e, done: value } : e)) : prev,
+          )
+        }
+        onConfirm={() =>
+          onFinished({
+            roundsCompleted: totalRounds,
+            totalDurationSeconds: accumulatedWorkSecondsRef.current,
+            results: reviewEntries,
+          })
+        }
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col items-center px-5 py-6">

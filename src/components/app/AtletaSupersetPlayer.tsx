@@ -3,13 +3,21 @@
 // Guida l'atleta attraverso supersets × esercizi con recuperi.
 // =====================================================
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Pause, Play, SkipForward } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ExerciseHeader } from '@/components/app/ExerciseHeader';
+import { ActualValueStepper } from '@/components/app/ProtocolResultInputs';
 import { normalizeSupersetParams } from '@/lib/protocols/superset';
 import { formatProtocolTargetLabel } from '@/lib/protocols/exerciseTarget';
+import {
+  actualValueLabel,
+  buildResultEntry,
+  isEntryShort,
+  type ProtocolResultEntry,
+} from '@/lib/protocols/protocolResults';
 import { formatLoadLabel } from '@/lib/loadPrescription';
 import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
 import { deadlineFromRemaining, remainingFromDeadline } from '@/lib/workoutClock';
@@ -19,7 +27,7 @@ type Phase = 'work' | 'rest_between_exercises' | 'rest_between_supersets';
 interface AtletaSupersetPlayerProps {
   exerciseName: string;
   protocolParams: Record<string, unknown> | null | undefined;
-  onFinished: () => void;
+  onFinished: (summary: { results: ProtocolResultEntry[] }) => void;
   notes?: string | null;
   onShowDetails?: () => void;
   /** Scheda progressiva: recuperi restano saltabili */
@@ -39,7 +47,7 @@ export function AtletaSupersetPlayer({
   onFinished,
   notes,
   onShowDetails,
-  requireFullCompletion: _requireFullCompletion = false,
+  requireFullCompletion = false,
 }: AtletaSupersetPlayerProps) {
   const params = useMemo(
     () => normalizeSupersetParams(protocolParams ?? {}),
@@ -65,6 +73,36 @@ export function AtletaSupersetPlayer({
 
   const isLastExercise = exerciseIndex >= params.exercises_count - 1;
   const isLastSuperset = supersetIndex >= params.supersets_count - 1;
+
+  const buildCurrentEntry = useCallback(
+    (done?: number | null) => {
+      const ex = params.exercises[exerciseIndex];
+      const target = currentCell ?? ex;
+      return buildResultEntry({
+        round: supersetIndex + 1,
+        exerciseIndex,
+        source: {
+          exercise_id: ex?.exercise_id ?? currentRow?.exercise_id ?? null,
+          name: displayName,
+          mode: target?.mode,
+          reps: target?.reps,
+          duration_seconds: target?.duration_seconds,
+        },
+        fallbackName: displayName,
+        done,
+      });
+    },
+    [params.exercises, exerciseIndex, currentCell, currentRow, supersetIndex, displayName],
+  );
+
+  const resultsRef = useRef<ProtocolResultEntry[]>([]);
+  const [doneValue, setDoneValue] = useState(() => buildCurrentEntry().done);
+  const currentMode = buildCurrentEntry().mode;
+
+  useEffect(() => {
+    setDoneValue(buildCurrentEntry().done);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supersetIndex, exerciseIndex]);
 
   const advanceAfterRest = () => {
     if (phase === 'rest_between_exercises') {
@@ -101,10 +139,24 @@ export function AtletaSupersetPlayer({
     if (finishedRef.current) return;
     finishedRef.current = true;
     setIsRunning(false);
-    onFinished();
+    onFinished({ results: resultsRef.current });
   };
 
   const handleCompleteExercise = () => {
+    const entry = buildCurrentEntry(doneValue);
+    if (requireFullCompletion && isEntryShort(entry)) {
+      toast.error(
+        `Scheda progressiva: servono almeno ${entry.target}${entry.mode === 'seconds' ? 's' : ' reps'}`,
+      );
+      return;
+    }
+    resultsRef.current = [
+      ...resultsRef.current.filter(
+        (e) => !(e.round === entry.round && e.exercise_index === entry.exercise_index),
+      ),
+      entry,
+    ];
+
     if (!isLastExercise && params.rest_between_exercises_enabled && params.rest_between_exercises) {
       setPhase('rest_between_exercises');
       startRest(params.rest_between_exercises);
@@ -192,6 +244,17 @@ export function AtletaSupersetPlayer({
               )}
             </p>
           </div>
+
+          {hasStarted && (
+            <div className="w-full max-w-md -mt-4 mb-6 px-1">
+              <ActualValueStepper
+                mode={currentMode}
+                label={actualValueLabel(currentMode)}
+                value={doneValue}
+                onChange={setDoneValue}
+              />
+            </div>
+          )}
 
           <div className="w-full max-w-md flex flex-col gap-3">
             {!hasStarted ? (

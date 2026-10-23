@@ -9,10 +9,16 @@ import { Pause, Play, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ExerciseHeader } from '@/components/app/ExerciseHeader';
+import { ProtocolResultsReview } from '@/components/app/ProtocolResultInputs';
 import {
   formatAmrapDurationSeconds,
   normalizeAmrapParams,
 } from '@/lib/protocols/amrap';
+import {
+  buildResultEntry,
+  targetValue,
+  type ProtocolResultEntry,
+} from '@/lib/protocols/protocolResults';
 import { formatProtocolTarget } from '@/lib/protocols/exerciseTarget';
 import { formatLoadLabel } from '@/lib/loadPrescription';
 import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
@@ -21,7 +27,11 @@ import { deadlineFromRemaining, remainingFromDeadline } from '@/lib/workoutClock
 interface AtletaAmrapPlayerProps {
   exerciseName: string;
   protocolParams: Record<string, unknown> | null | undefined;
-  onFinished: (summary: { roundsCompleted: number; totalDurationSeconds: number }) => void;
+  onFinished: (summary: {
+    roundsCompleted: number;
+    totalDurationSeconds: number;
+    results: ProtocolResultEntry[];
+  }) => void;
   /** Scheda progressiva: niente uscita anticipata dal blocco */
   requireFullCompletion?: boolean;
   notes?: string | null;
@@ -61,15 +71,32 @@ export function AtletaAmrapPlayer({
     params.exercises.length > 0 ? roundsCompleted % params.exercises.length : 0;
   const currentExercise = params.exercises[currentExerciseIndex];
 
+  const [review, setReview] = useState<{
+    roundsCompleted: number;
+    totalDurationSeconds: number;
+    entries: ProtocolResultEntry[];
+  } | null>(null);
+
   const finishAmrap = (left: number) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     setIsRunning(false);
     setEndsAt(null);
     const elapsed = Math.max(0, params.duration_seconds - left);
-    onFinished({
-      roundsCompleted: roundsRef.current,
+    const rounds = roundsRef.current;
+    setReview({
+      roundsCompleted: rounds,
       totalDurationSeconds: elapsed || params.duration_seconds,
+      entries: params.exercises.map((ex, idx) =>
+        buildResultEntry({
+          round: null,
+          exerciseIndex: idx,
+          source: ex,
+          fallbackName: exerciseName || 'Esercizio',
+          done: (targetValue(ex) ?? 0) * rounds,
+          target: targetValue(ex) != null && rounds > 0 ? (targetValue(ex) as number) * rounds : null,
+        }),
+      ),
     });
   };
 
@@ -108,6 +135,30 @@ export function AtletaAmrapPlayer({
     params.duration_seconds > 0
       ? ((params.duration_seconds - secondsLeft) / params.duration_seconds) * 100
       : 0;
+
+  if (review) {
+    return (
+      <ProtocolResultsReview
+        protocol="AMRAP"
+        entries={review.entries}
+        subtitle={`${review.roundsCompleted} round completati. Indica il totale fatto per esercizio, compreso il round finale parziale.`}
+        onChange={(index, value) =>
+          setReview((prev) =>
+            prev
+              ? { ...prev, entries: prev.entries.map((e, i) => (i === index ? { ...e, done: value } : e)) }
+              : prev,
+          )
+        }
+        onConfirm={() =>
+          onFinished({
+            roundsCompleted: review.roundsCompleted,
+            totalDurationSeconds: review.totalDurationSeconds,
+            results: review.entries,
+          })
+        }
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col items-center px-5 py-6">
