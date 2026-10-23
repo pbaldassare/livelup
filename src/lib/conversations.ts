@@ -26,6 +26,16 @@ export function mergeConversationPeers(
   return [...byId.entries()].map(([peerId, relation]) => ({ peerId, relation }));
 }
 
+// Le righe elenco senza riga `chats` hanno un id segnaposto (non uuid):
+// non vanno usate per leggere/inviare messaggi, la chat va prima creata.
+export function findPersistedConversation<T extends { recipientUserId: string; _hasChat: boolean }>(
+  rows: T[] | undefined,
+  recipientId: string | undefined,
+): T | undefined {
+  if (!recipientId) return undefined;
+  return rows?.find((row) => row.recipientUserId === recipientId && row._hasChat);
+}
+
 export function conversationFallbackPreview(relation: ConversationRelation): string {
   if (relation === 'pending') return 'Richiesta in attesa · puoi chattare';
   if (relation === 'inquiry') return 'Domanda · non ancora collegati';

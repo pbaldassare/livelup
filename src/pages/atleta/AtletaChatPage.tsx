@@ -12,7 +12,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Users, Search, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from '@/lib/api/messages';
-import { conversationFallbackPreview, mergeConversationPeers } from '@/lib/conversations';
+import {
+  conversationFallbackPreview,
+  findPersistedConversation,
+  mergeConversationPeers,
+} from '@/lib/conversations';
 import { uploadChatAttachment } from '@/lib/api/chatAttachments';
 import { toast } from 'sonner';
 import { buildCoachFullName } from '@/lib/coachName';
@@ -148,8 +152,8 @@ export function AtletaChatPage() {
     enabled: !!user?.id,
   });
 
-  // Get current chat from existing list
-  const existingChat = chats?.find(c => c.recipientUserId === recipientId);
+  const listedPeer = chats?.find(c => c.recipientUserId === recipientId);
+  const existingChat = findPersistedConversation(chats, recipientId);
 
   // If recipientId is provided but no chat exists yet → create it on the fly
   const { data: createdChat, isLoading: creatingChat, isError: createChatFailed, error: createChatError } = useQuery({
@@ -199,8 +203,9 @@ export function AtletaChatPage() {
         recipientUserId: recipientId!,
         name: buildCoachFullName(recipientProfile?.first_name, recipientProfile?.last_name)
           ?? recipientProfile?.email
+          ?? listedPeer?.name
           ?? 'Il tuo Coach',
-        avatarUrl: recipientProfile?.avatar_url ?? undefined,
+        avatarUrl: recipientProfile?.avatar_url ?? listedPeer?.avatarUrl ?? undefined,
         lastMessage: undefined as string | undefined,
         lastMessageAt: undefined as string | undefined,
         unreadCount: 0,
@@ -324,8 +329,8 @@ export function AtletaChatPage() {
     return (
       <div className="h-full min-h-0 bg-app-background">
         <ChatMessages
-          recipientName={currentChat?.name ?? 'Il tuo Coach'}
-          recipientAvatar={currentChat?.avatarUrl}
+          recipientName={currentChat?.name ?? listedPeer?.name ?? 'Il tuo Coach'}
+          recipientAvatar={currentChat?.avatarUrl ?? listedPeer?.avatarUrl}
           messages={messages || []}
           currentUserId={user?.id || ''}
           onBack={() => navigate('/app/chat')}
