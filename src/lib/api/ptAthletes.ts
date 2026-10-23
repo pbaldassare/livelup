@@ -1,5 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { requestConnection } from '@/lib/api/connections';
+import { getSystemCategoryIdBySlug } from '@/lib/api/athleteCategories';
+import { isMissingSearchRpc, normalizeAtletaSearchHits } from '@/lib/atletaSearch';
+import type { AtletaSearchHit } from '@/lib/atletaSearch';
+
+export type { AtletaSearchHit };
 
 export type AtletaLookupResult = {
   found: boolean;
@@ -10,16 +15,6 @@ export type AtletaLookupResult = {
   has_active_pt?: boolean;
   has_other_pts?: boolean;
   connection_with_me?: string | null;
-};
-
-export type AtletaSearchHit = {
-  user_id: string;
-  email: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  has_active_pt: boolean;
-  has_other_pts: boolean;
-  connection_with_me: string | null;
 };
 
 export type CreateAthleteInput = {
@@ -59,9 +54,58 @@ export async function searchAtletiForPt(query: string): Promise<AtletaSearchHit[
     _query: q,
   });
 
-  if (error) throw error;
-  if (!Array.isArray(data)) return [];
-  return data as AtletaSearchHit[];
+  if (error) {
+    if (isMissingSearchRpc(error) && q.includes('@')) {
+      const exact = await findAtletaByEmail(q);
+      if (!exact.found || !exact.user_id) return [];
+      return [
+        {
+          user_id: exact.user_id,
+          email: exact.email ?? q,
+          first_name: exact.first_name ?? null,
+          last_name: exact.last_name ?? null,
+          has_active_pt: Boolean(exact.has_active_pt),
+          has_other_pts: Boolean(exact.has_other_pts),
+          connection_with_me: exact.connection_with_me ?? null,
+        },
+      ];
+    }
+    throw error;
+  }
+
+  const hits = normalizeAtletaSearchHits(data);
+  if (hits.length > 0) return hits;
+
+  if (q.includes('@')) {
+    const exact = await findAtletaByEmail(q);
+    if (!exact.found || !exact.user_id) return [];
+    return [
+      {
+        user_id: exact.user_id,
+        email: exact.email ?? q,
+        first_name: exact.first_name ?? null,
+        last_name: exact.last_name ?? null,
+        has_active_pt: Boolean(exact.has_active_pt),
+        has_other_pts: Boolean(exact.has_other_pts),
+        connection_with_me: exact.connection_with_me ?? null,
+      },
+    ];
+  }
+
+  return [];
+}
+
+export async function resolveInviteCategoryId(categoryId: string): Promise<string> {
+  const id = categoryId.trim();
+  if (!id) throw new Error('Seleziona la categoria cliente');
+  if (!id.startsWith('fallback-')) return id;
+
+  const slug = id.replace(/^fallback-/, '');
+  const realId = await getSystemCategoryIdBySlug(slug);
+  if (realId) return realId;
+  throw new Error(
+    'Categorie non disponibili sul backend. Riprova tra poco o scegli di nuovo Mix / In presenza / Online.',
+  );
 }
 
 export async function inviteExistingAtleta(
@@ -69,12 +113,13 @@ export async function inviteExistingAtleta(
   atletaUserId: string,
   categoryId: string,
 ): Promise<void> {
+  const resolvedCategoryId = await resolveInviteCategoryId(categoryId);
   await requestConnection({
     ptUserId,
     atletaUserId,
     requestedBy: ptUserId,
     origin: 'invito',
-    categoryId,
+    categoryId: resolvedCategoryId,
   });
 }
 
@@ -85,6 +130,8 @@ export async function createAndConnectAtleta(
     throw new Error('Seleziona la categoria cliente');
   }
 
+  const categoryId = await resolveInviteCategoryId(input.categoryId);
+
   const { data, error } = await supabase.functions.invoke('pt-create-athlete', {
     body: {
       email: input.email,
@@ -93,12 +140,16 @@ export async function createAndConnectAtleta(
       phone: input.phone,
       fitnessLevel: input.fitnessLevel,
       goals: input.goals ?? [],
-      categoryId: input.categoryId,
+      categoryId,
     },
   });
 
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
+  const bodyError =
+    data && typeof data === 'object' && 'error' in data && typeof (data as { error?: unknown }).error === 'string'
+      ? (data as { error: string }).error
+      : null;
+  if (bodyError) throw new Error(bodyError);
+  if (error) throw new Error(error.message || 'Errore durante la creazione');
   if (!data?.success) throw new Error('Creazione atleta fallita');
 
   return {

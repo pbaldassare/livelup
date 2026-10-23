@@ -195,13 +195,21 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
     }));
   };
 
-  const hasCategory = Boolean(categoryId) && !categoryId.startsWith('fallback-');
+  const hasCategory = Boolean(categoryId);
 
   const canCreate =
     createForm.firstName.trim().length >= 2 &&
     createForm.lastName.trim().length >= 2 &&
-    createForm.email.trim().length > 0 &&
+    /@/.test(createForm.email.trim()) &&
     hasCategory;
+
+  const createBlockedReason = (() => {
+    if (createForm.firstName.trim().length < 2) return 'Inserisci un nome di almeno 2 caratteri.';
+    if (createForm.lastName.trim().length < 2) return 'Inserisci un cognome di almeno 2 caratteri.';
+    if (!/@/.test(createForm.email.trim())) return 'Inserisci un’email valida.';
+    if (!hasCategory) return 'Seleziona la categoria cliente.';
+    return null;
+  })();
 
   // Multi-PT: si può invitare anche se ha già altri coach; blocco solo se già con te
   const canInvite =
@@ -300,7 +308,9 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
               )}
 
               {searchQuery.isError && (
-                <p className="text-sm text-destructive">Errore durante la ricerca. Riprova.</p>
+                <p className="text-sm text-destructive">
+                  {(searchQuery.error as Error)?.message || 'Errore durante la ricerca. Riprova.'}
+                </p>
               )}
 
               {!lookupResult?.found && debouncedQuery.length >= 3 && (
@@ -489,6 +499,10 @@ export function AddAthleteDialog({ open, onOpenChange, defaultTab = 'link' }: Pr
               Verrà creato un account con password temporanea <strong>Leone123!</strong>, inviata via email.
               L&apos;atleta comparirà subito tra i tuoi atleti attivi: chiedigli di cambiare la password al primo accesso.
             </p>
+
+            {createBlockedReason && (
+              <p className="text-xs text-muted-foreground">{createBlockedReason}</p>
+            )}
 
             <DialogFooter className="sm:justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
