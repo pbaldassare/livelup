@@ -7,6 +7,7 @@ import {
   getNutritionFoodLookupProvider,
   listPantryItems,
   nutritionPantryKeys,
+  updatePantryItem,
   type PantryUnit,
 } from '@/lib/api/nutrition';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ export function AtletaNutritionPantryPage({ embedded = false }: { embedded?: boo
   const [customName, setCustomName] = useState('');
   const [quantity, setQuantity] = useState('500');
   const [unit, setUnit] = useState<PantryUnit>('g');
+  const [expiresOn, setExpiresOn] = useState('');
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: nutritionPantryKeys.list(user?.id ?? ''),
@@ -67,6 +69,7 @@ export function AtletaNutritionPantryPage({ embedded = false }: { embedded?: boo
         customName: selectedFood ? selectedFood.name : customName.trim(),
         quantity: q,
         unit,
+        expiresOn: expiresOn.trim() || null,
       });
     },
     onSuccess: () => {
@@ -74,6 +77,7 @@ export function AtletaNutritionPantryPage({ embedded = false }: { embedded?: boo
       setOpen(false);
       setSelectedFood(null);
       setCustomName('');
+      setExpiresOn('');
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -81,6 +85,13 @@ export function AtletaNutritionPantryPage({ embedded = false }: { embedded?: boo
 
   const deleteMutation = useMutation({
     mutationFn: deletePantryItem,
+    onSuccess: invalidate,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateQtyMutation = useMutation({
+    mutationFn: ({ id, quantity }: { id: string; quantity: number }) =>
+      updatePantryItem(id, { quantity }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
@@ -116,10 +127,21 @@ export function AtletaNutritionPantryPage({ embedded = false }: { embedded?: boo
             >
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{item.custom_name ?? 'Alimento'}</p>
-                <p className="text-xs text-app-muted-foreground">
-                  {item.quantity} {unitLabel(item.unit as PantryUnit)}
-                  {item.expires_on ? ` · scad. ${item.expires_on}` : ''}
-                </p>
+                <div className="flex items-center gap-2 text-xs text-app-muted-foreground">
+                  <Input
+                    type="number"
+                    className="h-7 w-20 text-xs"
+                    defaultValue={item.quantity}
+                    onBlur={(e) => {
+                      const q = Number(e.target.value);
+                      if (q >= 0 && q !== Number(item.quantity)) {
+                        updateQtyMutation.mutate({ id: item.id, quantity: q });
+                      }
+                    }}
+                  />
+                  <span>{unitLabel(item.unit as PantryUnit)}</span>
+                  {item.expires_on ? <span>· scad. {item.expires_on}</span> : null}
+                </div>
               </div>
               <Button
                 variant="ghost"
@@ -166,6 +188,10 @@ export function AtletaNutritionPantryPage({ embedded = false }: { embedded?: boo
                 <Input value={customName} onChange={(e) => setCustomName(e.target.value)} />
               </div>
             )}
+            <div className="space-y-2">
+              <Label>Scadenza (opzionale)</Label>
+              <Input type="date" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
                 <Label>Quantità</Label>

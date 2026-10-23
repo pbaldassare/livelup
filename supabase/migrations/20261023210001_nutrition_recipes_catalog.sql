@@ -3,35 +3,35 @@ INSERT INTO public.nutrition_template_recipes (
   per_serving_carbs_g, per_serving_fat_g, ingredients, instructions, sort_order
 )
 VALUES
-  ('cat-colazione-porridge-p-e-frutta-1', 'colazione', 'Porridge p e frutta', 'Ricetta fitness dal catalogo Livelapp.', 395, 19, 59, 13, '80g fiocchi avena
+  ('cat-colazione-porridge-petto-di-pollo-e-frutta-1', 'colazione', 'Porridge petto di pollo e frutta', 'Ricetta fitness dal catalogo Livelapp.', 395, 19, 59, 13, '80g fiocchi avena
 200ml latte scremato
 1 banana
 10g mandorle', 'Cuoci l''avena 5 min con il liquido. Aggiungi frutta e mandorle.', 200),
-  ('cat-colazione-porridge-p-e-frutta-2', 'colazione', 'Porridge p e frutta', 'Ricetta fitness dal catalogo Livelapp.', 410, 20, 60, 12, '80g fiocchi avena
+  ('cat-colazione-porridge-tonno-e-frutta-2', 'colazione', 'Porridge tonno e frutta', 'Ricetta fitness dal catalogo Livelapp.', 410, 20, 60, 12, '80g fiocchi avena
 200ml latte di avena
 1 frutti di bosco
 10g mandorle', 'Cuoci l''avena 5 min con il liquido. Aggiungi frutta e mandorle.', 201),
-  ('cat-colazione-porridge-p-e-frutta-3', 'colazione', 'Porridge p e frutta', 'Ricetta fitness dal catalogo Livelapp.', 425, 18, 61, 13, '80g fiocchi avena
+  ('cat-colazione-porridge-uova-e-frutta-3', 'colazione', 'Porridge uova e frutta', 'Ricetta fitness dal catalogo Livelapp.', 425, 18, 61, 13, '80g fiocchi avena
 200ml latte di mandorla
 1 pera
 10g mandorle', 'Cuoci l''avena 5 min con il liquido. Aggiungi frutta e mandorle.', 202),
-  ('cat-colazione-porridge-p-e-frutta-4', 'colazione', 'Porridge p e frutta', 'Ricetta fitness dal catalogo Livelapp.', 440, 19, 58, 12, '80g fiocchi avena
+  ('cat-colazione-porridge-whey-e-frutta-4', 'colazione', 'Porridge whey e frutta', 'Ricetta fitness dal catalogo Livelapp.', 440, 19, 58, 12, '80g fiocchi avena
 200ml latte scremato
 1 mela
 10g mandorle', 'Cuoci l''avena 5 min con il liquido. Aggiungi frutta e mandorle.', 203),
-  ('cat-colazione-porridge-p-e-frutta-5', 'colazione', 'Porridge p e frutta', 'Ricetta fitness dal catalogo Livelapp.', 380, 20, 59, 13, '80g fiocchi avena
+  ('cat-colazione-porridge-tempeh-e-frutta-5', 'colazione', 'Porridge tempeh e frutta', 'Ricetta fitness dal catalogo Livelapp.', 380, 20, 59, 13, '80g fiocchi avena
 200ml latte di avena
 1 kiwi
 10g mandorle', 'Cuoci l''avena 5 min con il liquido. Aggiungi frutta e mandorle.', 204),
-  ('cat-colazione-porridge-p-e-frutta-6', 'colazione', 'Porridge p e frutta', 'Ricetta fitness dal catalogo Livelapp.', 395, 18, 60, 12, '80g fiocchi avena
+  ('cat-colazione-porridge-tacchino-e-frutta-6', 'colazione', 'Porridge tacchino e frutta', 'Ricetta fitness dal catalogo Livelapp.', 395, 18, 60, 12, '80g fiocchi avena
 200ml latte di mandorla
 1 banana
 10g mandorle', 'Cuoci l''avena 5 min con il liquido. Aggiungi frutta e mandorle.', 205),
-  ('cat-colazione-porridge-p-e-frutta-7', 'colazione', 'Porridge p e frutta', 'Ricetta fitness dal catalogo Livelapp.', 410, 19, 61, 13, '80g fiocchi avena
+  ('cat-colazione-porridge-salmone-e-frutta-7', 'colazione', 'Porridge salmone e frutta', 'Ricetta fitness dal catalogo Livelapp.', 410, 19, 61, 13, '80g fiocchi avena
 200ml latte scremato
 1 frutti di bosco
 10g mandorle', 'Cuoci l''avena 5 min con il liquido. Aggiungi frutta e mandorle.', 206),
-  ('cat-colazione-porridge-p-e-frutta-8', 'colazione', 'Porridge p e frutta', 'Ricetta fitness dal catalogo Livelapp.', 425, 20, 58, 12, '80g fiocchi avena
+  ('cat-colazione-porridge-bresaola-e-frutta-8', 'colazione', 'Porridge bresaola e frutta', 'Ricetta fitness dal catalogo Livelapp.', 425, 20, 58, 12, '80g fiocchi avena
 200ml latte di avena
 1 pera
 10g mandorle', 'Cuoci l''avena 5 min con il liquido. Aggiungi frutta e mandorle.', 207),

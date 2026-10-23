@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
@@ -108,6 +108,20 @@ export function PTAppNutritionPlanPage() {
     enabled: !!atletaUserId,
     queryFn: () => listNutritionPlansForAtleta(atletaUserId),
   });
+
+  const prefilledActivePlan = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activePlan || activePlan.pt_user_id !== user?.id) return;
+    if (prefilledActivePlan.current === activePlan.id) return;
+    prefilledActivePlan.current = activePlan.id;
+    setTitle(activePlan.title);
+    setNotes(activePlan.notes ?? '');
+    setDailyKcal(String(activePlan.daily_kcal));
+    setProteinG(String(activePlan.protein_g));
+    setCarbsG(String(activePlan.carbs_g));
+    setFatG(String(activePlan.fat_g));
+    setMacroTemplateId(activePlan.macro_template_id ?? '');
+  }, [activePlan, user?.id]);
 
   const applyTemplate = (id: string) => {
     setMacroTemplateId(id);

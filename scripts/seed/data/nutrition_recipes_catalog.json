@@ -2,9 +2,9 @@
   "version": 1,
   "recipes": [
     {
-      "slug": "cat-colazione-porridge-p-e-frutta-1",
+      "slug": "cat-colazione-porridge-petto-di-pollo-e-frutta-1",
       "category": "colazione",
-      "name": "Porridge p e frutta",
+      "name": "Porridge petto di pollo e frutta",
       "description": "Ricetta fitness dal catalogo Livelapp.",
       "kcal": 395,
       "protein_g": 19,
@@ -15,9 +15,9 @@
       "sort_order": 200
     },
     {
-      "slug": "cat-colazione-porridge-p-e-frutta-2",
+      "slug": "cat-colazione-porridge-tonno-e-frutta-2",
       "category": "colazione",
-      "name": "Porridge p e frutta",
+      "name": "Porridge tonno e frutta",
       "description": "Ricetta fitness dal catalogo Livelapp.",
       "kcal": 410,
       "protein_g": 20,
@@ -28,9 +28,9 @@
       "sort_order": 201
     },
     {
-      "slug": "cat-colazione-porridge-p-e-frutta-3",
+      "slug": "cat-colazione-porridge-uova-e-frutta-3",
       "category": "colazione",
-      "name": "Porridge p e frutta",
+      "name": "Porridge uova e frutta",
       "description": "Ricetta fitness dal catalogo Livelapp.",
       "kcal": 425,
       "protein_g": 18,
@@ -41,9 +41,9 @@
       "sort_order": 202
     },
     {
-      "slug": "cat-colazione-porridge-p-e-frutta-4",
+      "slug": "cat-colazione-porridge-whey-e-frutta-4",
       "category": "colazione",
-      "name": "Porridge p e frutta",
+      "name": "Porridge whey e frutta",
       "description": "Ricetta fitness dal catalogo Livelapp.",
       "kcal": 440,
       "protein_g": 19,
@@ -54,9 +54,9 @@
       "sort_order": 203
     },
     {
-      "slug": "cat-colazione-porridge-p-e-frutta-5",
+      "slug": "cat-colazione-porridge-tempeh-e-frutta-5",
       "category": "colazione",
-      "name": "Porridge p e frutta",
+      "name": "Porridge tempeh e frutta",
       "description": "Ricetta fitness dal catalogo Livelapp.",
       "kcal": 380,
       "protein_g": 20,
@@ -67,9 +67,9 @@
       "sort_order": 204
     },
     {
-      "slug": "cat-colazione-porridge-p-e-frutta-6",
+      "slug": "cat-colazione-porridge-tacchino-e-frutta-6",
       "category": "colazione",
-      "name": "Porridge p e frutta",
+      "name": "Porridge tacchino e frutta",
       "description": "Ricetta fitness dal catalogo Livelapp.",
       "kcal": 395,
       "protein_g": 18,
@@ -80,9 +80,9 @@
       "sort_order": 205
     },
     {
-      "slug": "cat-colazione-porridge-p-e-frutta-7",
+      "slug": "cat-colazione-porridge-salmone-e-frutta-7",
       "category": "colazione",
-      "name": "Porridge p e frutta",
+      "name": "Porridge salmone e frutta",
       "description": "Ricetta fitness dal catalogo Livelapp.",
       "kcal": 410,
       "protein_g": 19,
@@ -93,9 +93,9 @@
       "sort_order": 206
     },
     {
-      "slug": "cat-colazione-porridge-p-e-frutta-8",
+      "slug": "cat-colazione-porridge-bresaola-e-frutta-8",
       "category": "colazione",
-      "name": "Porridge p e frutta",
+      "name": "Porridge bresaola e frutta",
       "description": "Ricetta fitness dal catalogo Livelapp.",
       "kcal": 425,
       "protein_g": 20,

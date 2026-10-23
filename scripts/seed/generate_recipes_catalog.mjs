@@ -78,7 +78,10 @@ function expandCategory(category, templates, limit) {
   const out = [];
   let i = 0;
   for (const tpl of templates) {
-    const keys = [...tpl.ing.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+    const keys = [
+      ...tpl.name.matchAll(/\{(\w+)\}/g),
+      ...tpl.ing.matchAll(/\{(\w+)\}/g),
+    ].map((m) => m[1]);
     const uniqueKeys = [...new Set(keys)];
     const rounds = uniqueKeys.length ? 8 : 1;
     for (let r = 0; r < rounds && out.length < limit; r++) {
