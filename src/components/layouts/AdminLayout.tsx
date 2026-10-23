@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdminStats } from '@/hooks/useAdminStats';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { 
@@ -22,6 +23,7 @@ import {
   ShieldCheck,
   UsersRound,
   BookOpen,
+  Lightbulb,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
@@ -85,6 +87,12 @@ const navigationItems = [
     href: '/admin/coupons', 
     icon: Tag 
   },
+  {
+    label: 'Suggerimenti PT',
+    href: '/admin/pt-feedback',
+    icon: Lightbulb,
+    showPtFeedbackPendingBadge: true,
+  },
   { 
     label: 'Catalogo Coupon', 
     href: '/admin/coupon-templates', 
@@ -136,6 +144,8 @@ const navigationItems = [
 export function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const { data: adminStats } = useAdminStats();
+  const ptFeedbackPending = adminStats?.pt_feedback_pending_replies ?? 0;
 
   const isActiveRoute = (href: string, exact?: boolean) => {
     if (exact) {
@@ -178,7 +188,22 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     )}
                   >
                     <item.icon className="h-4 w-4 flex-shrink-0" />
-                    <span>{item.label}</span>
+                    <span className="flex-1">{item.label}</span>
+                    {'showPtFeedbackPendingBadge' in item &&
+                      item.showPtFeedbackPendingBadge &&
+                      ptFeedbackPending > 0 && (
+                        <span
+                          className={cn(
+                            'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums',
+                            isActive
+                              ? 'bg-[#0d4f4f]/15 text-[#0d4f4f]'
+                              : 'bg-white/20 text-white',
+                          )}
+                          aria-label={`${ptFeedbackPending} da rispondere`}
+                        >
+                          {ptFeedbackPending > 99 ? '99+' : ptFeedbackPending}
+                        </span>
+                      )}
                   </Link>
                 );
               })}

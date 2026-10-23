@@ -298,6 +298,13 @@ const App = () => {
                   </AdminLayout>
                 </AdminRoute>
               } />
+              <Route path="/admin/pt-feedback" element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminSupportPage />
+                  </AdminLayout>
+                </AdminRoute>
+              } />
               <Route path="/admin/support" element={
                 <AdminRoute>
                   <AdminLayout>

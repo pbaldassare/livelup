@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Ticket, MoreHorizontal, Eye, CheckCircle, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 
 interface SupportTicket {
   id: string;
@@ -46,9 +46,12 @@ const priorityColors: Record<string, string> = {
 };
 
 export function AdminSupportPage() {
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const statusFilter = searchParams.get('status') || 'open';
-  const ptOnly = searchParams.get('type') === 'pt';
+  const isPtFeedbackRoute = location.pathname === '/admin/pt-feedback';
+  const statusFilter =
+    searchParams.get('status') || (isPtFeedbackRoute ? 'all' : 'open');
+  const ptOnly = isPtFeedbackRoute || searchParams.get('type') === 'pt';
   const pendingReplyOnly = searchParams.get('pending_reply') === '1';
   const queryClient = useQueryClient();
 
@@ -232,7 +235,18 @@ export function AdminSupportPage() {
         <Select
           value={statusFilter}
           onValueChange={(value) => {
-            setSearchParams({ status: value });
+            if (isPtFeedbackRoute) {
+              const next = new URLSearchParams();
+              if (value !== 'all') next.set('status', value);
+              if (pendingReplyOnly) next.set('pending_reply', '1');
+              setSearchParams(next);
+              return;
+            }
+            const next = new URLSearchParams();
+            next.set('status', value);
+            if (ptOnly) next.set('type', 'pt');
+            if (pendingReplyOnly) next.set('pending_reply', '1');
+            setSearchParams(next);
           }}
         >
           <SelectTrigger className="w-[200px]">

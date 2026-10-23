@@ -164,7 +164,7 @@ export function AdminDashboard() {
             icon={Clock}
             color="yellow"
             onClick={() =>
-              navigate('/admin/support?type=pt&pending_reply=1&status=all')
+              navigate('/admin/pt-feedback?pending_reply=1&status=all')
             }
           />
           <KPICardColored
