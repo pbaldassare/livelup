@@ -24,6 +24,7 @@ const notificationIcons: Record<string, typeof Bell> = {
   payment: CreditCard,
   workout: Dumbbell,
   workout_assigned: Dumbbell,
+  workout_completed: Dumbbell,
   badge: Award,
   review: Star,
   booking: Calendar,

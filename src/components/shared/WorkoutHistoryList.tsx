@@ -12,6 +12,7 @@ import {
   resolveSetsData,
 } from '@/lib/setsData';
 import { formatLoadLabel, getLoadMode } from '@/lib/loadPrescription';
+import { formatRepeatSessionLabel, stripRepeatMarkers } from '@/lib/workoutRepeat';
 
 function formatDuration(seconds: number | null | undefined): string | null {
   if (seconds == null || seconds < 0) return null;
@@ -58,6 +59,9 @@ type Workout = {
   volume_kg?: number | null;
   rating?: number | null;
   notes_atleta?: string | null;
+  description?: string | null;
+  repeat_target?: number | null;
+  repeat_done?: number | null;
   workout_exercises: WorkoutExercise[];
 };
 
@@ -250,6 +254,9 @@ function WorkoutRow({ workout, variant }: { workout: Workout; variant: 'pt' | 'a
     return acc;
   }, {});
 
+  const athleteNotes = stripRepeatMarkers(workout.notes_atleta) || null;
+  const sessionLabel = formatRepeatSessionLabel(workout);
+
   const dateLabel = workout.completed_at
     ? format(new Date(workout.completed_at), 'dd MMM yyyy', { locale: it })
     : format(new Date(workout.created_at), 'dd MMM yyyy', { locale: it });
@@ -310,6 +317,17 @@ function WorkoutRow({ workout, variant }: { workout: Workout; variant: 'pt' | 'a
                     ` · ${Number(workout.volume_kg).toFixed(0)} kg`}
                   {workout.rating != null && workout.rating > 0 && ` · ★${workout.rating}`}
                 </p>
+                {sessionLabel && (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'mt-1 mr-1 h-5 text-[10px]',
+                      isAtleta && 'border-app-accent/40 text-app-accent',
+                    )}
+                  >
+                    {sessionLabel}
+                  </Badge>
+                )}
                 {workout.athlete_reordered_at && (
                   <Badge
                     variant="outline"
@@ -344,7 +362,7 @@ function WorkoutRow({ workout, variant }: { workout: Workout; variant: 'pt' | 'a
           >
             {(workout.duration_seconds != null ||
               workout.sets_completed != null ||
-              workout.notes_atleta) && (
+              athleteNotes) && (
               <div
                 className={cn(
                   'rounded-lg p-2.5 text-xs space-y-1.5',
@@ -372,14 +390,14 @@ function WorkoutRow({ workout, variant }: { workout: Workout; variant: 'pt' | 'a
                     </span>
                   )}
                 </div>
-                {workout.notes_atleta && (
+                {athleteNotes && (
                   <p
                     className={cn(
                       'italic',
                       isAtleta ? 'text-app-muted-foreground' : 'text-muted-foreground',
                     )}
                   >
-                    “{workout.notes_atleta}”
+                    “{athleteNotes}”
                   </p>
                 )}
               </div>
@@ -451,7 +469,7 @@ export function WorkoutHistoryList({
         .from('workouts')
         .select(
           `id, title, completed_at, created_at, athlete_reordered_at,
-          duration_seconds, sets_completed, reps_total, volume_kg, rating, notes_atleta,
+          duration_seconds, sets_completed, reps_total, volume_kg, rating, notes_atleta, description,
           workout_exercises (
             id, order_index, prescribed_sets,
             prescribed_reps_min, prescribed_reps_max, prescribed_weight,
