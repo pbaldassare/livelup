@@ -12,9 +12,7 @@ import {
   resolveSetsData,
 } from '@/lib/setsData';
 import { formatLoadLabel, getLoadMode } from '@/lib/loadPrescription';
-<<<<<<< HEAD
 import { formatRepeatSessionLabel, stripRepeatMarkers } from '@/lib/workoutRepeat';
-=======
 import {
   formatEntryValue,
   groupEntriesByRound,
@@ -22,7 +20,6 @@ import {
   parseProtocolResults,
   roundLabel,
 } from '@/lib/protocols/protocolResults';
->>>>>>> origin/cursor/protocol-actual-reps-c820
 
 function formatDuration(seconds: number | null | undefined): string | null {
   if (seconds == null || seconds < 0) return null;
