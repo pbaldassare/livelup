@@ -23,6 +23,19 @@ interface PTAthleteWorkoutRunnerProps {
   onCompleted?: () => void;
 }
 
+interface RunnerWorkout {
+  id: string;
+  title: string;
+  status: string;
+  atleta_user_id: string;
+  template_kind?: string;
+  description: string | null;
+  notes_atleta: string | null;
+  repeat_target?: number | null;
+  repeat_done?: number | null;
+  workout_exercises: GWExercise[];
+}
+
 export function PTAthleteWorkoutRunner({
   workoutId,
   atletaUserId,
@@ -60,6 +73,7 @@ export function PTAthleteWorkoutRunner({
         const { data, error } = await supabase
           .from('workouts')
           .select(select)
+          .returns<RunnerWorkout[]>()
           .eq('id', workoutId)
           .eq('atleta_user_id', atletaUserId)
           .maybeSingle();

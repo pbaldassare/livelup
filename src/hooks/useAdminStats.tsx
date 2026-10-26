@@ -37,7 +37,7 @@ export function useAdminStats() {
       }
 
       // Handle the case where data is an array
-      const stats = Array.isArray(data) ? data[0] : data;
+      const stats = (Array.isArray(data) ? data[0] : data) as Partial<AdminStats> | null | undefined;
       
       return {
         total_pts: stats?.total_pts ?? 0,

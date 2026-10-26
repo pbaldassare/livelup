@@ -53,6 +53,7 @@ export async function createPtFeedbackTicket(input: {
       metadata: { source: 'pt' },
     })
     .select('*')
+    .returns<FeedbackTicketRow[]>()
     .single();
 
   if (error || !ticket) throw new Error(error?.message ?? 'Errore creazione ticket');
@@ -78,6 +79,7 @@ export async function listMyPtFeedbackTickets(userId: string): Promise<FeedbackT
   const { data, error } = await supabase
     .from('support_tickets')
     .select('*')
+    .returns<FeedbackTicketRow[]>()
     .eq('user_id', userId)
     .like('category', 'pt_%')
     .order('updated_at', { ascending: false });
@@ -93,6 +95,7 @@ export async function getPtFeedbackTicket(
   const { data, error } = await supabase
     .from('support_tickets')
     .select('*')
+    .returns<FeedbackTicketRow[]>()
     .eq('id', ticketId)
     .eq('user_id', userId)
     .maybeSingle();
@@ -146,6 +149,7 @@ export async function listAdminPtFeedbackTickets(filters?: {
   let q = supabase
     .from('support_tickets')
     .select('*')
+    .returns<FeedbackTicketRow[]>()
     .like('category', 'pt_%')
     .order('updated_at', { ascending: false });
 
