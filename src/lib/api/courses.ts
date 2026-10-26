@@ -6,6 +6,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { estimateCourseSeconds, secondsToRoundedMinutes } from '@/lib/workoutDuration';
+import { vendeAbbonamenti } from '@/lib/native';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => supabase as any;
@@ -703,6 +704,9 @@ export async function listPublishedCoursesForAthlete(
   const enrolled: AtletaCourseCard[] = [];
 
   for (const row of (courses || []) as any[]) {
+    // Nell'app iOS niente corsi a pagamento, nemmeno se assegnati: sarebbero
+    // contenuti digitali comprati fuori dall'App Store (vedi vendeAbbonamenti).
+    if (!vendeAbbonamenti() && row.is_free === false) continue;
     const enrollment = enrollmentByCourse.get(row.id) || null;
     const card: AtletaCourseCard = {
       ...(row as PtCourse),
@@ -730,6 +734,8 @@ export async function getAthleteCourseDetail(
 ): Promise<AtletaCourseDetail | null> {
   const course = await getCourseWithSteps(courseId);
   if (!course) return null;
+  // Come in listPublishedCoursesForAthlete: su iOS il corso a pagamento non c'e'.
+  if (!vendeAbbonamenti() && course.is_free === false) return null;
 
   const { data: enrollment, error: enrollError } = await db()
     .from('pt_course_enrollments')

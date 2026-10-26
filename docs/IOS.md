@@ -43,8 +43,11 @@ home. Impaginazione e regole sono quelle di Android; qui solo le differenze.
   sito. L'app iOS è per gli atleti; i PT usano la web app installata da
   Safari (*Condividi › Aggiungi alla schermata Home*, provata il 21/10/2026)
   o Android.
-- **Corsi.** Su iOS al posto del prezzo compare "Su assegnazione" e non si
-  parla di "corso a pagamento".
+- **Corsi.** Su iOS i corsi a pagamento non ci sono, nemmeno se assegnati:
+  `listPublishedCoursesForAthlete` li salta e `getAthleteCourseDetail`
+  risponde "non trovato" (`src/lib/api/courses.ts`). Il 22/10/2026 Apple ha
+  chiesto (2.1(b)) quali contenuti comprati fuori si sbloccano nell'app: un
+  corso pagato al PT fuori da LivelAPP lo sarebbe. Su web e Android restano.
 - **Restano** i pacchetti dei PT verso gli atleti: sono una richiesta al
   trainer, senza pagamento in app, per allenamenti tra persone (3.1.3(d)/(e)).
 - **Plugin nativi.** Stessi nomi e stesso JavaScript di Android, in Swift in
