@@ -230,6 +230,7 @@ function WorkoutDetailDialog({
   const { data: workout, isLoading } = useQuery({
     queryKey: ['pt-workout-detail', workoutId],
     queryFn: async () => {
+      if (!workoutId) throw new Error('Scheda non selezionata');
       const selectWithRepeat = `
           id, title, description, notes_atleta, status, scheduled_date, due_date, template_id, athlete_reordered_at, repeat_target, repeat_done,
           workout_exercises (
@@ -240,7 +241,8 @@ function WorkoutDetailDialog({
       let { data, error } = await supabase
         .from('workouts')
         .select(selectWithRepeat)
-        .eq('id', workoutId!)
+        .eq('id', workoutId)
+        .returns<WorkoutDetail[]>()
         .single();
       if (error && /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
         const retry = await supabase
@@ -252,7 +254,8 @@ function WorkoutDetailDialog({
             exercises ( name )
           )
         `)
-          .eq('id', workoutId!)
+          .eq('id', workoutId)
+          .returns<WorkoutDetail[]>()
           .single();
         data = retry.data;
         error = retry.error;
@@ -973,7 +976,8 @@ export function ProgrammiTab({
         .eq('pt_user_id', ptUserId)
         .in('status', ['attivo', 'scaduto', 'in_corso', 'in_sospeso'])
         .order('scheduled_date', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .returns<WorkoutRow[]>();
       if (error && /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
         const retry = await supabase
           .from('workouts')
@@ -982,7 +986,8 @@ export function ProgrammiTab({
           .eq('pt_user_id', ptUserId)
           .in('status', ['attivo', 'scaduto', 'in_corso', 'in_sospeso'])
           .order('scheduled_date', { ascending: true, nullsFirst: false })
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .returns<WorkoutRow[]>();
         data = retry.data;
         error = retry.error;
       }

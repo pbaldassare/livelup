@@ -53,6 +53,7 @@ export async function createPtFeedbackTicket(input: {
       metadata: { source: 'pt' },
     })
     .select('*')
+    .returns<FeedbackTicketRow[]>()
     .single();
 
   if (error || !ticket) throw new Error(error?.message ?? 'Errore creazione ticket');
@@ -80,7 +81,8 @@ export async function listMyPtFeedbackTickets(userId: string): Promise<FeedbackT
     .select('*')
     .eq('user_id', userId)
     .like('category', 'pt_%')
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false })
+    .returns<FeedbackTicketRow[]>();
 
   if (error) throw error;
   return (data ?? []) as FeedbackTicketRow[];
@@ -95,6 +97,7 @@ export async function getPtFeedbackTicket(
     .select('*')
     .eq('id', ticketId)
     .eq('user_id', userId)
+    .returns<FeedbackTicketRow[]>()
     .maybeSingle();
 
   if (error) throw error;
@@ -147,7 +150,8 @@ export async function listAdminPtFeedbackTickets(filters?: {
     .from('support_tickets')
     .select('*')
     .like('category', 'pt_%')
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false })
+    .returns<FeedbackTicketRow[]>();
 
   const { data, error } = await q;
   if (error) throw error;

@@ -350,6 +350,7 @@ async function fetchWorkoutForComplete(workoutId: string): Promise<WorkoutComple
     .from('workouts')
     .select('id, status, description, notes_atleta, repeat_target, repeat_done')
     .eq('id', workoutId)
+    .returns<WorkoutCompleteRow[]>()
     .maybeSingle();
 
   if (!withRepeat.error && withRepeat.data) {

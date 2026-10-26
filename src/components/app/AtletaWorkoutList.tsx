@@ -42,6 +42,18 @@ const STATUS_CONFIG = {
   saltato: { label: 'Saltato', icon: Clock },
 };
 
+interface WorkoutListRow {
+  id: string;
+  title: string;
+  status: string;
+  scheduled_date: string | null;
+  description: string | null;
+  notes_atleta: string | null;
+  repeat_target?: number | null;
+  repeat_done?: number | null;
+  workout_exercises: unknown[];
+}
+
 export function AtletaWorkoutList() {
   const { user } = useAuth();
   const { canAccessWorkouts } = useAtletaStatus();
@@ -117,14 +129,16 @@ export function AtletaWorkoutList() {
         .from('workouts')
         .select(selectWithRepeat)
         .eq('atleta_user_id', user.id)
-        .order('scheduled_date', { ascending: false });
+        .order('scheduled_date', { ascending: false })
+        .returns<WorkoutListRow[]>();
 
       if (error && /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
         const retry = await supabase
           .from('workouts')
           .select(selectLegacy)
           .eq('atleta_user_id', user.id)
-          .order('scheduled_date', { ascending: false });
+          .order('scheduled_date', { ascending: false })
+          .returns<WorkoutListRow[]>();
         data = retry.data;
         error = retry.error;
       }

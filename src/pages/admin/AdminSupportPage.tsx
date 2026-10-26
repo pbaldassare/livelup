@@ -62,7 +62,8 @@ export function AdminSupportPage() {
       const { data: ticketData, error } = await supabase
         .from('support_tickets')
         .select('id, user_id, subject, description, category, status, priority, needs_admin_reply, created_at')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .returns<Array<Omit<SupportTicket, 'profiles'> & { user_id: string }>>();
 
       if (error) throw error;
 

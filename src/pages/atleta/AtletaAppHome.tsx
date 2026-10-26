@@ -95,6 +95,7 @@ export function AtletaAppHome() {
         .in('status', ['in_corso', 'in_sospeso'])
         .order('updated_at', { ascending: false })
         .limit(1)
+        .returns<WorkoutSummary[]>()
         .maybeSingle();
       if (
         resume.error &&
@@ -107,6 +108,7 @@ export function AtletaAppHome() {
           .in('status', ['in_corso', 'in_sospeso'])
           .order('updated_at', { ascending: false })
           .limit(1)
+          .returns<WorkoutSummary[]>()
           .maybeSingle();
       }
 
@@ -122,6 +124,7 @@ export function AtletaAppHome() {
         .eq('scheduled_date', today)
         .eq('status', 'attivo')
         .limit(1)
+        .returns<WorkoutSummary[]>()
         .maybeSingle();
       if (
         todayRow.error &&
@@ -134,6 +137,7 @@ export function AtletaAppHome() {
           .eq('scheduled_date', today)
           .eq('status', 'attivo')
           .limit(1)
+          .returns<WorkoutSummary[]>()
           .maybeSingle();
       }
 
