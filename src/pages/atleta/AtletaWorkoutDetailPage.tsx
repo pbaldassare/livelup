@@ -117,6 +117,23 @@ interface WorkoutBlock {
   params: any;
 }
 
+interface WorkoutDetailRow {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  scheduled_date: string | null;
+  notes_pt: string | null;
+  notes_atleta: string | null;
+  pt_user_id: string;
+  template_kind: string | null;
+  athlete_reordered_at: string | null;
+  repeat_target?: number | null;
+  repeat_done?: number | null;
+  workout_blocks: WorkoutBlock[];
+  workout_exercises: WorkoutExercise[];
+}
+
 const pageVariants = {
   initial: { opacity: 0, scale: 0.98 },
   animate: { opacity: 1, scale: 1 },
@@ -190,6 +207,7 @@ export function AtletaWorkoutDetailPage() {
           )
         `)
         .eq('id', workoutId)
+        .returns<WorkoutDetailRow[]>()
         .single();
       if (error) {
         // Fallback se colonna phase non ancora migrata
