@@ -241,8 +241,8 @@ function WorkoutDetailDialog({
       let { data, error } = await supabase
         .from('workouts')
         .select(selectWithRepeat)
-        .returns<WorkoutDetail[]>()
         .eq('id', workoutId)
+        .returns<WorkoutDetail[]>()
         .single();
       if (error && /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
         const retry = await supabase
@@ -254,8 +254,8 @@ function WorkoutDetailDialog({
             exercises ( name )
           )
         `)
-          .returns<WorkoutDetail[]>()
           .eq('id', workoutId)
+          .returns<WorkoutDetail[]>()
           .single();
         data = retry.data;
         error = retry.error;
@@ -972,22 +972,22 @@ export function ProgrammiTab({
       let { data, error } = await supabase
         .from('workouts')
         .select(withRepeat)
-        .returns<WorkoutRow[]>()
         .eq('atleta_user_id', atletaUserId)
         .eq('pt_user_id', ptUserId)
         .in('status', ['attivo', 'scaduto', 'in_corso', 'in_sospeso'])
         .order('scheduled_date', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .returns<WorkoutRow[]>();
       if (error && /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
         const retry = await supabase
           .from('workouts')
           .select(withoutRepeat)
-          .returns<WorkoutRow[]>()
           .eq('atleta_user_id', atletaUserId)
           .eq('pt_user_id', ptUserId)
           .in('status', ['attivo', 'scaduto', 'in_corso', 'in_sospeso'])
           .order('scheduled_date', { ascending: true, nullsFirst: false })
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .returns<WorkoutRow[]>();
         data = retry.data;
         error = retry.error;
       }

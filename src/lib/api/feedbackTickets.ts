@@ -79,10 +79,10 @@ export async function listMyPtFeedbackTickets(userId: string): Promise<FeedbackT
   const { data, error } = await supabase
     .from('support_tickets')
     .select('*')
-    .returns<FeedbackTicketRow[]>()
     .eq('user_id', userId)
     .like('category', 'pt_%')
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false })
+    .returns<FeedbackTicketRow[]>();
 
   if (error) throw error;
   return (data ?? []) as FeedbackTicketRow[];
@@ -95,9 +95,9 @@ export async function getPtFeedbackTicket(
   const { data, error } = await supabase
     .from('support_tickets')
     .select('*')
-    .returns<FeedbackTicketRow[]>()
     .eq('id', ticketId)
     .eq('user_id', userId)
+    .returns<FeedbackTicketRow[]>()
     .maybeSingle();
 
   if (error) throw error;
@@ -149,9 +149,9 @@ export async function listAdminPtFeedbackTickets(filters?: {
   let q = supabase
     .from('support_tickets')
     .select('*')
-    .returns<FeedbackTicketRow[]>()
     .like('category', 'pt_%')
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false })
+    .returns<FeedbackTicketRow[]>();
 
   const { data, error } = await q;
   if (error) throw error;

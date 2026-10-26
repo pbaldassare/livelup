@@ -128,17 +128,17 @@ export function AtletaWorkoutList() {
       let { data, error } = await supabase
         .from('workouts')
         .select(selectWithRepeat)
-        .returns<WorkoutListRow[]>()
         .eq('atleta_user_id', user.id)
-        .order('scheduled_date', { ascending: false });
+        .order('scheduled_date', { ascending: false })
+        .returns<WorkoutListRow[]>();
 
       if (error && /repeat_target|repeat_done|42703|PGRST204|schema cache/i.test(error.message)) {
         const retry = await supabase
           .from('workouts')
           .select(selectLegacy)
-          .returns<WorkoutListRow[]>()
           .eq('atleta_user_id', user.id)
-          .order('scheduled_date', { ascending: false });
+          .order('scheduled_date', { ascending: false })
+          .returns<WorkoutListRow[]>();
         data = retry.data;
         error = retry.error;
       }

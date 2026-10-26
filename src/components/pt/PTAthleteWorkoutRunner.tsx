@@ -73,9 +73,9 @@ export function PTAthleteWorkoutRunner({
         const { data, error } = await supabase
           .from('workouts')
           .select(select)
-          .returns<RunnerWorkout[]>()
           .eq('id', workoutId)
           .eq('atleta_user_id', atletaUserId)
+          .returns<RunnerWorkout[]>()
           .maybeSingle();
         if (!error && data) return data;
         if (error) {
