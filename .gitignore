@@ -45,3 +45,5 @@ scripts/migrate/dumps/
 *.jks
 *.keystore
 android/keystore.properties
+# Chiavi APNs di Apple (AuthKey_*.p8): stanno nel gestore password, mai qui.
+*.p8

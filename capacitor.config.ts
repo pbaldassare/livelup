@@ -26,6 +26,11 @@ const config: CapacitorConfig = {
       // Inietta --safe-area-inset-* che src/index.css usa per --sat e --sab.
       insetsHandling: "css",
     },
+    PushNotifications: {
+      // iOS: con l'app aperta la notifica si vede comunque (banner, suono, badge).
+      // Impalcatura pronta, nessuno chiama ancora register(): vedi docs/PUSH.md.
+      presentationOptions: ["badge", "sound", "alert"],
+    },
   },
 };
 

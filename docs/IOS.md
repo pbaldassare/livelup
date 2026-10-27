@@ -102,7 +102,9 @@ git add ios && git commit && git push
 
 `App/App/public`, `capacitor.config.json`, `config.xml` e
 `capacitor-cordova-ios-plugins` sono versionati apposta (vedi `ios/.gitignore`).
-`CapApp-SPM/Package.swift` lo riscrive `cap sync`: non modificarlo a mano.
+`CapApp-SPM/Package.swift` lo riscrive `cap sync`, poi
+`scripts/vendor-capacitor-ios.mjs` copia i plugin in `ios/capacitor-libs/` e
+lo fa puntare lì invece che a `node_modules`: non modificarlo a mano.
 
 Icona e schermata di avvio vengono da `assets/`, gli stessi sorgenti di
 Android, su fondo nero.
@@ -137,8 +139,8 @@ Android, su fondo nero.
 
 ## 5. Punti aperti
 
-- **Notifiche push native.** Come su Android non ci sono: servono APNs e
-  `@capacitor/push-notifications`.
+- **Notifiche push native.** Come su Android c'è solo l'impalcatura
+  (entitlements, AppDelegate, plugin in `ios/capacitor-libs/`): vedi `docs/PUSH.md`.
 - **Link delle email e inviti.** Conferma, reset password e inviti aprono
   Safari: servono gli Universal Links (`apple-app-site-association` su
   livelapp.it).

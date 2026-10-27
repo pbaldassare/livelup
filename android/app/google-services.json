@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "526395070538",
+    "project_id": "livelapp-db2ed",
+    "storage_bucket": "livelapp-db2ed.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:526395070538:android:0bf6e2f23bea638649eeb3",
+        "android_client_info": {
+          "package_name": "it.livelapp.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwxqzMT5mJpryoNz1kejQwEBDnLWJEZnI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

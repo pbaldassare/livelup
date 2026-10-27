@@ -452,7 +452,8 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-10-23 | **Nutrizione fase 3.** `20261023180000_*` alimenti PT + `recipe_id` diario; bulk ricette `20261023180001_*`; aggiunta ricetta al diario; ricerca ricette; Edge `nutrition-food-proxy`; script import Cibarius JSON. Doc `docs/NUTRITION.md`. |
 | 2026-10-23 | **Nutrizione dispensa + catalogo ricette JSON.** `nutrition_pantry_items` (tab Dispensa atleta; lettura PT nel monitor diario). Niente ristorante. |
 | 2026-10-23 | **Ricette Cibarius (480).** `scripts/seed/cibarius/cibarius-ricette.json` → catalogo + migration `20261023210001`; colonne `diet_plan` / `prep_time_min` (`20261023220000`). Filtro piano in UI ricette. |
+| 2026-10-27 | **Impalcatura push native (FCM + APNs).** Progetto Firebase `livelapp-db2ed` (Analytics spento) con app Android e iOS `it.livelapp.app`; `android/app/google-services.json`, `@capacitor/push-notifications` (Android in `android/capacitor-libs/`, iOS in `ios/capacitor-libs/` via `scripts/vendor-capacitor-ios.mjs`), FCM spento all'avvio, icona `ic_stat_livelapp`; iOS con `App.entitlements` (aps-environment) e AppDelegate che passa il token. Chiave APNs dedicata `S7AK3ZLGM9` (LivelAPP APNs) caricata su Firebase, capability Push sull'App ID. `registraPushNativa()` in `src/lib/native-push.ts` non la chiama ancora nessuno: passi per accenderle in `docs/PUSH.md`. |
 
 ---
 
-_Ultimo aggiornamento: 2026-10-23_
+_Ultimo aggiornamento: 2026-10-27_

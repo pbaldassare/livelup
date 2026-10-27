@@ -27,11 +27,22 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Notifiche push (FCM, progetto Firebase livelapp-db2ed). Spente finche'
+             l'app non chiama PushNotifications.register(): niente token generati
+             a vuoto all'avvio. Vedi docs/PUSH.md. -->
+        <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+        <meta-data android:name="firebase_analytics_collection_deactivated" android:value="true" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_livelapp" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/livelapp_rosso" />
     </application>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 13+: senza questa dichiarazione PushNotifications.requestPermissions()
+         non puo' chiedere il permesso. Non chiede niente finche' l'app non lo usa. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Scopri, eventi e gruppi vicini: la distanza parte dalla posizione.
          La WebView la chiede solo quando la pagina usa navigator.geolocation;
          chi rifiuta cerca per citta'. -->

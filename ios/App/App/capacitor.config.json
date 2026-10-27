@@ -10,7 +10,16 @@
 		"SystemBars": {
 			"style": "DARK",
 			"insetsHandling": "css"
+		},
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"alert"
+			]
 		}
 	},
-	"packageClassList": []
+	"packageClassList": [
+		"PushNotificationsPlugin"
+	]
 }

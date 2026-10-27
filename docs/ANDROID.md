@@ -171,9 +171,9 @@ Su Android 12+ l'avvio lo disegna il sistema: l'icona dell'app su
 
 ## 8. Punti aperti
 
-- **Notifiche push native.** Non ci sono: servono Firebase Cloud Messaging e
-  `@capacitor/push-notifications`, più l'invio dall'Edge Function
-  `send-push-notification`.
+- **Notifiche push native.** L'impalcatura c'è (Firebase `livelapp-db2ed`,
+  `google-services.json`, plugin, icona), ma l'app non le usa ancora: passi
+  mancanti in `docs/PUSH.md`.
 - **Link delle email e inviti.** Conferma, reimpostazione password e inviti
   aprono il browser, non l'app. Servono gli App Links (`assetlinks.json` sul
   dominio più un `intent-filter` nel manifest).
