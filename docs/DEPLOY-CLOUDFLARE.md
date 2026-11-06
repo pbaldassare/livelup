@@ -13,8 +13,13 @@ L’app React (Vite) è un sito statico: il build produce `dist/`. Il backend re
 3. **Build output directory:** `dist`
 4. **Node.js:** il repo include **`.nvmrc`** (`20`). Su Cloudflare Pages imposta anche la variabile **`NODE_VERSION=20`** (Build environment) se il picker non legge `.nvmrc`.
 
-5. **`npm install` in produzione:** se Pages usa **`npm install --omit=dev`** (solo dipendenze `dependencies`), il build deve funzionare comunque: **Vite**, **@vitejs/plugin-react-swc**, **TypeScript**, **Tailwind** / **PostCSS** / **Autoprefixer** e **@tailwindcss/typography** sono in `dependencies` nel repo proprio per questo.
-6. **Variabili d’ambiente** (stesso set del `.env` locale, con prefisso `VITE_`):
+5. **`npm install` in produzione:** se Pages usa **`npm install --omit=dev`**, **Vite** e la toolchain di build sono in **`dependencies`** (vedi `package.json`).
+
+6. **Memoria:** il comando `build` imposta `--max-old-space-size=4096` (4 GiB). Non alzarlo a 8192 sull’CI: Pages ha ~8 GiB di RAM **per tutto** il processo di build; un heap Node da 8 GiB può far fallire il deploy (“build exceeded memory limit”).
+
+   Se in **Environment variables** del progetto Pages è impostato `NODE_OPTIONS=--max-old-space-size=8192`, **rimuovilo** o allinealo a `4096`: le due impostazioni si sommano al rischio di superare il limite.
+
+7. **Variabili d’ambiente** (stesso set del `.env` locale, con prefisso `VITE_`):
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_PUBLISHABLE_KEY`
    - `VITE_SUPABASE_PROJECT_ID`
