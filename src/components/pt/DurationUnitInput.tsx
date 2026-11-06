@@ -35,6 +35,7 @@ interface DurationUnitInputProps {
   'aria-label'?: string;
   className?: string;
   inputClassName?: string;
+  onBlur?: () => void;
 }
 
 function UnitToggle({
@@ -51,8 +52,8 @@ function UnitToggle({
   return (
     <div
       className={cn(
-        'flex rounded border border-border overflow-hidden',
-        compact ? 'h-6' : 'h-8 sm:h-6',
+        'flex rounded border border-border overflow-hidden touch-manipulation',
+        compact ? 'h-11 min-h-[44px] sm:h-6 sm:min-h-0' : 'h-11 min-h-[44px] sm:h-8 sm:min-h-0 md:h-6',
       )}
     >
       {(['min', 'sec'] as const).map((u, idx) => (
@@ -61,8 +62,8 @@ function UnitToggle({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex-1 font-medium transition-colors',
-            compact ? 'text-[10px]' : 'text-xs sm:text-[10px]',
+            'flex flex-1 min-h-[44px] items-center justify-center font-medium transition-colors sm:min-h-0',
+            compact ? 'text-xs sm:text-[10px]' : 'text-sm sm:text-xs md:text-[10px]',
             idx > 0 && 'border-l border-border',
             unit === u
               ? 'bg-primary text-primary-foreground'
@@ -96,6 +97,7 @@ export function DurationUnitInput({
   'aria-label': ariaLabel,
   className,
   inputClassName,
+  onBlur,
 }: DurationUnitInputProps) {
   const [unit, setUnit] = useState<DurationUnit>('sec');
 
@@ -152,6 +154,7 @@ export function DurationUnitInput({
           onEmptyCommit={onEmptyCommit}
           aria-label={ariaLabel ?? (unit === 'min' ? 'Durata in minuti' : 'Durata in secondi')}
           inputClassName={inputClassName}
+          onBlur={onBlur}
           onCommit={commitDisplay}
         />
       </div>

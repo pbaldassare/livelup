@@ -681,57 +681,110 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     onError: (e: Error) => toast.error(e.message || 'Errore salvataggio preferito'),
   });
 
-  // Aggiorna protocol_params preservando nome / link libreria
-  const updateProtocolParamMutation = useMutation({
-    mutationFn: async ({ id, params }: { id: string; params: ProtocolConfig }) => {
-      const current = templateExercises.find((t) => t.id === id);
-      // Solo esercizi annidati contano come host reale (ignora placeholder FK sulla riga)
-      const resolvedFromNested = resolveHostExerciseId({
-        ...(params as Record<string, unknown>),
-        host_exercise_id: null,
-      });
-      const merged: Record<string, unknown> = {
-        ...(params as any),
-        protocol_name:
-          (params as any)?.protocol_name ||
-          current?.protocol_name ||
-          (current?.protocol_params as any)?.protocol_name,
-        library_protocol_id:
-          (params as any)?.library_protocol_id ||
-          current?.library_protocol_id ||
-          (current?.protocol_params as any)?.library_protocol_id,
-      };
-      if (resolvedFromNested) {
-        merged.host_exercise_id = resolvedFromNested;
-      } else {
-        delete merged.host_exercise_id;
-      }
-      const updateRow: TemplateExerciseUpdate = {
-        protocol_params: toJson(merged),
-      };
-      // Se l'utente seleziona il primo esercizio nel protocollo, allinea la FK riga
-      if (resolvedFromNested && resolvedFromNested !== current?.exercise_id) {
-        updateRow.exercise_id = resolvedFromNested;
-      }
-      const { error } = await supabase
-        .from(table as any)
-        .update(toSheetExerciseUpdate(kind, updateRow) as any)
-        .eq('id', id);
-      if (error) throw error;
+  const applyProtocolParamsUpdate = async (
+    id: string,
+    params: ProtocolConfig,
+    getCurrent: () => TemplateExercise | undefined,
+  ) => {
+    const current = getCurrent();
+    if (!current) throw new Error('Esercizio non trovato');
+    const resolvedFromNested = resolveHostExerciseId({
+      ...(params as Record<string, unknown>),
+      host_exercise_id: null,
+    });
+    const merged: Record<string, unknown> = {
+      ...(params as any),
+      protocol_name:
+        (params as any)?.protocol_name ||
+        current?.protocol_name ||
+        (current?.protocol_params as any)?.protocol_name,
+      library_protocol_id:
+        (params as any)?.library_protocol_id ||
+        current?.library_protocol_id ||
+        (current?.protocol_params as any)?.library_protocol_id,
+    };
+    if (resolvedFromNested) {
+      merged.host_exercise_id = resolvedFromNested;
+    } else {
+      delete merged.host_exercise_id;
+    }
+    const updateRow: TemplateExerciseUpdate = {
+      protocol_params: toJson(merged),
+    };
+    if (resolvedFromNested && resolvedFromNested !== current?.exercise_id) {
+      updateRow.exercise_id = resolvedFromNested;
+    }
+    const { error } = await supabase
+      .from(table as any)
+      .update(toSheetExerciseUpdate(kind, updateRow) as any)
+      .eq('id', id);
+    if (error) throw error;
 
-      // Sincronizza solo copie private del PT — mai gli standard pubblici
-      if (current?.library_protocol_id) {
-        const lib = await getProtocolById(current.library_protocol_id).catch(() => null);
-        if (lib && !lib.is_public) {
-          await updatePtProtocol(current.library_protocol_id, {
-            config: merged as ProtocolParams,
-            name: merged.protocol_name as string | undefined,
-          }).catch(() => undefined);
-        }
+    if (current?.library_protocol_id) {
+      const lib = await getProtocolById(current.library_protocol_id).catch(() => null);
+      if (lib && !lib.is_public) {
+        await updatePtProtocol(current.library_protocol_id, {
+          config: merged as ProtocolParams,
+          name: merged.protocol_name as string | undefined,
+        }).catch(() => undefined);
+      }
+    }
+  };
+
+  // Aggiorna protocol_params preservando nome / link libreria (cache-first: niente refetch a ogni tasto)
+  const updateProtocolParamMutation = useMutation({
+    mutationFn: async ({
+      id,
+      params,
+    }: {
+      id: string;
+      params: ProtocolConfig;
+    }) => {
+      await applyProtocolParamsUpdate(id, params, () =>
+        queryClient.getQueryData<TemplateExercise[]>(queryKey)?.find((t) => t.id === id),
+      );
+    },
+    onMutate: async ({ id, params }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<TemplateExercise[]>(queryKey);
+      patchProtocolParamsInCache(id, params);
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(queryKey, ctx.prev);
+      toast.error('Errore salvataggio protocollo');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const scheduleProtocolParamSave = useCallback(
+    (id: string, params: ProtocolConfig, debounceMs = 450) => {
+      if (protocolParamDebounceTimersRef.current[id]) {
+        clearTimeout(protocolParamDebounceTimersRef.current[id]);
+      }
+      patchProtocolParamsInCache(id, params);
+      protocolParamDebounceTimersRef.current[id] = setTimeout(() => {
+        updateProtocolParamMutation.mutate({ id, params });
+        delete protocolParamDebounceTimersRef.current[id];
+      }, debounceMs);
+    },
+    [patchProtocolParamsInCache, updateProtocolParamMutation],
+  );
+
+  const flushProtocolParamSave = useCallback(
+    (id: string) => {
+      if (protocolParamDebounceTimersRef.current[id]) {
+        clearTimeout(protocolParamDebounceTimersRef.current[id]);
+        delete protocolParamDebounceTimersRef.current[id];
+      }
+      const row = queryClient.getQueryData<TemplateExercise[]>(queryKey)?.find((t) => t.id === id);
+      const params = row?.protocol_params as ProtocolConfig | undefined;
+      if (params) {
+        updateProtocolParamMutation.mutate({ id, params });
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-  });
+    [queryClient, queryKey, updateProtocolParamMutation],
+  );
 
   // Update exercise (campi piatti / note / tempo)
   const updateExerciseMutation = useMutation({
@@ -749,9 +802,11 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
   });
 
   const debounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const protocolParamDebounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => () => {
     Object.values(debounceTimersRef.current).forEach(clearTimeout);
+    Object.values(protocolParamDebounceTimersRef.current).forEach(clearTimeout);
   }, []);
 
   const scheduleExerciseFieldUpdate = useCallback(
@@ -771,6 +826,17 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     (id: string, patch: Partial<Pick<TemplateExercise, 'notes' | 'tempo'>>) => {
       queryClient.setQueryData<TemplateExercise[]>(queryKey, (old) =>
         (old || []).map((item) => (item.id === id ? { ...item, ...patch } : item)),
+      );
+    },
+    [queryClient, queryKey],
+  );
+
+  const patchProtocolParamsInCache = useCallback(
+    (id: string, nextParams: ProtocolConfig) => {
+      queryClient.setQueryData<TemplateExercise[]>(queryKey, (old) =>
+        (old || []).map((item) =>
+          item.id === id ? { ...item, protocol_params: nextParams } : item,
+        ),
       );
     },
     [queryClient, queryKey],
@@ -1200,7 +1266,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                       <Input
                                         defaultValue={protocolDisplayName}
                                         key={`${te.id}-${protocolDisplayName}`}
-                                        className="h-8"
+                                        className="min-h-[44px] h-11 text-base sm:h-8 sm:min-h-0 sm:text-sm"
                                         placeholder="Nome del protocollo"
                                         onBlur={(e) => {
                                           const next = e.target.value.trim();
@@ -1225,7 +1291,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                     const backoffEnabled = params.backoff_enabled !== false;
 
                                     const commit = (next: any) => {
-                                      updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                      scheduleProtocolParamSave(te.id, next);
                                     };
 
                                     const updateParam = (
@@ -1289,7 +1355,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                           {/* Top Set */}
                                           <div className="space-y-2">
                                             <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/80">Top Set</p>
-                                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Serie</Label>
                                                 <TouchIntegerInput
@@ -1298,6 +1364,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   fallback={1}
                                                   aria-label="Serie Top Set"
                                                   onCommit={(n) => updateParam('top_sets', n)}
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1308,6 +1375,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   fallback={5}
                                                   aria-label="Reps Top Set"
                                                   onCommit={(n) => updateParam('top_reps', n)}
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1319,6 +1387,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   fallback={120}
                                                   aria-label="Recupero Top Set"
                                                   onCommit={(n) => updateParam('top_rest', n)}
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1330,7 +1399,8 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   placeholder="—"
                                                   value={params.top_kg ?? ''}
                                                   onChange={(e) => updateParam('top_kg', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
+                                                  className="min-h-[44px] h-11 text-base sm:h-8 sm:min-h-0 sm:text-sm"
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1343,7 +1413,8 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   placeholder="5"
                                                   value={params.top_increase_percent ?? ''}
                                                   onChange={(e) => updateParam('top_increase_percent', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
+                                                  className="min-h-[44px] h-11 text-base sm:h-8 sm:min-h-0 sm:text-sm"
                                                 />
                                               </div>
                                             </div>
@@ -1361,7 +1432,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                           </div>
                                           {/* Back Off params */}
                                           {backoffEnabled && (
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                                               <div className="space-y-1">
                                                 <Label className="text-xs">Serie</Label>
                                                 <TouchIntegerInput
@@ -1370,6 +1441,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   fallback={3}
                                                   aria-label="Serie Back Off"
                                                   onCommit={(n) => updateParam('backoff_sets', n)}
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1380,6 +1452,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   fallback={8}
                                                   aria-label="Reps Back Off"
                                                   onCommit={(n) => updateParam('backoff_reps', n)}
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1391,7 +1464,8 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   placeholder="—"
                                                   value={params.backoff_kg ?? ''}
                                                   onChange={(e) => updateParam('backoff_kg', e.target.value === '' ? null : Number(e.target.value))}
-                                                  className="h-8"
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
+                                                  className="min-h-[44px] h-11 text-base sm:h-8 sm:min-h-0 sm:text-sm"
                                                 />
                                               </div>
                                               <div className="space-y-1">
@@ -1403,6 +1477,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   fallback={20}
                                                   aria-label="Percentuale riduzione Back Off"
                                                   onCommit={(n) => updateParam('backoff_percentage', n)}
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
                                                 />
                                               </div>
                                             </div>
@@ -1416,6 +1491,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                           onCellChange={updateTopSetCell}
                                           onAddSet={addTopSet}
                                           onRemoveSet={removeTopSet}
+                                          onNumericCellBlur={() => flushProtocolParamSave(te.id)}
                                         />
 
                                         {/* Tabella Back Off */}
@@ -1426,6 +1502,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                             onCellChange={updateBackoffCell}
                                             onAddSet={addBackoffSet}
                                             onRemoveSet={removeBackoffSet}
+                                            onNumericCellBlur={() => flushProtocolParamSave(te.id)}
                                           />
                                         )}
                                       </div>
@@ -1561,7 +1638,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                       <p className="text-xs font-medium text-muted-foreground">
                                         Parametri {def.label}
                                       </p>
-                                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                         {def.paramFields
                                           .filter((f) => !f.showWhen || f.showWhen(params))
                                           .map((f) => {
@@ -1575,10 +1652,10 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   value={(val as string) ?? ''}
                                                   onValueChange={(newVal) => {
                                                     const next = setNested(params, f.key, newVal);
-                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                    scheduleProtocolParamSave(te.id, next);
                                                   }}
                                                 >
-                                                  <SelectTrigger className="h-8">
+                                                  <SelectTrigger className="min-h-[44px] h-11 sm:h-8 sm:min-h-0">
                                                     <SelectValue placeholder={f.placeholder || 'Seleziona esercizio…'} />
                                                   </SelectTrigger>
                                                   <SelectContent>
@@ -1605,10 +1682,10 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                     if (ptype === 'RAMPING' && f.key === 'value_type' && newVal !== 'custom') {
                                                       next = setNested(next, 'custom_value_label', null);
                                                     }
-                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                    scheduleProtocolParamSave(te.id, next);
                                                   }}
                                                 >
-                                                  <SelectTrigger className="h-8">
+                                                  <SelectTrigger className="min-h-[44px] h-11 sm:h-8 sm:min-h-0">
                                                     <SelectValue placeholder={f.placeholder || 'Seleziona...'} />
                                                   </SelectTrigger>
                                                   <SelectContent>
@@ -1635,9 +1712,10 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                       .map((s) => Number(s))
                                                       .filter((n) => Number.isFinite(n) && n > 0);
                                                     const next = setNested(params, f.key, parsed);
-                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                    scheduleProtocolParamSave(te.id, next);
                                                   }}
-                                                  className="h-8"
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
+                                                  className="min-h-[44px] h-11 text-base sm:h-8 sm:min-h-0 sm:text-sm"
                                                 />
                                               ) : f.type === 'textarea' ? (
                                                 <MobileNotesField
@@ -1646,8 +1724,9 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   aria-label={f.label}
                                                   onChange={(raw) => {
                                                     const next = setNested(params, f.key, raw);
-                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                    scheduleProtocolParamSave(te.id, next);
                                                   }}
+                                                  onBlurAfter={() => flushProtocolParamSave(te.id)}
                                                 />
                                               ) : f.type === 'number' && isDurationSecondsFieldKey(f.key) ? (
                                                 <DurationUnitInput
@@ -1663,8 +1742,9 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   aria-label={f.label}
                                                   onCommitSeconds={(n) => {
                                                     const next = setNested(params, f.key, n);
-                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                    scheduleProtocolParamSave(te.id, next);
                                                   }}
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
                                                 />
                                               ) : f.type === 'number' && isDurationMinutesFieldKey(f.key) ? (
                                                 <DurationUnitInput
@@ -1684,8 +1764,9 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   onCommitSeconds={(n) => {
                                                     const minutes = Math.max(1, Math.round(n / 60));
                                                     const next = setNested(params, f.key, minutes);
-                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                    scheduleProtocolParamSave(te.id, next);
                                                   }}
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
                                                 />
                                               ) : f.type === 'number' ? (
                                                 <TouchIntegerInput
@@ -1701,8 +1782,9 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                   aria-label={f.label}
                                                   onCommit={(n) => {
                                                     const next = setNested(params, f.key, n);
-                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                    scheduleProtocolParamSave(te.id, next);
                                                   }}
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
                                                 />
                                               ) : (
                                                 <Input
@@ -1718,9 +1800,10 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                                       ? raw
                                                       : (raw === '' ? null : Number(raw));
                                                     const next = setNested(params, f.key, newVal);
-                                                    updateProtocolParamMutation.mutate({ id: te.id, params: next });
+                                                    scheduleProtocolParamSave(te.id, next);
                                                   }}
-                                                  className="h-8"
+                                                  onBlur={() => flushProtocolParamSave(te.id)}
+                                                  className="min-h-[44px] h-11 text-base sm:h-8 sm:min-h-0 sm:text-sm"
                                                 />
                                               )}
                                               {f.hint && (
@@ -2279,9 +2362,18 @@ interface TopSetBackoffTableProps {
   onCellChange: (idx: number, patch: Partial<SetItem> & { weight_is_manual?: boolean }) => void;
   onAddSet?: () => void;
   onRemoveSet?: (idx: number) => void;
+  /** Dopo commit numerico (blur): assicura persistenza se c’è salvataggio debouncato sul blocco. */
+  onNumericCellBlur?: () => void;
 }
 
-function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }: TopSetBackoffTableProps) {
+function TopSetBackoffTable({
+  title,
+  sets,
+  onCellChange,
+  onAddSet,
+  onRemoveSet,
+  onNumericCellBlur,
+}: TopSetBackoffTableProps) {
   if (sets.length === 0) {
     return (
       <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
@@ -2335,6 +2427,7 @@ function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }
                     aria-label={`Reps set ${i + 1}`}
                     onCommit={(n) => onCellChange(i, { reps: n })}
                     onEmptyCommit={() => onCellChange(i, { reps: null })}
+                    onBlur={onNumericCellBlur}
                   />
                 </td>
               ))}
@@ -2374,6 +2467,7 @@ function TopSetBackoffTable({ title, sets, onCellChange, onAddSet, onRemoveSet }
                     aria-label={`Recupero set ${i + 1}`}
                     onCommit={(n) => onCellChange(i, { rest_seconds: n })}
                     onEmptyCommit={() => onCellChange(i, { rest_seconds: null })}
+                    onBlur={onNumericCellBlur}
                   />
                 </td>
               ))}

@@ -32,6 +32,8 @@ interface TouchIntegerInputProps {
   'aria-label'?: string;
   className?: string;
   inputClassName?: string;
+  /** Dopo commit/blur (es. per flush salvataggio debouncato lato parent). */
+  onBlur?: () => void;
 }
 
 export function TouchIntegerInput({
@@ -49,6 +51,7 @@ export function TouchIntegerInput({
   'aria-label': ariaLabel,
   className,
   inputClassName,
+  onBlur: onBlurProp,
 }: TouchIntegerInputProps) {
   const committed = formatCommittedInt(value);
   const [draft, setDraft] = useState(committed);
@@ -113,7 +116,7 @@ export function TouchIntegerInput({
           variant="outline"
           size="icon"
           disabled={disabled}
-          className="h-10 w-10 shrink-0"
+          className="h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 sm:h-10 sm:w-10 sm:min-h-0 sm:min-w-0"
           aria-label="Diminuisci"
           onClick={() => stepBy(-1)}
         >
@@ -146,6 +149,7 @@ export function TouchIntegerInput({
           onBlur={() => {
             commitDraft(draft);
             setFocused(false);
+            onBlurProp?.();
           }}
           onChange={(e) => {
             setDraft(sanitizeIntegerInput(e.target.value));
@@ -153,8 +157,8 @@ export function TouchIntegerInput({
           className={cn(
             'text-center tabular-nums',
             compact
-              ? 'h-8 pr-8 text-base md:text-xs'
-              : 'h-10 pr-10 text-base md:text-sm',
+              ? 'h-11 min-h-[44px] pr-11 text-base sm:h-8 sm:min-h-0 sm:pr-8 md:text-xs'
+              : 'h-11 min-h-[44px] pr-10 text-base sm:h-10 sm:min-h-0 md:text-sm',
             inputClassName,
           )}
         />
@@ -163,8 +167,8 @@ export function TouchIntegerInput({
             type="button"
             tabIndex={-1}
             className={cn(
-              'absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground',
-              compact ? 'h-7 w-7' : 'h-8 w-8',
+              'absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground touch-manipulation',
+              compact ? 'h-9 w-9 sm:h-7 sm:w-7' : 'h-9 w-9 sm:h-8 sm:w-8',
             )}
             aria-label="Cancella numero"
             onPointerDown={(e) => {
@@ -187,7 +191,7 @@ export function TouchIntegerInput({
           variant="outline"
           size="icon"
           disabled={disabled}
-          className="h-10 w-10 shrink-0"
+          className="h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 sm:h-10 sm:w-10 sm:min-h-0 sm:min-w-0"
           aria-label="Aumenta"
           onClick={() => stepBy(1)}
         >

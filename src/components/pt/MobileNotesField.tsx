@@ -18,6 +18,8 @@ interface MobileNotesFieldProps {
   className?: string;
   rows?: number;
   disabled?: boolean;
+  /** Dopo il blur (es. flush salvataggio debouncato). */
+  onBlurAfter?: () => void;
 }
 
 export function MobileNotesField({
@@ -30,6 +32,7 @@ export function MobileNotesField({
   className,
   rows = 4,
   disabled = false,
+  onBlurAfter,
 }: MobileNotesFieldProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const canClear = value.trim().length > 0;
@@ -51,7 +54,10 @@ export function MobileNotesField({
         onFocus={(e) => {
           e.currentTarget.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
         }}
-        onBlur={onBlur}
+        onBlur={(e) => {
+          onBlur?.();
+          onBlurAfter?.();
+        }}
         onChange={(e) => onChange(e.target.value)}
         className="min-h-[96px] resize-y pr-10 text-base leading-relaxed md:min-h-[80px] md:text-sm"
       />
