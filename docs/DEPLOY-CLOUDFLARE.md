@@ -11,7 +11,8 @@ L’app React (Vite) è un sito statico: il build produce `dist/`. Il backend re
 1. Connetti il repo GitHub al progetto Pages.
 2. **Build command:** `npm run build`
 3. **Build output directory:** `dist`
-4. **Variabili d’ambiente** (stesso set del `.env` locale, con prefisso `VITE_`):
+4. **Node.js:** il repo include **`.nvmrc`** (`20`). Su Cloudflare Pages imposta anche la variabile **`NODE_VERSION=20`** (Build environment) se il picker non legge `.nvmrc`.
+5. **Variabili d’ambiente** (stesso set del `.env` locale, con prefisso `VITE_`):
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_PUBLISHABLE_KEY`
    - `VITE_SUPABASE_PROJECT_ID`

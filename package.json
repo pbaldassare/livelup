@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:utente": "vite --open /utente",
-    "build": "vite build",
+    "build": "NODE_OPTIONS=--max-old-space-size=8192 vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
