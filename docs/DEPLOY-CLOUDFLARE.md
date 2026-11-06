@@ -11,6 +11,9 @@ L’app React (Vite) è un sito statico: il build produce `dist/`. Il backend re
 1. Connetti il repo GitHub al progetto Pages.
 2. **Build command:** `npm run build`
 3. **Build output directory:** `dist`
+
+   Il repo contiene **`package-lock.json`** e **`bun.lock`**. Molti ambienti (incluso il rilevamento automatico di package manager) scelgono **Bun** se trovano `bun.lock`: aggiorna **entrambi** i lockfile quando cambi le dipendenze (`npm install` + `bun install`), oppure usa un solo lockfile e rimuovi l’altro dal repo.
+
 4. **Node.js:** il repo include **`.nvmrc`** (`20`). Su Cloudflare Pages imposta anche la variabile **`NODE_VERSION=20`** (Build environment) se il picker non legge `.nvmrc`.
 
 5. **`npm install` in produzione:** se Pages usa **`npm install --omit=dev`**, **Vite** e la toolchain di build sono in **`dependencies`** (vedi `package.json`).
