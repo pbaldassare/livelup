@@ -544,3 +544,4 @@ bunx vitest run  # tests
 _Last updated: 2026-09-19 — N volte, stesso giorno, lockscreen, durata min|sec (vedi `CLAUDE.md` §15)._
 _Last updated: 2026-09-19 — chat 1:1 anche senza connessione (inquiry atleta→PT; vedi `CLAUDE.md` §9)._
 _Last updated: 2026-10-15 — app Android con Capacitor 8 (`it.livelapp.app`): regole di impaginazione e build in `docs/ANDROID.md` (vedi `CLAUDE.md` §15)._
+_Last updated: 2026-11-06 — admin ticket list: RPC `admin_list_support_tickets_with_profiles` (vedi `CLAUDE.md` §15)._
