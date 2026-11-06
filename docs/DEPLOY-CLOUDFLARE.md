@@ -18,7 +18,7 @@ L’app React (Vite) è un sito statico: il build produce `dist/`. Il backend re
    - `VITE_SUPABASE_PROJECT_ID`
    - (opzionali nutrizione, mappe, ecc. come in `.env`)
 
-Il file `public/_redirects` con `/* → /index.html` serve le route SPA su Pages.
+**Routing SPA:** senza un `404.html` in cima al sito, [Cloudflare Pages assume un’app a pagina singola](https://developers.cloudflare.com/pages/configuration/serving-pages/#single-page-application-spa-rendering) e per i path che non corrispondono a file statici serve la root (`/`), così React Router può gestire le route. Non servono `_redirects` né middleware solo per questo.
 
 ## Supabase Auth
 
