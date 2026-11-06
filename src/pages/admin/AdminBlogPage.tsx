@@ -233,7 +233,7 @@ export function AdminBlogPage() {
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p>
             Impossibile caricare i contenuti. Se hai appena aggiunto Blog &amp; Q&amp;A, verifica che lo schema
-            sia applicato su Lovable Cloud (<code className="text-xs">scripts/blog-qa-schema.sql</code>).
+            sia applicato sul progetto Supabase (<code className="text-xs">scripts/blog-qa-schema.sql</code>).
           </p>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             Riprova

@@ -23,7 +23,7 @@ import { state, recordStep, markNotCovered, finalize } from './helpers/state';
 // NOTA CONFERMA EMAIL: la registrazione self-service del PT
 // richiede conferma email (Supabase Auth). Questo test STAMPA
 // un marker `[SIM] SIM_MARKER:PT_REGISTERED:<email>` che l'agente
-// (parent) intercetta per confermare l'email via Lovable MCP
+// (parent) intercetta per confermare l'email (es. Supabase dashboard / API)
 // `query_database` (UPDATE auth.users SET email_confirmed_at=now()).
 // Il login successivo usa un retry loop che dà tempo a questa
 // conferma esterna di avvenire.
@@ -98,7 +98,7 @@ test.describe('Livelapp — simulazione end-to-end', () => {
     test.setTimeout(240_000);
 
     // Piccola attesa iniziale per dare tempo alla conferma email esterna
-    // (Lovable MCP) di essere applicata prima del primo tentativo di login.
+    // di essere applicata prima del primo tentativo di login.
     await page.waitForTimeout(3000);
 
     const loggedIn = await loginWithRetry(page, PT_EMAIL, PT_PASSWORD, {

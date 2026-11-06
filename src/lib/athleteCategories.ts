@@ -1,5 +1,5 @@
 // =====================================================
-// Categorie cliente — schema Lovable Cloud:
+// Categorie cliente — schema backend:
 // id, pt_user_id, name, slug, is_system (+ updated_at)
 // =====================================================
 
@@ -31,7 +31,7 @@ export const SYSTEM_BASE_CATEGORIES_FALLBACK: AthleteCategory[] = [
 export const SYSTEM_BASE_CATEGORIES = SYSTEM_BASE_CATEGORIES_FALLBACK;
 
 export const ATHLETE_CATEGORIES_MIGRATION_HINT =
-  'Categorie non disponibili sul backend. Controlla che la tabella pt_athlete_categories sia presente su Lovable Cloud.';
+  'Categorie non disponibili sul backend. Controlla che la tabella pt_athlete_categories sia presente sul progetto Supabase.';
 
 export function isSystemCategorySlug(value: unknown): value is SystemCategorySlug {
   return value === 'in_presenza' || value === 'online' || value === 'mix';

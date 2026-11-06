@@ -10,7 +10,7 @@
 
 1. **Prima di ogni task:** rileggi le sezioni *Panoramica*, *Regole critiche* e *Task aperti* rilevanti.
 2. **Lingua UI:** italiano. **Stati DB:** inglese (`active`, `pending`, `completato`…). Non mescolare.
-3. **Backend:** unico database **`kxgaqnksylntokyrpaxp`** (Supabase). Lovable non è più collegato come database: niente prompt/SQL per Lovable, niente vecchio progetto `uiowzycolsmgcsvihmhy`.
+3. **Backend:** unico database **`kxgaqnksylntokyrpaxp`** (Supabase, eu-central-1). Il vecchio progetto `uiowzycolsmgcsvihmhy` non si usa più.
 4. **Scope minimo:** cambia solo ciò che serve; rispetta convenzioni esistenti in `src/`.
 5. **Dopo modifiche workout:** verifica la checklist qualità (sezione 15, regola 7).
 6. **Nuove migration SQL:** sempre GRANT + RLS + policy.
@@ -29,10 +29,8 @@ npx vitest run       # oppure: bunx vitest run
 | Risorsa | URL / valore |
 |---|---|
 | Repo | https://github.com/pbaldassare/elevate-roles-hub.git |
-| Preview Lovable | https://id-preview--05f7b58c-39e8-4ba3-a7bf-bd051bc56040.lovable.app |
-| Produzione | https://elevate-roles-hub.lovable.app |
+| Deploy frontend (Cloudflare Pages) | https://livelup.pages.dev |
 | Dominio custom | https://livelapp.iaconnect.it |
-| Lovable project ID | `05f7b58c-39e8-4ba3-a7bf-bd051bc56040` |
 | Database (unico) | `kxgaqnksylntokyrpaxp` — https://kxgaqnksylntokyrpaxp.supabase.co (Livelapp, eu-central-1). Il vecchio `uiowzycolsmgcsvihmhy` non si usa più |
 | Branch principale | `main` |
 
@@ -152,12 +150,8 @@ src/
 │
 └── test/                        # Setup Vitest + test esempio
 
-.lovable/
-├── memory/                      # Regole memoria progetto (mem://...)
-└── plan.md                      # Piano implementazione corrente
-
 supabase/
-├── config.toml                  # ⚠️ Gestito da Lovable
+├── config.toml                  # Config CLI / deploy Edge Functions
 ├── functions/                   # Edge Functions
 └── migrations/                  # Migration SQL (timestampate)
 
@@ -404,7 +398,7 @@ Testimonianze video PT, highlights atleta, badge verificato; catalogo discipline
 
 ## 14. REGOLE CRITICHE PER ASSISTENTI AI
 
-1. **Non modificare** `src/integrations/supabase/client.ts` o `types.ts` — auto-generati.
+1. **`src/integrations/supabase/types.ts`** — tipi generati da Supabase: non rigenerare a mano salvo necessità; **`client.ts`** può essere aggiornato per auth/storage se serve (non è più sovrascritto da tool esterni).
 2. **`.env`** punta solo a `kxgaqnksylntokyrpaxp`: non rimettere il vecchio progetto.
 3. **`supabase/config.toml`:** `project_id = "kxgaqnksylntokyrpaxp"`; non cambiarlo.
 4. **Stati DB in inglese** — localizza solo in UI.
@@ -418,7 +412,7 @@ Testimonianze video PT, highlights atleta, badge verificato; catalogo discipline
 12. **PT mobile:** `usePTSurface` redirect → `/pt/app/*`; override `?view=web`.
 13. **Migration:** salva il file in `supabase/migrations/*.sql` **e applicala direttamente su `kxgaqnksylntokyrpaxp`** (MCP / CLI). Nessuno la applica in automatico al push.
 14. **Edge Functions:** `verify_jwt = true` di default; `service_role` solo server-side.
-15. **Lovable:** non è più il database e non va usato per SQL o migrazioni.
+15. **Deploy:** frontend su **Cloudflare Pages** (es. `livelup.pages.dev`); backend sempre **Supabase** `kxgaqnksylntokyrpaxp`. In Supabase Dashboard → Authentication → URL configuration imposta **Site URL** e redirect verso l’origin Pages (e il dominio custom se presente).
 
 ---
 
@@ -431,7 +425,7 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-06-22 | Creazione `CLAUDE.md` — contesto iniziale allineato a `CURSOR.md` |
 | 2026-07-18 | Fix tab "Membri" gruppo vuoto: `getGroupMembers` non usa più embed PostgREST `profiles:user_id(...)` (nessun FK diretto group_members↔profiles) ma fetch separata + merge; nuove policy RLS su `profiles` per visibilità membri gruppo; UI mostra errore/retry invece di lista vuota silenziosa |
 | 2026-07-18 | Aggiunta CTA "Invita un atleta" su `PTAppHome` e `AtletaAppHome` (link condivisibile verso `/install`, con `?ref=<ptUserId>` propagato fino al signup per collegare automaticamente il nuovo atleta al PT); nuovi `src/lib/inviteLink.ts` e `src/components/shared/InviteAtletaCTA.tsx` |
-| 2026-07-18 | **Chat PT: invio multiplo, gruppi atleti, allegati media.** Migration `20260718170000_pt_chat_groups_and_attachments.sql` (nuove tabelle `pt_chat_groups`/`pt_chat_group_members`/`pt_chat_group_reads`; `messages.chat_id` ora nullable + nuova `messages.chat_group_id` con CHECK di esclusività; trigger `update_chat_last_message`/`create_message_notification` estesi; bucket storage privato `chat-attachments` con limiti 5MB immagini / 25MB video). Nuove API `src/lib/api/chatGroups.ts` e `src/lib/api/chatAttachments.ts` (queste ultime usano un cast `as any` sulle nuove tabelle finché `types.ts` non viene rigenerato da Lovable — non è un errore, è voluto). `ChatMessages.tsx` ora supporta allegati in tutte le chat (1:1 e gruppo, PT e atleta). `PTAppChatPage` ha modalità "Seleziona" per broadcast multi-atleta e tab "Gruppi" con creazione gruppo (`CreateChatGroupDialog`). Nuove pagine `PTAppChatGroupDetailPage` / `AtletaChatGroupDetailPage` e route `/pt/app/chat/group/:groupId` / `/app/chat/group/:groupId`. |
+| 2026-07-18 | **Chat PT: invio multiplo, gruppi atleti, allegati media.** Migration `20260718170000_pt_chat_groups_and_attachments.sql` (nuove tabelle `pt_chat_groups`/`pt_chat_group_members`/`pt_chat_group_reads`; `messages.chat_id` ora nullable + nuova `messages.chat_group_id` con CHECK di esclusività; trigger `update_chat_last_message`/`create_message_notification` estesi; bucket storage privato `chat-attachments` con limiti 5MB immagini / 25MB video). Nuove API `src/lib/api/chatGroups.ts` e `src/lib/api/chatAttachments.ts` (queste ultime usano un cast `as any` sulle nuove tabelle finché `types.ts` non viene rigenerato da Supabase — non è un errore, è voluto). `ChatMessages.tsx` ora supporta allegati in tutte le chat (1:1 e gruppo, PT e atleta). `PTAppChatPage` ha modalità "Seleziona" per broadcast multi-atleta e tab "Gruppi" con creazione gruppo (`CreateChatGroupDialog`). Nuove pagine `PTAppChatGroupDetailPage` / `AtletaChatGroupDetailPage` e route `/pt/app/chat/group/:groupId` / `/app/chat/group/:groupId`. |
 | 2026-08-25 | **Email solo Resend.** Mittente `noreply@livelapp.it`; hook Auth `auth-send-email` + SMTP Resend per il resto; niente mailer built-in. |
 | 2026-08-25 | **Billing PT a fasce atleti.** Migration `20260825160000_pt_platform_billing_tiers.sql`: Starter 0-5 gratis, Growth 6-20 19,90, Pro 21-50 49,90, Unlimited 51+ 99,90. Storico, report admin, grazia 7 giorni, blocco nuovi atleti. Stripe IDs vuoti. |
 | 2026-09-19 | **"N volte in totale"** non clona più N workout: una riga `workouts` con `repeat_target` / `repeat_done`. Ogni sessione incrementa il contatore, azzera i log e resta `in_corso` fino all'ultima. |
@@ -445,7 +439,12 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 | 2026-10-12 | **Chat: reply, pin, reazioni.** Migration `20261012120000_chat_reply_pin_reactions.sql`: `messages.reply_to_id` / `is_pinned`, tabella `message_reactions` (GRANT+RLS), RPC `set_message_pinned`. Tap sul messaggio per Rispondi / Fissa / emoji su PWA e dashboard web `/pt`. |
 | 2026-10-15 | **App Android (Capacitor 8).** Pacchetto `it.livelapp.app`, nome LivelAPP, progetto nativo in `android/` (sito compilato versionato). Nell'app: si parte da `/auth`, sito pubblico e admin fuori, PT sempre su `/pt/app`, niente service worker né web push, link condivisi su `publicAppOrigin()`. Barre di sistema con `--sat`/`--sab` (`src/index.css`), `BarraDiStato`/`SchermoPieno`; tabelle Esercizi, Coupon e Pagamenti adattate al telefono. Regole e procedura in `docs/ANDROID.md`. |
 | 2026-10-23 | **Feedback PT (suggerimenti e modifiche).** Riuso `support_tickets` / `ticket_messages` con categorie `pt_*`, flag `needs_admin_reply`, allegati bucket `feedback-attachments`, notifica al PT su risposta admin, counter `pt_feedback_pending_replies` in `get_admin_stats`. UI: `/pt/app/feedback` (PWA) e `/pt/feedback` (web), admin sidebar **Suggerimenti PT** (`/admin/pt-feedback`). Migration `20261023140000_pt_feedback_tickets.sql`. |
-| 2026-09-30 | **Lovable scollegato come database.** Unico database `kxgaqnksylntokyrpaxp`: `.env` versionato punta lì, migration applicate direttamente su quel progetto. Regole su `.env`, `config.toml` e terminologia "Lovable Cloud" aggiornate. |
+| 2026-09-30 | **Backend unico Supabase.** Database `kxgaqnksylntokyrpaxp`: `.env` punta lì; migration applicate direttamente sul progetto (CLI / dashboard / MCP). |
+| 2026-11-06 | **Frontend su Cloudflare Pages** (`https://livelup.pages.dev`). Rimosso `lovable-tagger`; auth Supabase usa `localStorage` nativo; routing SPA lasciato al comportamento predefinito Pages (nessun `404.html` in root, niente `_redirects`); documentazione aggiornata. |
+| 2026-11-06 | **Cloudflare Pages CI:** `.nvmrc` (Node 20); `npm run build` usa heap **4 GiB** (`--max-old-space-size=4096`): l’ambiente Pages ha ~8 GiB RAM **totali**; 8 GiB solo per l’heap Node poteva far terminare il build. **Vite** + toolchain build spostati in **`dependencies`** per `npm install --omit=dev`. **`bun.lock`** rigenerato e allineato a `package.json` (rimosso `bun.lockb` ridondante) così build Bun/npm non vanno in errore su lockfile obsoleto. |
+| 2026-11-06 | **Admin support/feedback:** RPC `admin_list_support_tickets_with_profiles()` (solo `is_admin`, `SECURITY DEFINER`) + `AdminSupportPage` legge ticket e profili in una chiamata, così la lista non dipende da una seconda `.select` su `profiles` che può restare vuota con policy aggregate restrittive. Migration `20261106180000_admin_list_support_tickets_with_profiles.sql`. |
+| 2026-11-06 | **CI Auth redirects:** script `scripts/sync-supabase-auth-redirects.mjs` + modello workflow in `docs/github-workflows/sync-supabase-auth-redirects.yml` (copia in `.github/workflows/`); merge `https://livelup.pages.dev/**` e `https://*.livelup.pages.dev/**` in Supabase `uri_allow_list` via Management API; secret **`SUPABASE_ACCESS_TOKEN`**. Vedi `docs/DEPLOY-CLOUDFLARE.md`. |
+| 2026-11-06 | **Fork → upstream:** modello `docs/github-workflows/sync-fork-with-upstream.yml` (merge `upstream/main` nel fork, solo se `repository.fork`); cron giornaliero + `workflow_dispatch`. Istruzioni in `README.md` — richiede "Read and write" per Actions sul fork. |
 | 2026-09-30 | **Trigger registrazione ripristinato.** Con l'import del DB (agosto) era sparito `on_auth_user_created` su `auth.users`: le nuove registrazioni restavano senza `user_roles`/`profiles`/`pt_profiles`/`atleta_profiles`. Migration `20260930230000_restore_auth_user_triggers.sql` ricrea il trigger → `handle_new_user_role()` (unico trigger mai definito su `auth.users`) + backfill idempotente. Dopo un import/restore del DB verificare sempre `pg_trigger` su `auth.users`. |
 | 2026-10-23 | **Modulo nutrizione (MVP).** Migration `20261023160000_livelapp_nutrition_module.sql`: template macro di sistema, `food_templates`, piani PT→atleta (un piano attivo globale per atleta, RPC `activate_nutrition_plan`), diario atleta. UI: PT drawer/sidebar **Nutrizione**; atleta da profilo → `/app/nutrition`. Stub `FoodLookupProvider` per API barcode futura. |
 | 2026-10-23 | **Nutrizione fase 2.** Migration `20261023170000_nutrition_recipes_pt_templates.sql`: modelli piano PT (`nutrition_pt_plan_templates`), ricette piattaforma (`nutrition_template_recipes` + seed), target per pasto (`nutrition_plan_meal_targets`). UI: modelli/ricette/monitor diario PT; tab Ricette atleta; lookup alimenti con `VITE_NUTRITION_FOOD_API_URL` opzionale. |
@@ -456,4 +455,4 @@ Aggiorna questa sezione quando fai modifiche significative al progetto (nuove fe
 
 ---
 
-_Ultimo aggiornamento: 2026-10-27_
+_Ultimo aggiornamento: 2026-11-06_

@@ -1,4 +1,4 @@
-// One-shot export of the old Lovable Cloud backend, pulled by
+// One-shot export of the legacy backend, pulled by
 // migration.fetch_old_snapshot() on kxgaqnksylntokyrpaxp.
 // Returns every public table, auth.users/identities (with password hashes,
 // so logins keep working) and the storage object list.

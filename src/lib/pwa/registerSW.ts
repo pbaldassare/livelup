@@ -3,7 +3,7 @@
  *
  * Il SW viene registrato SOLO in produzione e su host reali
  * (dominio pubblicato o dominio custom). In dev, dentro un iframe,
- * sugli host di preview Lovable o con `?sw=off` la registrazione
+ * su host non pubblici o con `?sw=off` la registrazione
  * viene rifiutata e le eventuali registrazioni residue rimosse.
  */
 
@@ -28,7 +28,9 @@ function isBlockedHost(host: string): boolean {
     host === 'lovableproject-dev.com' ||
     host.endsWith('.lovableproject-dev.com') ||
     host === 'beta.lovable.dev' ||
-    host.endsWith('.beta.lovable.dev')
+    host.endsWith('.beta.lovable.dev') ||
+    host === 'lovable.app' ||
+    host.endsWith('.lovable.app')
   );
 }
 

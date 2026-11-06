@@ -24,9 +24,9 @@ function isMissingTableError(err: unknown): boolean {
 }
 
 const MISSING_TABLE_MESSAGE =
-  'Tabella cataloghi non ancora creata sul backend. Applica la migration exercise_catalogs su Lovable Cloud.';
+  'Tabella cataloghi non ancora creata sul backend. Applica la migration exercise_catalogs sul progetto Supabase.';
 const MISSING_ITEMS_TABLE_MESSAGE =
-  'Tabella cataloghi esercizi non ancora creata sul backend. Applica la migration exercise_catalog_items su Lovable Cloud.';
+  'Tabella cataloghi esercizi non ancora creata sul backend. Applica la migration exercise_catalog_items sul progetto Supabase.';
 
 export interface ExerciseCatalog {
   id: string;

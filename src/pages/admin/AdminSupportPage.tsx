@@ -59,26 +59,15 @@ export function AdminSupportPage() {
   const { data: tickets, isLoading } = useQuery({
     queryKey: ['support-tickets', statusFilter, ptOnly, pendingReplyOnly],
     queryFn: async () => {
-      const { data: ticketData, error } = await supabase
-        .from('support_tickets')
-        .select('id, user_id, subject, description, category, status, priority, needs_admin_reply, created_at')
-        .order('created_at', { ascending: false })
-        .returns<Array<Omit<SupportTicket, 'profiles'> & { user_id: string }>>();
+      const { data: rpcData, error } = await supabase.rpc(
+        'admin_list_support_tickets_with_profiles' as any,
+      );
 
       if (error) throw error;
 
-      const userIds = ticketData?.map(t => t.user_id) || [];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name, email')
-        .in('user_id', userIds);
+      const ticketData = (rpcData as unknown as SupportTicket[]) ?? [];
 
-      const profilesMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
-
-      let result = ticketData?.map(t => ({
-        ...t,
-        profiles: profilesMap.get(t.user_id) || null
-      })) || [];
+      let result = ticketData;
 
       if (statusFilter !== 'all') {
         result = result.filter(t => t.status === statusFilter);

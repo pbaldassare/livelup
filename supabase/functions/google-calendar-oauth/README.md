@@ -2,7 +2,7 @@
 
 Edge Function for PT Google Calendar OAuth (connect / disconnect / status / callback).
 
-## Secrets (Lovable Cloud → Edge Functions secrets)
+## Secrets (Supabase Dashboard → Edge Functions secrets)
 
 | Secret | Required | Description |
 |---|---|---|
@@ -23,7 +23,7 @@ Also available automatically: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SER
 https://kxgaqnksylntokyrpaxp.supabase.co/functions/v1/google-calendar-oauth?action=callback
 ```
 
-4. Authorized JavaScript origins (if prompted): your app origins (`https://livelapp.iaconnect.it`, preview URLs).
+4. Authorized JavaScript origins (if prompted): your app origins (`https://livelapp.iaconnect.it`, `https://livelup.pages.dev`, altri domini di preview).
 
 ## JWT
 

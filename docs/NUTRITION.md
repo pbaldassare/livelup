@@ -18,7 +18,7 @@ Migrations in `supabase/migrations/20261023160000_*` … `20261023180001_*`.
 
 ### Opzione A — diretta dal browser
 
-`.env` (Lovable):
+`.env` (frontend / variabili `VITE_*`):
 
 ```
 VITE_NUTRITION_FOOD_API_URL=https://tuo-servizio
@@ -43,7 +43,7 @@ VITE_NUTRITION_FOOD_PROXY=true
 
 1. Normalizza in JSON (vedi `scripts/seed/import_cibarius_recipes.mjs`).
 2. `node scripts/seed/import_cibarius_recipes.mjs data.json supabase/migrations/YYYYMMDD_import.sql`
-3. Applica migration su Lovable Cloud.
+3. Applica migration sul progetto Supabase (`kxgaqnksylntokyrpaxp`).
 
 Rigenera catalogo ricette (JSON + SQL):
 

@@ -228,7 +228,7 @@ export function PrivacyPage() {
       </LegalSection>
 
       <LegalSection title="6. Fornitori, infrastruttura e sicurezza">
-        <p>Ci avvaliamo di fornitori tecnici che operano come responsabili del trattamento, ove applicabile, sulla base di accordi conformi all’articolo 28 GDPR. Hosting dei dati e database sono su infrastruttura cloud nell’Unione europea (Supabase, regione eu-central-1). Lovable fornisce l’hosting del sito.</p>
+        <p>Ci avvaliamo di fornitori tecnici che operano come responsabili del trattamento, ove applicabile, sulla base di accordi conformi all’articolo 28 GDPR. Hosting dei dati e database sono su infrastruttura cloud nell’Unione europea (Supabase, regione eu-central-1). Il sito web può essere servito tramite Cloudflare Pages (rete globale CDN).</p>
         <p>I dati sono cifrati in transito tramite HTTPS/TLS. L’accesso è limitato agli utenti e al personale autorizzati in funzione del ruolo e delle necessità del servizio.</p>
         <p>Qualora le attività dei fornitori comportino trasferimenti di dati fuori dallo Spazio economico europeo, questi devono avvenire nel rispetto del capo V GDPR, sulla base di una decisione di adeguatezza o di garanzie appropriate, come le clausole contrattuali standard. Puoi richiedere informazioni sui fornitori e sulle garanzie applicabili al contatto privacy.</p>
       </LegalSection>

@@ -153,7 +153,7 @@ export function PTBlogPage({ embedded = false }: { embedded?: boolean } = {}) {
     onError: (err) => {
       toast.error(
         isMissingBlogSchemaError(err as { message?: string })
-          ? 'Schema Blog & Q&A non applicato sul backend. Applica scripts/blog-qa-schema.sql su Lovable Cloud.'
+          ? 'Schema Blog & Q&A non applicato sul backend. Applica scripts/blog-qa-schema.sql sul progetto Supabase.'
           : 'Errore nel salvataggio',
       );
     },
@@ -247,7 +247,7 @@ export function PTBlogPage({ embedded = false }: { embedded?: boolean } = {}) {
             <h3 className="text-lg font-semibold">Impossibile caricare i contenuti</h3>
             <p className="text-muted-foreground text-sm max-w-md mx-auto">
               {schemaMissing
-                ? 'Lo schema Blog & Q&A non risulta ancora applicato sul backend. Applica la migration blog_qa_schema (o lo script scripts/blog-qa-schema.sql) su Lovable Cloud, poi riprova.'
+                ? 'Lo schema Blog & Q&A non risulta ancora applicato sul backend. Applica la migration blog_qa_schema (o lo script scripts/blog-qa-schema.sql) sul progetto Supabase, poi riprova.'
                 : 'Si è verificato un errore durante il caricamento. Riprova tra poco.'}
             </p>
             <Button variant="outline" onClick={() => refetch()}>
