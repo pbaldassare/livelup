@@ -39,7 +39,9 @@ In **Supabase Dashboard → Authentication → URL configuration**:
 
 ### Auth redirects (CI su `main`)
 
-Dopo ogni push su **`main`**, il workflow **Sync Supabase Auth redirects** (`.github/workflows/sync-supabase-auth-redirects.yml`) unisce via [Management API](https://supabase.com/docs/reference/api/v1-update-auth-service-config) questi pattern nella **Redirect URLs** (`uri_allow_list`), **senza** rimuovere gli URL già presenti:
+Il workflow **Sync Supabase Auth redirects** è salvato come modello in **`docs/github-workflows/sync-supabase-auth-redirects.yml`**. Copialo in **`.github/workflows/`** (stesso nome) nel repo — alcuni ambienti di push richiedono permesso **workflow** su GitHub per creare file sotto `.github/workflows/` da OAuth.
+
+Dopo ogni push su **`main`**, quel workflow unisce via [Management API](https://supabase.com/docs/reference/api/v1-update-auth-service-config) questi pattern nella **Redirect URLs** (`uri_allow_list`), **senza** rimuovere gli URL già presenti:
 
 - `https://livelup.pages.dev/**`
 - `https://*.livelup.pages.dev/**` (preview Cloudflare Pages `*.livelup.pages.dev`)
