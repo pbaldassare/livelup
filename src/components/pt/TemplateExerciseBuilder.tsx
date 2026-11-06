@@ -681,6 +681,34 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     onError: (e: Error) => toast.error(e.message || 'Errore salvataggio preferito'),
   });
 
+  const debounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const protocolParamDebounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => () => {
+    Object.values(debounceTimersRef.current).forEach(clearTimeout);
+    Object.values(protocolParamDebounceTimersRef.current).forEach(clearTimeout);
+  }, []);
+
+  const patchExerciseInCache = useCallback(
+    (id: string, patch: Partial<Pick<TemplateExercise, 'notes' | 'tempo'>>) => {
+      queryClient.setQueryData<TemplateExercise[]>(queryKey, (old) =>
+        (old || []).map((item) => (item.id === id ? { ...item, ...patch } : item)),
+      );
+    },
+    [queryClient, queryKey],
+  );
+
+  const patchProtocolParamsInCache = useCallback(
+    (id: string, nextParams: ProtocolConfig) => {
+      queryClient.setQueryData<TemplateExercise[]>(queryKey, (old) =>
+        (old || []).map((item) =>
+          item.id === id ? { ...item, protocol_params: nextParams } : item,
+        ),
+      );
+    },
+    [queryClient, queryKey],
+  );
+
   const applyProtocolParamsUpdate = async (
     id: string,
     params: ProtocolConfig,
@@ -801,14 +829,6 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     },
   });
 
-  const debounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const protocolParamDebounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  useEffect(() => () => {
-    Object.values(debounceTimersRef.current).forEach(clearTimeout);
-    Object.values(protocolParamDebounceTimersRef.current).forEach(clearTimeout);
-  }, []);
-
   const scheduleExerciseFieldUpdate = useCallback(
     (id: string, data: { notes?: string | null; tempo?: string | null }) => {
       const field = data.notes !== undefined ? 'notes' : 'tempo';
@@ -820,26 +840,6 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
       }, 500);
     },
     [updateExerciseMutation],
-  );
-
-  const patchExerciseInCache = useCallback(
-    (id: string, patch: Partial<Pick<TemplateExercise, 'notes' | 'tempo'>>) => {
-      queryClient.setQueryData<TemplateExercise[]>(queryKey, (old) =>
-        (old || []).map((item) => (item.id === id ? { ...item, ...patch } : item)),
-      );
-    },
-    [queryClient, queryKey],
-  );
-
-  const patchProtocolParamsInCache = useCallback(
-    (id: string, nextParams: ProtocolConfig) => {
-      queryClient.setQueryData<TemplateExercise[]>(queryKey, (old) =>
-        (old || []).map((item) =>
-          item.id === id ? { ...item, protocol_params: nextParams } : item,
-        ),
-      );
-    },
-    [queryClient, queryKey],
   );
 
   // Mutation per aggiornare i sets_data (set eterogenei) + riassunto nei campi piatti
