@@ -1,13 +1,22 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { GraduationCap, Loader2 } from 'lucide-react';
+import { GraduationCap, Loader2, Search } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import { CourseListCard } from '@/components/app/CourseListCard';
 import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
-import { courseQueryKeys, enrollInCourse, listPublishedCoursesForAthlete } from '@/lib/api/courses';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import {
+  courseQueryKeys,
+  enrollInCourse,
+  listPublishedCoursesForAthlete,
+  type AtletaCourseCard,
+} from '@/lib/api/courses';
 import { toast } from 'sonner';
+
+const EMPTY_COURSES: AtletaCourseCard[] = [];
 
 export function AtletaCoursesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
@@ -17,6 +26,8 @@ export function AtletaCoursesPage({ embedded = false }: { embedded?: boolean } =
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'discover' | 'mine'>('discover');
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
+  const [courseSearch, setCourseSearch] = useState('');
+  const debouncedCourseSearch = useDebouncedValue(courseSearch, 300);
 
   const { data, isLoading } = useQuery({
     queryKey: courseQueryKeys.atletaList(user?.id || ''),
@@ -38,14 +49,42 @@ export function AtletaCoursesPage({ embedded = false }: { embedded?: boolean } =
     onSettled: () => setEnrollingId(null),
   });
 
-  const discover = data?.discover || [];
-  const enrolled = data?.enrolled || [];
+  const discover = data?.discover ?? EMPTY_COURSES;
+  const enrolled = data?.enrolled ?? EMPTY_COURSES;
+
+  const courseMatchesQuery = useMemo(() => {
+    const q = debouncedCourseSearch.trim().toLowerCase();
+    if (!q) return () => true;
+    return (c: AtletaCourseCard) => {
+      const hay = [
+        c.title,
+        c.pt_name,
+        c.target_exercise,
+        c.category,
+        c.description,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    };
+  }, [debouncedCourseSearch]);
+
+  const discoverFiltered = useMemo(
+    () => discover.filter(courseMatchesQuery),
+    [discover, courseMatchesQuery],
+  );
+  const enrolledFiltered = useMemo(
+    () => enrolled.filter(courseMatchesQuery),
+    [enrolled, courseMatchesQuery],
+  );
+
   const discoverFromMyPt = connectedPtUserId
-    ? discover.filter((c) => c.pt_user_id === connectedPtUserId)
+    ? discoverFiltered.filter((c) => c.pt_user_id === connectedPtUserId)
     : [];
   const discoverOthers = connectedPtUserId
-    ? discover.filter((c) => c.pt_user_id !== connectedPtUserId)
-    : discover;
+    ? discoverFiltered.filter((c) => c.pt_user_id !== connectedPtUserId)
+    : discoverFiltered;
 
   return (
     // Da sola (/app/courses) fa da pagina: margini come le altre; dentro Scopri li ha gia'.
@@ -78,6 +117,16 @@ export function AtletaCoursesPage({ embedded = false }: { embedded?: boolean } =
             ) : null}
           </TabsTrigger>
         </TabsList>
+
+        <div className="relative mt-3">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-app-muted-foreground" />
+          <Input
+            value={courseSearch}
+            onChange={(e) => setCourseSearch(e.target.value)}
+            placeholder="Cerca per titolo, coach, obiettivo…"
+            className="h-11 border-app-border bg-app-card pl-9 text-app-foreground placeholder:text-app-muted-foreground"
+          />
+        </div>
 
         <TabsContent value="discover" className="mt-4 space-y-5">
           {isLoading ? (
@@ -128,6 +177,13 @@ export function AtletaCoursesPage({ embedded = false }: { embedded?: boolean } =
                   ))}
                 </div>
               )}
+              {debouncedCourseSearch.trim() &&
+                discoverFiltered.length === 0 &&
+                discover.length > 0 && (
+                  <p className="text-center text-sm text-app-muted-foreground py-4">
+                    Nessun corso corrisponde alla ricerca.
+                  </p>
+                )}
             </>
           )}
         </TabsContent>
@@ -140,8 +196,12 @@ export function AtletaCoursesPage({ embedded = false }: { embedded?: boolean } =
               title="Nessun corso attivo"
               description="Iscriviti da Scopri per iniziare un percorso"
             />
+          ) : enrolledFiltered.length === 0 ? (
+            <p className="text-center text-sm text-app-muted-foreground py-8">
+              Nessun corso corrisponde alla ricerca.
+            </p>
           ) : (
-            enrolled.map((course, i) => (
+            enrolledFiltered.map((course, i) => (
               <CourseListCard
                 key={course.id}
                 course={course}

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, type ComponentProps } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -187,6 +187,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
   const [protocolDialogOpen, setProtocolDialogOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const dndSession = useDndSessionState();
@@ -309,7 +310,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     enabled: !!parentId,
   });
 
-  // Archivio completo (globali + privati PT, via RLS) per i dropdown dei protocolli
+  /** Bootstrap limitato: evita di scaricare decine di migliaia di righe all’apertura editor. */
   const { data: archiveExerciseRows = [] } = useQuery({
     queryKey: ['protocol-exercise-archive', user?.id],
     queryFn: async () => {
@@ -317,7 +318,8 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
       const { data, error } = await supabase
         .from('exercises')
         .select('id, name, is_public, created_by')
-        .order('name');
+        .order('name')
+        .limit(1500);
       if (error) throw error;
       return (data ?? []) as ArchiveExerciseRow[];
     },
@@ -339,14 +341,49 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
   const { data: exerciseCatalogs = [] } = useExerciseCatalogs();
   const { data: allCatalogItems = [] } = useAllPtCatalogItems();
 
+  const catalogExerciseIdsMissingNames = useMemo(() => {
+    const known = new Set(archiveExerciseRows.map((r) => r.id));
+    const ids = new Set<string>();
+    for (const item of allCatalogItems) {
+      if (!known.has(item.exercise_id)) ids.add(item.exercise_id);
+    }
+    return Array.from(ids);
+  }, [archiveExerciseRows, allCatalogItems]);
+
+  const { data: catalogExerciseNameRows = [] } = useQuery({
+    queryKey: [
+      'catalog-exercise-names',
+      user?.id,
+      [...catalogExerciseIdsMissingNames].sort().join(','),
+    ],
+    queryFn: async () => {
+      if (!user?.id || catalogExerciseIdsMissingNames.length === 0) return [] as { id: string; name: string }[];
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('id, name')
+        .in('id', catalogExerciseIdsMissingNames);
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+    enabled: !!user?.id && catalogExerciseIdsMissingNames.length > 0,
+  });
+
+  const exerciseNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of archiveExerciseRows) {
+      if (r.name?.trim()) m.set(r.id, r.name);
+    }
+    for (const r of catalogExerciseNameRows) {
+      if (r.name?.trim()) m.set(r.id, r.name);
+    }
+    return m;
+  }, [archiveExerciseRows, catalogExerciseNameRows]);
+
   /** Cataloghi PT con esercizi risolti dai nomi archivio (per picker). */
   const catalogPickerOptions = useMemo((): CatalogPickerOption[] => {
-    const nameById = new Map(
-      archiveExerciseRows.map((r) => [r.id, r.name] as const),
-    );
     const byCatalog = new Map<string, { id: string; name: string }[]>();
     for (const item of allCatalogItems) {
-      const name = nameById.get(item.exercise_id);
+      const name = exerciseNameById.get(item.exercise_id);
       if (!name?.trim()) continue;
       const list = byCatalog.get(item.catalog_id) ?? [];
       list.push({ id: item.exercise_id, name });
@@ -358,7 +395,63 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
       emoji: c.emoji,
       exercises: byCatalog.get(c.id) ?? [],
     }));
-  }, [exerciseCatalogs, allCatalogItems, archiveExerciseRows]);
+  }, [exerciseCatalogs, allCatalogItems, exerciseNameById]);
+
+  const onArchiveSearchQueryChange = useCallback((q: string) => {
+    setArchiveSearchQuery(q);
+  }, []);
+
+  /** Ricerca server nel picker (≥2 caratteri): preferiti / miei / globali. */
+  const { data: archiveSearchRows = [], isFetching: archiveSearchPending } = useQuery({
+    queryKey: ['protocol-exercise-search', user?.id, archiveSearchQuery],
+    queryFn: async () => {
+      if (!user?.id) return [] as ArchiveExerciseRow[];
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('id, name, is_public, created_by')
+        .ilike('name', `%${archiveSearchQuery}%`)
+        .order('name')
+        .limit(400);
+      if (error) throw error;
+      return (data ?? []) as ArchiveExerciseRow[];
+    },
+    enabled: !!user?.id && searchOpen && archiveSearchQuery.length >= 2,
+  });
+
+  const archiveSearchGroups = useMemo(() => {
+    if (!user?.id || !favIds || archiveSearchQuery.length < 2) {
+      return null;
+    }
+    const workoutIds = new Set(allTemplateExerciseOptions.map((o) => o.id));
+    return categorizeArchiveExercises(archiveSearchRows, {
+      userId: user.id,
+      favIds,
+      excludeIds: workoutIds,
+    });
+  }, [archiveSearchRows, archiveSearchQuery, user?.id, favIds, allTemplateExerciseOptions]);
+
+  const exercisePickerServerProps = useMemo((): Pick<
+    ComponentProps<typeof ExerciseArchivePickerPanel>,
+    | 'serverFavoriteOptions'
+    | 'serverMineOptions'
+    | 'serverGlobalOptions'
+    | 'serverSearchPending'
+    | 'onSearchQueryChange'
+  > => {
+    if (!archiveSearchGroups) {
+      return {
+        serverSearchPending: false,
+        onSearchQueryChange: onArchiveSearchQueryChange,
+      };
+    }
+    return {
+      serverFavoriteOptions: archiveSearchGroups.favoriteOptions,
+      serverMineOptions: archiveSearchGroups.mineOptions,
+      serverGlobalOptions: archiveSearchGroups.globalOptions,
+      serverSearchPending: archiveSearchPending,
+      onSearchQueryChange: onArchiveSearchQueryChange,
+    };
+  }, [archiveSearchGroups, archiveSearchPending, onArchiveSearchQueryChange]);
 
   const inBlockExerciseIds = useMemo(
     () => new Set(templateExercises.map((te) => te.exercise_id)),
@@ -1021,6 +1114,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                       mineExerciseOptions={addExercisePickerOptions.mine}
                       globalExerciseOptions={addExercisePickerOptions.global}
                       catalogOptions={addExercisePickerOptions.catalogs}
+                      {...exercisePickerServerProps}
                       onSelect={(opt) => {
                         if (opt.id) addExerciseMutation.mutate({ id: opt.id });
                         setSearchOpen(false);
@@ -1049,6 +1143,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                   mineExerciseOptions={addExercisePickerOptions.mine}
                   globalExerciseOptions={addExercisePickerOptions.global}
                   catalogOptions={addExercisePickerOptions.catalogs}
+                  {...exercisePickerServerProps}
                   onSelect={(opt) => {
                     if (opt.id) addExerciseMutation.mutate({ id: opt.id });
                   }}

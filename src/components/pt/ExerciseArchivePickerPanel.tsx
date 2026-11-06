@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { Plus, Check, Star, ChevronLeft } from 'lucide-react';
 import {
   Command,
@@ -108,6 +109,14 @@ export interface ExerciseArchivePickerProps {
   /** Contenuto quando l'archivio è completamente vuoto. */
   emptyFallback?: React.ReactNode;
   className?: string;
+  /** Opzioni da backend quando la query ha ≥2 caratteri — evita di caricare tutto l'archivio in memoria. */
+  serverFavoriteOptions?: ExerciseOption[];
+  serverMineOptions?: ExerciseOption[];
+  serverGlobalOptions?: ExerciseOption[];
+  /** True mentre la ricerca server è in corso (mine/global + query lunga). */
+  serverSearchPending?: boolean;
+  /** Query di ricerca (debounced) per caricare mine/global dal backend. */
+  onSearchQueryChange?: (trimmed: string) => void;
 }
 
 const EMPTY_TAB_MESSAGE: Record<Exclude<SourceTab, 'catalogs' | 'workout'>, string> = {
@@ -129,18 +138,36 @@ export function ExerciseArchivePickerPanel({
   emptyFallback,
   open,
   className,
+  serverFavoriteOptions,
+  serverMineOptions,
+  serverGlobalOptions,
+  serverSearchPending = false,
+  onSearchQueryChange,
 }: ExerciseArchivePickerProps) {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<SourceTab | null>(null);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
+  const debouncedSearchTrim = useDebouncedValue(search.trim(), 300);
+
+  const notifySearch = useCallback(
+    (q: string) => {
+      onSearchQueryChange?.(q);
+    },
+    [onSearchQueryChange],
+  );
+
+  useEffect(() => {
+    notifySearch(debouncedSearchTrim);
+  }, [debouncedSearchTrim, notifySearch]);
 
   useEffect(() => {
     if (open) {
       setSearch('');
       setTab(null);
       setSelectedCatalogId(null);
+      notifySearch('');
     }
-  }, [open]);
+  }, [open, notifySearch]);
 
   const workout = dedupeExerciseOptions(workoutExerciseOptions);
   const favorites = dedupeExerciseOptions(favoriteExerciseOptions);
@@ -201,17 +228,48 @@ export function ExerciseArchivePickerPanel({
     return catalogs.filter((c) => c.name.toLowerCase().includes(lower));
   }, [catalogs, q]);
 
+  const useServerFav = q.length >= 2 && serverFavoriteOptions !== undefined;
+  const useServerMine = q.length >= 2 && serverMineOptions !== undefined;
+  const useServerGlobal = q.length >= 2 && serverGlobalOptions !== undefined;
+
   const activeItems =
     activeTab === 'catalogs'
       ? selectedCatalog
         ? filterBySearch(selectedCatalog.exercises, q)
         : []
-      : filterBySearch(sources[activeTab], q);
+      : activeTab === 'favorites' && useServerFav
+        ? serverFavoriteOptions
+        : activeTab === 'mine' && useServerMine
+          ? serverMineOptions
+          : activeTab === 'global' && useServerGlobal
+            ? serverGlobalOptions
+            : filterBySearch(sources[activeTab], q);
 
   const allKnown = useMemo(() => {
     const fromCatalogs = catalogs.flatMap((c) => c.exercises);
-    return [...workout, ...favorites, ...mine, ...global, ...fromCatalogs];
-  }, [workout, favorites, mine, global, catalogs]);
+    const serverExtra = [
+      ...(serverFavoriteOptions ?? []),
+      ...(serverMineOptions ?? []),
+      ...(serverGlobalOptions ?? []),
+    ];
+    return dedupeExerciseOptions([
+      ...workout,
+      ...favorites,
+      ...mine,
+      ...global,
+      ...fromCatalogs,
+      ...serverExtra,
+    ]);
+  }, [
+    workout,
+    favorites,
+    mine,
+    global,
+    catalogs,
+    serverFavoriteOptions,
+    serverMineOptions,
+    serverGlobalOptions,
+  ]);
 
   const showFree =
     showFreeOption &&
@@ -230,6 +288,14 @@ export function ExerciseArchivePickerPanel({
   };
 
   const emptyMessage = (): string => {
+    if (
+      serverSearchPending &&
+      q.length >= 2 &&
+      (activeTab === 'favorites' || activeTab === 'mine' || activeTab === 'global') &&
+      (useServerFav || useServerMine || useServerGlobal)
+    ) {
+      return 'Ricerca…';
+    }
     if (activeTab === 'catalogs') {
       if (!selectedCatalog) {
         return catalogs.length === 0

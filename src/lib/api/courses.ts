@@ -11,7 +11,7 @@ import { vendeAbbonamenti } from '@/lib/native';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => supabase as any;
 
-/** Campi step minimi per stimare la durata del corso nelle liste. */
+/** Campi step per durata precisa (liste PT / editor). */
 const COURSE_STEPS_DURATION_EMBED =
   'pt_course_steps(id, step_type, video_duration_minutes, pt_course_step_exercises(sets, reps, rest_seconds))';
 
@@ -670,6 +670,38 @@ function averageProgress(rows: Array<{ progress_pct?: number | null }>): number 
   return Math.round(sum / rows.length);
 }
 
+/**
+ * Stima durata lista corsi: preferisce `duration_minutes` persistito sul corso;
+ * altrimenti ~8 min per step esercizi e durata video per step video (senza caricare tutti gli esercizi).
+ */
+function estimateCourseSecondsForListCard(row: {
+  pt_course_steps?: Array<{
+    step_type?: string | null;
+    video_duration_minutes?: number | null;
+  }> | null;
+  duration_minutes?: number | null;
+}): number {
+  const fromColumn = row.duration_minutes;
+  if (fromColumn != null && fromColumn > 0) {
+    return Math.round(fromColumn * 60);
+  }
+  const steps = row.pt_course_steps;
+  if (!Array.isArray(steps) || steps.length === 0) return 0;
+  let sec = 0;
+  for (const s of steps) {
+    if (s.step_type === 'video') {
+      sec += Math.round(Math.max(0, Number(s.video_duration_minutes) || 0) * 60);
+    } else {
+      sec += 8 * 60;
+    }
+  }
+  return sec;
+}
+
+/** Step leggeri per lista atleta (nessun pt_course_step_exercises: meno payload). */
+const COURSE_LIST_ATLETA_STEP_EMBED =
+  'pt_course_steps(step_type, video_duration_minutes)';
+
 export async function listPublishedCoursesForAthlete(
   atletaUserId: string,
 ): Promise<{ discover: AtletaCourseCard[]; enrolled: AtletaCourseCard[] }> {
@@ -677,7 +709,7 @@ export async function listPublishedCoursesForAthlete(
     .from('pt_courses')
     .select(`
       *,
-      ${COURSE_STEPS_DURATION_EMBED}
+      ${COURSE_LIST_ATLETA_STEP_EMBED}
     `)
     .eq('status', 'published')
     .order('created_at', { ascending: false });
@@ -708,10 +740,12 @@ export async function listPublishedCoursesForAthlete(
     // contenuti digitali comprati fuori dall'App Store (vedi vendeAbbonamenti).
     if (!vendeAbbonamenti() && row.is_free === false) continue;
     const enrollment = enrollmentByCourse.get(row.id) || null;
+    const stepRows = Array.isArray(row.pt_course_steps) ? row.pt_course_steps : [];
+    const stepsCount = stepRows.length;
     const card: AtletaCourseCard = {
       ...(row as PtCourse),
-      steps_count: Array.isArray(row.pt_course_steps) ? row.pt_course_steps.length : 0,
-      estimated_seconds: estimateCourseSeconds(row.pt_course_steps),
+      steps_count: stepsCount,
+      estimated_seconds: estimateCourseSecondsForListCard(row),
       pt_name: ptNames.get(row.pt_user_id) || null,
       enrollment,
     };
@@ -794,7 +828,6 @@ async function ensureEnrollmentWithStepProgress(params: {
   }
 
   let enrollment: PtCourseEnrollment;
-  let created = true;
 
   if (existing?.status === 'cancelled') {
     const { data, error } = await db()
@@ -872,7 +905,7 @@ async function ensureEnrollmentWithStepProgress(params: {
     }
   }
 
-  return { enrollment, created };
+  return { enrollment, created: true };
 }
 
 export async function enrollInCourse(

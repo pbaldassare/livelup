@@ -413,25 +413,43 @@ function PTSearchSection({
         rows.map((pt) => pt.user_id),
       );
 
-      // Fetch profiles for each PT + merge specialization sources
-      const ptsWithProfiles = await Promise.all(
-        rows.map(async (pt) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, avatar_url')
-            .eq('user_id', pt.user_id)
-            .single();
-          const specializations = mergeSpecializationNames(
-            pt.specializations,
-            junctionByUser.get(pt.user_id),
+      const userIds = rows.map((pt) => pt.user_id).filter(Boolean) as string[];
+      let profileByUserId = new Map<
+        string,
+        { first_name: string | null; last_name: string | null; avatar_url: string | null }
+      >();
+
+      if (userIds.length > 0) {
+        const { data: profileRows, error: profileError } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, avatar_url')
+          .in('user_id', userIds);
+
+        if (!profileError && profileRows) {
+          profileByUserId = new Map(
+            profileRows.map((p) => [
+              p.user_id as string,
+              {
+                first_name: p.first_name as string | null,
+                last_name: p.last_name as string | null,
+                avatar_url: p.avatar_url as string | null,
+              },
+            ]),
           );
-          return {
-            ...pt,
-            specializations: specializations.length > 0 ? specializations : null,
-            profiles: profile,
-          };
-        })
-      );
+        }
+      }
+
+      const ptsWithProfiles = rows.map((pt) => {
+        const specializations = mergeSpecializationNames(
+          pt.specializations,
+          junctionByUser.get(pt.user_id),
+        );
+        return {
+          ...pt,
+          specializations: specializations.length > 0 ? specializations : null,
+          profiles: profileByUserId.get(pt.user_id) ?? null,
+        };
+      });
 
       return ptsWithProfiles;
     },
@@ -455,7 +473,13 @@ function PTSearchSection({
         const name = `${pt.profiles?.first_name || ''} ${pt.profiles?.last_name || ''}`.toLowerCase();
         const specs = (pt.specializations || []).join(' ').toLowerCase();
         const city = (pt.location_city || '').toLowerCase();
-        return name.includes(lowerQuery) || specs.includes(lowerQuery) || city.includes(lowerQuery);
+        const bio = (pt.bio || '').toLowerCase();
+        return (
+          name.includes(lowerQuery) ||
+          specs.includes(lowerQuery) ||
+          city.includes(lowerQuery) ||
+          bio.includes(lowerQuery)
+        );
       });
     }
 

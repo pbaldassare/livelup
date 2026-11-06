@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardPageHeader } from '@/components/dashboard/DashboardPageHeader';
 import { SectionCard } from '@/components/dashboard/SectionCard';
@@ -39,17 +40,6 @@ import {
 type SelectedColleague =
   | { kind: 'pt'; data: PTColleague }
   | { kind: 'professional'; data: ProfessionalColleague };
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-
-  return debounced;
-}
 
 function isMissingColleagueSearchRpc(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;

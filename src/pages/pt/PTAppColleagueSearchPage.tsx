@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PTAppPageShell } from '@/components/app/PTAppPageShell';
@@ -38,17 +39,6 @@ import {
 type SelectedColleague =
   | { kind: 'pt'; data: PTColleague }
   | { kind: 'professional'; data: ProfessionalColleague };
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-
-  return debounced;
-}
 
 export function PTAppColleagueSearchPage() {
   const [category, setCategory] = useState<'pt' | 'professionisti'>('pt');

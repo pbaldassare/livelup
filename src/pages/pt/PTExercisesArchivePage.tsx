@@ -34,6 +34,7 @@ import { CatalogDetailDialog } from '@/components/pt/CatalogDetailDialog';
 import { ExerciseCatalogAssignPopover } from '@/components/pt/ExerciseCatalogAssignPopover';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercises';
 import { useExerciseCatalogs, getCatalogAccess, type ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 import { resolveExerciseInstructions } from '@/lib/exerciseInstructions';
@@ -106,6 +107,7 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const { data: favIds } = useFavoriteIds();
   const { data: catalogs = [] } = useExerciseCatalogs();
@@ -119,20 +121,39 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
   const publicCatalogs = catalogs.filter((c) => getCatalogAccess(c, user?.id) === 'public');
 
   const { data: exercises = [], isLoading } = useQuery({
-    queryKey: ['pt-exercises-archive', user?.id, sourceFilter],
+    queryKey: ['pt-exercises-archive', user?.id, sourceFilter, debouncedSearch],
     queryFn: async () => {
       if (!user?.id) return [];
 
-      return fetchAllRows<Exercise>(async (from, to) => {
-        let q = supabase.from('exercises').select(EXERCISE_COLUMNS);
+      const term = debouncedSearch.trim();
+      const useServerSearch = term.length >= 2;
 
+      const applySourceFilter = (
+        q: ReturnType<ReturnType<typeof supabase.from>['select']>,
+      ) => {
+        let next = q;
         if (sourceFilter === 'archivio') {
-          q = q.or('is_public.eq.true,created_by.is.null');
+          next = next.or('is_public.eq.true,created_by.is.null');
         } else if (sourceFilter === 'miei') {
-          q = q.eq('created_by', user.id).eq('is_public', false);
+          next = next.eq('created_by', user.id).eq('is_public', false);
         }
-        // 'all' / 'preferiti': RLS returns (public exercises) ∪ (own private exercises) automatically
+        return next;
+      };
 
+      if (useServerSearch) {
+        const base = supabase
+          .from('exercises')
+          .select(EXERCISE_COLUMNS)
+          .ilike('name', `%${term}%`);
+        const q = applySourceFilter(base);
+        const { data, error } = await q.order('category').order('name').limit(800);
+        if (error) throw error;
+        return (data ?? []) as Exercise[];
+      }
+
+      return fetchAllRows<Exercise>(async (from, to) => {
+        const base = supabase.from('exercises').select(EXERCISE_COLUMNS);
+        const q = applySourceFilter(base);
         const { data, error } = await q.order('category').order('name').range(from, to);
         return { data: (data ?? []) as Exercise[], error };
       });
@@ -163,15 +184,26 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
+    const serverFiltered = debouncedSearch.trim().length >= 2;
     return exercises.filter((ex) => {
-      const matchesSearch = !q || ex.name.toLowerCase().includes(q);
+      const matchesSearch =
+        serverFiltered || !q || ex.name.toLowerCase().includes(q);
       const matchesDiff = difficultyFilter === 'all' || ex.difficulty_level === difficultyFilter;
       const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
       const matchesMuscle = muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
       const matchesFav = sourceFilter !== 'preferiti' || (favIds?.has(ex.id) ?? false);
       return matchesSearch && matchesDiff && matchesCat && matchesMuscle && matchesFav;
     });
-  }, [exercises, search, difficultyFilter, categoryFilter, muscleFilter, sourceFilter, favIds]);
+  }, [
+    exercises,
+    search,
+    debouncedSearch,
+    difficultyFilter,
+    categoryFilter,
+    muscleFilter,
+    sourceFilter,
+    favIds,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated = useMemo(() => {

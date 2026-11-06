@@ -94,21 +94,37 @@ export function PTDiscoveryPage() {
 
       if (error) throw error;
 
-      // Fetch profiles for each PT
-      const enrichedPts = await Promise.all(
-        (ptData || []).map(async (pt) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, avatar_url')
-            .eq('user_id', pt.user_id)
-            .single();
+      const rows = ptData || [];
+      const ptUserIds = rows.map((pt) => pt.user_id).filter(Boolean) as string[];
+      let profileByUserId = new Map<
+        string,
+        { first_name: string | null; last_name: string | null; avatar_url: string | null }
+      >();
 
-          return {
-            ...pt,
-            profile,
-          };
-        })
-      );
+      if (ptUserIds.length > 0) {
+        const { data: profileRows, error: profileError } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, avatar_url')
+          .in('user_id', ptUserIds);
+
+        if (!profileError && profileRows) {
+          profileByUserId = new Map(
+            profileRows.map((p) => [
+              p.user_id as string,
+              {
+                first_name: p.first_name as string | null,
+                last_name: p.last_name as string | null,
+                avatar_url: p.avatar_url as string | null,
+              },
+            ]),
+          );
+        }
+      }
+
+      const enrichedPts = rows.map((pt) => ({
+        ...pt,
+        profile: profileByUserId.get(pt.user_id) ?? undefined,
+      }));
 
       return enrichedPts as PTProfile[];
     },
@@ -116,15 +132,18 @@ export function PTDiscoveryPage() {
 
   // Filter and sort PTs
   const filteredPts = useMemo(() => {
-    let result = pts.filter((pt) => {
+    const result = pts.filter((pt) => {
       // Search filter
       const fullName = `${pt.profile?.first_name || ''} ${pt.profile?.last_name || ''}`.toLowerCase();
       const bio = (pt.bio || '').toLowerCase();
-      const matchesSearch = 
+      const q = searchTerm.toLowerCase();
+      const city = (pt.location_city || '').toLowerCase();
+      const matchesSearch =
         searchTerm === '' ||
-        fullName.includes(searchTerm.toLowerCase()) ||
-        bio.includes(searchTerm.toLowerCase()) ||
-        pt.specializations?.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
+        fullName.includes(q) ||
+        bio.includes(q) ||
+        city.includes(q) ||
+        pt.specializations?.some((s) => s.toLowerCase().includes(q));
 
       // Specialization filter
       const matchesSpecialization = 

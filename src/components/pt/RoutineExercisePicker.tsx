@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -26,9 +27,10 @@ export function RoutineExercisePicker({
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const { data: options = [], isLoading } = useQuery({
-    queryKey: ['pt-routine-exercise-options', user?.id, search],
+    queryKey: ['pt-routine-exercise-options', user?.id, debouncedSearch],
     queryFn: async () => {
       if (!user?.id) return [] as { id: string; name: string }[];
       let q = supabase
@@ -37,7 +39,7 @@ export function RoutineExercisePicker({
         .or(`is_public.eq.true,created_by.eq.${user.id}`)
         .order('name')
         .limit(120);
-      const term = search.trim();
+      const term = debouncedSearch.trim();
       if (term) q = q.ilike('name', `%${term}%`);
       const { data, error } = await q;
       if (error) throw error;
