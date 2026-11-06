@@ -22,7 +22,9 @@ import {
 import { formatProtocolTarget } from '@/lib/protocols/exerciseTarget';
 import { formatLoadLabel } from '@/lib/loadPrescription';
 import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { useTimerEndWarnings } from '@/hooks/useTimerEndWarnings';
 import { deadlineFromRemaining, remainingFromDeadline } from '@/lib/workoutClock';
+import { resumeTimerAudioContext } from '@/lib/timerEndSignals';
 
 interface AtletaAmrapPlayerProps {
   exerciseName: string;
@@ -103,7 +105,15 @@ export function AtletaAmrapPlayer({
   const tickingLeft = useDeadlineCountdown(isRunning ? endsAt : null, () => finishAmrap(0));
   const secondsLeft = isRunning ? tickingLeft : pausedLeft;
 
+  useTimerEndWarnings({
+    enabled: isRunning && hasStarted && endsAt != null,
+    secondsLeft,
+    phaseKey: endsAt != null ? String(endsAt) : null,
+    kind: 'work',
+  });
+
   const handleStart = () => {
+    void resumeTimerAudioContext();
     setHasStarted(true);
     setPausedLeft(params.duration_seconds);
     setEndsAt(deadlineFromRemaining(params.duration_seconds));

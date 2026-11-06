@@ -17,6 +17,8 @@ import {
   type TimedRoundsParams,
 } from '@/lib/protocols/timedRounds';
 import { buildResultEntry, type ProtocolResultEntry } from '@/lib/protocols/protocolResults';
+import { useTimerEndWarnings } from '@/hooks/useTimerEndWarnings';
+import { resumeTimerAudioContext } from '@/lib/timerEndSignals';
 
 type Phase = 'work' | 'rest_between_exercises' | 'rest_between_rounds';
 
@@ -210,6 +212,7 @@ export function AtletaTimedRoundsPlayer({
   }, [isRunning, phase, round, exerciseIndex]);
 
   const handleStart = () => {
+    void resumeTimerAudioContext();
     setHasStarted(true);
     phaseStartedAtRef.current = Date.now();
     setIsRunning(true);
@@ -241,6 +244,13 @@ export function AtletaTimedRoundsPlayer({
 
   const progressPct =
     phaseTotal > 0 ? ((phaseTotal - secondsLeft) / phaseTotal) * 100 : 0;
+
+  useTimerEndWarnings({
+    enabled: isRunning && hasStarted && !reviewEntries,
+    secondsLeft,
+    phaseKey: `${phase}-${round}-${exerciseIndex}-${phaseTotal}`,
+    kind: phase === 'work' ? 'work' : 'rest',
+  });
 
   const currentName = exerciseDisplayName(params, exerciseIndex, exerciseName);
   const nextLabel = (() => {

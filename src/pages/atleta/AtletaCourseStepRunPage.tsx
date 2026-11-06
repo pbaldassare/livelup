@@ -15,7 +15,9 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { useTimerEndWarnings } from '@/hooks/useTimerEndWarnings';
 import { deadlineFromRemaining } from '@/lib/workoutClock';
+import { resumeTimerAudioContext } from '@/lib/timerEndSignals';
 
 function parseSets(ex: PtCourseStepExercise): number {
   return Math.max(1, ex.sets ?? 3);
@@ -74,6 +76,13 @@ export function AtletaCourseStepRunPage() {
 
   const restTick = useDeadlineCountdown(restEndsAt, () => setRestEndsAt(null));
   const restLeft = restEndsAt == null ? null : restTick;
+
+  useTimerEndWarnings({
+    enabled: restEndsAt != null && restLeft != null,
+    secondsLeft: restLeft ?? 0,
+    phaseKey: restEndsAt,
+    kind: 'rest',
+  });
 
   const goBackToCourse = () => {
     if (courseId) {
@@ -150,6 +159,7 @@ export function AtletaCourseStepRunPage() {
   };
 
   const onCompleteSet = () => {
+    void resumeTimerAudioContext();
     if (restLeft != null && restLeft > 0) return;
     if (isCompleting) return;
     advanceAfterSet();

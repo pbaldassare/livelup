@@ -21,7 +21,9 @@ import { AtletaAmrapPlayer } from '@/components/app/AtletaAmrapPlayer';
 import { AtletaSupersetPlayer } from '@/components/app/AtletaSupersetPlayer';
 import { WorkoutRestScreen } from '@/components/app/WorkoutRestScreen';
 import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { useTimerEndWarnings } from '@/hooks/useTimerEndWarnings';
 import { deadlineFromRemaining, remainingFromDeadline, shiftDeadline } from '@/lib/workoutClock';
+import { resumeTimerAudioContext } from '@/lib/timerEndSignals';
 import { ExerciseHeader } from '@/components/app/ExerciseHeader';
 import {
   buildNextPreviewInfo,
@@ -539,7 +541,15 @@ export function GuidedWorkoutFlow({
     handleRestEnd,
   );
 
+  useTimerEndWarnings({
+    enabled: state.flow === 'rest',
+    secondsLeft: restLeft,
+    phaseKey: state.flow === 'rest' ? state.restEndsAt : null,
+    kind: 'rest',
+  });
+
   const handleCompleteSet = async () => {
+    void resumeTimerAudioContext();
     if (!currentExercise) return;
     const timedSet = isTimedSet(currentExercise, state.setNumber);
     const setData = getSetPrescription(currentExercise, state.setNumber);

@@ -20,7 +20,9 @@ import {
 } from '@/lib/protocols/protocolResults';
 import { formatLoadLabel } from '@/lib/loadPrescription';
 import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { useTimerEndWarnings } from '@/hooks/useTimerEndWarnings';
 import { deadlineFromRemaining, remainingFromDeadline } from '@/lib/workoutClock';
+import { resumeTimerAudioContext } from '@/lib/timerEndSignals';
 
 type Phase = 'work' | 'rest_between_exercises' | 'rest_between_supersets';
 
@@ -134,6 +136,13 @@ export function AtletaSupersetPlayer({
     handleRestExpired,
   );
   const secondsLeft = isRunning ? restLeft : pausedLeft;
+
+  useTimerEndWarnings({
+    enabled: phase !== 'work' && isRunning && restEndsAt != null,
+    secondsLeft,
+    phaseKey: restEndsAt != null ? `${phase}-${restEndsAt}` : null,
+    kind: 'rest',
+  });
 
   const finishWorkout = () => {
     if (finishedRef.current) return;
@@ -259,7 +268,10 @@ export function AtletaSupersetPlayer({
           <div className="w-full max-w-md flex flex-col gap-3">
             {!hasStarted ? (
               <Button
-                onClick={() => setHasStarted(true)}
+                onClick={() => {
+                  void resumeTimerAudioContext();
+                  setHasStarted(true);
+                }}
                 className="w-full h-14 rounded-full bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 text-base font-semibold"
               >
                 <Play className="h-5 w-5 mr-2" />

@@ -25,7 +25,9 @@ import {
 import { formatProtocolTargetLabel } from '@/lib/protocols/exerciseTarget';
 import { formatLoadLabel } from '@/lib/loadPrescription';
 import { useDeadlineCountdown } from '@/hooks/useDeadlineCountdown';
+import { useTimerEndWarnings } from '@/hooks/useTimerEndWarnings';
 import { deadlineFromRemaining, remainingFromDeadline } from '@/lib/workoutClock';
+import { resumeTimerAudioContext } from '@/lib/timerEndSignals';
 
 interface AtletaEmomPlayerProps {
   exerciseName: string;
@@ -121,7 +123,15 @@ export function AtletaEmomPlayer({
   const tickingLeft = useDeadlineCountdown(isRunning ? endsAt : null, handleRoundExpired);
   const secondsLeft = isRunning ? tickingLeft : pausedLeft;
 
+  useTimerEndWarnings({
+    enabled: isRunning && hasStarted && endsAt != null,
+    secondsLeft,
+    phaseKey: endsAt != null ? `${round}-${endsAt}` : null,
+    kind: 'round',
+  });
+
   const handleStart = () => {
+    void resumeTimerAudioContext();
     setHasStarted(true);
     startRoundClock(emom.round_duration);
   };
