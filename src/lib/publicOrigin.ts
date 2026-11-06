@@ -10,7 +10,8 @@ function isNonPublicHost(host: string): boolean {
     host.startsWith('preview--') ||
     host.endsWith('.lovableproject.com') ||
     host.endsWith('.lovableproject-dev.com') ||
-    host.endsWith('.lovable.dev')
+    host.endsWith('.lovable.dev') ||
+    host.endsWith('.pages.dev')
   )
 }
 

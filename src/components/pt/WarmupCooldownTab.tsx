@@ -122,7 +122,7 @@ export function WarmupCooldownTab({ embedded = false, className }: WarmupCooldow
       const msg = e?.message || 'Errore creazione';
       if (/template_role|42703|PGRST204|schema cache/i.test(msg)) {
         toast.error(
-          'Schema non aggiornato: applica su Lovable scripts/warmup-cooldown-templates.sql',
+          'Schema non aggiornato: applica sul backend lo script scripts/warmup-cooldown-templates.sql',
         );
         return;
       }

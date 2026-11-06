@@ -34,7 +34,7 @@ export interface PtConnectionWithPtActive {
 }
 
 export const PT_ACTIVE_MIGRATION_HINT =
-  'Funzione non disponibile: applica su Lovable la migration 20260714183000_pt_connection_is_pt_active.sql e attendi il deploy del backend.';
+  'Funzione non disponibile: applica sul progetto Supabase la migration 20260714183000_pt_connection_is_pt_active.sql e attendi il deploy del backend.';
 
 function isMissingPtActiveColumn(error: { message?: string; code?: string } | null): boolean {
   if (!error) return false;
@@ -57,7 +57,7 @@ export class PtActiveMigrationRequiredError extends Error {
 }
 
 export const TRAINING_MODALITY_MIGRATION_HINT =
-  'Funzione non disponibile: applica su Lovable la migration 20260718190000_pt_athlete_training_modality.sql e attendi il deploy del backend.';
+  'Funzione non disponibile: applica sul progetto Supabase la migration 20260718190000_pt_athlete_training_modality.sql e attendi il deploy del backend.';
 
 function isMissingTrainingModalityColumn(error: { message?: string; code?: string } | null): boolean {
   if (!error) return false;
@@ -292,7 +292,7 @@ export async function requestConnection(params: {
   if (resolvedCategoryId) {
     if (resolvedCategoryId.startsWith('fallback-')) {
       throw new Error(
-        'Categorie non disponibili sul backend. Controlla che pt_athlete_categories sia presente su Lovable Cloud.',
+        'Categorie non disponibili sul backend. Controlla che pt_athlete_categories sia presente sul progetto Supabase.',
       );
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

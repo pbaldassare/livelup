@@ -15,7 +15,7 @@ import {
   hasGenericNestedExercises,
 } from '@/lib/protocols/nestedExercises';
 
-/** Cast finché Lovable non rigenera types.ts */
+/** Cast finché Supabase non rigenera `types.ts` */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 

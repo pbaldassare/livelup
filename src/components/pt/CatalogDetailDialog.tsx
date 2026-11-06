@@ -185,7 +185,7 @@ export function CatalogDetailDialog({ catalog, open, onOpenChange }: CatalogDeta
               <div className="text-center py-8 text-muted-foreground space-y-2">
                 <p className="text-sm">
                   {missingItemsTable
-                    ? 'Tabella cataloghi esercizi non ancora creata sul backend. Applica la migration exercise_catalog_items su Lovable Cloud.'
+                    ? 'Tabella cataloghi esercizi non ancora creata sul backend. Applica la migration exercise_catalog_items sul progetto Supabase.'
                     : 'Impossibile caricare gli esercizi del catalogo.'}
                 </p>
                 {!missingItemsTable && (

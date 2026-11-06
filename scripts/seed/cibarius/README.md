@@ -9,7 +9,7 @@ node scripts/seed/convert_cibarius_json.mjs scripts/seed/cibarius/cibarius-ricet
 node scripts/seed/import_cibarius_recipes.mjs scripts/seed/data/nutrition_recipes_catalog.json supabase/migrations/20261023210001_nutrition_recipes_catalog.sql
 ```
 
-Applica su Lovable Cloud (dopo `20261023220000_nutrition_recipes_diet_plan.sql`):
+Applica sul progetto Supabase (dopo `20261023220000_nutrition_recipes_diet_plan.sql`):
 
 - `20261023220000_nutrition_recipes_diet_plan.sql` — colonne `diet_plan`, `prep_time_min`
 - `20261023210001_nutrition_recipes_catalog.sql` — DELETE catalogo piattaforma + INSERT 480 ricette

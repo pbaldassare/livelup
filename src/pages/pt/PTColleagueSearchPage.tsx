@@ -163,7 +163,7 @@ export function PTColleagueSearchPage() {
               </h3>
               <p className="text-muted-foreground text-sm max-w-md mx-auto">
                 {rpcMissing
-                  ? 'La funzione di ricerca colleghi non risulta ancora applicata sul backend. Applica la migration pt_colleague_search su Lovable Cloud, poi riprova.'
+                  ? 'La funzione di ricerca colleghi non risulta ancora applicata sul backend. Applica la migration pt_colleague_search sul progetto Supabase, poi riprova.'
                   : (activeError as Error)?.message ||
                     'Si è verificato un errore durante il caricamento. Riprova tra poco.'}
               </p>

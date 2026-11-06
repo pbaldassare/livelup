@@ -14,10 +14,9 @@
 const PUBLIC_ORIGIN = 'https://livelapp.iaconnect.it';
 
 /**
- * Gli host di preview/editor Lovable richiedono un login Lovable: un link
- * generato da lì è inutilizzabile per l'atleta invitato (soprattutto da
- * iPhone, dove poi non è possibile installare la PWA). In quei casi usiamo
- * sempre l'origine pubblica di produzione.
+ * Host di preview (Cloudflare Pages `*.pages.dev`, iframe editor, ecc.): un link
+ * generato da lì non è adatto all'atleta invitato. In quei casi usiamo sempre
+ * l'origine pubblica di produzione.
  */
 function isNonPublicOrigin(host: string): boolean {
   return (
@@ -27,7 +26,8 @@ function isNonPublicOrigin(host: string): boolean {
     host.startsWith('preview--') ||
     host.endsWith('.lovableproject.com') ||
     host.endsWith('.lovableproject-dev.com') ||
-    host.endsWith('.lovable.dev')
+    host.endsWith('.lovable.dev') ||
+    host.endsWith('.pages.dev')
   );
 }
 

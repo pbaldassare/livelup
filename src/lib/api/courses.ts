@@ -1,7 +1,7 @@
 // =====================================================
 // API: Corsi PT (step-based)
 // Tabelle: pt_courses, pt_course_steps, pt_course_step_exercises
-// Cast `as any` finché types.ts non viene rigenerato da Lovable.
+// Cast `as any` finché `types.ts` non viene rigenerato da Supabase.
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';
@@ -475,7 +475,7 @@ export async function addStep(input: AddStepInput): Promise<PtCourseStep> {
 
   let { data, error } = await db().from('pt_course_steps').insert(insertPayload).select().single();
 
-  // Finché Lovable Cloud non ha video_urls, ripiega sul solo video_url.
+  // Finché il backend non espone video_urls, ripiega sul solo video_url.
   if (error && /video_urls/i.test(error.message)) {
     const { video_urls: _omit, ...legacyPayload } = insertPayload;
     ({ data, error } = await db().from('pt_course_steps').insert(legacyPayload).select().single());
@@ -539,7 +539,7 @@ export async function updateStep(stepId: string, input: UpdateStepInput): Promis
     .select()
     .single();
 
-  // Finché Lovable Cloud non ha video_urls, ripiega sul solo video_url.
+  // Finché il backend non espone video_urls, ripiega sul solo video_url.
   if (error && /video_urls/i.test(error.message) && 'video_urls' in payload) {
     const { video_urls: _omit, ...legacyPayload } = payload;
     ({ data, error } = await db()
@@ -951,7 +951,7 @@ export async function listCourseEnrolledAthleteIds(courseId: string): Promise<st
   return (data || []).map((row: { atleta_user_id: string }) => row.atleta_user_id);
 }
 
-/** True when the RPC is not yet applied on Lovable Cloud (PostgREST schema cache). */
+/** True when the RPC is not yet applied on the backend (PostgREST schema cache). */
 export function isMissingCourseStepWorkoutRpc(error: unknown): boolean {
   const msg =
     typeof error === 'string'

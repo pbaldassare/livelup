@@ -148,7 +148,7 @@ export function TemplateRoutineLinks({
               (patch.cooldown_exercise_ids as string[]).length > 1)
           ) {
             throw new Error(
-              'Applica la migration delle liste riscaldamento/stretching su Lovable Cloud',
+              'Applica la migration delle liste riscaldamento/stretching sul backend (Supabase)',
             );
           }
           return;
@@ -163,7 +163,9 @@ export function TemplateRoutineLinks({
     onError: (e: Error) => {
       const msg = e?.message || 'Errore salvataggio';
       if (/include_warmup|warmup_template|warmup_exercise|template_role|42703|PGRST204/i.test(msg)) {
-        toast.error('Applica la migration warmup/stretching (anche lista esercizi) su Lovable Cloud');
+        toast.error(
+          'Applica la migration warmup/stretching (anche lista esercizi) sul backend (Supabase)',
+        );
         return;
       }
       toast.error(msg);

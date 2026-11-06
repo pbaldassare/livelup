@@ -1,7 +1,7 @@
 // =====================================================
 // API: Seguiti atleta ("Attività" hub — tab Seguiti)
 // Tabella: atleta_follows (event | course | group | pt | professional)
-// Cast `as any` finché types.ts non viene rigenerato da Lovable.
+// Cast `as any` finché `types.ts` non viene rigenerato da Supabase.
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';

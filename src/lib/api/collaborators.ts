@@ -1,7 +1,7 @@
 // =====================================================
 // API: Assegnazione atleti a collaboratori PT
 // Allineata alle RPC singolari live (migration 20260808123439).
-// Cast `as any` finché types.ts non viene rigenerato da Lovable.
+// Cast `as any` finché `types.ts` non viene rigenerato da Supabase.
 // =====================================================
 
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 const db = () => supabase as any;
 
 export const COLLABORATORS_MIGRATION_HINT =
-  'Funzione backend non allineata: le RPC collaboratori non sono disponibili su Lovable Cloud.';
+  'Funzione backend non allineata: le RPC collaboratori non sono disponibili sul progetto Supabase.';
 
 export interface CollaboratorRosterRow {
   view_mode: 'owner' | 'collaborator';

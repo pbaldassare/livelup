@@ -1,7 +1,9 @@
-# Migrazione da Lovable Cloud a Supabase esterno — Livelapp
+# Migrazione verso un progetto Supabase esterno — Livelapp
 
-Guida completa e ordinata per trasportare **tutto** il backend (schema, dati, storage,
-auth, edge functions, secret, configurazioni) dal progetto Lovable Cloud
+> **Nota:** oggi il backend in uso è già **Supabase** `kxgaqnksylntokyrpaxp`. Questa guida resta come riferimento per copiare tutto verso un **altro** progetto Supabase (account proprio). Il frontend di produzione è su **Cloudflare Pages** — vedi `docs/DEPLOY-CLOUDFLARE.md`.
+
+Guida ordinata per trasportare **tutto** il backend (schema, dati, storage,
+auth, edge functions, secret, configurazioni) dal progetto attuale
 (`kxgaqnksylntokyrpaxp`) a un progetto **Supabase self-managed / account proprio**.
 
 > Regola d'oro: esegui i passi **nell'ordine indicato**. Ogni passo ha una verifica.

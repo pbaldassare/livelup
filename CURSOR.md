@@ -131,11 +131,9 @@ src/
 │   └── database.ts              # Domain type aliases over Supabase generated types
 │
 └── test/                        # Vitest setup + example tests
-.lovable/
-├── memory/                      # Project memory rules (mem://...)
-└── plan.md                      # Current implementation plan
+
 supabase/
-├── config.toml                  # ⚠️ Lovable-managed
+├── config.toml                  # CLI / Edge Functions project ref
 ├── functions/                   # Edge Functions (see §8)
 └── migrations/                  # SQL migrations (timestamped)
 public/
@@ -399,7 +397,7 @@ Supabase Secrets (Edge Functions):
 - `SUPABASE_JWKS`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`
 - `KIMI_API_KEY` (Moonshot / Kimi)
 
-> Secrets live on project `kxgaqnksylntokyrpaxp`. Lovable is no longer the database.
+> Secrets live on project `kxgaqnksylntokyrpaxp` (Supabase Dashboard → Edge Functions / Project Settings).
 
 ---
 
@@ -484,12 +482,10 @@ Supabase Secrets (Edge Functions):
 
 ## 13. WORKFLOW
 
-- **Development**: VS Code + Claude Code / Cursor (locally) **or** Lovable web editor
+- **Development**: VS Code + Claude Code / Cursor (locally)
 - **Repo**: https://github.com/pbaldassare/elevate-roles-hub.git
-- **Lovable project ID**: `05f7b58c-39e8-4ba3-a7bf-bd051bc56040`
+- **Production frontend (Cloudflare Pages)**: https://livelup.pages.dev
 - **Database (only one)**: `kxgaqnksylntokyrpaxp` — https://kxgaqnksylntokyrpaxp.supabase.co. The old `uiowzycolsmgcsvihmhy` is no longer used.
-- **Preview URL**: https://id-preview--05f7b58c-39e8-4ba3-a7bf-bd051bc56040.lovable.app
-- **Published URL**: https://elevate-roles-hub.lovable.app
 - **Custom domain**: https://livelapp.iaconnect.it
 - **Branch**: `main`. Migrations are not applied automatically on push.
 
@@ -523,7 +519,7 @@ bunx vitest run  # tests
 
 ## 15. CRITICAL RULES FOR AI ASSISTANTS
 
-1. **Never edit** `src/integrations/supabase/client.ts` or `src/integrations/supabase/types.ts` — both auto-generated.
+1. **`src/integrations/supabase/types.ts`** — generated Supabase types; regenerate from the dashboard/CLI when the schema changes. **`client.ts`** may be edited for auth/storage (no external overwrite).
 2. **`.env`** points only to `kxgaqnksylntokyrpaxp`; never switch it back to the old project.
 3. **`supabase/config.toml`**: `project_id = "kxgaqnksylntokyrpaxp"`; do not change it.
 4. **DB statuses stay in English**: `active`, `pending`, `completato`, `attivo`, `terminated`. Localize only in UI.
@@ -541,7 +537,7 @@ bunx vitest run  # tests
 12. **PT mobile**: `usePTSurface` auto-redirects `/pt/*` → `/pt/app/*` on narrow viewports or PWA standalone. `?view=web` overrides.
 13. **Migrations**: save the file in `supabase/migrations/*.sql` **and apply it directly on `kxgaqnksylntokyrpaxp`** (MCP / CLI). Nothing applies it on push.
 14. **Edge Functions**: Default `verify_jwt = true` unless explicitly public. Use `service_role` only server-side, never expose to client.
-15. **Lovable** is no longer the database: no SQL, prompts or migrations through Lovable.
+15. **Deploy**: static hosting on **Cloudflare Pages**; **Supabase** `kxgaqnksylntokyrpaxp` for DB, Auth, Storage, Edge Functions. Set Auth **Site URL** / redirect URLs to the Pages origin (and custom domain).
 
 ---
 

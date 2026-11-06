@@ -72,7 +72,7 @@ export interface LoginRetryOptions {
 
 /**
  * Effettua login con retry — usato dopo la registrazione PT in attesa che
- * l'agente confermi l'email via Lovable MCP query_database in parallelo.
+ * l'agente confermi l'email sul backend (Supabase) in parallelo se necessario.
  */
 export async function loginWithRetry(
   page: Page,

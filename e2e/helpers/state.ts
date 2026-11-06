@@ -76,7 +76,7 @@ export function recordStep(step: string, status: StepStatus, detail?: string): v
   state.stepResults.push({ step, status, detail, timestamp: new Date().toISOString() });
   persist();
   // Marker leggibile nell'output del terminale per sincronizzazione esterna
-  // (es. conferma email via Lovable MCP) e per il report finale.
+  // (es. conferma email sul backend) e per il report finale.
   // eslint-disable-next-line no-console
   console.log(`[SIM] ${status} — ${step}${detail ? ' :: ' + detail : ''}`);
 }

@@ -87,7 +87,7 @@ export function GoogleCalendarConnectButton({
     },
     onError: () => {
       toast.error(
-        'Impossibile avviare il collegamento. Verifica che la funzione google-calendar-oauth sia attiva su Lovable Cloud.',
+        'Impossibile avviare il collegamento. Verifica che la funzione google-calendar-oauth sia deployata come Edge Function sul progetto Supabase.',
       );
     },
   });
