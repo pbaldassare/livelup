@@ -37,6 +37,22 @@ In **Supabase Dashboard → Authentication → URL configuration**:
 - **Site URL:** `https://livelup.pages.dev` (e/o il dominio custom)
 - **Redirect URLs:** includi `https://livelup.pages.dev/**`, `https://livelapp.iaconnect.it/**`, localhost per sviluppo
 
+### Auth redirects (CI su `main`)
+
+Dopo ogni push su **`main`**, il workflow **Sync Supabase Auth redirects** (`.github/workflows/sync-supabase-auth-redirects.yml`) unisce via [Management API](https://supabase.com/docs/reference/api/v1-update-auth-service-config) questi pattern nella **Redirect URLs** (`uri_allow_list`), **senza** rimuovere gli URL già presenti:
+
+- `https://livelup.pages.dev/**`
+- `https://*.livelup.pages.dev/**` (preview Cloudflare Pages `*.livelup.pages.dev`)
+
+**Setup una tantum (GitHub):**
+
+1. Crea un [Personal Access Token](https://supabase.com/dashboard/account/tokens) Supabase con permessi **auth_config_read** e **auth_config_write** (o equivalente legacy per il progetto).
+2. Nel repo GitHub → **Settings → Secrets and variables → Actions** aggiungi **`SUPABASE_ACCESS_TOKEN`** con quel valore.
+
+Senza secret il job fallisce in CI; puoi comunque gestire gli URL solo dalla dashboard Supabase.
+
+Lo script locale: `node scripts/sync-supabase-auth-redirects.mjs` (richiede `SUPABASE_ACCESS_TOKEN` in ambiente; `SUPABASE_PROJECT_REF` opzionale, default `kxgaqnksylntokyrpaxp`).
+
 ## Dominio custom
 
 Aggiungi il dominio su Cloudflare Pages e allinea gli stessi URL in Supabase Auth.
