@@ -1,0 +1,52 @@
+# Template: copy to .github/workflows/sync-fork-with-upstream.yml on YOUR FORK only.
+#
+# Keeps the fork's default branch in sync with the upstream repository (merge upstream/main → fork/main).
+# Runs on a schedule + manual "Run workflow". Does nothing on the canonical upstream repo.
+#
+# Prerequisites on the fork:
+# - Settings → Actions → General → Workflow permissions: "Read and write" (so GITHUB_TOKEN can push).
+# - If merge conflicts appear, the job fails: resolve on a branch or PR manually, then re-run.
+#
+# Set UPSTREAM_REPO to "owner/name" of the source repo (default matches Livelapp canonical).
+
+name: Sync fork with upstream
+
+on:
+  schedule:
+    # Daily ~ 04:00 UTC (adjust as needed)
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-fork-upstream-${{ github.repository }}
+  cancel-in-progress: true
+
+env:
+  UPSTREAM_REPO: pbaldassare/livelup
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Only forks: skip on the canonical repo so we never push upstream→upstream by mistake
+    if: ${{ github.event.repository.fork }}
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Push uses the default GITHUB_TOKEN for this repository (the fork)
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge upstream main into fork main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch upstream
+          git checkout main
+          git merge "upstream/main" --no-edit
+          git push origin main

@@ -26,4 +26,14 @@ Migrations SQL: `supabase/migrations/`. Documentazione di contesto: `CLAUDE.md`,
 
 ## Repository
 
-https://github.com/pbaldassare/elevate-roles-hub
+https://github.com/pbaldassare/livelup
+
+### Fork: allineamento automatico con `main` upstream
+
+GitHub **non** aggiorna i fork da soli. Per tenere il tuo fork allineato al repo principale:
+
+1. Copia **`docs/github-workflows/sync-fork-with-upstream.yml`** in **`.github/workflows/sync-fork-with-upstream.yml`** sul fork (stesso nome file).
+2. Sul fork: **Settings → Actions → General → Workflow permissions** → **Read and write** (serve per fare `git push` con `GITHUB_TOKEN`).
+3. Opzionale: modifica `UPSTREAM_REPO` nel workflow se l’upstream non è `pbaldassare/livelup`.
+
+Lo workflow gira **solo sui fork** (`if: repository.fork`), una volta al giorno + da **Actions → Run workflow**. Se il merge va in conflitto, il job fallisce: risolvi a mano e rilancia.
