@@ -8,7 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageSquare, Send, Search, Users, Plus, Settings, Globe } from 'lucide-react';
+import { MessageSquare, Send, Search, Users, Plus, Settings, Globe, CheckSquare, X } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { BroadcastComposer } from '@/components/pt/BroadcastComposer';
+import { broadcastMessageToAthletes } from '@/lib/api/broadcastToAthletes';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -223,6 +226,8 @@ export function PTMessagesPage() {
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingReply, setPendingReply] = useState<Message | null>(null);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [broadcastSelectedIds, setBroadcastSelectedIds] = useState<Set<string>>(new Set());
 
   // Fetch tutti gli atleti collegati + chat (se esistente)
   const { data: rows = [], isLoading: rowsLoading } = useQuery({
@@ -706,6 +711,27 @@ export function PTMessagesPage() {
   const listLoading = rowsLoading || chatGroupsLoading || communityGroupsLoading;
   const membersCount = groupMembers?.length ?? selectedChatGroup?.members_count ?? 0;
 
+  const toggleSelectMode = () => {
+    setSelectMode((prev) => {
+      const next = !prev;
+      if (!next) setBroadcastSelectedIds(new Set());
+      return next;
+    });
+  };
+
+  const toggleBroadcastAthlete = (id: string) => {
+    setBroadcastSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const visibleListItems = selectMode
+    ? listItems.filter((item) => item.kind === 'athlete')
+    : listItems;
+
   const athleteOptionsForDialog = rows.map((r) => ({
     atleta_user_id: r.atleta_user_id,
     profile: r.profile,
@@ -732,15 +758,37 @@ export function PTMessagesPage() {
                 className="pl-9"
               />
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => setCreateGroupOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Nuovo gruppo
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant={selectMode ? 'secondary' : 'outline'}
+                size="sm"
+                className="w-full"
+                onClick={toggleSelectMode}
+              >
+                {selectMode ? (
+                  <>
+                    <X className="h-4 w-4 mr-1.5" />
+                    Annulla selezione multipla
+                  </>
+                ) : (
+                  <>
+                    <CheckSquare className="h-4 w-4 mr-1.5" />
+                    Invia a più atleti
+                  </>
+                )}
+              </Button>
+              {!selectMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setCreateGroupOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Nuovo gruppo
+                </Button>
+              )}
+            </div>
             {chatGroupsError && (
               <p className="text-xs text-destructive">
                 Impossibile caricare i gruppi chat. Riprova più tardi.
@@ -756,13 +804,13 @@ export function PTMessagesPage() {
             <ScrollArea className="max-h-[60dvh] lg:h-[calc(100dvh-440px)]">
               {listLoading ? (
                 <div className="p-4 text-center text-muted-foreground">Caricamento...</div>
-              ) : listItems.length === 0 ? (
+              ) : visibleListItems.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  Nessuna conversazione trovata
+                  {selectMode ? 'Nessun atleta trovato' : 'Nessuna conversazione trovata'}
                 </div>
               ) : (
                 <div className="divide-y">
-                  {listItems.map((item) => {
+                  {visibleListItems.map((item) => {
                     if (item.kind === 'chatGroup') {
                       const group = item.group;
                       const preview =
@@ -866,16 +914,32 @@ export function PTMessagesPage() {
                     const row = item.row;
                     const isSelected =
                       selection?.kind === 'athlete' && selection.id === row.atleta_user_id;
+                    const broadcastSelected = broadcastSelectedIds.has(row.atleta_user_id);
                     return (
                       <button
                         key={`athlete-${row.atleta_user_id}`}
-                        onClick={() => selectAthlete(row.atleta_user_id)}
+                        onClick={() => {
+                          if (selectMode) {
+                            toggleBroadcastAthlete(row.atleta_user_id);
+                            return;
+                          }
+                          selectAthlete(row.atleta_user_id);
+                        }}
                         className={cn(
                           'w-full p-4 text-left hover:bg-accent/50 transition-colors',
-                          isSelected && 'bg-accent'
+                          !selectMode && isSelected && 'bg-accent',
+                          selectMode && broadcastSelected && 'bg-accent'
                         )}
                       >
                         <div className="flex items-center gap-3">
+                          {selectMode && (
+                            <Checkbox
+                              checked={broadcastSelected}
+                              onCheckedChange={() => toggleBroadcastAthlete(row.atleta_user_id)}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label="Seleziona atleta"
+                            />
+                          )}
                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-role-atleta/10 text-role-atleta overflow-hidden">
                             {row.profile?.avatar_url ? (
                               <img
@@ -1262,6 +1326,26 @@ export function PTMessagesPage() {
           )}
         </Card>
       </div>
+
+      {selectMode && broadcastSelectedIds.size > 0 && user?.id && (
+        <BroadcastComposer
+          variant="inline"
+          className="rounded-xl border bg-card"
+          selectedCount={broadcastSelectedIds.size}
+          onSend={async (content, file) => {
+            const sent = await broadcastMessageToAthletes({
+              ptUserId: user.id,
+              athleteUserIds: [...broadcastSelectedIds],
+              content,
+              file,
+            });
+            toast.success(`Messaggio inviato a ${sent} ${sent === 1 ? 'atleta' : 'atleti'}`);
+            setSelectMode(false);
+            setBroadcastSelectedIds(new Set());
+            queryClient.invalidateQueries({ queryKey: ['pt-athletes-chats'] });
+          }}
+        />
+      )}
 
       {user?.id && (
         <CreateChatGroupDialog

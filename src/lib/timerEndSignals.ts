@@ -1,7 +1,10 @@
 // =====================================================
 // Segnali fine timer: vibrazione (Vibration API) + beep Web Audio.
 // Uso: allenamento mobile — alert negli ultimi secondi senza guardare lo schermo.
+// Preferenze utente: src/lib/timerPreferences.ts (Impostazioni atleta).
 // =====================================================
+
+import { getTimerPreferences } from '@/lib/timerPreferences';
 
 let audioCtx: AudioContext | null = null;
 
@@ -65,6 +68,7 @@ export type TimerSignalKind = 'rest' | 'work' | 'round';
 
 /** Soglia (secondi) → frequenza beep e pattern vibrazione */
 export function fireTimerEndSignal(kind: TimerSignalKind, thresholdSeconds: number): void {
+  const prefs = getTimerPreferences();
   const freq =
     kind === 'rest'
       ? thresholdSeconds <= 1
@@ -75,8 +79,12 @@ export function fireTimerEndSignal(kind: TimerSignalKind, thresholdSeconds: numb
           ? 920
           : 820
         : 800;
-  playTimerWarningBeep(freq, thresholdSeconds <= 1 ? 95 : 75);
-  vibrateTimerWarning(
-    thresholdSeconds <= 1 ? [45, 60, 45, 60, 45] : [40, 35, 40],
-  );
+  if (prefs.soundEnabled) {
+    playTimerWarningBeep(freq, thresholdSeconds <= 1 ? 95 : 75);
+  }
+  if (prefs.vibrationEnabled) {
+    vibrateTimerWarning(
+      thresholdSeconds <= 1 ? [45, 60, 45, 60, 45] : [40, 35, 40],
+    );
+  }
 }

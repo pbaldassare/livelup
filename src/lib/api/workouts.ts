@@ -765,6 +765,36 @@ export async function logExerciseSet(params: {
   return data;
 }
 
+/** Annulla la sessione corrente: elimina i log da sessionStartedAt e ripristina status attivo. */
+export async function abandonWorkoutSession(
+  workoutId: string,
+  workoutExerciseIds: string[],
+  sessionStartedAtIso: string | null,
+) {
+  if (workoutExerciseIds.length > 0) {
+    let query = supabase
+      .from('workout_logs')
+      .delete()
+      .in('workout_exercise_id', workoutExerciseIds);
+    if (sessionStartedAtIso) {
+      query = query.gte('logged_at', sessionStartedAtIso);
+    }
+    const { error: delErr } = await query;
+    if (delErr) {
+      throw new Error('Impossibile annullare i progressi: ' + delErr.message);
+    }
+  }
+
+  const { error: stErr } = await supabase
+    .from('workouts')
+    .update({ status: 'attivo' })
+    .eq('id', workoutId)
+    .in('status', ['in_corso', 'in_sospeso']);
+  if (stErr) {
+    throw new Error('Impossibile aggiornare lo stato della scheda: ' + stErr.message);
+  }
+}
+
 export function isMissingProtocolResultsError(error: { message?: string; code?: string } | null): boolean {
   if (!error) return false;
   const msg = error.message ?? '';

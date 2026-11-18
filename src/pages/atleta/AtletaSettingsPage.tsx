@@ -31,7 +31,8 @@ import {
 import { useTour, clearTourDismissedLocally } from '@/components/AppTourContext';
 
 import { ThemePreferencePicker } from '@/components/settings/ThemePreferencePicker';
-import { Palette } from 'lucide-react';
+import { TimerSignalPreferences } from '@/components/settings/TimerSignalPreferences';
+import { Palette, Timer } from 'lucide-react';
 
 // =====================================================
 // ATLETA SETTINGS PAGE - Impostazioni e Privacy
@@ -175,6 +176,18 @@ export function AtletaSettingsPage() {
               />
             </div>
           </div>
+        </section>
+
+        {/* Allenamento */}
+        <section>
+          <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3">
+            Allenamento
+          </h2>
+          <div className="mb-2 flex items-center gap-2 px-1 text-app-muted-foreground">
+            <Timer className="h-4 w-4" />
+            <span className="text-xs">Avvisi a fine recupero / tempo</span>
+          </div>
+          <TimerSignalPreferences />
         </section>
 
         {/* Appearance */}

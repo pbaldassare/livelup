@@ -1,4 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  loadGuidedFlowSnapshot,
+  loadPhasedWorkoutSnapshot,
+  savePhasedWorkoutSnapshot,
+  type PhasedWorkoutSnapshot,
+} from '@/lib/workoutSessionLocal';
 import { Button } from '@/components/ui/button';
 import { GuidedWorkoutFlow, type GWExercise } from '@/components/app/GuidedWorkoutFlow';
 import {
@@ -56,10 +62,19 @@ export function PhasedGuidedWorkout({
     [byPhase],
   );
 
-  const [phaseIndex, setPhaseIndex] = useState(0);
-  const [introDismissed, setIntroDismissed] = useState(false);
+  const phasedRestore = useMemo(
+    () => loadPhasedWorkoutSnapshot(workoutId),
+    [workoutId],
+  );
+  const [phaseIndex, setPhaseIndex] = useState(() =>
+    Math.min(phasedRestore?.phaseIndex ?? 0, Math.max(availablePhases.length - 1, 0)),
+  );
+  const [introDismissedByPhase, setIntroDismissedByPhase] = useState<
+    Record<string, boolean>
+  >(() => phasedRestore?.introDismissedByPhase ?? {});
 
   const currentPhase = availablePhases[phaseIndex] ?? 'main';
+  const introDismissed = !!introDismissedByPhase[currentPhase];
   const phaseExercises = byPhase[currentPhase];
   const isExtraPhase = currentPhase === 'warmup' || currentPhase === 'cooldown';
   const Icon = phaseIcon(currentPhase);
@@ -70,8 +85,12 @@ export function PhasedGuidedWorkout({
       return;
     }
     setPhaseIndex((i) => i + 1);
-    setIntroDismissed(false);
   };
+
+  useEffect(() => {
+    const payload: PhasedWorkoutSnapshot = { phaseIndex, introDismissedByPhase };
+    savePhasedWorkoutSnapshot(workoutId, payload);
+  }, [workoutId, phaseIndex, introDismissedByPhase]);
 
   // Solo main senza intro: parti subito
   const showIntro = isExtraPhase && !introDismissed;
@@ -104,7 +123,9 @@ export function PhasedGuidedWorkout({
         <div className="flex flex-col gap-2 w-full max-w-xs">
           <Button
             className="w-full bg-app-accent text-app-accent-foreground"
-            onClick={() => setIntroDismissed(true)}
+            onClick={() =>
+              setIntroDismissedByPhase((prev) => ({ ...prev, [currentPhase]: true }))
+            }
           >
             Inizia {WORKOUT_PHASE_LABEL[currentPhase].toLowerCase()}
           </Button>
@@ -145,6 +166,8 @@ export function PhasedGuidedWorkout({
         onCompleted={goNextPhaseOrFinish}
         ptOnBehalfMode={ptOnBehalfMode}
         templateKind={currentPhase === 'main' ? templateKind : 'libera'}
+        phaseKey={currentPhase}
+        restoredFlowSnapshot={loadGuidedFlowSnapshot(workoutId, currentPhase)}
       />
     </div>
   );
