@@ -8,7 +8,17 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAtletaStatus } from '@/hooks/useAtletaStatus';
 import { PtCoachingPausedCard } from '@/components/app/PtCoachingPausedCard';
 import { supabase } from '@/integrations/supabase/client';
-import { completeWorkout, redoCompletedWorkout, reorderWorkoutFreeExercises } from '@/lib/api/workouts';
+import {
+  abandonWorkoutSession,
+  completeWorkout,
+  redoCompletedWorkout,
+  reorderWorkoutFreeExercises,
+} from '@/lib/api/workouts';
+import {
+  clearWorkoutSessionLocal,
+  ensureWorkoutSessionStarted,
+  getWorkoutSessionMeta,
+} from '@/lib/workoutSessionLocal';
 import {
   applyRepeatCompletion,
   formatRepeatCompletionToast,
@@ -338,7 +348,8 @@ export function AtletaWorkoutDetailPage() {
   useEffect(() => {
     if (!workout || isLoading || isWorkoutStarted || !logsFetched || skipAutoStart) return;
     if (isReadOnlyHistory || isPausedWithThisPt) return;
-    if (workout.status === 'in_corso' || workout.status === 'in_sospeso') {
+    if (workout.status === 'in_corso') {
+      if (workoutId) ensureWorkoutSessionStarted(workoutId);
       setIsWorkoutStarted(true);
     }
   }, [
@@ -383,6 +394,7 @@ export function AtletaWorkoutDetailPage() {
       });
     },
     onSuccess: (updated) => {
+      if (workoutId) clearWorkoutSessionLocal(workoutId);
       const repeat = resolveRepeatState(updated as any);
       const info = formatRepeatCompletionToast(repeat.repeatDone, repeat.repeatTarget);
       toast.success(info.message);
@@ -394,6 +406,32 @@ export function AtletaWorkoutDetailPage() {
     },
     onError: (error: any) => {
       toast.error(error.message);
+    },
+  });
+
+  const abandonSessionMutation = useMutation({
+    mutationFn: async () => {
+      if (!workoutId || !workout) throw new Error('Scheda mancante');
+      const exerciseIds = (workout.workout_exercises || []).map((e: WorkoutExercise) => e.id);
+      const meta = getWorkoutSessionMeta(workoutId);
+      await abandonWorkoutSession(workoutId, exerciseIds, meta?.sessionStartedAt ?? null);
+    },
+    onSuccess: () => {
+      if (!workoutId) return;
+      clearWorkoutSessionLocal(workoutId);
+      setCompletedSets({});
+      setTotalVolume(0);
+      setTotalReps(0);
+      setTotalSetsCompleted(0);
+      setSkipAutoStart(false);
+      setIsWorkoutStarted(false);
+      queryClient.invalidateQueries({ queryKey: ['workout-detail', workoutId] });
+      queryClient.invalidateQueries({ queryKey: ['workout-logs', workoutId] });
+      queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+      toast.success('Sessione annullata: nessun progresso registrato');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Impossibile annullare la sessione');
     },
   });
 
@@ -1314,24 +1352,39 @@ export function AtletaWorkoutDetailPage() {
                 {redoWorkoutMutation.isPending ? 'Preparazione…' : startLabel}
               </Button>
             ) : (
-              <Button
-                onClick={async () => {
-                  setSkipAutoStart(false);
-                  setIsWorkoutStarted(true);
-                  if (workoutId && workout?.status !== 'in_corso') {
-                    await supabase
-                      .from('workouts')
-                      .update({ status: 'in_corso' as any })
-                      .eq('id', workoutId)
-                      .in('status', ['attivo', 'in_sospeso', 'scaduto']);
-                    queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
-                  }
-                }}
-                className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
-              >
-                <Play className="h-5 w-5 mr-2" />
-                {startLabel}
-              </Button>
+              <>
+                <Button
+                  onClick={async () => {
+                    if (workoutId) ensureWorkoutSessionStarted(workoutId);
+                    setSkipAutoStart(false);
+                    setIsWorkoutStarted(true);
+                    if (workoutId && workout?.status !== 'in_corso') {
+                      await supabase
+                        .from('workouts')
+                        .update({ status: 'in_corso' as any })
+                        .eq('id', workoutId)
+                        .in('status', ['attivo', 'in_sospeso', 'scaduto']);
+                      queryClient.invalidateQueries({ queryKey: ['atleta-focus-workout'] });
+                    }
+                  }}
+                  className="w-full h-14 bg-app-accent text-app-accent-foreground hover:bg-app-accent/90 rounded-full text-lg font-semibold"
+                >
+                  <Play className="h-5 w-5 mr-2" />
+                  {startLabel}
+                </Button>
+                {(isResumeStatus || hasExistingLogs) && (
+                  <Button
+                    variant="outline"
+                    disabled={abandonSessionMutation.isPending}
+                    onClick={() => abandonSessionMutation.mutate()}
+                    className="w-full h-11 rounded-full border-app-border text-app-foreground"
+                  >
+                    {abandonSessionMutation.isPending
+                      ? 'Annullamento…'
+                      : 'Interrompi senza registrare'}
+                  </Button>
+                )}
+              </>
             )}
           </motion.div>
 
@@ -1523,12 +1576,11 @@ export function AtletaWorkoutDetailPage() {
         <AlertDialogContent className="bg-app-card border-app-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-app-foreground">
-              Uscire dall'allenamento?
+              Sospendere l&apos;allenamento?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-app-muted-foreground">
-              {hasCompletedLogs
-                ? "I progressi già registrati restano salvati. Potrai riprendere quando vuoi."
-                : "La sessione verrà sospesa. Potrai riprendere l'allenamento in seguito."}
+              I progressi già registrati restano salvati e riprendi dal punto in cui hai lasciato.
+              Per cancellare tutta la sessione usa «Interrompi senza registrare» dalla scheda.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1536,13 +1588,13 @@ export function AtletaWorkoutDetailPage() {
               onClick={() => setExitDialogOpen(false)}
               className="bg-app-muted text-app-foreground border-app-border"
             >
-              Annulla
+              Resta in allenamento
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmExitWorkout}
               className="bg-app-accent text-app-accent-foreground hover:bg-app-accent/90"
             >
-              Esci
+              Sospendi e continua dopo
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

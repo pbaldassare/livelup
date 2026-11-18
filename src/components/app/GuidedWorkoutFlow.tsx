@@ -56,6 +56,10 @@ import {
   requiresFullCompletion,
   type TemplateKind,
 } from '@/lib/pt/templateKinds';
+import {
+  saveGuidedFlowSnapshot,
+  type GuidedFlowSnapshot,
+} from '@/lib/workoutSessionLocal';
 
 // =====================================================
 // GUIDED WORKOUT FLOW
@@ -116,6 +120,10 @@ interface GuidedWorkoutFlowProps {
   ptOnBehalfMode?: boolean;
   /** Tipologia scheda (libera / propedeutica / progressiva) */
   templateKind?: TemplateKind | string | null;
+  /** Fase scheda (warmup/main/cooldown) per snapshot locale */
+  phaseKey?: string;
+  /** Ripristino flusso dopo uscita o reload */
+  restoredFlowSnapshot?: GuidedFlowSnapshot | null;
 }
 
 type FlowState = 'ready' | 'input' | 'rest' | 'next' | 'finished';
@@ -261,33 +269,14 @@ function getSetPrescription(ex: GWExercise | undefined, setNumber: number): SetI
   return sets[setNumber - 1] ?? null;
 }
 
-/** Per-set: true se il target della serie è in secondi. */
-function isTimedSet(ex: GWExercise | undefined, setNumber: number): boolean {
-  const set = getSetPrescription(ex, setNumber);
-  if (set) return getSetTargetMode(set) === 'seconds';
-  return !!ex && (ex.prescribed_duration_seconds ?? 0) > 0;
-}
-
-export function GuidedWorkoutFlow({
-  workoutId,
-  exercises,
-  initialExerciseIndex = 0,
-  initialSet = 1,
-  initialCompletedSets = {},
-  onCompleted,
-  ptOnBehalfMode = false,
-  templateKind: templateKindProp,
-}: GuidedWorkoutFlowProps) {
-  const queryClient = useQueryClient();
-  const templateKind = normalizeTemplateKind(templateKindProp);
-  const softContinue = allowsSoftContinue(templateKind);
-  const fullCompletion = requiresFullCompletion(templateKind);
-  const softContinueLabel =
-    templateKind === 'propedeutica' ? 'Continua comunque' : 'Salta esercizio';
-
-  const initialExercise = exercises[initialExerciseIndex];
+function buildDefaultFlowState(
+  initialExerciseIndex: number,
+  initialSet: number,
+  initialCompletedSets: Record<string, number[]>,
+  initialExercise: GWExercise | undefined,
+): State {
   const initialSetData = getSetPrescription(initialExercise, initialSet);
-  const [state, dispatch] = useReducer(reducer, {
+  return {
     flow: 'ready',
     exerciseIndex: initialExerciseIndex,
     setNumber: initialSet,
@@ -307,7 +296,88 @@ export function GuidedWorkoutFlow({
     transitionMessage: null,
     protocolTransition: false,
     pendingExerciseIndex: null,
-  });
+  };
+}
+
+function stateFromSnapshot(snapshot: GuidedFlowSnapshot, fallback: State): State {
+  const { savedAt: _s, phaseKey: _p, ...rest } = snapshot;
+  const next = { ...fallback, ...rest } as State;
+  if (next.flow === 'rest' && next.restEndsAt != null && next.restEndsAt <= Date.now()) {
+    next.restSeconds = 0;
+  }
+  return next;
+}
+
+function snapshotFromState(state: State, phaseKey: string): Omit<GuidedFlowSnapshot, 'savedAt'> {
+  return {
+    phaseKey,
+    flow: state.flow,
+    exerciseIndex: state.exerciseIndex,
+    setNumber: state.setNumber,
+    reps: state.reps,
+    duration: state.duration,
+    weight: state.weight,
+    rpe: state.rpe,
+    restSeconds: state.restSeconds,
+    restTotal: state.restTotal,
+    restEndsAt: state.restEndsAt,
+    extraSets: state.extraSets,
+    skipped: state.skipped,
+    completed: state.completed,
+    transitionMessage: state.transitionMessage,
+    protocolTransition: state.protocolTransition,
+    pendingExerciseIndex: state.pendingExerciseIndex,
+  };
+}
+
+/** Per-set: true se il target della serie è in secondi. */
+function isTimedSet(ex: GWExercise | undefined, setNumber: number): boolean {
+  const set = getSetPrescription(ex, setNumber);
+  if (set) return getSetTargetMode(set) === 'seconds';
+  return !!ex && (ex.prescribed_duration_seconds ?? 0) > 0;
+}
+
+export function GuidedWorkoutFlow({
+  workoutId,
+  exercises,
+  initialExerciseIndex = 0,
+  initialSet = 1,
+  initialCompletedSets = {},
+  onCompleted,
+  ptOnBehalfMode = false,
+  templateKind: templateKindProp,
+  phaseKey = 'main',
+  restoredFlowSnapshot = null,
+}: GuidedWorkoutFlowProps) {
+  const queryClient = useQueryClient();
+  const templateKind = normalizeTemplateKind(templateKindProp);
+  const softContinue = allowsSoftContinue(templateKind);
+  const fullCompletion = requiresFullCompletion(templateKind);
+  const softContinueLabel =
+    templateKind === 'propedeutica' ? 'Continua comunque' : 'Salta esercizio';
+
+  const initialExercise = exercises[initialExerciseIndex];
+  const defaultState = useMemo(
+    () =>
+      buildDefaultFlowState(
+        initialExerciseIndex,
+        initialSet,
+        initialCompletedSets,
+        initialExercise,
+      ),
+    [initialExerciseIndex, initialSet, initialCompletedSets, initialExercise],
+  );
+  const [state, dispatch] = useReducer(reducer, restoredFlowSnapshot, (snap) =>
+    snap ? stateFromSnapshot(snap, defaultState) : defaultState,
+  );
+
+  useEffect(() => {
+    if (state.flow === 'ready' || state.flow === 'finished') return;
+    const t = window.setTimeout(() => {
+      saveGuidedFlowSnapshot(workoutId, snapshotFromState(state, phaseKey));
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [state, workoutId, phaseKey]);
 
   const currentExercise = exercises[state.exerciseIndex];
 
