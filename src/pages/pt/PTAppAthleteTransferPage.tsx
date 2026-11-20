@@ -37,10 +37,13 @@ import {
   getPTConnectionsWithPtActive,
   getReceivedAthletes,
   recallAthleteFromTransfer,
+  recallAthletesFromCollaborator,
+  returnReceivedAthlete,
   searchPTsForTransfer,
   transferAthletesToPt,
   type CededAthlete,
   type PtTransferTarget,
+  type ReceivedAthlete,
 } from '@/lib/api/connections';
 import { listOwnedAthleteIds } from '@/lib/api/collaborators';
 import { TrainingModalityBadge } from '@/components/pt/TrainingModalityBadge';
@@ -58,6 +61,8 @@ import {
   RotateCcw,
   Search,
   Star,
+  Undo2,
+  UserMinus,
   UserRound,
   Users,
 } from 'lucide-react';
@@ -107,6 +112,13 @@ export function PTAppAthleteTransferPage() {
   const [notes, setNotes] = useState('');
   const [confirmTransfer, setConfirmTransfer] = useState(false);
   const [recallTarget, setRecallTarget] = useState<CededAthlete | null>(null);
+  const [collaboratorRemoveTarget, setCollaboratorRemoveTarget] = useState<{
+    pt_user_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    athletes: CededAthlete[];
+  } | null>(null);
+  const [returnTarget, setReturnTarget] = useState<ReceivedAthlete | null>(null);
   const [infoAthlete, setInfoAthlete] = useState<CededAthlete | null>(null);
   const [expandedCollabIds, setExpandedCollabIds] = useState<string[]>([]);
 
@@ -364,6 +376,49 @@ export function PTAppAthleteTransferPage() {
     },
   });
 
+  const removeCollaboratorMutation = useMutation({
+    mutationFn: (collaboratorPtUserId: string) =>
+      recallAthletesFromCollaborator({
+        collaboratorPtUserId,
+        notes: notes.trim() || undefined,
+      }),
+    onSuccess: (count) => {
+      toast({
+        title: 'Collaboratore rimosso',
+        description:
+          count === 1
+            ? 'Hai ripreso 1 atleta da questo Personal Trainer.'
+            : `Hai ripreso ${count} atleti da questo Personal Trainer.`,
+      });
+      setCollaboratorRemoveTarget(null);
+      setNotes('');
+      invalidateAll();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Errore', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const returnMutation = useMutation({
+    mutationFn: (atletaUserId: string) =>
+      returnReceivedAthlete({
+        atletaUserId,
+        notes: notes.trim() || undefined,
+      }),
+    onSuccess: () => {
+      toast({
+        title: 'Atleta restituito',
+        description: 'La connessione è stata chiusa e l’atleta è tornato al PT titolare.',
+      });
+      setReturnTarget(null);
+      setNotes('');
+      invalidateAll();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Errore', description: err.message, variant: 'destructive' });
+    },
+  });
+
   const cediAction = (
     <Button
       size="sm"
@@ -415,8 +470,8 @@ export function PTAppAthleteTransferPage() {
         {/* ── COLLABORATORI (PT destinazione delle cessioni) ── */}
         <TabsContent value="collaboratori" className="space-y-3 mt-0">
           <p className="text-xs text-app-muted-foreground">
-            Personal Trainer a cui hai ceduto almeno un atleta. Espandi per vedere gli atleti e
-            riprenderli se disponibili.
+            Personal Trainer a cui hai ceduto almeno un atleta. Puoi togliere il collaboratore
+            (riprendi tutti gli atleti) o un singolo cliente, sempre con conferma.
           </p>
           {loadingCeded ? (
             Array.from({ length: 2 }).map((_, i) => (
@@ -456,35 +511,49 @@ export function PTAppAthleteTransferPage() {
                   key={group.pt_user_id}
                   className="bg-app-card border-app-border overflow-hidden"
                 >
-                  <button
-                    type="button"
-                    className="w-full p-4 flex items-center gap-3 text-left"
-                    onClick={() => toggleExpandedCollab(group.pt_user_id)}
-                  >
-                    <Avatar className="h-11 w-11">
-                      <AvatarFallback className="bg-app-background">
-                        {getAthleteInitials(group.first_name, group.last_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-app-foreground truncate">{ptLabel}</p>
-                      <p className="text-xs text-app-muted-foreground">
-                        {group.athletes.length}{' '}
-                        {group.athletes.length === 1 ? 'atleta ceduto' : 'atleti ceduti'}
-                        {recallableCount > 0
-                          ? ` · ${recallableCount} riprendibil${recallableCount === 1 ? 'e' : 'i'}`
-                          : ''}
-                      </p>
-                    </div>
-                    <Badge variant="secondary" className="shrink-0">
-                      {group.athletes.length}
-                    </Badge>
-                    {expanded ? (
-                      <ChevronDown className="h-4 w-4 text-app-muted-foreground shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-app-muted-foreground shrink-0" />
+                  <div className="p-4 flex items-center gap-3">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 flex items-center gap-3 text-left"
+                      onClick={() => toggleExpandedCollab(group.pt_user_id)}
+                    >
+                      <Avatar className="h-11 w-11">
+                        <AvatarFallback className="bg-app-background">
+                          {getAthleteInitials(group.first_name, group.last_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-app-foreground truncate">{ptLabel}</p>
+                        <p className="text-xs text-app-muted-foreground">
+                          {group.athletes.length}{' '}
+                          {group.athletes.length === 1 ? 'atleta ceduto' : 'atleti ceduti'}
+                          {recallableCount > 0
+                            ? ` · ${recallableCount} riprendibil${recallableCount === 1 ? 'e' : 'i'}`
+                            : ''}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="shrink-0">
+                        {group.athletes.length}
+                      </Badge>
+                      {expanded ? (
+                        <ChevronDown className="h-4 w-4 text-app-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-app-muted-foreground shrink-0" />
+                      )}
+                    </button>
+                    {recallableCount > 0 && group.pt_user_id !== '__unknown__' && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 border-app-border"
+                        onClick={() => setCollaboratorRemoveTarget(group)}
+                      >
+                        <UserMinus className="h-3.5 w-3.5 mr-1" />
+                        Togli
+                      </Button>
                     )}
-                  </button>
+                  </div>
                   {expanded && (
                     <div className="border-t border-app-border px-3 pb-3 space-y-2">
                       {group.athletes.map((item) => (
@@ -509,7 +578,8 @@ export function PTAppAthleteTransferPage() {
         {/* ── CEDUTI ── */}
         <TabsContent value="ceduti" className="space-y-3 mt-0">
           <p className="text-xs text-app-muted-foreground">
-            Atleti che hai ceduto a un altro PT. Se risultano riprendibili puoi riprenderli da qui.
+            Atleti che hai ceduto a un altro PT. Se risultano riprendibili puoi toglierli da qui
+            (popup di conferma).
           </p>
           {loadingCeded ? (
             Array.from({ length: 2 }).map((_, i) => (
@@ -553,7 +623,7 @@ export function PTAppAthleteTransferPage() {
         {/* ── RICEVUTI ── */}
         <TabsContent value="ricevuti" className="space-y-3 mt-0">
           <p className="text-xs text-app-muted-foreground">
-            Atleti che altri PT ti hanno ceduto con trasferimento completo.
+            Atleti che altri PT ti hanno ceduto. Puoi restituirli al titolare con conferma.
           </p>
           {loadingReceived ? (
             Array.from({ length: 2 }).map((_, i) => (
@@ -595,6 +665,15 @@ export function PTAppAthleteTransferPage() {
                       </p>
                     )}
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 border-app-border"
+                    onClick={() => setReturnTarget(item)}
+                  >
+                    <Undo2 className="h-3.5 w-3.5 mr-1" />
+                    Restituisci
+                  </Button>
                 </CardContent>
               </Card>
             ))
@@ -918,19 +997,19 @@ export function PTAppAthleteTransferPage() {
       <AlertDialog open={!!recallTarget} onOpenChange={(open) => !open && setRecallTarget(null)}>
         <AlertDialogContent className="bg-app-card border-app-border">
           <AlertDialogHeader>
-            <AlertDialogTitle>Riprendi atleta</AlertDialogTitle>
+            <AlertDialogTitle>Togli atleta dal collaboratore?</AlertDialogTitle>
             <AlertDialogDescription>
               {recallTarget && (
                 <>
                   <strong>
                     {getAthleteDisplayName(recallTarget.first_name, recallTarget.last_name)}
                   </strong>{' '}
-                  tornerà collegato a te. La connessione con{' '}
+                  tornerà collegato solo a te. La connessione con{' '}
                   {formatPtName(
                     recallTarget.current_pt_first_name,
                     recallTarget.current_pt_last_name,
                   )}{' '}
-                  verrà terminata.
+                  verrà chiusa.
                 </>
               )}
             </AlertDialogDescription>
@@ -950,7 +1029,89 @@ export function PTAppAthleteTransferPage() {
                 if (recallTarget) recallMutation.mutate(recallTarget.atleta_user_id);
               }}
             >
-              {recallMutation.isPending ? 'Ripresa…' : 'Conferma ripresa'}
+              {recallMutation.isPending ? 'Rimozione…' : 'Conferma'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!collaboratorRemoveTarget}
+        onOpenChange={(open) => !open && setCollaboratorRemoveTarget(null)}
+      >
+        <AlertDialogContent className="bg-app-card border-app-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Togli questo collaboratore?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {collaboratorRemoveTarget && (
+                <>
+                  Riprenderai{' '}
+                  <strong>
+                    {collaboratorRemoveTarget.athletes.filter((a) => a.is_recallable).length}
+                  </strong>{' '}
+                  atleti da{' '}
+                  <strong>
+                    {formatPtName(
+                      collaboratorRemoveTarget.first_name,
+                      collaboratorRemoveTarget.last_name,
+                    )}
+                  </strong>
+                  . Le loro connessioni con quel Personal Trainer verranno chiuse. Tu resti
+                  titolare.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removeCollaboratorMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (collaboratorRemoveTarget) {
+                  removeCollaboratorMutation.mutate(collaboratorRemoveTarget.pt_user_id);
+                }
+              }}
+            >
+              {removeCollaboratorMutation.isPending ? 'Rimozione…' : 'Conferma'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!returnTarget} onOpenChange={(open) => !open && setReturnTarget(null)}>
+        <AlertDialogContent className="bg-app-card border-app-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restituisci atleta al titolare?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {returnTarget && (
+                <>
+                  <strong>
+                    {getAthleteDisplayName(returnTarget.first_name, returnTarget.last_name)}
+                  </strong>{' '}
+                  tornerà solo a{' '}
+                  {formatPtName(returnTarget.from_pt_first_name, returnTarget.from_pt_last_name)}.
+                  La tua connessione verrà chiusa.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            placeholder="Note opzionali…"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="bg-app-background border-app-border min-h-[64px]"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={returnMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (returnTarget) returnMutation.mutate(returnTarget.atleta_user_id);
+              }}
+            >
+              {returnMutation.isPending ? 'Restituzione…' : 'Conferma'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1035,7 +1196,7 @@ export function PTAppAthleteTransferPage() {
                     }}
                   >
                     <RotateCcw className="h-4 w-4 mr-1.5" />
-                    Riprendi atleta
+                    Togli atleta
                   </Button>
                 )}
               </div>
@@ -1144,7 +1305,7 @@ function CededAthleteCard({
           {item.is_recallable && (
             <Button size="sm" variant="secondary" onClick={onRecall}>
               <RotateCcw className="h-3.5 w-3.5 mr-1" />
-              Riprendi
+              Togli
             </Button>
           )}
         </div>
