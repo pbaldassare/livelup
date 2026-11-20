@@ -7,13 +7,18 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
-const DEFAULT_APP_ORIGIN = 'https://livelapp.iaconnect.it'
+const DEFAULT_APP_ORIGIN = 'https://livelup.pages.dev'
 
 function normalizeAppOrigin(raw: string): string {
   const origin = raw.replace(/\/$/, '')
   try {
     const host = new URL(origin).hostname
-    if (host === 'livelapp.it' || host === 'www.livelapp.it') {
+    if (
+      host === 'livelapp.it' ||
+      host === 'www.livelapp.it' ||
+      host === 'livelapp.iaconnect.it' ||
+      host === 'www.livelapp.iaconnect.it'
+    ) {
       return DEFAULT_APP_ORIGIN
     }
   } catch {
