@@ -7,14 +7,24 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
-const DEFAULT_APP_ORIGIN = 'https://livelapp.it'
+const DEFAULT_APP_ORIGIN = 'https://livelapp.iaconnect.it'
+
+function normalizeAppOrigin(raw: string): string {
+  const origin = raw.replace(/\/$/, '')
+  try {
+    const host = new URL(origin).hostname
+    if (host === 'livelapp.it' || host === 'www.livelapp.it') {
+      return DEFAULT_APP_ORIGIN
+    }
+  } catch {
+    return DEFAULT_APP_ORIGIN
+  }
+  return origin
+}
 
 export function resolveAppOrigin(): string {
-  const fromEnv =
-    Deno.env.get('SITE_URL') ||
-    Deno.env.get('APP_ORIGIN') ||
-    DEFAULT_APP_ORIGIN
-  return fromEnv.replace(/\/$/, '')
+  const fromEnv = Deno.env.get('SITE_URL') || Deno.env.get('APP_ORIGIN') || DEFAULT_APP_ORIGIN
+  return normalizeAppOrigin(fromEnv)
 }
 
 export function authActionAppUrl(actionType: string, tokenHash: string): string {
@@ -22,9 +32,6 @@ export function authActionAppUrl(actionType: string, tokenHash: string): string 
   const url = new URL(`${origin}/auth`)
   url.searchParams.set('type', actionType)
   url.searchParams.set('token_hash', tokenHash)
-  if (actionType === 'signup' || actionType === 'invite' || actionType === 'email_change') {
-    url.searchParams.set('confirmed', '1')
-  }
   return url.toString()
 }
 

@@ -229,7 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         options: {
-          emailRedirectTo: `${publicAppOrigin()}/auth?confirmed=1`,
+          emailRedirectTo: `${publicAppOrigin()}/auth`,
           data: { role: selectedRole },
         },
       });

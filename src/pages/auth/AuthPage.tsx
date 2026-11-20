@@ -26,7 +26,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { vendeAbbonamenti } from '@/lib/native';
 import { getAuthEmailOtpFromLocation, isPasswordRecoveryLocation } from '@/lib/passwordRecovery';
-import type { EmailOtpType } from '@supabase/supabase-js';
+import { verifyAuthEmailOtp } from '@/lib/authEmailOtp';
+import { describeAuthError } from '@/lib/authErrors';
 import AuthResetPasswordPage from '@/pages/auth/AuthResetPasswordPage';
 
 // =====================================================
@@ -62,6 +63,9 @@ export function AuthPage() {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [emailOtpBusy, setEmailOtpBusy] = useState(false);
+  const [confirmLinkFailed, setConfirmLinkFailed] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
+  const [resendBusy, setResendBusy] = useState(false);
   const didRedirectRef = useRef(false);
   const didHandleConfirmedRef = useRef(false);
   const loginSafetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,11 +82,13 @@ export function AuthPage() {
   // Conferma email completata (redirect da link email)
   const confirmedShownRef = useRef(false);
   useEffect(() => {
+    const otp = getAuthEmailOtpFromLocation(location.search, location.hash);
+    if (otp?.tokenHash) return;
     if (searchParams.get('confirmed') === '1' && !confirmedShownRef.current) {
       confirmedShownRef.current = true;
       toast.success('Email confermata', { description: 'Ora puoi accedere al tuo account.' });
     }
-  }, [searchParams]);
+  }, [searchParams, location.search, location.hash]);
 
   // Redirect if already authenticated, handle referral connection
   useEffect(() => {
@@ -184,9 +190,8 @@ export function AuthPage() {
 
     if (error) {
       setIsLoading(false);
-      toast.error('Errore di accesso', {
-        description: error.message,
-      });
+      const mapped = describeAuthError(error.message);
+      toast.error(mapped.title, { description: mapped.description });
     } else {
       toast.success('Accesso effettuato');
       // Safety timeout: if redirect doesn't happen within 12s, unblock UI.
@@ -212,15 +217,8 @@ export function AuthPage() {
     setIsLoading(false);
 
     if (error) {
-      if (error.message.includes('already registered')) {
-        toast.error('Utente già registrato', {
-          description: 'Questa email è già stata utilizzata. Prova ad accedere.',
-        });
-      } else {
-        toast.error('Errore di registrazione', {
-          description: error.message,
-        });
-      }
+      const mapped = describeAuthError(error.message);
+      toast.error(mapped.title, { description: mapped.description });
     } else {
       // If ref PT param present and registering as atleta, save referral info
       if (refPt && selectedRole === 'atleta') {
@@ -276,18 +274,39 @@ export function AuthPage() {
   const confirmEmailFromLink = async () => {
     if (!pendingEmailOtp) return;
     setEmailOtpBusy(true);
-    const { error } = await supabase.auth.verifyOtp({
-      type: pendingEmailOtp.type as EmailOtpType,
-      token_hash: pendingEmailOtp.tokenHash,
-    });
+    const { error } = await verifyAuthEmailOtp(pendingEmailOtp.tokenHash, pendingEmailOtp.type);
     setEmailOtpBusy(false);
     if (error) {
-      toast.error('Link non valido o scaduto', { description: error.message });
+      setConfirmLinkFailed(true);
+      const mapped = describeAuthError(error.message);
+      toast.error(mapped.title, { description: mapped.description });
       return;
     }
     toast.success('Email confermata', { description: 'Ora puoi accedere al tuo account.' });
     navigate('/auth?confirmed=1', { replace: true });
     setActiveTab('login');
+  };
+
+  const resendConfirmation = async (targetEmail: string) => {
+    const parsed = emailSchema.safeParse(targetEmail.trim());
+    if (!parsed.success) {
+      toast.error('Email non valida');
+      return;
+    }
+    setResendBusy(true);
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: parsed.data,
+    });
+    setResendBusy(false);
+    if (error) {
+      const mapped = describeAuthError(error.message);
+      toast.error(mapped.title, { description: mapped.description });
+      return;
+    }
+    toast.success('Nuova email inviata', {
+      description: 'Apri l’ultimo messaggio da Mail o Gmail, non da WhatsApp, e tocca Continua.',
+    });
   };
 
   if (isRecovery) {
@@ -322,15 +341,39 @@ export function AuthPage() {
             <CardHeader>
               <CardTitle>Conferma il tuo account</CardTitle>
               <CardDescription>
-                Tocca il pulsante per attivare l’account. Così il link non viene consumato in anteprima
-                (WhatsApp, Gmail).
+                Tocca Continua per attivare l’account. Non aprire il link da anteprima WhatsApp:
+                usa l’ultima email ricevuta da Mail o Gmail.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button className="w-full" onClick={() => void confirmEmailFromLink()} disabled={emailOtpBusy}>
-                {emailOtpBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Continua
-              </Button>
+            <CardContent className="space-y-3">
+              {!confirmLinkFailed && (
+                <Button className="w-full" onClick={() => void confirmEmailFromLink()} disabled={emailOtpBusy}>
+                  {emailOtpBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Continua
+                </Button>
+              )}
+              {confirmLinkFailed && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Questo link non è più valido. Inserisci l’email usata in registrazione: ti
+                    mandiamo un nuovo messaggio. I link precedenti smettono di funzionare.
+                  </p>
+                  <Input
+                    type="email"
+                    placeholder="la tua email"
+                    value={resendEmail}
+                    onChange={(e) => setResendEmail(e.target.value)}
+                  />
+                  <Button
+                    className="w-full"
+                    onClick={() => void resendConfirmation(resendEmail)}
+                    disabled={resendBusy}
+                  >
+                    {resendBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Invia nuova email di conferma
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -429,12 +472,22 @@ export function AuthPage() {
                 <MailCheck className="h-12 w-12 text-primary" />
                 <p className="font-medium">Controlla la tua email</p>
                 <p className="text-sm text-muted-foreground">
-                  Ti abbiamo inviato un'email con un link di conferma a <strong>{email}</strong>.
-                  Clicca sul link per attivare il tuo account, poi torna qui per accedere.
+                  Ti abbiamo inviato un link di conferma a <strong>{email}</strong>. Aprilo da Mail o
+                  Gmail (non da WhatsApp), tocca Continua, poi accedi. Un nuovo invio invalida i link
+                  precedenti.
                 </p>
                 <Button
                   type="button"
                   variant="outline"
+                  disabled={resendBusy}
+                  onClick={() => void resendConfirmation(email)}
+                >
+                  {resendBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Invia di nuovo
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
                   onClick={() => {
                     setSignupEmailSent(false);
                     setActiveTab('login');

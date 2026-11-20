@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { EmailOtpType } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -14,6 +13,8 @@ import { Logo } from '@/components/common/Logo';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { cn } from '@/lib/utils';
 import { getAuthEmailOtpFromLocation, markPasswordRecovery } from '@/lib/passwordRecovery';
+import { verifyAuthEmailOtp } from '@/lib/authEmailOtp';
+import { describeAuthError } from '@/lib/authErrors';
 
 const passwordSchema = z.string().min(6, 'La password deve avere almeno 6 caratteri');
 
@@ -61,15 +62,13 @@ export function AuthResetPasswordPage() {
       return;
     }
     setIsVerifying(true);
-    const { data, error } = await supabase.auth.verifyOtp({
-      type: (otp.type as EmailOtpType) || 'recovery',
-      token_hash: otp.tokenHash,
-    });
+    const { data, error } = await verifyAuthEmailOtp(otp.tokenHash, otp.type || 'recovery');
     setIsVerifying(false);
-    if (error || !data.session) {
+    if (error || !data?.session) {
       setLinkExpired(true);
       setNeedsTap(false);
-      toast.error('Link non valido o scaduto', { description: error?.message });
+      const mapped = describeAuthError(error?.message);
+      toast.error(mapped.title, { description: mapped.description });
       return;
     }
     markPasswordRecovery();
