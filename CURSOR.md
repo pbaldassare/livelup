@@ -547,6 +547,7 @@ _Last updated: 2026-10-15 — app Android con Capacitor 8 (`it.livelapp.app`): r
 _Last updated: 2026-10-27 — impalcatura push native: Firebase `livelapp-db2ed`, plugin, chiave APNs; passi mancanti in `docs/PUSH.md` (vedi `CLAUDE.md` §15)._
 _Last updated: 2026-11-06 — admin ticket list: RPC `admin_list_support_tickets_with_profiles` (vedi `CLAUDE.md` §15)._
 _Last updated: 2026-11-06 — Supabase Auth redirect sync script + workflow template under `docs/github-workflows/` (secret `SUPABASE_ACCESS_TOKEN`; vedi `docs/DEPLOY-CLOUDFLARE.md`)._
+_Last updated: 2026-11-20 — conferma email: origin `livelapp.iaconnect.it`, verify OTP con fallback, resend in UI (vedi `CLAUDE.md` §15)._
 _Last updated: 2026-11-06 — PT template protocol editor: debounced protocol_params save + larger touch targets on mobile (vedi `CLAUDE.md` §15)._
 _Last updated: 2026-11-06 — Workout timers: haptic + beep at 5s/3s/1s (`useTimerEndWarnings`; vedi `CLAUDE.md` §15)._
 _Last updated: 2026-11-06 — Search/list perf: batched PT profiles + course list lighter query + debounced exercise search (`useDebouncedValue`; vedi `CLAUDE.md` §15)._

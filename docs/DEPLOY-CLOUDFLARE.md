@@ -34,8 +34,8 @@ L’app React (Vite) è un sito statico: il build produce `dist/`. Il backend re
 
 In **Supabase Dashboard → Authentication → URL configuration**:
 
-- **Site URL:** `https://livelup.pages.dev` (e/o il dominio custom)
-- **Redirect URLs:** includi `https://livelup.pages.dev/**`, `https://livelapp.iaconnect.it/**`, localhost per sviluppo
+- **Site URL:** `https://livelapp.iaconnect.it` (dominio custom di produzione)
+- **Redirect URLs:** includi `https://livelapp.iaconnect.it/**`, `https://livelup.pages.dev/**`, localhost per sviluppo
 
 ### Auth redirects (CI su `main`)
 

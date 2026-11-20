@@ -15,6 +15,8 @@ const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
 const REQUIRED_URIS = [
   'https://livelup.pages.dev/**',
   'https://*.livelup.pages.dev/**',
+  'https://livelapp.iaconnect.it/**',
+  'https://livelapp.iaconnect.it',
 ];
 
 const API = `https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth`;
