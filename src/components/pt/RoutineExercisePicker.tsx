@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { exerciseNameOrFilter, filterAndRankExercises } from '@/lib/exerciseSearch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -38,12 +39,14 @@ export function RoutineExercisePicker({
         .select('id, name')
         .or(`is_public.eq.true,created_by.eq.${user.id}`)
         .order('name')
-        .limit(120);
+        .limit(800);
       const term = debouncedSearch.trim();
-      if (term) q = q.ilike('name', `%${term}%`);
+      const orFilter = term ? exerciseNameOrFilter(term) : null;
+      if (orFilter) q = q.or(orFilter);
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as { id: string; name: string }[];
+      const rows = (data || []) as { id: string; name: string }[];
+      return term ? filterAndRankExercises(rows, term) : rows;
     },
     enabled: open && !!user?.id,
   });

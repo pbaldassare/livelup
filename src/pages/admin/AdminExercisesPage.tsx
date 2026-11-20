@@ -43,6 +43,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { EXERCISE_ARCHIVE_CATEGORIES } from '@/lib/exerciseArchiveCategories';
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { filterAndRankExercises } from '@/lib/exerciseSearch';
 import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 import { resolveExerciseInstructions } from '@/lib/exerciseInstructions';
 
@@ -451,11 +452,10 @@ export default function AdminExercisesPage() {
     }));
   };
 
-  const filtered = exercises.filter(ex => {
-    const matchesSearch = !search || ex.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
-    return matchesSearch && matchesCat;
-  });
+  const filtered = filterAndRankExercises(
+    exercises.filter((ex) => categoryFilter === 'all' || ex.category === categoryFilter),
+    search,
+  );
 
   return (
     <div className="space-y-6">

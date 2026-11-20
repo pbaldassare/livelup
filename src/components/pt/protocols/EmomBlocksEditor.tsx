@@ -60,17 +60,17 @@ function commit(
 export function EmomBlocksEditor({
   value,
   onChange,
-  workoutExerciseOptions = [],
-  favoriteExerciseOptions = [],
-  mineExerciseOptions = [],
-  globalExerciseOptions = [],
   exerciseOptions,
+  ...pickerProps
 }: EmomBlocksEditorProps) {
   const [autoOpenTarget, setAutoOpenTarget] = useState<{
     blockIdx: number;
     exIdx: number;
   } | null>(null);
-  const workoutOpts = workoutExerciseOptions.length > 0 ? workoutExerciseOptions : (exerciseOptions ?? []);
+  const workoutOpts =
+    (pickerProps.workoutExerciseOptions?.length ?? 0) > 0
+      ? pickerProps.workoutExerciseOptions!
+      : (exerciseOptions ?? []);
   const updateBlock = (idx: number, patch: Partial<EmomBlock>) => {
     const blocks = value.blocks.map((b, i) => (i === idx ? { ...b, ...patch } : b));
     commit(value, { blocks }, onChange);
@@ -196,16 +196,14 @@ export function EmomBlocksEditor({
                   <ProtocolExerciseRow
                     key={ex.id}
                     exerciseName={ex.name}
+                    {...pickerProps}
                     workoutExerciseOptions={workoutOpts}
-                    favoriteExerciseOptions={favoriteExerciseOptions}
-                    mineExerciseOptions={mineExerciseOptions}
-                    globalExerciseOptions={globalExerciseOptions}
-                    onExerciseChange={(opt) =>
+                    onExerciseChange={(opt) => {
                       updateExercise(bIdx, eIdx, {
                         name: opt.name,
                         exercise_id: opt.id,
                       })
-                    }
+                    }}
                     target={ex}
                     onTargetChange={(next) => updateExercise(bIdx, eIdx, next)}
                     load={ex}

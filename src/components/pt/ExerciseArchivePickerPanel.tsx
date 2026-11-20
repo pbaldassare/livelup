@@ -10,6 +10,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
+import { filterAndRankExercises } from '@/lib/exerciseSearch';
 
 export type ExerciseOption = {
   id: string;
@@ -45,9 +46,7 @@ export function exerciseCommandValue(o: ExerciseOption): string {
 }
 
 function filterBySearch(options: ExerciseOption[], q: string): ExerciseOption[] {
-  if (!q) return options;
-  const lower = q.toLowerCase();
-  return options.filter((o) => o.name.toLowerCase().includes(lower));
+  return filterAndRankExercises(options, q);
 }
 
 type SourceTab = 'favorites' | 'mine' | 'global' | 'catalogs' | 'workout';
@@ -190,18 +189,64 @@ export function ExerciseArchivePickerPanel({
     [workout, favorites, mine, global],
   );
 
+  const q = search.trim();
+  const searching = q.length > 0;
+
+  const filteredFavorites = useMemo(
+    () =>
+      filterBySearch(
+        q.length >= 2 && serverFavoriteOptions !== undefined ? serverFavoriteOptions : sources.favorites,
+        q,
+      ),
+    [q, serverFavoriteOptions, sources.favorites],
+  );
+  const filteredMine = useMemo(
+    () =>
+      filterBySearch(q.length >= 2 && serverMineOptions !== undefined ? serverMineOptions : sources.mine, q),
+    [q, serverMineOptions, sources.mine],
+  );
+  const filteredGlobal = useMemo(
+    () =>
+      filterBySearch(
+        q.length >= 2 && serverGlobalOptions !== undefined ? serverGlobalOptions : sources.global,
+        q,
+      ),
+    [q, serverGlobalOptions, sources.global],
+  );
+  const filteredWorkout = useMemo(
+    () => filterBySearch(sources.workout, q),
+    [q, sources.workout],
+  );
+
   const tabsWithItems = useMemo(() => {
     const always: { key: SourceTab; label: string; count: number; star?: boolean }[] = [
-      { key: 'favorites', label: 'Preferiti', count: sources.favorites.length, star: true },
-      { key: 'mine', label: 'I miei', count: sources.mine.length },
-      { key: 'global', label: 'Globale', count: sources.global.length },
+      {
+        key: 'favorites',
+        label: 'Preferiti',
+        count: searching ? filteredFavorites.length : sources.favorites.length,
+        star: true,
+      },
+      { key: 'mine', label: 'I miei', count: searching ? filteredMine.length : sources.mine.length },
+      { key: 'global', label: 'Globale', count: searching ? filteredGlobal.length : sources.global.length },
       { key: 'catalogs', label: 'Cataloghi', count: catalogs.length },
     ];
     if (sources.workout.length > 0) {
-      always.push({ key: 'workout', label: 'Workout', count: sources.workout.length });
+      always.push({
+        key: 'workout',
+        label: 'Workout',
+        count: searching ? filteredWorkout.length : sources.workout.length,
+      });
     }
     return always;
-  }, [sources, catalogs.length]);
+  }, [
+    sources,
+    catalogs.length,
+    searching,
+    filteredFavorites.length,
+    filteredMine.length,
+    filteredGlobal.length,
+    filteredWorkout.length,
+  ]);
 
   const activeTab: SourceTab =
     tab && tabsWithItems.some((t) => t.key === tab)
@@ -220,12 +265,9 @@ export function ExerciseArchivePickerPanel({
     }
   }, [activeTab]);
 
-  const q = search.trim();
-
   const catalogListFiltered = useMemo(() => {
     if (!q) return catalogs;
-    const lower = q.toLowerCase();
-    return catalogs.filter((c) => c.name.toLowerCase().includes(lower));
+    return filterAndRankExercises(catalogs, q);
   }, [catalogs, q]);
 
   const useServerFav = q.length >= 2 && serverFavoriteOptions !== undefined;
@@ -237,13 +279,15 @@ export function ExerciseArchivePickerPanel({
       ? selectedCatalog
         ? filterBySearch(selectedCatalog.exercises, q)
         : []
-      : activeTab === 'favorites' && useServerFav
-        ? serverFavoriteOptions
-        : activeTab === 'mine' && useServerMine
-          ? serverMineOptions
-          : activeTab === 'global' && useServerGlobal
-            ? serverGlobalOptions
-            : filterBySearch(sources[activeTab], q);
+      : activeTab === 'favorites'
+        ? filteredFavorites
+        : activeTab === 'mine'
+          ? filteredMine
+          : activeTab === 'global'
+            ? filteredGlobal
+            : activeTab === 'workout'
+              ? filteredWorkout
+              : filterBySearch(sources[activeTab], q);
 
   const allKnown = useMemo(() => {
     const fromCatalogs = catalogs.flatMap((c) => c.exercises);
@@ -283,7 +327,6 @@ export function ExerciseArchivePickerPanel({
 
   const handleTabClick = (key: SourceTab) => {
     setTab(key);
-    setSearch('');
     if (key !== 'catalogs') setSelectedCatalogId(null);
   };
 
@@ -389,7 +432,7 @@ export function ExerciseArchivePickerPanel({
         onValueChange={setSearch}
         className="h-8 shrink-0 text-sm [&_svg]:h-3.5 [&_svg]:w-3.5"
       />
-      <CommandList className="max-h-[min(36vh,200px)] min-h-0 overflow-y-auto">
+      <CommandList className="max-h-[min(52vh,360px)] min-h-0 overflow-y-auto">
         {activeTab === 'catalogs' && !selectedCatalog ? (
           catalogListFiltered.length === 0 ? (
             <CommandEmpty className="py-4 text-xs">{emptyMessage()}</CommandEmpty>

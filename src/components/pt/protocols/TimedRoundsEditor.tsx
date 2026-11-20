@@ -50,15 +50,15 @@ function commit(
 export function TimedRoundsEditor({
   value,
   onChange,
-  workoutExerciseOptions = [],
-  favoriteExerciseOptions = [],
-  mineExerciseOptions = [],
-  globalExerciseOptions = [],
   exerciseOptions,
   title = 'Intervalli a tempo',
+  ...pickerProps
 }: TimedRoundsEditorProps) {
   const [autoOpenIndex, setAutoOpenIndex] = useState<number | null>(null);
-  const workoutOpts = workoutExerciseOptions.length > 0 ? workoutExerciseOptions : (exerciseOptions ?? []);
+  const workoutOpts =
+    (pickerProps.workoutExerciseOptions?.length ?? 0) > 0
+      ? pickerProps.workoutExerciseOptions!
+      : (exerciseOptions ?? []);
   const updateExercise = (idx: number, patch: Partial<TimedRoundsExercise>) => {
     const exercises = value.exercises.map((e, i) => (i === idx ? { ...e, ...patch } : e));
     commit(value, { exercises }, onChange);
@@ -163,16 +163,14 @@ export function TimedRoundsEditor({
                 <Label className="text-[10px] text-muted-foreground">Esercizio</Label>
                 <ProtocolExerciseCombobox
                   value={ex.name}
+                  {...pickerProps}
                   workoutExerciseOptions={workoutOpts}
-                  favoriteExerciseOptions={favoriteExerciseOptions}
-                  mineExerciseOptions={mineExerciseOptions}
-                  globalExerciseOptions={globalExerciseOptions}
-                  onChange={(opt) =>
+                  onChange={(opt) => {
                     updateExercise(eIdx, {
                       name: opt.name,
                       exercise_id: opt.id,
                     })
-                  }
+                  }}
                   autoOpen={autoOpenIndex === eIdx}
                   onAutoOpenConsumed={() => setAutoOpenIndex(null)}
                 />
