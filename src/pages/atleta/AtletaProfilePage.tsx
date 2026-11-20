@@ -31,6 +31,8 @@ import {
   GraduationCap,
   Users,
   Salad,
+  Palette,
+  Timer,
 } from 'lucide-react';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { ProfileHeader } from '@/components/app/ProfileHeader';
@@ -43,7 +45,7 @@ import { AtletaReviewsHistory } from '@/components/reviews/AtletaReviewsHistory'
 import { ProfilePageSkeleton } from '@/components/skeletons';
 import { cn } from '@/lib/utils';
 import { ThemePreferencePicker } from '@/components/settings/ThemePreferencePicker';
-import { Palette } from 'lucide-react';
+import { TimerSignalPreferences } from '@/components/settings/TimerSignalPreferences';
 
 // =====================================================
 // ATLETA PROFILE PAGE - Design reference: Ladder_iOS_117/118
@@ -429,6 +431,14 @@ export function AtletaProfilePage() {
           </div>
           <ThemePreferencePicker compact />
         </div>
+      </div>
+
+      <div className="px-4 mt-6">
+        <h2 className="text-sm font-semibold text-app-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+          <Timer className="h-4 w-4" />
+          Avvisi timer
+        </h2>
+        <TimerSignalPreferences compact />
       </div>
 
       {/* I miei Professionisti — apri il profilo PT per gestire la connessione */}

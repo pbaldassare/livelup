@@ -185,7 +185,7 @@ export function AtletaSettingsPage() {
           </h2>
           <div className="mb-2 flex items-center gap-2 px-1 text-app-muted-foreground">
             <Timer className="h-4 w-4" />
-            <span className="text-xs">Avvisi a fine recupero / tempo</span>
+            <span className="text-xs">Suono e vibrazione continui a fine recupero / tempo</span>
           </div>
           <TimerSignalPreferences />
         </section>

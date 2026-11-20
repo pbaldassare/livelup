@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { fireTimerEndSignal, type TimerSignalKind } from '@/lib/timerEndSignals';
+import {
+  getTimerPreferences,
+  isInTimerWarningWindow,
+  timerPulseIntervalMs,
+} from '@/lib/timerPreferences';
 
 export interface UseTimerEndWarningsOptions {
   /** Se false, non emette nulla (timer in pausa, schermo non attivo, ecc.) */
@@ -11,62 +16,41 @@ export interface UseTimerEndWarningsOptions {
    * così le soglie possono ripartire.
    */
   phaseKey?: string | number | null;
-  /** Secondi in cui avvisare (default 5, 3, 1) */
-  thresholds?: number[];
+  /** Override della finestra (secondi). Default: preferenza utente. */
+  leadSeconds?: number;
   kind?: TimerSignalKind;
 }
 
 /**
- * Emette vibrazione + beep quando `secondsLeft` attraversa le soglie verso lo zero.
- * Non dipende da focus tab: il countdown è wall-clock; suono/vibrazione sì dove supportato.
+ * Emette vibrazione + beep in modo continuo negli ultimi N secondi:
+ * un impulso all'ingresso nella finestra, poi ripetuti a ritmo dell'intensità.
  */
 export function useTimerEndWarnings({
   enabled,
   secondsLeft,
   phaseKey,
-  thresholds = [5, 3, 1],
+  leadSeconds,
   kind = 'rest',
 }: UseTimerEndWarningsOptions): void {
-  const prevLeftRef = useRef<number | null>(null);
-  const signaledRef = useRef<Set<number>>(new Set());
   const phaseKeyRef = useRef(phaseKey);
 
   useEffect(() => {
-    if (phaseKey !== phaseKeyRef.current) {
-      phaseKeyRef.current = phaseKey;
-      signaledRef.current.clear();
-      prevLeftRef.current = null;
-    }
+    phaseKeyRef.current = phaseKey;
   }, [phaseKey]);
 
   useEffect(() => {
-    if (!enabled) {
-      prevLeftRef.current = secondsLeft;
-      return;
-    }
-
-    const prev = prevLeftRef.current;
-    prevLeftRef.current = secondsLeft;
-
-    if (prev !== null && secondsLeft > prev) {
-      signaledRef.current.clear();
-    }
-
-    if (prev !== null && prev > 0 && secondsLeft === 0) {
-      signaledRef.current.clear();
-    }
-
     if (!enabled) return;
 
-    const sorted = [...new Set(thresholds)].sort((a, b) => b - a);
-    for (const t of sorted) {
-      if (t <= 0) continue;
-      if (prev !== null && prev > t && secondsLeft <= t && secondsLeft > 0) {
-        if (!signaledRef.current.has(t)) {
-          signaledRef.current.add(t);
-          fireTimerEndSignal(kind, t);
-        }
-      }
-    }
-  }, [enabled, secondsLeft, thresholds, kind]);
+    const prefs = getTimerPreferences();
+    const windowSeconds = leadSeconds ?? prefs.leadSeconds;
+    if (!isInTimerWarningWindow(secondsLeft, windowSeconds)) return;
+
+    fireTimerEndSignal(kind, secondsLeft);
+    const intervalMs = timerPulseIntervalMs(prefs.intensity);
+    const id = window.setInterval(() => {
+      fireTimerEndSignal(kind, secondsLeft);
+    }, intervalMs);
+
+    return () => window.clearInterval(id);
+  }, [enabled, secondsLeft, leadSeconds, kind, phaseKey]);
 }
