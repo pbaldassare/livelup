@@ -9,11 +9,13 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { applyExerciseSearch, groupExercisesByCategory } from '@/lib/exerciseSearch';
 import { cn } from '@/lib/utils';
 
 export type ExerciseOption = {
   id: string;
   name: string;
+  category?: string | null;
 };
 
 /** @deprecated Usare ExerciseOption */
@@ -44,10 +46,8 @@ export function exerciseCommandValue(o: ExerciseOption): string {
   return o.id ? `ex:${o.id}` : `nm:${o.name.trim().toLowerCase()}`;
 }
 
-function filterBySearch(options: ExerciseOption[], q: string): ExerciseOption[] {
-  if (!q) return options;
-  const lower = q.toLowerCase();
-  return options.filter((o) => o.name.toLowerCase().includes(lower));
+function rankedExerciseOptions(options: ExerciseOption[], q: string): ExerciseOption[] {
+  return applyExerciseSearch(q, options);
 }
 
 type SourceTab = 'favorites' | 'mine' | 'global' | 'catalogs' | 'workout';
@@ -232,18 +232,21 @@ export function ExerciseArchivePickerPanel({
   const useServerMine = q.length >= 2 && serverMineOptions !== undefined;
   const useServerGlobal = q.length >= 2 && serverGlobalOptions !== undefined;
 
-  const activeItems =
+  const activeItems = rankedExerciseOptions(
     activeTab === 'catalogs'
       ? selectedCatalog
-        ? filterBySearch(selectedCatalog.exercises, q)
+        ? selectedCatalog.exercises
         : []
       : activeTab === 'favorites' && useServerFav
-        ? serverFavoriteOptions
+        ? (serverFavoriteOptions ?? [])
         : activeTab === 'mine' && useServerMine
-          ? serverMineOptions
+          ? (serverMineOptions ?? [])
           : activeTab === 'global' && useServerGlobal
-            ? serverGlobalOptions
-            : filterBySearch(sources[activeTab], q);
+            ? (serverGlobalOptions ?? [])
+            : sources[activeTab],
+    q,
+  );
+  const activeGroups = groupExercisesByCategory(activeItems);
 
   const allKnown = useMemo(() => {
     const fromCatalogs = catalogs.flatMap((c) => c.exercises);
@@ -383,7 +386,7 @@ export function ExerciseArchivePickerPanel({
         placeholder={
           activeTab === 'catalogs' && !selectedCatalog
             ? 'Cerca catalogo…'
-            : 'Cerca esercizio…'
+            : 'Cerca nome o categoria…'
         }
         value={search}
         onValueChange={setSearch}
@@ -419,21 +422,26 @@ export function ExerciseArchivePickerPanel({
             {activeItems.length === 0 && !showFree && (
               <CommandEmpty className="py-4 text-xs">{emptyMessage()}</CommandEmpty>
             )}
-            {activeItems.length > 0 && (
-              <CommandGroup>
-                <OptionItems
-                  items={activeItems}
-                  value={value}
-                  keyPrefix={
-                    activeTab === 'catalogs' && selectedCatalog
-                      ? `cat-${selectedCatalog.id}`
-                      : activeTab
-                  }
-                  onPick={pick}
-                  showStar={activeTab === 'favorites'}
-                />
-              </CommandGroup>
-            )}
+            {activeItems.length > 0 &&
+              activeGroups.map((group) => (
+                <CommandGroup
+                  key={group.category}
+                  heading={group.category}
+                  className="[&_[cmdk-group-heading]]:text-[10px]"
+                >
+                  <OptionItems
+                    items={group.items}
+                    value={value}
+                    keyPrefix={
+                      activeTab === 'catalogs' && selectedCatalog
+                        ? `cat-${selectedCatalog.id}-${group.category}`
+                        : `${activeTab}-${group.category}`
+                    }
+                    onPick={pick}
+                    showStar={activeTab === 'favorites'}
+                  />
+                </CommandGroup>
+              ))}
             {showFree && (
               <CommandGroup heading="Personalizzato" className="[&_[cmdk-group-heading]]:text-[10px]">
                 <CommandItem

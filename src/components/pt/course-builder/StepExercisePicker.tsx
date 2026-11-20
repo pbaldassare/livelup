@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2, Plus, Search } from 'lucide-react';
+import { applyExerciseSearch, groupExercisesByCategory } from '@/lib/exerciseSearch';
 
 type ExerciseRow = {
   id: string;
@@ -81,14 +82,17 @@ export function StepExercisePicker({
 
   const excluded = useMemo(() => new Set(excludeIds), [excludeIds]);
 
-  const filtered = exercises.filter((ex) => {
-    if (excluded.has(ex.id)) return false;
-    const matchesSearch = !search || ex.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
-    const matchesMuscle =
-      muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
-    return matchesSearch && matchesCat && matchesMuscle;
-  });
+  const filtered = applyExerciseSearch(
+    search,
+    exercises.filter((ex) => {
+      if (excluded.has(ex.id)) return false;
+      const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
+      const matchesMuscle =
+        muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
+      return matchesCat && matchesMuscle;
+    }),
+  );
+  const filteredGroups = groupExercisesByCategory(filtered);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -106,7 +110,7 @@ export function StepExercisePicker({
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cerca per nome..."
+              placeholder="Cerca per nome o categoria..."
               className="pl-9"
             />
           </div>
@@ -150,39 +154,46 @@ export function StepExercisePicker({
               Nessun esercizio trovato
             </p>
           ) : (
-            filtered.map((ex) => {
-              const isMine = ex.created_by === user?.id && !ex.is_public;
-              return (
-                <button
-                  key={ex.id}
-                  type="button"
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/60 transition-colors"
-                  onClick={() => {
-                    onSelect(ex);
-                    onOpenChange(false);
-                    setSearch('');
-                  }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm truncate">{ex.name}</span>
-                      {isMine && (
-                        <Badge variant="outline" className="text-[10px] shrink-0">
-                          Mio
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {ex.category}
-                      {(ex.muscle_groups || []).length > 0
-                        ? ` · ${(ex.muscle_groups || []).slice(0, 3).join(', ')}`
-                        : ''}
-                    </p>
-                  </div>
-                  <Plus className="h-4 w-4 text-primary shrink-0" />
-                </button>
-              );
-            })
+            filteredGroups.map((group) => (
+              <div key={group.category}>
+                <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/40">
+                  {group.category}
+                </p>
+                {group.items.map((ex) => {
+                  const isMine = ex.created_by === user?.id && !ex.is_public;
+                  return (
+                    <button
+                      key={ex.id}
+                      type="button"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/60 transition-colors"
+                      onClick={() => {
+                        onSelect(ex);
+                        onOpenChange(false);
+                        setSearch('');
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate">{ex.name}</span>
+                          {isMine && (
+                            <Badge variant="outline" className="text-[10px] shrink-0">
+                              Mio
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {ex.category}
+                          {(ex.muscle_groups || []).length > 0
+                            ? ` · ${(ex.muscle_groups || []).slice(0, 3).join(', ')}`
+                            : ''}
+                        </p>
+                      </div>
+                      <Plus className="h-4 w-4 text-primary shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            ))
           )}
         </div>
 

@@ -8,6 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Check, ChevronDown, Loader2, Plus, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  applyExerciseSearch,
+  exerciseNameOrCategoryIlike,
+  groupExercisesByCategory,
+} from '@/lib/exerciseSearch';
 
 export function RoutineExercisePicker({
   selectedId,
@@ -32,23 +37,29 @@ export function RoutineExercisePicker({
   const { data: options = [], isLoading } = useQuery({
     queryKey: ['pt-routine-exercise-options', user?.id, debouncedSearch],
     queryFn: async () => {
-      if (!user?.id) return [] as { id: string; name: string }[];
+      if (!user?.id) return [] as { id: string; name: string; category?: string | null }[];
       let q = supabase
         .from('exercises')
-        .select('id, name')
+        .select('id, name, category')
         .or(`is_public.eq.true,created_by.eq.${user.id}`)
+        .order('category')
         .order('name')
         .limit(120);
       const term = debouncedSearch.trim();
-      if (term) q = q.ilike('name', `%${term}%`);
+      const orFilter = exerciseNameOrCategoryIlike(term);
+      if (orFilter) q = q.or(orFilter);
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as { id: string; name: string }[];
+      return (data || []) as { id: string; name: string; category?: string | null }[];
     },
     enabled: open && !!user?.id,
   });
 
-  const visible = options.filter((ex) => ex.id === selectedId || !excludeIds.includes(ex.id));
+  const visible = applyExerciseSearch(
+    search,
+    options.filter((ex) => ex.id === selectedId || !excludeIds.includes(ex.id)),
+  );
+  const visibleGroups = groupExercisesByCategory(visible);
 
   return (
     <>
@@ -92,7 +103,7 @@ export function RoutineExercisePicker({
               {variant === 'add' ? 'Aggiungi un esercizio' : 'Scegli un esercizio'}
             </DialogTitle>
             <DialogDescription>
-              Cerca per nome. Vale su desktop e sul telefono.
+              Cerca per nome o categoria. Vale su desktop e sul telefono.
             </DialogDescription>
           </DialogHeader>
           <div className="relative">
@@ -100,7 +111,7 @@ export function RoutineExercisePicker({
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cerca esercizio…"
+              placeholder="Cerca nome o categoria…"
               className="pl-9 h-11"
               autoFocus
             />
@@ -113,27 +124,34 @@ export function RoutineExercisePicker({
             ) : visible.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">Nessun esercizio trovato.</p>
             ) : (
-              visible.map((ex) => {
-                const active = ex.id === selectedId;
-                return (
-                  <button
-                    key={ex.id}
-                    type="button"
-                    className={cn(
-                      'flex w-full min-h-11 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm',
-                      active ? 'border-primary bg-primary/10' : 'hover:bg-muted/50',
-                    )}
-                    onClick={() => {
-                      onPick(ex.id, ex.name);
-                      setOpen(false);
-                      setSearch('');
-                    }}
-                  >
-                    <span className="truncate">{ex.name}</span>
-                    {active && <Check className="h-4 w-4 shrink-0 text-primary" />}
-                  </button>
-                );
-              })
+              visibleGroups.map((group) => (
+                <div key={group.category} className="space-y-1">
+                  <p className="px-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group.category}
+                  </p>
+                  {group.items.map((ex) => {
+                    const active = ex.id === selectedId;
+                    return (
+                      <button
+                        key={ex.id}
+                        type="button"
+                        className={cn(
+                          'flex w-full min-h-11 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm',
+                          active ? 'border-primary bg-primary/10' : 'hover:bg-muted/50',
+                        )}
+                        onClick={() => {
+                          onPick(ex.id, ex.name);
+                          setOpen(false);
+                          setSearch('');
+                        }}
+                      >
+                        <span className="truncate">{ex.name}</span>
+                        {active && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))
             )}
           </div>
         </DialogContent>

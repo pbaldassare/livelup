@@ -5,6 +5,7 @@ export type ArchiveExerciseRow = {
   name: string;
   is_public: boolean;
   created_by: string | null;
+  category?: string | null;
 };
 
 export type ProtocolExerciseArchiveGroups = {
@@ -31,7 +32,7 @@ export function categorizeArchiveExercises(
   for (const row of rows) {
     if (!row.name?.trim() || exclude.has(row.id) || seen.has(row.id)) continue;
     seen.add(row.id);
-    const opt = { id: row.id, name: row.name };
+    const opt = { id: row.id, name: row.name, category: row.category ?? undefined };
 
     if (opts.favIds.has(row.id)) {
       favoriteOptions.push(opt);
