@@ -32,6 +32,7 @@ import {
   planAthleteLabel,
   type PTBillingPlan,
 } from '@/lib/api/ptBilling';
+import { starterActivatesHint, starterPlanHint } from '@/lib/pt/starterAthleteCap';
 
 interface Payment {
   id: string;
@@ -124,7 +125,7 @@ export function PTPaymentsPage({ embedded = false }: { embedded?: boolean } = {}
 
   const handleRequestPlan = async (plan: PTBillingPlan) => {
     if ((plan.price_monthly ?? 0) <= 0) {
-      toast.info('Il piano Starter è già incluso, fino a 5 atleti.');
+      toast.info(starterPlanHint());
       return;
     }
     try {
@@ -306,7 +307,7 @@ export function PTPaymentsPage({ embedded = false }: { embedded?: boolean } = {}
               <AlertCircle className="h-12 w-12 mx-auto mb-4 text-warning" />
               <p className="text-lg font-medium">Nessun abbonamento</p>
               <p className="text-muted-foreground mt-1">
-                Ricarica la pagina: il piano Starter (fino a 5 atleti) si attiva da solo.
+                {starterActivatesHint()}
               </p>
             </div>
           )}

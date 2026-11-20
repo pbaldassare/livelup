@@ -12,6 +12,7 @@ import {
   getSystemCategoryIdBySlug,
   setAthleteCategory,
 } from '@/lib/api/athleteCategories';
+import { filterReceivedAthletesStillCeded } from '@/lib/pt/receivedAthletes';
 
 export interface PtConnectionCategory {
   id: string;
@@ -1016,6 +1017,38 @@ export async function recallAthleteFromTransfer(params: {
   return data as string;
 }
 
+export async function recallAthletesFromCollaborator(params: {
+  collaboratorPtUserId: string;
+  notes?: string;
+}): Promise<number> {
+  const { data, error } = await sbAny.rpc('recall_athletes_from_collaborator', {
+    _collaborator_pt_user_id: params.collaboratorPtUserId,
+    _notes: params.notes ?? null,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return Number(data ?? 0);
+}
+
+export async function returnReceivedAthlete(params: {
+  atletaUserId: string;
+  notes?: string;
+}): Promise<string> {
+  const { data, error } = await sbAny.rpc('return_received_athlete', {
+    _atleta_user_id: params.atletaUserId,
+    _notes: params.notes ?? null,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as string;
+}
+
 export async function getPtTransferHistory(ptUserId: string): Promise<PtAthleteTransferLog[]> {
   const { data, error } = await sbAny
     .from('pt_atleta_transfers')
@@ -1079,8 +1112,27 @@ export async function getReceivedAthletes(): Promise<ReceivedAthlete[]> {
 
   if (rows.length === 0) return [];
 
+  const athleteIds = Array.from(new Set(rows.map((r) => r.atleta_user_id)));
+  const { data: recallRows, error: recallError } = await sbAny
+    .from('pt_atleta_transfers')
+    .select('atleta_user_id, completed_at')
+    .eq('action', 'recall')
+    .eq('status', 'completed')
+    .in('atleta_user_id', athleteIds);
+
+  if (recallError) {
+    throw new Error('Errore recupero restituzioni: ' + recallError.message);
+  }
+
+  const activeRows = filterReceivedAthletesStillCeded(
+    rows,
+    (recallRows ?? []) as Array<{ atleta_user_id: string; completed_at: string | null }>,
+  );
+
+  if (activeRows.length === 0) return [];
+
   const profileIds = Array.from(
-    new Set(rows.flatMap((r) => [r.atleta_user_id, r.from_pt_user_id])),
+    new Set(activeRows.flatMap((r) => [r.atleta_user_id, r.from_pt_user_id])),
   );
 
   const { data: profiles, error: profilesError } = await supabase
@@ -1103,7 +1155,7 @@ export async function getReceivedAthletes(): Promise<ReceivedAthlete[]> {
     ]),
   );
 
-  return rows.map((r) => {
+  return activeRows.map((r) => {
     const athlete = profileMap[r.atleta_user_id];
     const fromPt = profileMap[r.from_pt_user_id];
     return {
