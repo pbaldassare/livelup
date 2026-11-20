@@ -38,6 +38,22 @@ export function authEmailCopy(actionType: string, role: AppMailRole) {
         cta: 'Conferma email',
         footer: 'Se non hai creato un account su Livelapp, puoi ignorare questa email.',
       }
+    case 'invite':
+      return {
+        subject: 'Invito a Livelapp',
+        headline: 'Hai un invito',
+        intro: `Sei stato invitato a unirti a Livelapp come ${who}. Conferma l'email per attivare l'account.`,
+        cta: 'Accetta invito',
+        footer: 'Se non ti aspettavi questo invito, puoi ignorare questa email.',
+      }
+    case 'email_change':
+      return {
+        subject: 'Conferma il nuovo indirizzo email — Livelapp',
+        headline: 'Conferma il cambio email',
+        intro: 'Abbiamo ricevuto una richiesta di cambio email per il tuo account Livelapp. Conferma il nuovo indirizzo con il pulsante qui sotto.',
+        cta: 'Conferma nuovo indirizzo',
+        footer: 'Se non hai richiesto tu il cambio, ignora questa email.',
+      }
     case 'recovery':
       if (role === 'pt') {
         return {
