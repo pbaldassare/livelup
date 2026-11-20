@@ -1,3 +1,5 @@
+import { publicAppOrigin } from '@/lib/publicOrigin';
+
 // =====================================================
 // INVITE LINK — utility condivisa per generare e condividere
 // il link di invito (download/installazione app + referral PT)
@@ -11,38 +13,19 @@
  * il nuovo atleta possa essere collegato automaticamente al PT (vedi
  * AuthPage.tsx, che legge `?ref=` e crea la richiesta di connessione).
  */
-const PUBLIC_ORIGIN = 'https://livelapp.iaconnect.it';
-
-/**
- * Host di preview (Cloudflare Pages `*.pages.dev`, iframe editor, ecc.): un link
- * generato da lì non è adatto all'atleta invitato. In quei casi usiamo sempre
- * l'origine pubblica di produzione.
- */
-function isNonPublicOrigin(host: string): boolean {
-  return (
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host.startsWith('id-preview--') ||
-    host.startsWith('preview--') ||
-    host.endsWith('.lovableproject.com') ||
-    host.endsWith('.lovableproject-dev.com') ||
-    host.endsWith('.lovable.dev') ||
-    host.endsWith('.pages.dev')
-  );
-}
 
 export function buildInviteLink(options: { refUserId?: string | null } = {}): string {
-  const host = typeof window !== 'undefined' ? window.location?.hostname ?? '' : '';
-  const origin =
-    typeof window !== 'undefined' && window.location?.origin && !isNonPublicOrigin(host)
-      ? window.location.origin
-      : PUBLIC_ORIGIN;
-
+  const origin = publicAppOrigin();
   const { refUserId } = options;
   if (!refUserId) return `${origin}/install`;
 
   const params = new URLSearchParams({ ref: refUserId });
   return `${origin}/install?${params.toString()}`;
+}
+
+/** Link PT «Copia link invito» verso la registrazione atleta. */
+export function athleteSignupInviteUrl(ptUserId: string): string {
+  return `${publicAppOrigin()}/auth?mode=signup&ref=${ptUserId}`;
 }
 
 const PT_REF_UUID_RE =

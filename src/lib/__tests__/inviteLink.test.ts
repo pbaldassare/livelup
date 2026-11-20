@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  athleteSignupInviteUrl,
   isAthleteInviteSignup,
   parsePtInviteRef,
   resolveSignupRole,
 } from '../inviteLink';
+import { PUBLIC_APP_ORIGIN } from '../publicOrigin';
 
 const PT_ID = 'f655ebb3-4470-4ab6-a74c-763b0602b869';
 
@@ -29,5 +31,12 @@ describe('athlete invite signup', () => {
     expect(resolveSignupRole({ isAthleteInvite: false, selectedRole: 'admin' })).toBe(
       'atleta',
     );
+  });
+
+  it('builds athlete signup invites on Pages, not iaconnect', () => {
+    expect(athleteSignupInviteUrl(PT_ID)).toBe(
+      `${PUBLIC_APP_ORIGIN}/auth?mode=signup&ref=${PT_ID}`,
+    );
+    expect(athleteSignupInviteUrl(PT_ID)).not.toContain('iaconnect');
   });
 });
