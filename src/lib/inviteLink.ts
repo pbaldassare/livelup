@@ -45,6 +45,33 @@ export function buildInviteLink(options: { refUserId?: string | null } = {}): st
   return `${origin}/install?${params.toString()}`;
 }
 
+const PT_REF_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** UUID del Professionista in `?ref=` (invito atleta). */
+export function parsePtInviteRef(raw: string | null | undefined): string | null {
+  const value = raw?.trim() ?? '';
+  return PT_REF_UUID_RE.test(value) ? value : null;
+}
+
+/**
+ * Link PT «Copia link invito»: `/auth?mode=signup&ref=<ptUserId>`.
+ * Non copre i link admin `/auth?ref=…&coupon=…` (registrazione PT).
+ */
+export function isAthleteInviteSignup(
+  search: Pick<URLSearchParams, 'get'>,
+): boolean {
+  return search.get('mode') === 'signup' && parsePtInviteRef(search.get('ref')) !== null;
+}
+
+export function resolveSignupRole(args: {
+  isAthleteInvite: boolean;
+  selectedRole: 'admin' | 'pt' | 'atleta';
+}): 'pt' | 'atleta' {
+  if (args.isAthleteInvite) return 'atleta';
+  return args.selectedRole === 'pt' ? 'pt' : 'atleta';
+}
+
 export type ShareInviteLinkResult = 'shared' | 'copied' | 'error';
 
 /**

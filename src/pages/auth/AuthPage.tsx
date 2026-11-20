@@ -28,6 +28,7 @@ import { vendeAbbonamenti } from '@/lib/native';
 import { getAuthEmailOtpFromLocation, isPasswordRecoveryLocation } from '@/lib/passwordRecovery';
 import { verifyAuthEmailOtp } from '@/lib/authEmailOtp';
 import { describeAuthError } from '@/lib/authErrors';
+import { isAthleteInviteSignup, parsePtInviteRef, resolveSignupRole } from '@/lib/inviteLink';
 import AuthResetPasswordPage from '@/pages/auth/AuthResetPasswordPage';
 
 // =====================================================
@@ -45,8 +46,8 @@ export function AuthPage() {
   const isRecovery = isPasswordRecoveryLocation(location.pathname, location.search, location.hash);
   
   const rawRef = searchParams.get('ref');
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const refPt = rawRef && UUID_RE.test(rawRef) ? rawRef : null;
+  const refPt = parsePtInviteRef(rawRef);
+  const athleteInvite = isAthleteInviteSignup(searchParams);
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(
     searchParams.get('mode') === 'signup' || refPt ? 'signup' : 'login'
   );
@@ -78,6 +79,10 @@ export function AuthPage() {
   };
 
   useEffect(() => () => clearLoginSafetyTimeout(), []);
+
+  useEffect(() => {
+    if (athleteInvite) setSelectedRole('atleta');
+  }, [athleteInvite]);
 
   // Conferma email completata (redirect da link email)
   const confirmedShownRef = useRef(false);
@@ -213,7 +218,8 @@ export function AuthPage() {
     if (!validateForm()) return;
 
     setIsLoading(true);
-    const { error } = await signUp(email, password, selectedRole);
+    const signupRole = resolveSignupRole({ isAthleteInvite: athleteInvite, selectedRole });
+    const { error } = await signUp(email, password, signupRole);
     setIsLoading(false);
 
     if (error) {
@@ -221,7 +227,7 @@ export function AuthPage() {
       toast.error(mapped.title, { description: mapped.description });
     } else {
       // If ref PT param present and registering as atleta, save referral info
-      if (refPt && selectedRole === 'atleta') {
+      if (refPt && signupRole === 'atleta') {
         try {
           // Store referral in localStorage, will be processed after email confirmation & login
           localStorage.setItem('livellapp_ref_pt', refPt);
@@ -230,7 +236,7 @@ export function AuthPage() {
         }
       }
       toast.success(
-        selectedRole === 'pt' ? 'Account Personal Trainer creato' : 'Registrazione completata',
+        signupRole === 'pt' ? 'Account Personal Trainer creato' : 'Registrazione completata',
         {
           description: 'Controlla la tua email per confermare l’account (vale anche per il reset password).',
         },
@@ -398,7 +404,13 @@ export function AuthPage() {
 
               <TabsContent value="signup" className="mt-4">
                 <CardTitle>Crea un account</CardTitle>
-                <CardDescription>{vendeAbbonamenti() ? 'Scegli il tuo ruolo e inizia' : 'Crea il tuo account atleta'}</CardDescription>
+                <CardDescription>
+                  {athleteInvite
+                    ? 'Invito di un Professionista: crea il tuo account atleta'
+                    : vendeAbbonamenti()
+                      ? 'Scegli il tuo ruolo e inizia'
+                      : 'Crea il tuo account atleta'}
+                </CardDescription>
               </TabsContent>
             </Tabs>
           </CardHeader>
@@ -502,7 +514,7 @@ export function AuthPage() {
                     per Apple creare un account PT, che ha piani a pagamento, e' un
                     acquisto fuori dall'App Store. I PT si registrano sul sito e
                     nell'app accedono (vedi vendeAbbonamenti). */}
-                {vendeAbbonamenti() && (
+                {vendeAbbonamenti() && !athleteInvite && (
                 <div className="space-y-3">
                   <Label>Seleziona il tuo ruolo</Label>
                   <RadioGroup
@@ -619,7 +631,7 @@ export function AuthPage() {
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Registrati come {getRoleLabel(selectedRole)}
+                  Registrati come {getRoleLabel(resolveSignupRole({ isAthleteInvite: athleteInvite, selectedRole }))}
                 </Button>
               </form>
             )}
