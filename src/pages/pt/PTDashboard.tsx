@@ -34,6 +34,7 @@ import {
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { athleteSignupInviteUrl } from '@/lib/inviteLink';
 
 // =====================================================
 // PT DASHBOARD - Home con statistiche
@@ -346,7 +347,7 @@ export function PTDashboard() {
         <div className="flex items-center gap-3">
           <Input
             readOnly
-            value={`${window.location.origin}/auth?mode=signup&ref=${user?.id || ''}`}
+            value={athleteSignupInviteUrl(user?.id || '')}
             className="font-mono text-sm bg-muted"
           />
           <Button
@@ -354,7 +355,7 @@ export function PTDashboard() {
             size="sm"
             className="shrink-0"
             onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/auth?mode=signup&ref=${user?.id || ''}`);
+              navigator.clipboard.writeText(athleteSignupInviteUrl(user?.id || ''));
               toast.success('Link copiato negli appunti!');
             }}
           >
