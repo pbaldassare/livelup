@@ -1,16 +1,22 @@
 // =====================================================
 // Segnali fine timer: vibrazione (Vibration API) + beep Web Audio.
-// Uso: allenamento mobile — alert negli ultimi secondi senza guardare lo schermo.
-// Preferenze utente: src/lib/timerPreferences.ts (Impostazioni atleta).
+// Impulsi ripetuti negli ultimi N secondi, più densi vicino allo zero.
+// Preferenze: src/lib/timerPreferences.ts (Profilo / Impostazioni atleta).
 // =====================================================
 
-import { getTimerPreferences } from '@/lib/timerPreferences';
+import {
+  getTimerPreferences,
+  type TimerIntensity,
+  type TimerPreferences,
+} from '@/lib/timerPreferences';
 
 let audioCtx: AudioContext | null = null;
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
-  const Ctx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  const Ctx =
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Ctx) return null;
   if (!audioCtx || audioCtx.state === 'closed') {
     try {
@@ -35,7 +41,52 @@ export async function resumeTimerAudioContext(): Promise<void> {
   }
 }
 
-export function playTimerWarningBeep(freqHz = 880, durationMs = 70): void {
+export type TimerSignalKind = 'rest' | 'work' | 'round';
+
+export type TimerBeepSpec = {
+  freqHz: number;
+  durationMs: number;
+  gain: number;
+  type: OscillatorType;
+};
+
+export type TimerVibrationSpec = number[];
+
+export function timerBeepSpec(
+  kind: TimerSignalKind,
+  secondsLeft: number,
+  intensity: TimerIntensity,
+): TimerBeepSpec {
+  const urgent = secondsLeft <= 1;
+  const baseFreq =
+    kind === 'rest' ? (urgent ? 780 : 660) : kind === 'work' ? (urgent ? 980 : 840) : 820;
+  const gainByIntensity = { low: 0.1, medium: 0.2, high: 0.38 }[intensity];
+  const durationByIntensity = { low: 90, medium: 140, high: 190 }[intensity];
+  return {
+    freqHz: urgent ? baseFreq + 80 : baseFreq,
+    durationMs: durationByIntensity + (urgent ? 90 : 0),
+    gain: Math.min(0.45, gainByIntensity * (urgent ? 1.35 : 1)),
+    type: intensity === 'high' ? 'square' : intensity === 'medium' ? 'triangle' : 'sine',
+  };
+}
+
+export function timerVibrationSpec(secondsLeft: number, intensity: TimerIntensity): TimerVibrationSpec {
+  if (intensity === 'high') {
+    return secondsLeft <= 1
+      ? [110, 35, 110, 35, 110, 35, 140]
+      : [80, 40, 80, 40, 100];
+  }
+  if (intensity === 'medium') {
+    return secondsLeft <= 1 ? [70, 50, 70, 50, 90] : [55, 70, 55];
+  }
+  return secondsLeft <= 1 ? [50, 80, 50] : [40];
+}
+
+export function playTimerWarningBeep(
+  freqHz = 880,
+  durationMs = 70,
+  options?: { gain?: number; type?: OscillatorType },
+): void {
   const ctx = getAudioContext();
   if (!ctx) return;
   if (ctx.state === 'suspended') {
@@ -44,15 +95,17 @@ export function playTimerWarningBeep(freqHz = 880, durationMs = 70): void {
   const now = ctx.currentTime;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  osc.type = 'sine';
+  const peak = Math.max(0.02, Math.min(0.45, options?.gain ?? 0.12));
+  const dur = Math.max(0.04, durationMs / 1000);
+  osc.type = options?.type ?? 'sine';
   osc.frequency.setValueAtTime(freqHz, now);
   gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + durationMs / 1000);
+  gain.gain.exponentialRampToValueAtTime(peak, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
   osc.connect(gain);
   gain.connect(ctx.destination);
   osc.start(now);
-  osc.stop(now + durationMs / 1000 + 0.05);
+  osc.stop(now + dur + 0.04);
 }
 
 export function vibrateTimerWarning(pattern: number | number[] = [35, 50, 35]): void {
@@ -64,27 +117,25 @@ export function vibrateTimerWarning(pattern: number | number[] = [35, 50, 35]): 
   }
 }
 
-export type TimerSignalKind = 'rest' | 'work' | 'round';
-
-/** Soglia (secondi) → frequenza beep e pattern vibrazione */
-export function fireTimerEndSignal(kind: TimerSignalKind, thresholdSeconds: number): void {
-  const prefs = getTimerPreferences();
-  const freq =
-    kind === 'rest'
-      ? thresholdSeconds <= 1
-        ? 740
-        : 660
-      : kind === 'work'
-        ? thresholdSeconds <= 1
-          ? 920
-          : 820
-        : 800;
+export function fireTimerEndSignal(
+  kind: TimerSignalKind,
+  thresholdSeconds: number,
+  prefsOverride?: Partial<TimerPreferences>,
+): void {
+  const prefs = { ...getTimerPreferences(), ...prefsOverride };
+  const beep = timerBeepSpec(kind, thresholdSeconds, prefs.intensity);
   if (prefs.soundEnabled) {
-    playTimerWarningBeep(freq, thresholdSeconds <= 1 ? 95 : 75);
+    playTimerWarningBeep(beep.freqHz, beep.durationMs, {
+      gain: beep.gain,
+      type: beep.type,
+    });
   }
   if (prefs.vibrationEnabled) {
-    vibrateTimerWarning(
-      thresholdSeconds <= 1 ? [45, 60, 45, 60, 45] : [40, 35, 40],
-    );
+    vibrateTimerWarning(timerVibrationSpec(thresholdSeconds, prefs.intensity));
   }
+}
+
+export function previewTimerSignals(kind: TimerSignalKind = 'rest'): void {
+  void resumeTimerAudioContext();
+  fireTimerEndSignal(kind, 1);
 }
