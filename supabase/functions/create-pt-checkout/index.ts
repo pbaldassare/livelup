@@ -2,6 +2,16 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno'
 
+function resolveAppOrigin(): string {
+  const raw = (Deno.env.get('SITE_URL') || Deno.env.get('APP_ORIGIN') || 'https://livelup.pages.dev').replace(/\/$/, '')
+  try {
+    if (new URL(raw).hostname.toLowerCase() === 'livelup.pages.dev') return 'https://livelup.pages.dev'
+  } catch {
+    /* fall through */
+  }
+  return 'https://livelup.pages.dev'
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -98,7 +108,7 @@ serve(async (req) => {
       }
     }
 
-    const site = (Deno.env.get('SITE_URL') || 'https://livelapp.iaconnect.it').replace(/\/$/, '')
+    const site = resolveAppOrigin()
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,

@@ -29,6 +29,7 @@ import { getAuthEmailOtpFromLocation, isPasswordRecoveryLocation } from '@/lib/p
 import { verifyAuthEmailOtp } from '@/lib/authEmailOtp';
 import { describeAuthError } from '@/lib/authErrors';
 import { isAthleteInviteSignup, parsePtInviteRef, resolveSignupRole } from '@/lib/inviteLink';
+import { publicAppOrigin } from '@/lib/publicOrigin';
 import AuthResetPasswordPage from '@/pages/auth/AuthResetPasswordPage';
 
 // =====================================================
@@ -303,6 +304,7 @@ export function AuthPage() {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: parsed.data,
+      options: { emailRedirectTo: `${publicAppOrigin()}/auth` },
     });
     setResendBusy(false);
     if (error) {

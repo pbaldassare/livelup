@@ -13,7 +13,7 @@ const LOGO_URL = `${DEFAULT_APP_ORIGIN}/livelapp-icon.png`
 const BRAND_RED = '#E73235'
 const BRAND_BLACK = '#111111'
 
-function normalizeAppOrigin(raw: string): string {
+export function normalizeAppOrigin(raw: string): string {
   const origin = raw.replace(/\/$/, '')
   try {
     const host = new URL(origin).hostname.toLowerCase()
@@ -24,9 +24,13 @@ function normalizeAppOrigin(raw: string): string {
   return DEFAULT_APP_ORIGIN
 }
 
+function readSiteOriginEnv(): string | undefined {
+  const deno = (globalThis as { Deno?: { env?: { get?: (key: string) => string | undefined } } }).Deno
+  return deno?.env?.get?.('SITE_URL') || deno?.env?.get?.('APP_ORIGIN')
+}
+
 export function resolveAppOrigin(): string {
-  const fromEnv = Deno.env.get('SITE_URL') || Deno.env.get('APP_ORIGIN') || DEFAULT_APP_ORIGIN
-  return normalizeAppOrigin(fromEnv)
+  return normalizeAppOrigin(readSiteOriginEnv() || DEFAULT_APP_ORIGIN)
 }
 
 export function authActionAppUrl(actionType: string, tokenHash: string): string {

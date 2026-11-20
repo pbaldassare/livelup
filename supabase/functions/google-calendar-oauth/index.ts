@@ -2,6 +2,16 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { loadConnection, revokeGoogleToken } from '../_shared/googleCalendar.ts'
 
+function resolveAppOrigin(): string {
+  const raw = (Deno.env.get('SITE_URL') || Deno.env.get('APP_ORIGIN') || 'https://livelup.pages.dev').replace(/\/$/, '')
+  try {
+    if (new URL(raw).hostname.toLowerCase() === 'livelup.pages.dev') return 'https://livelup.pages.dev'
+  } catch {
+    /* fall through */
+  }
+  return 'https://livelup.pages.dev'
+}
+
 // =====================================================
 // GOOGLE CALENDAR OAUTH
 // Actions: start | status | disconnect | callback
@@ -171,7 +181,7 @@ async function handleCallback(url: URL) {
   const code = url.searchParams.get('code')
   const stateRaw = url.searchParams.get('state')
   const err = url.searchParams.get('error')
-  const appOrigin = Deno.env.get('APP_ORIGIN') || 'https://livelapp.iaconnect.it'
+  const appOrigin = resolveAppOrigin()
 
   let returnTo = '/pt/calendar/appuntamenti'
   if (stateRaw) {
