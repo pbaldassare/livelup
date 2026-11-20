@@ -36,6 +36,11 @@ import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercise
 import { useExerciseCatalogs, getCatalogAccess, type ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import {
+  applyExerciseSearch,
+  exerciseNameOrCategoryIlike,
+  groupExercisesByCategory,
+} from '@/lib/exerciseSearch';
 import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 import { resolveExerciseInstructions } from '@/lib/exerciseInstructions';
 import { deleteOwnPtExercise } from '@/lib/api/ptExercises';
@@ -141,10 +146,9 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
       };
 
       if (useServerSearch) {
-        const base = supabase
-          .from('exercises')
-          .select(EXERCISE_COLUMNS)
-          .ilike('name', `%${term}%`);
+        const orFilter = exerciseNameOrCategoryIlike(term);
+        let base = supabase.from('exercises').select(EXERCISE_COLUMNS);
+        if (orFilter) base = base.or(orFilter);
         const q = applySourceFilter(base);
         const { data, error } = await q.order('category').order('name').limit(800);
         if (error) throw error;
@@ -183,21 +187,17 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
   );
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    const serverFiltered = debouncedSearch.trim().length >= 2;
-    return exercises.filter((ex) => {
-      const matchesSearch =
-        serverFiltered || !q || ex.name.toLowerCase().includes(q);
+    const faceted = exercises.filter((ex) => {
       const matchesDiff = difficultyFilter === 'all' || ex.difficulty_level === difficultyFilter;
       const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
       const matchesMuscle = muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
       const matchesFav = sourceFilter !== 'preferiti' || (favIds?.has(ex.id) ?? false);
-      return matchesSearch && matchesDiff && matchesCat && matchesMuscle && matchesFav;
+      return matchesDiff && matchesCat && matchesMuscle && matchesFav;
     });
+    return applyExerciseSearch(search, faceted);
   }, [
     exercises,
     search,
-    debouncedSearch,
     difficultyFilter,
     categoryFilter,
     muscleFilter,
@@ -210,6 +210,7 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
     const start = (currentPage - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
   }, [filtered, currentPage, pageSize]);
+  const paginatedGroups = useMemo(() => groupExercisesByCategory(paginated), [paginated]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -421,7 +422,7 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Cerca esercizio..."
+                placeholder="Cerca per nome o categoria..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-9"
@@ -511,7 +512,18 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginated.map(ex => {
+                {paginatedGroups.flatMap((group) => {
+                  const header = (
+                    <TableRow key={`cat-${group.category}`}>
+                      <TableCell
+                        colSpan={10}
+                        className="bg-muted/40 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                      >
+                        {group.category}
+                      </TableCell>
+                    </TableRow>
+                  );
+                  const rows = group.items.map((ex) => {
                   const isFav = favIds?.has(ex.id) ?? false;
                   const personal = isPersonal(ex);
                   const ownShared = isOwnShared(ex);
@@ -648,6 +660,8 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
                       </TableCell>
                     </TableRow>
                   );
+                  });
+                  return [header, ...rows];
                 })}
               </TableBody>
             </Table>

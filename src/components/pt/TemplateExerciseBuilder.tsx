@@ -97,6 +97,7 @@ import {
   useAllPtCatalogItems,
 } from '@/hooks/useExerciseCatalogs';
 import { categorizeArchiveExercises, type ArchiveExerciseRow } from '@/lib/protocolExerciseArchive';
+import { exerciseNameOrCategoryIlike } from '@/lib/exerciseSearch';
 import {
   ExerciseArchivePickerPanel,
   exercisePickerPopoverClassName,
@@ -317,7 +318,8 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
       if (!user?.id) return [] as ArchiveExerciseRow[];
       const { data, error } = await supabase
         .from('exercises')
-        .select('id, name, is_public, created_by')
+        .select('id, name, is_public, created_by, category')
+        .order('category')
         .order('name')
         .limit(1500);
       if (error) throw error;
@@ -357,36 +359,38 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
       [...catalogExerciseIdsMissingNames].sort().join(','),
     ],
     queryFn: async () => {
-      if (!user?.id || catalogExerciseIdsMissingNames.length === 0) return [] as { id: string; name: string }[];
+      if (!user?.id || catalogExerciseIdsMissingNames.length === 0) {
+        return [] as { id: string; name: string; category?: string | null }[];
+      }
       const { data, error } = await supabase
         .from('exercises')
-        .select('id, name')
+        .select('id, name, category')
         .in('id', catalogExerciseIdsMissingNames);
       if (error) throw error;
-      return (data ?? []) as { id: string; name: string }[];
+      return (data ?? []) as { id: string; name: string; category?: string | null }[];
     },
     enabled: !!user?.id && catalogExerciseIdsMissingNames.length > 0,
   });
 
-  const exerciseNameById = useMemo(() => {
-    const m = new Map<string, string>();
+  const exerciseMetaById = useMemo(() => {
+    const m = new Map<string, { name: string; category?: string | null }>();
     for (const r of archiveExerciseRows) {
-      if (r.name?.trim()) m.set(r.id, r.name);
+      if (r.name?.trim()) m.set(r.id, { name: r.name, category: r.category });
     }
     for (const r of catalogExerciseNameRows) {
-      if (r.name?.trim()) m.set(r.id, r.name);
+      if (r.name?.trim()) m.set(r.id, { name: r.name, category: r.category });
     }
     return m;
   }, [archiveExerciseRows, catalogExerciseNameRows]);
 
   /** Cataloghi PT con esercizi risolti dai nomi archivio (per picker). */
   const catalogPickerOptions = useMemo((): CatalogPickerOption[] => {
-    const byCatalog = new Map<string, { id: string; name: string }[]>();
+    const byCatalog = new Map<string, { id: string; name: string; category?: string | null }[]>();
     for (const item of allCatalogItems) {
-      const name = exerciseNameById.get(item.exercise_id);
-      if (!name?.trim()) continue;
+      const meta = exerciseMetaById.get(item.exercise_id);
+      if (!meta?.name?.trim()) continue;
       const list = byCatalog.get(item.catalog_id) ?? [];
-      list.push({ id: item.exercise_id, name });
+      list.push({ id: item.exercise_id, name: meta.name, category: meta.category });
       byCatalog.set(item.catalog_id, list);
     }
     return exerciseCatalogs.map((c) => ({
@@ -395,7 +399,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
       emoji: c.emoji,
       exercises: byCatalog.get(c.id) ?? [],
     }));
-  }, [exerciseCatalogs, allCatalogItems, exerciseNameById]);
+  }, [exerciseCatalogs, allCatalogItems, exerciseMetaById]);
 
   const onArchiveSearchQueryChange = useCallback((q: string) => {
     setArchiveSearchQuery(q);
@@ -406,12 +410,12 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     queryKey: ['protocol-exercise-search', user?.id, archiveSearchQuery],
     queryFn: async () => {
       if (!user?.id) return [] as ArchiveExerciseRow[];
-      const { data, error } = await supabase
+      const orFilter = exerciseNameOrCategoryIlike(archiveSearchQuery);
+      let q = supabase
         .from('exercises')
-        .select('id, name, is_public, created_by')
-        .ilike('name', `%${archiveSearchQuery}%`)
-        .order('name')
-        .limit(400);
+        .select('id, name, is_public, created_by, category');
+      if (orFilter) q = q.or(orFilter);
+      const { data, error } = await q.order('category').order('name').limit(400);
       if (error) throw error;
       return (data ?? []) as ArchiveExerciseRow[];
     },

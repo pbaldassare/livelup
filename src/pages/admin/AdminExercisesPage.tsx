@@ -42,6 +42,7 @@ import { ExerciseDetailDialog } from '@/components/exercises/ExerciseDetailDialo
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { EXERCISE_ARCHIVE_CATEGORIES } from '@/lib/exerciseArchiveCategories';
+import { applyExerciseSearch, groupExercisesByCategory } from '@/lib/exerciseSearch';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 import { resolveExerciseInstructions } from '@/lib/exerciseInstructions';
@@ -451,11 +452,11 @@ export default function AdminExercisesPage() {
     }));
   };
 
-  const filtered = exercises.filter(ex => {
-    const matchesSearch = !search || ex.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
-    return matchesSearch && matchesCat;
-  });
+  const filtered = applyExerciseSearch(
+    search,
+    exercises.filter((ex) => categoryFilter === 'all' || ex.category === categoryFilter),
+  );
+  const filteredGroups = groupExercisesByCategory(filtered);
 
   return (
     <div className="space-y-6">
@@ -470,7 +471,7 @@ export default function AdminExercisesPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Cerca esercizio..."
+                placeholder="Cerca per nome o categoria..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-9"
@@ -520,7 +521,16 @@ export default function AdminExercisesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(ex => (
+                {filteredGroups.flatMap((group) => [
+                  <TableRow key={`cat-${group.category}`}>
+                    <TableCell
+                      colSpan={7}
+                      className="bg-muted/40 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
+                      {group.category}
+                    </TableCell>
+                  </TableRow>,
+                  ...group.items.map((ex) => (
                   <TableRow key={ex.id}>
                     <TableCell>
                       <button
@@ -585,7 +595,8 @@ export default function AdminExercisesPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  )),
+                ])}
               </TableBody>
             </Table>
           )}
