@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2, Plus, Search } from 'lucide-react';
+import { fetchAllRows } from '@/lib/fetchAllRows';
+import { filterAndRankExercises } from '@/lib/exerciseSearch';
 
 type ExerciseRow = {
   id: string;
@@ -55,13 +57,15 @@ export function StepExercisePicker({
     queryFn: async () => {
       if (!user?.id) return [] as ExerciseRow[];
       // RLS: pubblici ∪ privati del PT (created_by = auth.uid())
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('id, name, category, muscle_groups, difficulty_level, is_public, created_by, image_url')
-        .order('category')
-        .order('name');
-      if (error) throw error;
-      return (data || []) as ExerciseRow[];
+      return fetchAllRows<ExerciseRow>(async (from, to) => {
+        const { data, error } = await supabase
+          .from('exercises')
+          .select('id, name, category, muscle_groups, difficulty_level, is_public, created_by, image_url')
+          .order('category')
+          .order('name')
+          .range(from, to);
+        return { data: (data || []) as ExerciseRow[], error };
+      });
     },
     enabled: open && !!user?.id,
   });
@@ -81,14 +85,16 @@ export function StepExercisePicker({
 
   const excluded = useMemo(() => new Set(excludeIds), [excludeIds]);
 
-  const filtered = exercises.filter((ex) => {
-    if (excluded.has(ex.id)) return false;
-    const matchesSearch = !search || ex.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
-    const matchesMuscle =
-      muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
-    return matchesSearch && matchesCat && matchesMuscle;
-  });
+  const filtered = filterAndRankExercises(
+    exercises.filter((ex) => {
+      if (excluded.has(ex.id)) return false;
+      const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
+      const matchesMuscle =
+        muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
+      return matchesCat && matchesMuscle;
+    }),
+    search,
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

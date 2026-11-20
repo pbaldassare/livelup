@@ -53,14 +53,14 @@ function commit(
 export function AmrapEditor({
   value,
   onChange,
-  workoutExerciseOptions = [],
-  favoriteExerciseOptions = [],
-  mineExerciseOptions = [],
-  globalExerciseOptions = [],
   exerciseOptions,
+  ...pickerProps
 }: AmrapEditorProps) {
   const [autoOpenIndex, setAutoOpenIndex] = useState<number | null>(null);
-  const workoutOpts = workoutExerciseOptions.length > 0 ? workoutExerciseOptions : (exerciseOptions ?? []);
+  const workoutOpts =
+    (pickerProps.workoutExerciseOptions?.length ?? 0) > 0
+      ? pickerProps.workoutExerciseOptions!
+      : (exerciseOptions ?? []);
   const updateExercise = (idx: number, patch: Partial<AmrapExercise>) => {
     const exercises = value.exercises.map((e, i) => (i === idx ? { ...e, ...patch } : e));
     commit(value, { exercises }, onChange);
@@ -121,13 +121,11 @@ export function AmrapEditor({
             key={ex.id}
             className="bg-background"
             exerciseName={ex.name}
+            {...pickerProps}
             workoutExerciseOptions={workoutOpts}
-            favoriteExerciseOptions={favoriteExerciseOptions}
-            mineExerciseOptions={mineExerciseOptions}
-            globalExerciseOptions={globalExerciseOptions}
-            onExerciseChange={(opt) =>
+            onExerciseChange={(opt) => {
               updateExercise(eIdx, { name: opt.name, exercise_id: opt.id })
-            }
+            }}
             target={ex}
             onTargetChange={(next) => updateExercise(eIdx, next)}
             load={ex}

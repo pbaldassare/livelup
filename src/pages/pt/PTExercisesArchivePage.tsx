@@ -36,6 +36,7 @@ import { useFavoriteIds, useToggleFavorite } from '@/hooks/usePTFavoriteExercise
 import { useExerciseCatalogs, getCatalogAccess, type ExerciseCatalog } from '@/hooks/useExerciseCatalogs';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { exerciseNameOrFilter, filterAndRankExercises } from '@/lib/exerciseSearch';
 import { resolveExerciseVideoUrl } from '@/lib/exerciseMedia';
 import { resolveExerciseInstructions } from '@/lib/exerciseInstructions';
 import { deleteOwnPtExercise } from '@/lib/api/ptExercises';
@@ -141,14 +142,15 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
       };
 
       if (useServerSearch) {
-        const base = supabase
-          .from('exercises')
-          .select(EXERCISE_COLUMNS)
-          .ilike('name', `%${term}%`);
-        const q = applySourceFilter(base);
-        const { data, error } = await q.order('category').order('name').limit(800);
-        if (error) throw error;
-        return (data ?? []) as Exercise[];
+        const orFilter = exerciseNameOrFilter(term);
+        const rows = await fetchAllRows<Exercise>(async (from, to) => {
+          let q = supabase.from('exercises').select(EXERCISE_COLUMNS);
+          q = applySourceFilter(q);
+          if (orFilter) q = q.or(orFilter);
+          const { data, error } = await q.order('name').range(from, to);
+          return { data: (data ?? []) as Exercise[], error };
+        });
+        return filterAndRankExercises(rows, term);
       }
 
       return fetchAllRows<Exercise>(async (from, to) => {
@@ -183,17 +185,15 @@ export default function PTExercisesArchivePage({ embedded = false }: { embedded?
   );
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
     const serverFiltered = debouncedSearch.trim().length >= 2;
-    return exercises.filter((ex) => {
-      const matchesSearch =
-        serverFiltered || !q || ex.name.toLowerCase().includes(q);
+    const narrowed = exercises.filter((ex) => {
       const matchesDiff = difficultyFilter === 'all' || ex.difficulty_level === difficultyFilter;
       const matchesCat = categoryFilter === 'all' || ex.category === categoryFilter;
       const matchesMuscle = muscleFilter === 'all' || (ex.muscle_groups || []).includes(muscleFilter);
       const matchesFav = sourceFilter !== 'preferiti' || (favIds?.has(ex.id) ?? false);
-      return matchesSearch && matchesDiff && matchesCat && matchesMuscle && matchesFav;
+      return matchesDiff && matchesCat && matchesMuscle && matchesFav;
     });
+    return serverFiltered ? narrowed : filterAndRankExercises(narrowed, search);
   }, [
     exercises,
     search,

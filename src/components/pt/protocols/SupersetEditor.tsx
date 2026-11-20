@@ -95,14 +95,14 @@ function commit(
 export function SupersetEditor({
   value,
   onChange,
-  workoutExerciseOptions = [],
-  favoriteExerciseOptions = [],
-  mineExerciseOptions = [],
-  globalExerciseOptions = [],
   exerciseOptions,
+  ...pickerProps
 }: SupersetEditorProps) {
   const [autoOpenIndex, setAutoOpenIndex] = useState<number | null>(null);
-  const workoutOpts = workoutExerciseOptions.length > 0 ? workoutExerciseOptions : (exerciseOptions ?? []);
+  const workoutOpts =
+    (pickerProps.workoutExerciseOptions?.length ?? 0) > 0
+      ? pickerProps.workoutExerciseOptions!
+      : (exerciseOptions ?? []);
   // --- exercises CRUD ------------------------------------------------
   const updateExercise = (idx: number, patch: Partial<SupersetExercise>) => {
     const oldEx = value.exercises[idx];
@@ -295,13 +295,11 @@ export function SupersetEditor({
             <ProtocolExerciseRow
               className="border-0 bg-transparent p-0"
               exerciseName={ex.name}
+              {...pickerProps}
               workoutExerciseOptions={workoutOpts}
-              favoriteExerciseOptions={favoriteExerciseOptions}
-              mineExerciseOptions={mineExerciseOptions}
-              globalExerciseOptions={globalExerciseOptions}
-              onExerciseChange={(opt) =>
+              onExerciseChange={(opt) => {
                 updateExercise(eIdx, { name: opt.name, exercise_id: opt.id })
-              }
+              }}
               target={ex}
               onTargetChange={(next) => updateExercise(eIdx, next)}
               load={ex}

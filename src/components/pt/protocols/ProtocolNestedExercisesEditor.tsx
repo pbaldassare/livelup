@@ -28,12 +28,7 @@ export function ProtocolNestedExercisesEditor({
   exercises,
   onChange,
   minCount = 1,
-  workoutExerciseOptions = [],
-  favoriteExerciseOptions = [],
-  mineExerciseOptions = [],
-  globalExerciseOptions = [],
-  catalogOptions = [],
-  archiveExerciseOptions,
+  ...pickerProps
 }: ProtocolNestedExercisesEditorProps) {
   const [autoOpenIndex, setAutoOpenIndex] = useState<number | null>(null);
   const min = Math.max(1, minCount);
@@ -61,15 +56,10 @@ export function ProtocolNestedExercisesEditor({
           key={ex.id}
           className="bg-background"
           exerciseName={ex.name}
-          workoutExerciseOptions={workoutExerciseOptions}
-          favoriteExerciseOptions={favoriteExerciseOptions}
-          mineExerciseOptions={mineExerciseOptions}
-          globalExerciseOptions={globalExerciseOptions}
-          catalogOptions={catalogOptions}
-          archiveExerciseOptions={archiveExerciseOptions}
-          onExerciseChange={(opt) =>
+          {...pickerProps}
+          onExerciseChange={(opt) => {
             updateExercise(eIdx, { name: opt.name, exercise_id: opt.id })
-          }
+          }}
           target={ex}
           onTargetChange={(next) => updateExercise(eIdx, next)}
           load={ex}

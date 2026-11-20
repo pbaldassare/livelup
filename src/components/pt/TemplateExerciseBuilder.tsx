@@ -97,6 +97,8 @@ import {
   useAllPtCatalogItems,
 } from '@/hooks/useExerciseCatalogs';
 import { categorizeArchiveExercises, type ArchiveExerciseRow } from '@/lib/protocolExerciseArchive';
+import { exerciseNameOrFilter } from '@/lib/exerciseSearch';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 import {
   ExerciseArchivePickerPanel,
   exercisePickerPopoverClassName,
@@ -310,18 +312,34 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     enabled: !!parentId,
   });
 
-  /** Bootstrap limitato: evita di scaricare decine di migliaia di righe all’apertura editor. */
+  /** Privati del PT + catalogo globale, paginati: un solo `.limit(1500)` misto tagliava le famiglie in fondo (es. Pull up). */
   const { data: archiveExerciseRows = [] } = useQuery({
     queryKey: ['protocol-exercise-archive', user?.id],
     queryFn: async () => {
       if (!user?.id) return [] as ArchiveExerciseRow[];
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('id, name, is_public, created_by')
-        .order('name')
-        .limit(1500);
-      if (error) throw error;
-      return (data ?? []) as ArchiveExerciseRow[];
+      const columns = 'id, name, is_public, created_by';
+      const [mine, global] = await Promise.all([
+        fetchAllRows<ArchiveExerciseRow>(async (from, to) => {
+          const { data, error } = await supabase
+            .from('exercises')
+            .select(columns)
+            .eq('created_by', user.id)
+            .eq('is_public', false)
+            .order('name')
+            .range(from, to);
+          return { data: (data ?? []) as ArchiveExerciseRow[], error };
+        }),
+        fetchAllRows<ArchiveExerciseRow>(async (from, to) => {
+          const { data, error } = await supabase
+            .from('exercises')
+            .select(columns)
+            .or('is_public.eq.true,created_by.is.null')
+            .order('name')
+            .range(from, to);
+          return { data: (data ?? []) as ArchiveExerciseRow[], error };
+        }),
+      ]);
+      return [...mine, ...global];
     },
     enabled: !!user?.id,
   });
@@ -406,16 +424,14 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     queryKey: ['protocol-exercise-search', user?.id, archiveSearchQuery],
     queryFn: async () => {
       if (!user?.id) return [] as ArchiveExerciseRow[];
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('id, name, is_public, created_by')
-        .ilike('name', `%${archiveSearchQuery}%`)
-        .order('name')
-        .limit(400);
+      let q = supabase.from('exercises').select('id, name, is_public, created_by');
+      const orFilter = exerciseNameOrFilter(archiveSearchQuery);
+      if (orFilter) q = q.or(orFilter);
+      const { data, error } = await q.order('name').limit(800);
       if (error) throw error;
       return (data ?? []) as ArchiveExerciseRow[];
     },
-    enabled: !!user?.id && searchOpen && archiveSearchQuery.length >= 2,
+    enabled: !!user?.id && archiveSearchQuery.length >= 2,
   });
 
   const archiveSearchGroups = useMemo(() => {
@@ -1080,6 +1096,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
     mineExerciseOptions: protocolExerciseArchive.mineOptions,
     globalExerciseOptions: protocolExerciseArchive.globalOptions,
     catalogOptions: protocolCatalogOptions,
+    ...exercisePickerServerProps,
   };
 
   const protocolCount = templateExercises.filter((te) => isProtocolType(te.protocol_type)).length;
@@ -1620,11 +1637,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                         {nameField}
                                         <EmomBlocksEditor
                                           value={emomValue}
-                                          workoutExerciseOptions={allTemplateExerciseOptions}
-                                          favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
-                                          mineExerciseOptions={protocolExerciseArchive.mineOptions}
-                                          globalExerciseOptions={protocolExerciseArchive.globalOptions}
-                                          catalogOptions={protocolCatalogOptions}
+                                          {...protocolPickerProps}
                                           onChange={(next) => {
                                             updateProtocolParamMutation.mutate({
                                               id: te.id,
@@ -1645,11 +1658,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                         {nameField}
                                         <AmrapEditor
                                           value={amrapValue}
-                                          workoutExerciseOptions={allTemplateExerciseOptions}
-                                          favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
-                                          mineExerciseOptions={protocolExerciseArchive.mineOptions}
-                                          globalExerciseOptions={protocolExerciseArchive.globalOptions}
-                                          catalogOptions={protocolCatalogOptions}
+                                          {...protocolPickerProps}
                                           onChange={(next) => {
                                             updateProtocolParamMutation.mutate({
                                               id: te.id,
@@ -1670,11 +1679,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                         {nameField}
                                         <SupersetEditor
                                           value={supersetValue}
-                                          workoutExerciseOptions={allTemplateExerciseOptions}
-                                          favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
-                                          mineExerciseOptions={protocolExerciseArchive.mineOptions}
-                                          globalExerciseOptions={protocolExerciseArchive.globalOptions}
-                                          catalogOptions={protocolCatalogOptions}
+                                          {...protocolPickerProps}
                                           onChange={(next) => {
                                             updateProtocolParamMutation.mutate({
                                               id: te.id,
@@ -1696,11 +1701,7 @@ export function TemplateExerciseBuilder({ templateId, workoutId, blockId, onSave
                                         <TimedRoundsEditor
                                           value={trValue}
                                           title={ptype}
-                                          workoutExerciseOptions={allTemplateExerciseOptions}
-                                          favoriteExerciseOptions={protocolExerciseArchive.favoriteOptions}
-                                          mineExerciseOptions={protocolExerciseArchive.mineOptions}
-                                          globalExerciseOptions={protocolExerciseArchive.globalOptions}
-                                          catalogOptions={protocolCatalogOptions}
+                                          {...protocolPickerProps}
                                           onChange={(next) => {
                                             updateProtocolParamMutation.mutate({
                                               id: te.id,
